@@ -1,13 +1,27 @@
 import { LostItem, User, LogEntry, DashboardStats } from '@/types';
 
+// Generate a unique 6-digit code
+export const generateUniqueCode = (existingCodes: string[]): string => {
+  let code: string;
+  do {
+    code = Math.floor(100000 + Math.random() * 900000).toString();
+  } while (existingCodes.includes(code));
+  return code;
+};
+
 export const mockItems: LostItem[] = [
   {
     id: '1',
-    code: 'AP-2024-001',
+    code: '384721',
     description: 'Carteira de couro marrom com documentos',
     imageUrl: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=400&h=300&fit=crop',
+    campus: 'Campus Central',
     foundLocation: 'Refeitório - Mesa 12',
     foundDate: '2024-12-01',
+    receivedDate: '2024-12-01',
+    shelf: 'A1',
+    box: 'Caixa 03',
+    sealNumber: 'LC-001234',
     deliveredByName: 'João Silva',
     deliveredByContact: '(11) 99999-1234',
     registeredAt: '2024-12-01T10:30:00',
@@ -16,11 +30,16 @@ export const mockItems: LostItem[] = [
   },
   {
     id: '2',
-    code: 'AP-2024-002',
+    code: '592847',
     description: 'Chaves com chaveiro de carro Honda',
     imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop',
+    campus: 'Campus Norte',
     foundLocation: 'Estacionamento B',
     foundDate: '2024-12-02',
+    receivedDate: '2024-12-02',
+    shelf: 'B2',
+    box: 'Caixa 01',
+    sealNumber: 'LC-001235',
     deliveredByName: 'Pedro Costa',
     deliveredByContact: '(11) 98888-5678',
     registeredAt: '2024-12-02T14:15:00',
@@ -29,11 +48,16 @@ export const mockItems: LostItem[] = [
   },
   {
     id: '3',
-    code: 'AP-2024-003',
+    code: '716394',
     description: 'Óculos de grau armação preta',
     imageUrl: 'https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=300&fit=crop',
+    campus: 'Campus Central',
     foundLocation: 'Sala de Reunião 3',
     foundDate: '2024-11-28',
+    receivedDate: '2024-11-28',
+    shelf: 'C1',
+    box: 'Caixa 02',
+    sealNumber: 'LC-001230',
     deliveredByName: 'Ana Oliveira',
     deliveredByContact: '(11) 97777-9012',
     registeredAt: '2024-11-28T09:00:00',
@@ -47,11 +71,16 @@ export const mockItems: LostItem[] = [
   },
   {
     id: '4',
-    code: 'AP-2024-004',
+    code: '428165',
     description: 'Celular Samsung Galaxy preto',
     imageUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=300&fit=crop',
+    campus: 'Campus Sul',
     foundLocation: 'Recepção Principal',
     foundDate: '2024-12-03',
+    receivedDate: '2024-12-03',
+    shelf: 'A2',
+    box: 'Caixa 05',
+    sealNumber: 'LC-001240',
     deliveredByName: 'Lucia Mendes',
     deliveredByContact: '(11) 95555-7890',
     registeredAt: '2024-12-03T11:45:00',
@@ -60,11 +89,16 @@ export const mockItems: LostItem[] = [
   },
   {
     id: '5',
-    code: 'AP-2024-005',
+    code: '839256',
     description: 'Guarda-chuva azul com listras brancas',
     imageUrl: 'https://images.unsplash.com/photo-1534309466160-70b22cc6252c?w=400&h=300&fit=crop',
+    campus: 'Campus Central',
     foundLocation: 'Entrada Principal',
     foundDate: '2024-12-04',
+    receivedDate: '2024-12-04',
+    shelf: 'D1',
+    box: 'Caixa 04',
+    sealNumber: 'LC-001245',
     deliveredByName: 'Fernando Souza',
     deliveredByContact: '(11) 94444-1234',
     registeredAt: '2024-12-04T08:30:00',
