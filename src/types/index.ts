@@ -27,6 +27,7 @@ export interface LostItem {
   ownerName?: string;
   ownerEmail?: string;
   ownerPhone?: string;
+  ownerSignature?: string; // Base64 signature image
   deliveredAt?: string;
   deliveredByTeamMember?: string;
 }

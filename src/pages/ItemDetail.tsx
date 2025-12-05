@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,6 +40,11 @@ export default function ItemDetail() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  const handleSignatureChange = useCallback((sig: string | null) => {
+    setSignature(sig);
+  }, []);
 
   const item = mockItems.find(i => i.id === id);
 
@@ -57,6 +63,16 @@ export default function ItemDetail() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!signature) {
+      toast({
+        title: "Assinatura obrigatória",
+        description: "Por favor, solicite a assinatura do proprietário.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -68,6 +84,7 @@ export default function ItemDetail() {
     
     setIsSubmitting(false);
     setIsDialogOpen(false);
+    setSignature(null);
     navigate('/items');
   };
 
@@ -260,7 +277,7 @@ export default function ItemDetail() {
                     Dar Baixa / Entregar
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Registrar Entrega</DialogTitle>
                     <DialogDescription>
@@ -283,6 +300,12 @@ export default function ItemDetail() {
                     <div>
                       <Label htmlFor="teamMember">Membro da equipe entregando</Label>
                       <Input id="teamMember" value={currentUser.name} readOnly className="mt-1.5 bg-muted" />
+                    </div>
+                    <div>
+                      <Label>Assinatura do proprietário *</Label>
+                      <div className="mt-1.5">
+                        <SignaturePad onSignatureChange={handleSignatureChange} />
+                      </div>
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
