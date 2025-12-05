@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
@@ -12,12 +12,14 @@ import {
   ClipboardCheck,
   Lock,
   ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { currentUser } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface NavItem {
   name: string;
@@ -84,10 +86,12 @@ const bottomNav: NavItem[] = [
 
 export function Sidebar() {
   const location = useLocation();
-  const isAdmin = currentUser.role === 'admin';
+  const navigate = useNavigate();
+  const { profile, role, signOut, isAdmin } = useAuth();
+  const { toast } = useToast();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
-    // Open the group that contains the current path
     const currentGroup = moduleGroups.find(group => 
       location.pathname.startsWith(group.basePath)
     );
@@ -100,6 +104,40 @@ export function Sidebar() {
         ? prev.filter(p => p !== basePath)
         : [...prev, basePath]
     );
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await signOut();
+      toast({
+        title: 'Logout realizado',
+        description: 'Você foi desconectado do sistema.',
+      });
+      navigate('/auth');
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível fazer logout.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  const getRoleLabel = (role: string | null) => {
+    switch (role) {
+      case 'admin': return 'Administrador';
+      case 'collaborator': return 'Colaborador';
+      case 'viewer': return 'Visualizador';
+      default: return 'Usuário';
+    }
+  };
+
+  const getInitials = (name: string | undefined) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
   return (
@@ -219,24 +257,31 @@ export function Sidebar() {
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="w-10 h-10">
-            <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+            <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || ''} />
             <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground">
-              {currentUser.name.split(' ').map(n => n[0]).join('')}
+              {getInitials(profile?.full_name)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {currentUser.name}
+              {profile?.full_name || 'Usuário'}
             </p>
             <p className="text-xs text-sidebar-foreground/60 capitalize">
-              {currentUser.role === 'admin' ? 'Administrador' : 
-               currentUser.role === 'collaborator' ? 'Colaborador' : 'Visualizador'}
+              {getRoleLabel(role)}
             </p>
           </div>
         </div>
-        <button className="sidebar-link w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10">
-          <LogOut className="w-5 h-5" />
-          <span>Sair</span>
+        <button 
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="sidebar-link w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10 disabled:opacity-50"
+        >
+          {isLoggingOut ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <LogOut className="w-5 h-5" />
+          )}
+          <span>{isLoggingOut ? 'Saindo...' : 'Sair'}</span>
         </button>
       </div>
     </aside>
