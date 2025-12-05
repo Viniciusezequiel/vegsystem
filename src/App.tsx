@@ -3,6 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import Auth from "./pages/Auth";
+import Setup from "./pages/Setup";
 import Home from "./pages/Home";
 import RegisterItem from "./pages/RegisterItem";
 import ItemsList from "./pages/ItemsList";
@@ -20,40 +24,118 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          {/* Home Dashboard */}
-          <Route path="/" element={<Home />} />
-          
-          {/* Lost and Found Module */}
-          <Route path="/lost-found" element={<ItemsList />} />
-          <Route path="/lost-found/register" element={<RegisterItem />} />
-          <Route path="/lost-found/items" element={<ItemsList />} />
-          <Route path="/lost-found/items/:id" element={<ItemDetail />} />
-          <Route path="/lost-found/history" element={<History />} />
-          
-          {/* Equipment Module (placeholder) */}
-          <Route path="/equipment" element={<NotFound />} />
-          <Route path="/equipment/loans" element={<NotFound />} />
-          
-          {/* Rooms Module (placeholder) */}
-          <Route path="/rooms" element={<NotFound />} />
-          <Route path="/rooms/checklists" element={<NotFound />} />
-          
-          {/* Lockers Module (placeholder) */}
-          <Route path="/lockers" element={<NotFound />} />
-          <Route path="/lockers/allocations" element={<NotFound />} />
-          
-          {/* Legacy routes (redirect support) */}
-          <Route path="/register" element={<RegisterItem />} />
-          <Route path="/items" element={<ItemsList />} />
-          <Route path="/items/:id" element={<ItemDetail />} />
-          <Route path="/history" element={<History />} />
-          
-          {/* System */}
-          <Route path="/users" element={<Users />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/setup" element={<Setup />} />
+            {/* Protected Routes */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            } />
+            
+            {/* Lost and Found Module */}
+            <Route path="/lost-found" element={
+              <ProtectedRoute>
+                <ItemsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/lost-found/register" element={
+              <ProtectedRoute>
+                <RegisterItem />
+              </ProtectedRoute>
+            } />
+            <Route path="/lost-found/items" element={
+              <ProtectedRoute>
+                <ItemsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/lost-found/items/:id" element={
+              <ProtectedRoute>
+                <ItemDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/lost-found/history" element={
+              <ProtectedRoute>
+                <History />
+              </ProtectedRoute>
+            } />
+            
+            {/* Equipment Module (placeholder) */}
+            <Route path="/equipment" element={
+              <ProtectedRoute>
+                <NotFound />
+              </ProtectedRoute>
+            } />
+            <Route path="/equipment/loans" element={
+              <ProtectedRoute>
+                <NotFound />
+              </ProtectedRoute>
+            } />
+            
+            {/* Rooms Module (placeholder) */}
+            <Route path="/rooms" element={
+              <ProtectedRoute>
+                <NotFound />
+              </ProtectedRoute>
+            } />
+            <Route path="/rooms/checklists" element={
+              <ProtectedRoute>
+                <NotFound />
+              </ProtectedRoute>
+            } />
+            
+            {/* Lockers Module (placeholder) */}
+            <Route path="/lockers" element={
+              <ProtectedRoute>
+                <NotFound />
+              </ProtectedRoute>
+            } />
+            <Route path="/lockers/allocations" element={
+              <ProtectedRoute>
+                <NotFound />
+              </ProtectedRoute>
+            } />
+            
+            {/* Legacy routes */}
+            <Route path="/register" element={
+              <ProtectedRoute>
+                <RegisterItem />
+              </ProtectedRoute>
+            } />
+            <Route path="/items" element={
+              <ProtectedRoute>
+                <ItemsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/items/:id" element={
+              <ProtectedRoute>
+                <ItemDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/history" element={
+              <ProtectedRoute>
+                <History />
+              </ProtectedRoute>
+            } />
+            
+            {/* System - Admin only */}
+            <Route path="/users" element={
+              <ProtectedRoute requireAdmin>
+                <Users />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
