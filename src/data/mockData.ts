@@ -1,4 +1,16 @@
-import { LostItem, User, LogEntry, DashboardStats } from '@/types';
+import { 
+  LostItem, 
+  User, 
+  LogEntry, 
+  DashboardStats,
+  Equipment,
+  EquipmentLoan,
+  Room,
+  RoomChecklist,
+  Locker,
+  LockerAllocation,
+  ModuleStats
+} from '@/types';
 
 // Generate a unique 6-digit code
 export const generateUniqueCode = (existingCodes: string[]): string => {
@@ -131,12 +143,261 @@ export const mockUsers: User[] = [
   },
 ];
 
+export const currentUser: User = mockUsers[0];
+
+// Equipment
+export const mockEquipment: Equipment[] = [
+  {
+    id: '1',
+    code: 'EQ-001',
+    name: 'Projetor Epson PowerLite',
+    category: 'Audiovisual',
+    brand: 'Epson',
+    model: 'PowerLite X41',
+    serialNumber: 'EP2024001',
+    campus: 'Campus Central',
+    location: 'Almoxarifado Central',
+    status: 'available',
+    condition: 'good',
+    imageUrl: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=400',
+    purchaseDate: '2023-06-15',
+    warrantyExpiry: '2025-06-15',
+  },
+  {
+    id: '2',
+    code: 'EQ-002',
+    name: 'Notebook Dell Latitude',
+    category: 'Informática',
+    brand: 'Dell',
+    model: 'Latitude 5520',
+    serialNumber: 'DL2024002',
+    campus: 'Campus Central',
+    location: 'TI - Sala 201',
+    status: 'borrowed',
+    condition: 'good',
+    imageUrl: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400',
+    purchaseDate: '2023-08-20',
+    warrantyExpiry: '2026-08-20',
+  },
+  {
+    id: '3',
+    code: 'EQ-003',
+    name: 'Câmera Canon EOS',
+    category: 'Fotografia',
+    brand: 'Canon',
+    model: 'EOS Rebel T7i',
+    serialNumber: 'CN2024003',
+    campus: 'Campus Norte',
+    location: 'Comunicação - Sala 105',
+    status: 'available',
+    condition: 'new',
+    imageUrl: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400',
+    purchaseDate: '2024-01-10',
+    warrantyExpiry: '2027-01-10',
+  },
+  {
+    id: '4',
+    code: 'EQ-004',
+    name: 'Caixa de Som JBL',
+    category: 'Audiovisual',
+    brand: 'JBL',
+    model: 'PartyBox 310',
+    serialNumber: 'JB2024004',
+    campus: 'Campus Central',
+    location: 'Eventos - Depósito',
+    status: 'maintenance',
+    condition: 'fair',
+  },
+];
+
+export const mockEquipmentLoans: EquipmentLoan[] = [
+  {
+    id: '1',
+    equipmentId: '2',
+    equipmentName: 'Notebook Dell Latitude',
+    borrowerName: 'Prof. Ricardo Lima',
+    borrowerEmail: 'ricardo.lima@universidade.edu',
+    borrowerPhone: '(11) 98765-4321',
+    borrowerDepartment: 'Engenharia',
+    loanDate: '2024-01-10',
+    expectedReturn: '2024-01-20',
+    status: 'active',
+    loanedBy: 'Maria Santos',
+  },
+  {
+    id: '2',
+    equipmentId: '1',
+    equipmentName: 'Projetor Epson PowerLite',
+    borrowerName: 'Coord. Maria Fernanda',
+    borrowerEmail: 'maria.fernanda@universidade.edu',
+    borrowerPhone: '(11) 91234-5678',
+    borrowerDepartment: 'Administração',
+    loanDate: '2024-01-05',
+    expectedReturn: '2024-01-08',
+    actualReturn: '2024-01-08',
+    status: 'returned',
+    loanedBy: 'Carlos Lima',
+    returnedBy: 'Carlos Lima',
+  },
+];
+
+// Rooms
+export const mockRooms: Room[] = [
+  { id: '1', name: 'Sala 101', building: 'Bloco A', floor: '1º Andar', campus: 'Campus Central', capacity: 40, type: 'classroom' },
+  { id: '2', name: 'Sala 102', building: 'Bloco A', floor: '1º Andar', campus: 'Campus Central', capacity: 40, type: 'classroom' },
+  { id: '3', name: 'Lab. Informática 1', building: 'Bloco B', floor: '2º Andar', campus: 'Campus Central', capacity: 30, type: 'lab' },
+  { id: '4', name: 'Auditório Principal', building: 'Bloco C', floor: 'Térreo', campus: 'Campus Central', capacity: 200, type: 'auditorium' },
+  { id: '5', name: 'Sala de Reunião A', building: 'Bloco D', floor: '3º Andar', campus: 'Campus Norte', capacity: 12, type: 'meeting' },
+];
+
+export const mockRoomChecklists: RoomChecklist[] = [
+  {
+    id: '1',
+    roomId: '1',
+    roomName: 'Sala 101 - Bloco A',
+    date: '2024-01-15',
+    shift: 'morning',
+    status: 'completed',
+    checkedBy: 'Carlos Lima',
+    checkedAt: '2024-01-15T08:30:00',
+    items: [
+      { itemId: '1', itemName: 'Limpeza do piso', checked: true },
+      { itemId: '2', itemName: 'Projetor funcionando', checked: true },
+      { itemId: '3', itemName: 'Ar condicionado', checked: true },
+      { itemId: '4', itemName: 'Lixeiras vazias', checked: true },
+    ],
+  },
+  {
+    id: '2',
+    roomId: '3',
+    roomName: 'Lab. Informática 1 - Bloco B',
+    date: '2024-01-15',
+    shift: 'morning',
+    status: 'issues',
+    checkedBy: 'Ana Costa',
+    checkedAt: '2024-01-15T09:15:00',
+    items: [
+      { itemId: '1', itemName: 'Limpeza do piso', checked: true },
+      { itemId: '2', itemName: 'Computadores funcionando', checked: false, issue: '3 computadores com defeito' },
+      { itemId: '3', itemName: 'Ar condicionado', checked: true },
+      { itemId: '4', itemName: 'Cadeiras em bom estado', checked: true },
+    ],
+    observations: 'Computadores 12, 15 e 22 não ligam. Necessário chamar TI.',
+  },
+  {
+    id: '3',
+    roomId: '4',
+    roomName: 'Auditório Principal - Bloco C',
+    date: '2024-01-15',
+    shift: 'afternoon',
+    status: 'pending',
+    checkedBy: '',
+    items: [],
+  },
+];
+
+// Lockers
+export const mockLockers: Locker[] = [
+  {
+    id: '1',
+    code: 'A-001',
+    block: 'Bloco A',
+    floor: 'Térreo',
+    campus: 'Campus Central',
+    size: 'medium',
+    status: 'occupied',
+    currentOccupant: {
+      name: 'Lucas Mendes',
+      email: 'lucas.mendes@aluno.edu',
+      phone: '(11) 99876-5432',
+      department: 'Engenharia Civil',
+      startDate: '2024-01-01',
+      endDate: '2024-06-30',
+    },
+  },
+  {
+    id: '2',
+    code: 'A-002',
+    block: 'Bloco A',
+    floor: 'Térreo',
+    campus: 'Campus Central',
+    size: 'medium',
+    status: 'available',
+  },
+  {
+    id: '3',
+    code: 'A-003',
+    block: 'Bloco A',
+    floor: 'Térreo',
+    campus: 'Campus Central',
+    size: 'small',
+    status: 'occupied',
+    currentOccupant: {
+      name: 'Beatriz Costa',
+      email: 'beatriz.costa@aluno.edu',
+      phone: '(11) 98765-1234',
+      department: 'Direito',
+      startDate: '2024-01-15',
+      endDate: '2024-01-20',
+    },
+  },
+  {
+    id: '4',
+    code: 'B-001',
+    block: 'Bloco B',
+    floor: '1º Andar',
+    campus: 'Campus Central',
+    size: 'large',
+    status: 'maintenance',
+  },
+  {
+    id: '5',
+    code: 'B-002',
+    block: 'Bloco B',
+    floor: '1º Andar',
+    campus: 'Campus Central',
+    size: 'large',
+    status: 'available',
+  },
+];
+
+export const mockLockerAllocations: LockerAllocation[] = [
+  {
+    id: '1',
+    lockerId: '1',
+    lockerCode: 'A-001',
+    occupantName: 'Lucas Mendes',
+    occupantEmail: 'lucas.mendes@aluno.edu',
+    occupantPhone: '(11) 99876-5432',
+    occupantDepartment: 'Engenharia Civil',
+    startDate: '2024-01-01',
+    endDate: '2024-06-30',
+    status: 'active',
+    allocatedBy: 'Maria Santos',
+  },
+  {
+    id: '2',
+    lockerId: '3',
+    lockerCode: 'A-003',
+    occupantName: 'Beatriz Costa',
+    occupantEmail: 'beatriz.costa@aluno.edu',
+    occupantPhone: '(11) 98765-1234',
+    occupantDepartment: 'Direito',
+    startDate: '2024-01-15',
+    endDate: '2024-01-20',
+    status: 'active',
+    allocatedBy: 'Carlos Lima',
+  },
+];
+
+// Activity Logs
 export const mockLogs: LogEntry[] = [
   {
     id: '1',
     action: 'Item registrado',
     itemId: '1',
     itemCode: 'AP-2024-001',
+    itemDescription: 'Carteira de couro marrom com documentos',
     userId: '1',
     userName: 'Maria Santos',
     timestamp: '2024-12-01T10:30:00',
@@ -147,6 +408,7 @@ export const mockLogs: LogEntry[] = [
     action: 'Item registrado',
     itemId: '2',
     itemCode: 'AP-2024-002',
+    itemDescription: 'Chaves com chaveiro de carro Honda',
     userId: '1',
     userName: 'Maria Santos',
     timestamp: '2024-12-02T14:15:00',
@@ -157,6 +419,7 @@ export const mockLogs: LogEntry[] = [
     action: 'Item entregue',
     itemId: '3',
     itemCode: 'AP-2024-003',
+    itemDescription: 'Óculos de grau armação preta',
     userId: '1',
     userName: 'Maria Santos',
     timestamp: '2024-11-30T16:00:00',
@@ -167,6 +430,7 @@ export const mockLogs: LogEntry[] = [
     action: 'Item registrado',
     itemId: '4',
     itemCode: 'AP-2024-004',
+    itemDescription: 'Celular Samsung Galaxy preto',
     userId: '1',
     userName: 'Maria Santos',
     timestamp: '2024-12-03T11:45:00',
@@ -191,4 +455,30 @@ export const mockStats: DashboardStats = {
   thisMonthExits: 1,
 };
 
-export const currentUser: User = mockUsers[0];
+// Module Stats for Main Dashboard
+export const mockModuleStats: ModuleStats = {
+  lostFound: {
+    total: mockItems.length,
+    available: mockItems.filter(i => i.status === 'available').length,
+    delivered: mockItems.filter(i => i.status === 'delivered').length,
+    pending: mockItems.filter(i => i.status === 'pending').length,
+  },
+  equipment: {
+    total: mockEquipment.length,
+    available: mockEquipment.filter(e => e.status === 'available').length,
+    borrowed: mockEquipment.filter(e => e.status === 'borrowed').length,
+    maintenance: mockEquipment.filter(e => e.status === 'maintenance').length,
+  },
+  rooms: {
+    total: mockRooms.length,
+    checklistsToday: mockRoomChecklists.filter(c => c.date === '2024-01-15').length,
+    pendingChecklists: mockRoomChecklists.filter(c => c.status === 'pending').length,
+    issuesReported: mockRoomChecklists.filter(c => c.status === 'issues').length,
+  },
+  lockers: {
+    total: mockLockers.length,
+    available: mockLockers.filter(l => l.status === 'available').length,
+    occupied: mockLockers.filter(l => l.status === 'occupied').length,
+    expiringSoon: 1,
+  },
+};
