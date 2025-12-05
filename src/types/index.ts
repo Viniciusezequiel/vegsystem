@@ -4,15 +4,24 @@ export type UserRole = 'admin' | 'collaborator' | 'viewer';
 
 export interface LostItem {
   id: string;
-  code: string;
+  code: string; // 6 digit unique code
   description: string;
   imageUrl: string;
+  // Location info
+  campus: string;
   foundLocation: string;
   foundDate: string;
+  receivedDate: string; // Date item was received at lost & found
+  // Storage info
+  shelf: string; // Prateleira
+  box: string; // Caixa
+  sealNumber: string; // Nº do lacre
+  // Who delivered the item
   deliveredByName: string;
   deliveredByContact: string;
+  // Registration info
   registeredAt: string;
-  registeredBy: string;
+  registeredBy: string; // Responsável pelo recebimento
   status: ItemStatus;
   // Exit info (when delivered)
   ownerName?: string;

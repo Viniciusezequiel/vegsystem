@@ -4,13 +4,30 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, Upload, CheckCircle } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Camera, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { mockItems, generateUniqueCode } from '@/data/mockData';
+
+const campusOptions = [
+  'Campus Central',
+  'Campus Norte',
+  'Campus Sul',
+  'Campus Leste',
+  'Campus Oeste',
+];
 
 export default function RegisterItem() {
   const { toast } = useToast();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [campus, setCampus] = useState('');
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -27,16 +44,21 @@ export default function RegisterItem() {
     e.preventDefault();
     setIsSubmitting(true);
     
+    // Generate unique 6-digit code
+    const existingCodes = mockItems.map(item => item.code);
+    const newCode = generateUniqueCode(existingCodes);
+    
     // Simulate submission
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     toast({
       title: "Item registrado com sucesso!",
-      description: "O código do item é AP-2024-006",
+      description: `O código do item é ${newCode}`,
     });
     
     setIsSubmitting(false);
     setImagePreview(null);
+    setCampus('');
     (e.target as HTMLFormElement).reset();
   };
 
@@ -47,7 +69,7 @@ export default function RegisterItem() {
         <p className="page-subtitle">Cadastre um item encontrado no sistema</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-3xl">
+      <form onSubmit={handleSubmit} className="max-w-4xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Image Upload */}
           <div className="form-section animate-fade-in">
@@ -101,6 +123,21 @@ export default function RegisterItem() {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="campus">Campus *</Label>
+                  <Select value={campus} onValueChange={setCampus} required>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Selecione o campus" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {campusOptions.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label htmlFor="location">Local onde foi encontrado *</Label>
                   <Input
                     id="location"
@@ -109,11 +146,55 @@ export default function RegisterItem() {
                     required
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="foundDate">Data encontrado *</Label>
+                    <Input
+                      id="foundDate"
+                      type="date"
+                      className="mt-1.5"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="receivedDate">Data recebido *</Label>
+                    <Input
+                      id="receivedDate"
+                      type="date"
+                      className="mt-1.5"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-section animate-fade-in" style={{ animationDelay: '150ms' }}>
+              <h3 className="font-medium text-foreground mb-4">Armazenamento</h3>
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="foundDate">Data que foi encontrado *</Label>
+                  <Label htmlFor="shelf">Prateleira *</Label>
                   <Input
-                    id="foundDate"
-                    type="date"
+                    id="shelf"
+                    placeholder="Ex: A1"
+                    className="mt-1.5"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="box">Caixa *</Label>
+                  <Input
+                    id="box"
+                    placeholder="Ex: Caixa 01"
+                    className="mt-1.5"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sealNumber">Nº do Lacre *</Label>
+                  <Input
+                    id="sealNumber"
+                    placeholder="Ex: LC-001234"
                     className="mt-1.5"
                     required
                   />
@@ -122,7 +203,7 @@ export default function RegisterItem() {
             </div>
 
             <div className="form-section animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <h3 className="font-medium text-foreground mb-4">Quem está entregando</h3>
+              <h3 className="font-medium text-foreground mb-4">Quem está entregando o item</h3>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="deliveredBy">Nome completo *</Label>
@@ -142,6 +223,19 @@ export default function RegisterItem() {
                     required
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="form-section animate-fade-in" style={{ animationDelay: '250ms' }}>
+              <h3 className="font-medium text-foreground mb-4">Responsável pelo Recebimento</h3>
+              <div>
+                <Label htmlFor="receivedBy">Nome do responsável *</Label>
+                <Input
+                  id="receivedBy"
+                  placeholder="Nome do colaborador que está recebendo"
+                  className="mt-1.5"
+                  required
+                />
               </div>
             </div>
           </div>

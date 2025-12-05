@@ -22,7 +22,12 @@ import {
   Phone, 
   Clock,
   PackageCheck,
-  Mail
+  Mail,
+  Building2,
+  Archive,
+  Package,
+  Tag,
+  CalendarCheck
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -105,6 +110,13 @@ export default function ItemDetail() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
+                <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Campus</p>
+                  <p className="font-medium">{item.campus}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="text-sm text-muted-foreground">Local encontrado</p>
@@ -121,33 +133,84 @@ export default function ItemDetail() {
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <User className="w-5 h-5 text-muted-foreground mt-0.5" />
+                <CalendarCheck className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Entregue por</p>
-                  <p className="font-medium">{item.deliveredByName}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Phone className="w-5 h-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Contato</p>
-                  <p className="font-medium">{item.deliveredByContact}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Registrado em</p>
+                  <p className="text-sm text-muted-foreground">Data recebido</p>
                   <p className="font-medium">
-                    {format(new Date(item.registeredAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    {format(new Date(item.receivedDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Registrado por</p>
-                  <p className="font-medium">{item.registeredBy}</p>
+            </div>
+
+            {/* Storage Info */}
+            <div className="mt-6 pt-4 border-t border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Armazenamento</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex items-start gap-3">
+                  <Archive className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Prateleira</p>
+                    <p className="font-medium">{item.shelf}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Package className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Caixa</p>
+                    <p className="font-medium">{item.box}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Tag className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nº Lacre</p>
+                    <p className="font-medium">{item.sealNumber}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Delivery Person Info */}
+            <div className="mt-6 pt-4 border-t border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Quem entregou o item</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <User className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nome</p>
+                    <p className="font-medium">{item.deliveredByName}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Phone className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Contato</p>
+                    <p className="font-medium">{item.deliveredByContact}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Registration Info */}
+            <div className="mt-6 pt-4 border-t border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Registro no Sistema</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Data/Hora do registro</p>
+                    <p className="font-medium">
+                      {format(new Date(item.registeredAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <User className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Responsável pelo recebimento</p>
+                    <p className="font-medium">{item.registeredBy}</p>
+                  </div>
                 </div>
               </div>
             </div>
