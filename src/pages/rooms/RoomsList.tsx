@@ -48,6 +48,7 @@ import {
 import { Plus, Building, ClipboardCheck, ArrowRight, Trash2 } from 'lucide-react';
 import { useRoomsList, useCreateRoom, useDeleteRoom } from '@/hooks/useRooms';
 import { useAuth } from '@/contexts/AuthContext';
+import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -107,7 +108,31 @@ export default function RoomsList() {
             <h1 className="text-2xl font-bold text-foreground">Gestão de Salas</h1>
             <p className="text-muted-foreground">Gerencie as salas e checklists</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <PdfExportButton
+              title="Relatório de Salas"
+              filename="salas"
+              columns={[
+                { header: 'Nome', accessor: 'name' },
+                { header: 'Campus', accessor: 'campus' },
+                { header: 'Prédio', accessor: 'building' },
+                { header: 'Andar', accessor: (row) => row.floor || '-' },
+                { header: 'Capacidade', accessor: (row) => row.capacity ? String(row.capacity) : '-' },
+              ]}
+              data={rooms || []}
+              filters={[
+                {
+                  label: 'Campus',
+                  key: 'campus',
+                  options: [
+                    { label: 'Campus I', value: 'Campus I' },
+                    { label: 'Campus II', value: 'Campus II' },
+                    { label: 'Campus IV', value: 'Campus IV' },
+                    { label: 'Campus HUCM Adm', value: 'Campus HUCM Adm' },
+                  ],
+                },
+              ]}
+            />
             <Button asChild variant="outline">
               <Link to="/rooms/checklists">
                 <ClipboardCheck className="mr-2 h-4 w-4" />

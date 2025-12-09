@@ -30,6 +30,7 @@ import {
 import { Plus, Box, ArrowRight, Edit, Trash2 } from 'lucide-react';
 import { useLockersList, useCreateLocker, useDeleteLocker, Locker } from '@/hooks/useLockers';
 import { useAuth } from '@/contexts/AuthContext';
+import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -105,7 +106,38 @@ export default function LockersList() {
             <h1 className="text-2xl font-bold text-foreground">Gestão de Escaninhos</h1>
             <p className="text-muted-foreground">Visualize e gerencie os escaninhos</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <PdfExportButton
+              title="Relatório de Escaninhos"
+              filename="escaninhos"
+              columns={[
+                { header: 'Código', accessor: 'code' },
+                { header: 'Campus', accessor: 'campus' },
+                { header: 'Localização', accessor: 'location' },
+                { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
+              ]}
+              data={lockers || []}
+              filters={[
+                {
+                  label: 'Campus',
+                  key: 'campus',
+                  options: [
+                    { label: 'Campus I', value: 'Campus I' },
+                    { label: 'Campus II', value: 'Campus II' },
+                    { label: 'Campus IV', value: 'Campus IV' },
+                    { label: 'Campus HUCM Adm', value: 'Campus HUCM Adm' },
+                  ],
+                },
+                {
+                  label: 'Status',
+                  key: 'status',
+                  options: [
+                    { label: 'Disponível', value: 'available' },
+                    { label: 'Ocupado', value: 'occupied' },
+                  ],
+                },
+              ]}
+            />
             <Button asChild variant="outline">
               <Link to="/lockers/loans">
                 <ArrowRight className="mr-2 h-4 w-4" />
