@@ -14,6 +14,271 @@ export type Database = {
   }
   public: {
     Tables: {
+      checklist_answers: {
+        Row: {
+          answer: boolean
+          checklist_id: string
+          id: string
+          notes: string | null
+          question_id: string
+        }
+        Insert: {
+          answer: boolean
+          checklist_id: string
+          id?: string
+          notes?: string | null
+          question_id: string
+        }
+        Update: {
+          answer?: boolean
+          checklist_id?: string
+          id?: string
+          notes?: string | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_answers_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "room_checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_questions: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          order_index: number
+          question: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          question: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          question?: string
+        }
+        Relationships: []
+      }
+      equipment: {
+        Row: {
+          available_quantity: number
+          campus: Database["public"]["Enums"]["campus_enum"]
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          location: string
+          name: string
+          patrimony_code: string
+          quantity: number
+          status: Database["public"]["Enums"]["equipment_status"]
+          updated_at: string
+        }
+        Insert: {
+          available_quantity?: number
+          campus: Database["public"]["Enums"]["campus_enum"]
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          location: string
+          name: string
+          patrimony_code: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["equipment_status"]
+          updated_at?: string
+        }
+        Update: {
+          available_quantity?: number
+          campus?: Database["public"]["Enums"]["campus_enum"]
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          location?: string
+          name?: string
+          patrimony_code?: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["equipment_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      equipment_loans: {
+        Row: {
+          actual_return_date: string | null
+          borrower_name: string
+          borrower_phone: string
+          borrower_sector: string
+          created_at: string
+          equipment_id: string
+          expected_return_date: string
+          id: string
+          loaned_by: string | null
+          notes: string | null
+          quantity_borrowed: number
+          returned_by: string | null
+          status: Database["public"]["Enums"]["loan_status"]
+          updated_at: string
+        }
+        Insert: {
+          actual_return_date?: string | null
+          borrower_name: string
+          borrower_phone: string
+          borrower_sector: string
+          created_at?: string
+          equipment_id: string
+          expected_return_date: string
+          id?: string
+          loaned_by?: string | null
+          notes?: string | null
+          quantity_borrowed?: number
+          returned_by?: string | null
+          status?: Database["public"]["Enums"]["loan_status"]
+          updated_at?: string
+        }
+        Update: {
+          actual_return_date?: string | null
+          borrower_name?: string
+          borrower_phone?: string
+          borrower_sector?: string
+          created_at?: string
+          equipment_id?: string
+          expected_return_date?: string
+          id?: string
+          loaned_by?: string | null
+          notes?: string | null
+          quantity_borrowed?: number
+          returned_by?: string | null
+          status?: Database["public"]["Enums"]["loan_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_loans_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locker_loans: {
+        Row: {
+          actual_return_date: string | null
+          borrower_name: string
+          borrower_phone: string
+          borrower_sector: string | null
+          created_at: string
+          expected_return_date: string
+          id: string
+          loaned_by: string | null
+          locker_id: string
+          notes: string | null
+          returned_by: string | null
+          status: Database["public"]["Enums"]["loan_status"]
+          updated_at: string
+        }
+        Insert: {
+          actual_return_date?: string | null
+          borrower_name: string
+          borrower_phone: string
+          borrower_sector?: string | null
+          created_at?: string
+          expected_return_date: string
+          id?: string
+          loaned_by?: string | null
+          locker_id: string
+          notes?: string | null
+          returned_by?: string | null
+          status?: Database["public"]["Enums"]["loan_status"]
+          updated_at?: string
+        }
+        Update: {
+          actual_return_date?: string | null
+          borrower_name?: string
+          borrower_phone?: string
+          borrower_sector?: string | null
+          created_at?: string
+          expected_return_date?: string
+          id?: string
+          loaned_by?: string | null
+          locker_id?: string
+          notes?: string | null
+          returned_by?: string | null
+          status?: Database["public"]["Enums"]["loan_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_loans_locker_id_fkey"
+            columns: ["locker_id"]
+            isOneToOne: false
+            referencedRelation: "lockers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lockers: {
+        Row: {
+          campus: Database["public"]["Enums"]["campus_enum"]
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          location: string
+          status: Database["public"]["Enums"]["locker_status"]
+          updated_at: string
+        }
+        Insert: {
+          campus: Database["public"]["Enums"]["campus_enum"]
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          location: string
+          status?: Database["public"]["Enums"]["locker_status"]
+          updated_at?: string
+        }
+        Update: {
+          campus?: Database["public"]["Enums"]["campus_enum"]
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string
+          status?: Database["public"]["Enums"]["locker_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -47,6 +312,77 @@ export type Database = {
           position?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      room_checklists: {
+        Row: {
+          filled_at: string
+          filled_by: string
+          id: string
+          observations: string | null
+          room_id: string
+          shift: string
+        }
+        Insert: {
+          filled_at?: string
+          filled_by: string
+          id?: string
+          observations?: string | null
+          room_id: string
+          shift: string
+        }
+        Update: {
+          filled_at?: string
+          filled_by?: string
+          id?: string
+          observations?: string | null
+          room_id?: string
+          shift?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_checklists_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          building: string
+          campus: Database["public"]["Enums"]["campus_enum"]
+          capacity: number | null
+          created_at: string
+          description: string | null
+          floor: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          building: string
+          campus: Database["public"]["Enums"]["campus_enum"]
+          capacity?: number | null
+          created_at?: string
+          description?: string | null
+          floor?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          building?: string
+          campus?: Database["public"]["Enums"]["campus_enum"]
+          capacity?: number | null
+          created_at?: string
+          description?: string | null
+          floor?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -84,6 +420,10 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "collaborator" | "viewer"
+      campus_enum: "Campus I" | "Campus II" | "Campus IV" | "Campus HUCM Adm"
+      equipment_status: "available" | "borrowed" | "maintenance"
+      loan_status: "active" | "returned" | "overdue"
+      locker_status: "available" | "occupied"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -212,6 +552,10 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "collaborator", "viewer"],
+      campus_enum: ["Campus I", "Campus II", "Campus IV", "Campus HUCM Adm"],
+      equipment_status: ["available", "borrowed", "maintenance"],
+      loan_status: ["active", "returned", "overdue"],
+      locker_status: ["available", "occupied"],
     },
   },
 } as const

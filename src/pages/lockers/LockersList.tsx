@@ -1,0 +1,307 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Plus, Box, ArrowRight, Edit, Trash2 } from 'lucide-react';
+import { useLockersList, useCreateLocker, useDeleteLocker, Locker } from '@/hooks/useLockers';
+import { useAuth } from '@/contexts/AuthContext';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
+const lockerSchema = z.object({
+  code: z.string().min(1, 'Código é obrigatório'),
+  campus: z.enum(['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm']),
+  location: z.string().min(1, 'Localização é obrigatória'),
+  description: z.string().optional(),
+});
+
+type LockerFormData = z.infer<typeof lockerSchema>;
+
+const statusLabels = {
+  available: { label: 'Disponível', variant: 'default' as const },
+  occupied: { label: 'Ocupado', variant: 'secondary' as const },
+};
+
+export default function LockersList() {
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { data: lockers, isLoading } = useLockersList(
+    statusFilter === 'all' ? undefined : statusFilter as 'available' | 'occupied'
+  );
+  const createLocker = useCreateLocker();
+  const deleteLocker = useDeleteLocker();
+  const { isAdmin } = useAuth();
+
+  const form = useForm<LockerFormData>({
+    resolver: zodResolver(lockerSchema),
+    defaultValues: {
+      code: '',
+      campus: 'Campus I',
+      location: '',
+      description: '',
+    },
+  });
+
+  const onSubmit = async (data: LockerFormData) => {
+    await createLocker.mutateAsync({
+      code: data.code,
+      campus: data.campus,
+      location: data.location,
+      description: data.description || null,
+    });
+    form.reset();
+    setIsDialogOpen(false);
+  };
+
+  const handleDelete = (id: string) => {
+    deleteLocker.mutate(id);
+  };
+
+  const availableCount = lockers?.filter(l => l.status === 'available').length || 0;
+  const occupiedCount = lockers?.filter(l => l.status === 'occupied').length || 0;
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Gestão de Escaninhos</h1>
+            <p className="text-muted-foreground">Visualize e gerencie os escaninhos</p>
+          </div>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link to="/lockers/loans">
+                <ArrowRight className="mr-2 h-4 w-4" />
+                Empréstimos
+              </Link>
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Escaninho
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Cadastrar Escaninho</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="code"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Código *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: ESC-001" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="campus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Campus *</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Campus I">Campus I</SelectItem>
+                              <SelectItem value="Campus II">Campus II</SelectItem>
+                              <SelectItem value="Campus IV">Campus IV</SelectItem>
+                              <SelectItem value="Campus HUCM Adm">Campus HUCM Adm</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Localização *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: Bloco A, Corredor 1" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Descrição</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Descrição adicional" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={createLocker.isPending}>
+                        {createLocker.isPending ? 'Salvando...' : 'Cadastrar'}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{lockers?.length || 0}</div>
+              <p className="text-muted-foreground">Total de Escaninhos</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-green-600">{availableCount}</div>
+              <p className="text-muted-foreground">Disponíveis</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-amber-600">{occupiedCount}</div>
+              <p className="text-muted-foreground">Ocupados</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <Box className="h-5 w-5" />
+                Escaninhos
+              </CardTitle>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filtrar por status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="available">Disponíveis</SelectItem>
+                  <SelectItem value="occupied">Ocupados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+            ) : lockers?.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhum escaninho encontrado
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {lockers?.map((locker) => (
+                  <Card key={locker.id} className={locker.status === 'occupied' ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/20' : ''}>
+                    <CardContent className="pt-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-bold text-lg">{locker.code}</div>
+                        <Badge variant={statusLabels[locker.status].variant}>
+                          {statusLabels[locker.status].label}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-1">{locker.campus}</p>
+                      <p className="text-sm text-muted-foreground mb-4">{locker.location}</p>
+                      <div className="flex gap-2">
+                        {locker.status === 'available' && (
+                          <Button asChild size="sm" className="flex-1">
+                            <Link to={`/lockers/loan/new?locker=${locker.id}`}>
+                              Emprestar
+                            </Link>
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir o escaninho "{locker.code}"?
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(locker.id)}>
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </MainLayout>
+  );
+}
