@@ -97,19 +97,30 @@ export default function ReservationsCalendar() {
           </Button>
         </div>
 
-        <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-          <SelectTrigger className="w-64 bg-secondary/50">
-            <SelectValue placeholder="Filtrar por ambiente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os ambientes</SelectItem>
-            {rooms?.map((room) => (
-              <SelectItem key={room.id} value={room.id}>
-                {room.name} ({room.code})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="date"
+            className="h-10 px-3 rounded-md border border-input bg-secondary/50 text-sm"
+            onChange={(e) => {
+              if (e.target.value) {
+                setCurrentMonth(new Date(e.target.value));
+              }
+            }}
+          />
+          <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+            <SelectTrigger className="w-64 bg-secondary/50">
+              <SelectValue placeholder="Filtrar por ambiente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os ambientes</SelectItem>
+              {rooms?.map((room) => (
+                <SelectItem key={room.id} value={room.id}>
+                  {room.name} ({room.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Calendar Grid */}
