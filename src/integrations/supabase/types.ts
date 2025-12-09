@@ -613,6 +613,42 @@ export type Database = {
           },
         ]
       }
+      room_combinations: {
+        Row: {
+          created_at: string
+          id: string
+          linked_room_id: string
+          parent_room_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          linked_room_id: string
+          parent_room_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          linked_room_id?: string
+          parent_room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_combinations_linked_room_id_fkey"
+            columns: ["linked_room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_combinations_parent_room_id_fkey"
+            columns: ["parent_room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           building: string
@@ -699,6 +735,7 @@ export type Database = {
           name: string
         }[]
       }
+      get_linked_rooms: { Args: { p_room_id: string }; Returns: string[] }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
