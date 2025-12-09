@@ -6,13 +6,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarPlus, Loader2, Info } from 'lucide-react';
+import { CalendarPlus, Loader2, Info, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+interface CombinedRoom {
+  id: string;
+  parentRoom: {
+    id: string;
+    code: string;
+    name: string;
+    capacity: number;
+  };
+  linkedRooms: {
+    id: string;
+    code: string;
+    name: string;
+  }[];
+  displayName: string;
+}
+
 export function QuickCombinedReservation() {
   const [open, setOpen] = useState(false);
-  const [selectedParentRoom, setSelectedParentRoom] = useState('');
+  const [selectedCombination, setSelectedCombination] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     requester_name: '',
@@ -28,33 +44,55 @@ export function QuickCombinedReservation() {
   const { data: combinations } = useRoomCombinations();
   const createReservation = useCreateReservation();
 
-  // Find parent rooms (rooms that have linked rooms)
-  const parentRooms = useMemo(() => {
+  // Build combined rooms with display names like "Sala 801/2"
+  const combinedRooms = useMemo<CombinedRoom[]>(() => {
     if (!rooms || !combinations) return [];
+    
     const parentIds = [...new Set(combinations.map(c => c.parent_room_id))];
-    return rooms.filter(r => parentIds.includes(r.id));
+    
+    return parentIds.map(parentId => {
+      const parentRoom = rooms.find(r => r.id === parentId);
+      if (!parentRoom) return null;
+      
+      const linkedRoomIds = combinations
+        .filter(c => c.parent_room_id === parentId)
+        .map(c => c.linked_room_id);
+      
+      const linkedRooms = rooms.filter(r => linkedRoomIds.includes(r.id));
+      
+      // Create display name like "Sala 801/2" by extracting room numbers
+      const allCodes = [parentRoom.code, ...linkedRooms.map(r => r.code)].sort();
+      const displayName = generateCombinedName(allCodes, parentRoom.name);
+      
+      return {
+        id: parentId,
+        parentRoom: {
+          id: parentRoom.id,
+          code: parentRoom.code,
+          name: parentRoom.name,
+          capacity: parentRoom.capacity,
+        },
+        linkedRooms: linkedRooms.map(r => ({
+          id: r.id,
+          code: r.code,
+          name: r.name,
+        })),
+        displayName,
+      };
+    }).filter(Boolean) as CombinedRoom[];
   }, [rooms, combinations]);
 
-  // Get linked rooms for selected parent
-  const linkedRooms = useMemo(() => {
-    if (!selectedParentRoom || !combinations || !rooms) return [];
-    const linkedIds = combinations
-      .filter(c => c.parent_room_id === selectedParentRoom)
-      .map(c => c.linked_room_id);
-    return rooms.filter(r => linkedIds.includes(r.id));
-  }, [selectedParentRoom, combinations, rooms]);
-
-  const selectedRoom = rooms?.find(r => r.id === selectedParentRoom);
+  const selectedRoom = combinedRooms.find(c => c.id === selectedCombination);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedParentRoom) return;
+    if (!selectedCombination) return;
 
     const startDatetime = `${formData.date}T${formData.start_time}:00`;
     const endDatetime = `${formData.date}T${formData.end_time}:00`;
 
     createReservation.mutate({
-      room_id: selectedParentRoom,
+      room_id: selectedCombination,
       title: formData.title,
       requester_name: formData.requester_name,
       requester_email: formData.requester_email,
@@ -65,7 +103,7 @@ export function QuickCombinedReservation() {
     }, {
       onSuccess: () => {
         setOpen(false);
-        setSelectedParentRoom('');
+        setSelectedCombination('');
         setFormData({
           title: '',
           requester_name: '',
@@ -80,7 +118,7 @@ export function QuickCombinedReservation() {
     });
   };
 
-  if (parentRooms.length === 0) {
+  if (combinedRooms.length === 0) {
     return null;
   }
 
@@ -88,7 +126,7 @@ export function QuickCombinedReservation() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
-          <CalendarPlus className="w-4 h-4" />
+          <Link2 className="w-4 h-4" />
           Reservar Sala Combinada
         </Button>
       </DialogTrigger>
@@ -99,28 +137,28 @@ export function QuickCombinedReservation() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Sala Principal *</Label>
-            <Select value={selectedParentRoom} onValueChange={setSelectedParentRoom}>
+            <Label>Sala Combinada *</Label>
+            <Select value={selectedCombination} onValueChange={setSelectedCombination}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione a sala combinada" />
               </SelectTrigger>
               <SelectContent>
-                {parentRooms.map((room) => (
-                  <SelectItem key={room.id} value={room.id}>
-                    {room.code} - {room.name}
+                {combinedRooms.map((combo) => (
+                  <SelectItem key={combo.id} value={combo.id}>
+                    {combo.displayName}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {selectedParentRoom && linkedRooms.length > 0 && (
+          {selectedRoom && (
             <Alert className="bg-primary/5 border-primary/20">
               <Info className="h-4 w-4 text-primary" />
               <AlertDescription className="text-sm">
-                Ao reservar <strong>{selectedRoom?.code}</strong>, as seguintes salas também serão bloqueadas automaticamente:
+                Ao reservar <strong>{selectedRoom.displayName}</strong>, as seguintes salas serão bloqueadas automaticamente:
                 <span className="font-medium text-primary ml-1">
-                  {linkedRooms.map(r => r.code).join(', ')}
+                  {selectedRoom.parentRoom.code}, {selectedRoom.linkedRooms.map(r => r.code).join(', ')}
                 </span>
               </AlertDescription>
             </Alert>
@@ -222,7 +260,7 @@ export function QuickCombinedReservation() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createReservation.isPending || !selectedParentRoom} className="gap-2">
+            <Button type="submit" disabled={createReservation.isPending || !selectedCombination} className="gap-2">
               {createReservation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
               Reservar
             </Button>
@@ -231,4 +269,31 @@ export function QuickCombinedReservation() {
       </DialogContent>
     </Dialog>
   );
+}
+
+// Helper function to generate combined room names like "Sala 801/2"
+function generateCombinedName(codes: string[], baseName: string): string {
+  if (codes.length < 2) return baseName;
+  
+  // Try to extract numbers from codes
+  const numbers = codes.map(code => {
+    const match = code.match(/(\d+)/);
+    return match ? match[1] : code;
+  });
+  
+  // Check if we can create a pattern like 801/2 (numbers ending in 1,2 or 5,6)
+  if (numbers.length === 2) {
+    const [num1, num2] = numbers.sort();
+    const lastDigit1 = parseInt(num1.slice(-1));
+    const lastDigit2 = parseInt(num2.slice(-1));
+    
+    // Pattern 1 and 2 or 5 and 6
+    if ((lastDigit1 === 1 && lastDigit2 === 2) || (lastDigit1 === 5 && lastDigit2 === 6)) {
+      const base = num1.slice(0, -1);
+      return `Sala ${num1}/${lastDigit2}`;
+    }
+  }
+  
+  // Fallback: join all codes
+  return `${codes.join(' + ')}`;
 }
