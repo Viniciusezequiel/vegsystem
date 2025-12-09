@@ -13,6 +13,7 @@ import {
   Lock,
   ChevronDown,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +34,7 @@ interface NavGroup {
   icon: React.ElementType;
   items: NavItem[];
   basePath: string;
+  gradient?: string;
 }
 
 const mainNav: NavItem[] = [
@@ -44,6 +46,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Achados e Perdidos',
     icon: Package,
     basePath: '/lost-found',
+    gradient: 'from-purple-500 to-pink-500',
     items: [
       { name: 'Registrar Item', href: '/lost-found/register', icon: PackagePlus },
       { name: 'Buscar Itens', href: '/lost-found/items', icon: Search },
@@ -54,6 +57,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Equipamentos',
     icon: Monitor,
     basePath: '/equipment',
+    gradient: 'from-cyan-500 to-blue-500',
     items: [
       { name: 'Inventário', href: '/equipment', icon: Monitor },
       { name: 'Empréstimos', href: '/equipment/loans', icon: PackagePlus },
@@ -63,6 +67,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Checklist de Salas',
     icon: ClipboardCheck,
     basePath: '/rooms',
+    gradient: 'from-green-500 to-emerald-500',
     items: [
       { name: 'Salas', href: '/rooms', icon: ClipboardCheck },
       { name: 'Checklists', href: '/rooms/checklists', icon: Search },
@@ -72,6 +77,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Escaninhos',
     icon: Lock,
     basePath: '/lockers',
+    gradient: 'from-orange-500 to-amber-500',
     items: [
       { name: 'Escaninhos', href: '/lockers', icon: Lock },
       { name: 'Alocações', href: '/lockers/loans', icon: Users },
@@ -141,22 +147,22 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar flex flex-col z-50">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar flex flex-col z-50 border-r border-sidebar-border/50">
       {/* Logo */}
-      <div className="p-4 sm:p-6 border-b border-sidebar-border">
+      <div className="p-5 border-b border-sidebar-border/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
-            <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
+          <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
+            <Sparkles className="w-6 h-6 text-primary-foreground" />
           </div>
           <div className="min-w-0">
-            <h1 className="font-semibold text-sidebar-foreground text-sm leading-tight">Setor Recursos Didáticos</h1>
-            <p className="text-xs text-sidebar-foreground/60">Sistema Integrado</p>
+            <h1 className="font-bold text-sidebar-foreground text-sm leading-tight">Setor Recursos</h1>
+            <p className="text-xs text-sidebar-foreground/50">Sistema Integrado</p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
         {/* Main Nav */}
         {mainNav.map((item) => {
           const isActive = location.pathname === item.href;
@@ -169,14 +175,19 @@ export function Sidebar() {
                 isActive && 'sidebar-link-active'
               )}
             >
-              <item.icon className="w-5 h-5" />
-              <span>{item.name}</span>
+              <div className={cn(
+                'w-8 h-8 rounded-lg flex items-center justify-center transition-all',
+                isActive ? 'gradient-primary shadow-glow' : 'bg-sidebar-accent'
+              )}>
+                <item.icon className={cn('w-4 h-4', isActive ? 'text-primary-foreground' : 'text-sidebar-foreground/70')} />
+              </div>
+              <span className="font-medium">{item.name}</span>
             </NavLink>
           );
         })}
 
-        <div className="pt-4 pb-2">
-          <span className="text-xs font-medium text-sidebar-foreground/50 uppercase tracking-wider px-3">
+        <div className="pt-5 pb-2">
+          <span className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest px-3">
             Módulos
           </span>
         </div>
@@ -194,18 +205,23 @@ export function Sidebar() {
             >
               <CollapsibleTrigger className={cn(
                 'sidebar-link w-full justify-between',
-                isGroupActive && 'text-primary bg-sidebar-accent'
+                isGroupActive && 'text-primary'
               )}>
                 <div className="flex items-center gap-3">
-                  <group.icon className="w-5 h-5" />
-                  <span>{group.name}</span>
+                  <div className={cn(
+                    'w-8 h-8 rounded-lg flex items-center justify-center transition-all',
+                    isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
+                  )}>
+                    <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
+                  </div>
+                  <span className="font-medium text-sm">{group.name}</span>
                 </div>
                 <ChevronDown className={cn(
-                  'w-4 h-4 transition-transform duration-200',
+                  'w-4 h-4 transition-transform duration-300',
                   isOpen && 'rotate-180'
                 )} />
               </CollapsibleTrigger>
-              <CollapsibleContent className="pl-4 space-y-1 pt-1">
+              <CollapsibleContent className="pl-5 space-y-1 pt-1 animate-accordion-down">
                 {group.items.map((item) => {
                   const isActive = location.pathname === item.href;
                   return (
@@ -213,7 +229,7 @@ export function Sidebar() {
                       key={item.href}
                       to={item.href}
                       className={cn(
-                        'sidebar-link text-sm',
+                        'sidebar-link text-sm py-2',
                         isActive && 'sidebar-link-active'
                       )}
                     >
@@ -227,8 +243,8 @@ export function Sidebar() {
           );
         })}
 
-        <div className="pt-4 pb-2">
-          <span className="text-xs font-medium text-sidebar-foreground/50 uppercase tracking-wider px-3">
+        <div className="pt-5 pb-2">
+          <span className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest px-3">
             Sistema
           </span>
         </div>
@@ -246,27 +262,32 @@ export function Sidebar() {
                 isActive && 'sidebar-link-active'
               )}
             >
-              <item.icon className="w-5 h-5" />
-              <span>{item.name}</span>
+              <div className={cn(
+                'w-8 h-8 rounded-lg flex items-center justify-center transition-all',
+                isActive ? 'gradient-primary shadow-glow' : 'bg-sidebar-accent'
+              )}>
+                <item.icon className={cn('w-4 h-4', isActive ? 'text-primary-foreground' : 'text-sidebar-foreground/70')} />
+              </div>
+              <span className="font-medium">{item.name}</span>
             </NavLink>
           );
         })}
       </nav>
 
       {/* User */}
-      <div className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 mb-3">
-          <Avatar className="w-10 h-10">
+      <div className="p-4 border-t border-sidebar-border/50">
+        <div className="flex items-center gap-3 mb-3 p-2 rounded-xl bg-sidebar-accent/50">
+          <Avatar className="w-10 h-10 ring-2 ring-primary/30">
             <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || ''} />
-            <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground">
+            <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground font-bold text-sm">
               {getInitials(profile?.full_name)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
+            <p className="text-sm font-semibold text-sidebar-foreground truncate">
               {profile?.full_name || 'Usuário'}
             </p>
-            <p className="text-xs text-sidebar-foreground/60 capitalize">
+            <p className="text-xs text-primary capitalize font-medium">
               {getRoleLabel(role)}
             </p>
           </div>
@@ -274,14 +295,14 @@ export function Sidebar() {
         <button 
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="sidebar-link w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10 disabled:opacity-50"
+          className="sidebar-link w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 justify-center"
         >
           {isLoggingOut ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
           )}
-          <span>{isLoggingOut ? 'Saindo...' : 'Sair'}</span>
+          <span className="text-sm">{isLoggingOut ? 'Saindo...' : 'Sair do Sistema'}</span>
         </button>
       </div>
     </aside>
