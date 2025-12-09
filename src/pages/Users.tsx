@@ -64,8 +64,18 @@ export default function Users() {
     setIsCreating(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Não autenticado');
+      // Refresh the session first to ensure we have a valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        // Try to refresh the session
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshData.session) {
+          toast.error('Sua sessão expirou. Por favor, faça login novamente.');
+          window.location.href = '/auth';
+          return;
+        }
+      }
 
       const response = await supabase.functions.invoke('create-user', {
         body: {
@@ -78,7 +88,15 @@ export default function Users() {
         },
       });
 
-      if (response.error) throw response.error;
+      if (response.error) {
+        // Check for authentication errors
+        if (response.error.message?.includes('Invalid token') || response.error.message?.includes('401')) {
+          toast.error('Sua sessão expirou. Por favor, faça login novamente.');
+          window.location.href = '/auth';
+          return;
+        }
+        throw response.error;
+      }
       
       toast.success('Usuário criado com sucesso!');
       setIsDialogOpen(false);
@@ -86,7 +104,13 @@ export default function Users() {
       // Refresh the users list
       window.location.reload();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar usuário');
+      const errorMessage = error?.message || error?.error || 'Erro ao criar usuário';
+      if (errorMessage.includes('Invalid token') || errorMessage.includes('session')) {
+        toast.error('Sua sessão expirou. Por favor, faça login novamente.');
+        window.location.href = '/auth';
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsCreating(false);
     }
