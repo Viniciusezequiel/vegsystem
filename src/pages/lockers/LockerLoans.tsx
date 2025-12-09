@@ -13,9 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone } from 'lucide-react';
+import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail } from 'lucide-react';
 import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, LockerLoan } from '@/hooks/useLockers';
-import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
+import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -41,7 +41,7 @@ export default function LockerLoans() {
     setReturnDialogOpen(true);
   };
 
-  const handleReturn = (data: ReturnData) => {
+  const handleReturn = (data: LockerReturnData) => {
     if (!selectedLoan) return;
     
     returnLocker.mutate(selectedLoan.id, {
@@ -77,8 +77,7 @@ export default function LockerLoans() {
               <TableHead>Escaninho</TableHead>
               <TableHead className="hidden sm:table-cell">Campus</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead className="hidden lg:table-cell">Telefone</TableHead>
-              <TableHead className="hidden md:table-cell">Setor</TableHead>
+              <TableHead className="hidden lg:table-cell">Contato</TableHead>
               <TableHead>Prev. Devolução</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
               {showReturnButton && <TableHead className="text-right">Ações</TableHead>}
@@ -103,23 +102,33 @@ export default function LockerLoans() {
                   <TableCell>
                     <div className="min-w-0">
                       <span className="block truncate">{loan.borrower_name}</span>
-                      <span className="text-xs text-muted-foreground md:hidden">
-                        {loan.borrower_sector || '-'}
+                      <span className="text-xs text-muted-foreground lg:hidden">
+                        {loan.borrower_phone}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    <a 
-                      href={`https://wa.me/55${loan.borrower_phone.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-primary hover:underline"
-                    >
-                      <Phone className="h-3 w-3" />
-                      {loan.borrower_phone}
-                    </a>
+                    <div className="space-y-1">
+                      <a 
+                        href={`https://wa.me/55${loan.borrower_phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-primary hover:underline text-sm"
+                      >
+                        <Phone className="h-3 w-3" />
+                        {loan.borrower_phone}
+                      </a>
+                      {loan.borrower_email && (
+                        <a 
+                          href={`mailto:${loan.borrower_email}`}
+                          className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm"
+                        >
+                          <Mail className="h-3 w-3" />
+                          {loan.borrower_email}
+                        </a>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">{loan.borrower_sector || '-'}</TableCell>
                   <TableCell className={overdue ? 'text-destructive font-medium' : ''}>
                     <div className="min-w-0">
                       <span className="block">{formatDate(loan.expected_return_date)}</span>
@@ -177,7 +186,7 @@ export default function LockerLoans() {
                 { header: 'Campus', accessor: (row) => row.locker?.campus || 'N/A' },
                 { header: 'Cliente', accessor: 'borrower_name' },
                 { header: 'Telefone', accessor: 'borrower_phone' },
-                { header: 'Setor', accessor: (row) => row.borrower_sector || '-' },
+                { header: 'Email', accessor: (row) => row.borrower_email || '-' },
                 { header: 'Prev. Devolução', accessor: (row) => formatDate(row.expected_return_date) },
                 { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
               ]}
@@ -253,11 +262,11 @@ export default function LockerLoans() {
 
       {/* Return Dialog */}
       {selectedLoan && (
-        <ReturnDialog
+        <LockerReturnDialog
           open={returnDialogOpen}
           onOpenChange={setReturnDialogOpen}
           onConfirm={handleReturn}
-          itemName={`Escaninho ${selectedLoan.locker?.code || ''}`}
+          lockerCode={selectedLoan.locker?.code || ''}
           borrowerName={selectedLoan.borrower_name}
           isPending={returnLocker.isPending}
         />

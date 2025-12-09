@@ -18,6 +18,7 @@ export type LockerLoan = {
   locker_id: string;
   borrower_name: string;
   borrower_phone: string;
+  borrower_email: string | null;
   borrower_sector: string | null;
   expected_return_date: string;
   actual_return_date: string | null;
@@ -175,6 +176,7 @@ export function useCreateLockerLoan() {
       locker_id: string;
       borrower_name: string;
       borrower_phone: string;
+      borrower_email?: string;
       borrower_sector?: string;
       expected_return_date: string;
       notes?: string;

@@ -29,6 +29,7 @@ const loanSchema = z.object({
   locker_id: z.string().min(1, 'Selecione um escaninho'),
   borrower_name: z.string().min(1, 'Nome é obrigatório'),
   borrower_phone: z.string().min(1, 'Telefone é obrigatório'),
+  borrower_email: z.string().email('Email inválido').min(1, 'Email é obrigatório'),
   borrower_sector: z.string().optional(),
   expected_return_date: z.string().min(1, 'Data de devolução é obrigatória'),
   notes: z.string().optional(),
@@ -50,6 +51,7 @@ export default function LockerLoanForm() {
       locker_id: preselectedLocker,
       borrower_name: '',
       borrower_phone: '',
+      borrower_email: '',
       borrower_sector: '',
       expected_return_date: '',
       notes: '',
@@ -61,6 +63,7 @@ export default function LockerLoanForm() {
       locker_id: data.locker_id,
       borrower_name: data.borrower_name,
       borrower_phone: data.borrower_phone,
+      borrower_email: data.borrower_email,
       borrower_sector: data.borrower_sector || undefined,
       expected_return_date: data.expected_return_date,
       notes: data.notes || undefined,
@@ -139,6 +142,20 @@ export default function LockerLoanForm() {
                         <FormLabel>Telefone para Contato *</FormLabel>
                         <FormControl>
                           <Input placeholder="(00) 00000-0000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="borrower_email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="cliente@email.com" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
