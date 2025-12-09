@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { useReservations, useReservationRooms } from '@/hooks/useReservations';
+import { useReservations, useReservationRooms, Reservation } from '@/hooks/useReservations';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { ReservationDetailsDialog } from '@/components/reservations/ReservationDetailsDialog';
 
 const statusColors = {
   pending: 'bg-warning/80 text-warning-foreground',
@@ -20,6 +21,7 @@ export default function ReservationsCalendar() {
   const navigate = useNavigate();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
   const { data: rooms } = useReservationRooms();
   const { data: reservations } = useReservations(
@@ -152,10 +154,10 @@ export default function ReservationsCalendar() {
                     <div
                       key={res.id}
                       className={cn(
-                        'text-xs p-1 rounded truncate cursor-pointer hover:opacity-80',
+                        'text-xs p-1 rounded truncate cursor-pointer hover:opacity-80 hover:ring-1 hover:ring-primary/50',
                         statusColors[res.status]
                       )}
-                      onClick={() => navigate(`/reservations`)}
+                      onClick={() => setSelectedReservation(res)}
                       title={`${res.title} - ${res.reservation_rooms?.name}`}
                     >
                       {format(new Date(res.start_datetime), 'HH:mm')} {res.title}
@@ -192,6 +194,13 @@ export default function ReservationsCalendar() {
           <span className="text-sm text-muted-foreground">Concluída</span>
         </div>
       </div>
+
+      {/* Reservation Details Dialog */}
+      <ReservationDetailsDialog
+        reservation={selectedReservation}
+        open={!!selectedReservation}
+        onOpenChange={(open) => !open && setSelectedReservation(null)}
+      />
     </MainLayout>
   );
 }

@@ -77,7 +77,7 @@ export function RoomCombinationsDialog() {
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Link2 className="w-4 h-4" />
-          Combinar Salas
+          Configurar Combinações
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">

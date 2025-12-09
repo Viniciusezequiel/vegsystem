@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { useReservations, useUpdateReservation, Reservation } from '@/hooks/useReservations';
+import { useReservations, useReservationRooms, useUpdateReservation, Reservation } from '@/hooks/useReservations';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Search, Plus, Calendar, Clock, Users, Eye, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
+import { ReservationDetailsDialog } from '@/components/reservations/ReservationDetailsDialog';
+import { Constants } from '@/integrations/supabase/types';
 
 const statusConfig = {
   pending: { label: 'Pendente', className: 'bg-warning/20 text-warning border-warning/30' },
@@ -23,19 +24,36 @@ export default function ReservationsList() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [campusFilter, setCampusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('');
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   
+  const { data: rooms } = useReservationRooms();
+  
+  // Build filters for query
+  const queryFilters: { roomId?: string; status?: string; dateFrom?: string; dateTo?: string } = {};
+  if (statusFilter !== 'all') queryFilters.status = statusFilter;
+  if (dateFilter) {
+    const selectedDate = new Date(dateFilter);
+    queryFilters.dateFrom = startOfDay(selectedDate).toISOString();
+    queryFilters.dateTo = endOfDay(selectedDate).toISOString();
+  }
+  
   const { data: reservations, isLoading } = useReservations(
-    statusFilter !== 'all' ? { status: statusFilter } : undefined
+    Object.keys(queryFilters).length > 0 ? queryFilters : undefined
   );
   const updateReservation = useUpdateReservation();
 
-  const filteredReservations = reservations?.filter(res =>
-    res.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    res.requester_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    res.requester_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    res.reservation_rooms?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredReservations = reservations?.filter(res => {
+    const matchesSearch = res.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      res.requester_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      res.requester_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      res.reservation_rooms?.name.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCampus = campusFilter === 'all' || res.reservation_rooms?.campus === campusFilter;
+    
+    return matchesSearch && matchesCampus;
+  }) || [];
 
   const handleStatusChange = (id: string, status: string) => {
     updateReservation.mutate({ id, status: status as Reservation['status'] });
@@ -61,12 +79,18 @@ export default function ReservationsList() {
         { value: 'completed', label: 'Concluída' },
       ],
     },
+    {
+      key: 'campus',
+      label: 'Campus',
+      options: Constants.public.Enums.campus_enum.map(c => ({ value: c, label: c })),
+    },
   ];
 
   const formatDataForPdf = (data: Reservation[]) => {
     return data.map(res => ({
       ...res,
       'reservation_rooms.name': res.reservation_rooms?.name || '',
+      campus: res.reservation_rooms?.campus || '',
       start_datetime: format(new Date(res.start_datetime), 'dd/MM/yyyy HH:mm'),
       end_datetime: format(new Date(res.end_datetime), 'dd/MM/yyyy HH:mm'),
       status: statusConfig[res.status]?.label || res.status,
@@ -105,7 +129,7 @@ export default function ReservationsList() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6 flex-wrap">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -127,6 +151,31 @@ export default function ReservationsList() {
             <SelectItem value="completed">Concluída</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={campusFilter} onValueChange={setCampusFilter}>
+          <SelectTrigger className="w-48 bg-secondary/50">
+            <SelectValue placeholder="Filtrar por campus" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os campus</SelectItem>
+            {Constants.public.Enums.campus_enum.map((campus) => (
+              <SelectItem key={campus} value={campus}>
+                {campus}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="w-48 bg-secondary/50"
+          placeholder="Filtrar por dia"
+        />
+        {dateFilter && (
+          <Button variant="ghost" size="sm" onClick={() => setDateFilter('')}>
+            Limpar data
+          </Button>
+        )}
       </div>
 
       {/* Reservations List */}
@@ -233,76 +282,11 @@ export default function ReservationsList() {
       )}
 
       {/* Details Dialog */}
-      <Dialog open={!!selectedReservation} onOpenChange={() => setSelectedReservation(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Detalhes da Reserva</DialogTitle>
-            <DialogDescription>Informações completas sobre a reserva selecionada.</DialogDescription>
-          </DialogHeader>
-          {selectedReservation && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Título</label>
-                <p className="text-foreground font-semibold">{selectedReservation.title}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Ambiente</label>
-                <p className="text-foreground">
-                  {selectedReservation.reservation_rooms?.name} ({selectedReservation.reservation_rooms?.code})
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Solicitante</label>
-                  <p className="text-foreground">{selectedReservation.requester_name}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Email</label>
-                  <p className="text-foreground">{selectedReservation.requester_email}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Início</label>
-                  <p className="text-foreground">
-                    {format(new Date(selectedReservation.start_datetime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Término</label>
-                  <p className="text-foreground">
-                    {format(new Date(selectedReservation.end_datetime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Participantes</label>
-                  <p className="text-foreground">{selectedReservation.attendees_count}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Status</label>
-                  <Badge className={`${statusConfig[selectedReservation.status].className} border`}>
-                    {statusConfig[selectedReservation.status].label}
-                  </Badge>
-                </div>
-              </div>
-              {selectedReservation.description && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Descrição</label>
-                  <p className="text-foreground">{selectedReservation.description}</p>
-                </div>
-              )}
-              {selectedReservation.notes && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Observações</label>
-                  <p className="text-foreground">{selectedReservation.notes}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ReservationDetailsDialog
+        reservation={selectedReservation}
+        open={!!selectedReservation}
+        onOpenChange={(open) => !open && setSelectedReservation(null)}
+      />
     </MainLayout>
   );
 }
