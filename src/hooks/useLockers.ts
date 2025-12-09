@@ -1,0 +1,253 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export type Locker = {
+  id: string;
+  code: string;
+  campus: 'Campus I' | 'Campus II' | 'Campus IV' | 'Campus HUCM Adm';
+  location: string;
+  description: string | null;
+  status: 'available' | 'occupied';
+  created_at: string;
+  updated_at: string;
+};
+
+export type LockerLoan = {
+  id: string;
+  locker_id: string;
+  borrower_name: string;
+  borrower_phone: string;
+  borrower_sector: string | null;
+  expected_return_date: string;
+  actual_return_date: string | null;
+  status: 'active' | 'returned' | 'overdue';
+  loaned_by: string | null;
+  returned_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  locker?: Locker;
+};
+
+export function useLockersList(statusFilter?: 'available' | 'occupied') {
+  return useQuery({
+    queryKey: ['lockers', statusFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('lockers')
+        .select('*')
+        .order('code', { ascending: true });
+
+      if (statusFilter) {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as Locker[];
+    },
+  });
+}
+
+export function useLocker(id: string) {
+  return useQuery({
+    queryKey: ['locker', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lockers')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as Locker | null;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateLocker() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (locker: Omit<Locker, 'id' | 'created_at' | 'updated_at' | 'status'>) => {
+      const { data, error } = await supabase
+        .from('lockers')
+        .insert(locker)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lockers'] });
+      toast.success('Escaninho cadastrado com sucesso!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao cadastrar escaninho: ' + error.message);
+    },
+  });
+}
+
+export function useUpdateLocker() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...locker }: Partial<Locker> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('lockers')
+        .update(locker)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lockers'] });
+      toast.success('Escaninho atualizado com sucesso!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao atualizar escaninho: ' + error.message);
+    },
+  });
+}
+
+export function useDeleteLocker() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('lockers').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lockers'] });
+      toast.success('Escaninho excluído com sucesso!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao excluir escaninho: ' + error.message);
+    },
+  });
+}
+
+export function useLockerLoans(status?: 'active' | 'returned' | 'overdue') {
+  return useQuery({
+    queryKey: ['locker-loans', status],
+    queryFn: async () => {
+      let query = supabase
+        .from('locker_loans')
+        .select('*, locker:lockers(*)')
+        .order('created_at', { ascending: false });
+
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as LockerLoan[];
+    },
+  });
+}
+
+export function useOverdueLockerLoans() {
+  return useQuery({
+    queryKey: ['locker-loans', 'overdue-check'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('locker_loans')
+        .select('*, locker:lockers(*)')
+        .eq('status', 'active')
+        .lt('expected_return_date', today);
+      if (error) throw error;
+      return data as LockerLoan[];
+    },
+  });
+}
+
+export function useCreateLockerLoan() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (loan: {
+      locker_id: string;
+      borrower_name: string;
+      borrower_phone: string;
+      borrower_sector?: string;
+      expected_return_date: string;
+      notes?: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Create loan
+      const { data, error } = await supabase
+        .from('locker_loans')
+        .insert({ ...loan, loaned_by: user?.id })
+        .select()
+        .single();
+      if (error) throw error;
+
+      // Update locker status
+      await supabase
+        .from('lockers')
+        .update({ status: 'occupied' })
+        .eq('id', loan.locker_id);
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lockers'] });
+      queryClient.invalidateQueries({ queryKey: ['locker-loans'] });
+      toast.success('Empréstimo de escaninho registrado!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao registrar empréstimo: ' + error.message);
+    },
+  });
+}
+
+export function useReturnLocker() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (loanId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get loan details
+      const { data: loan, error: loanError } = await supabase
+        .from('locker_loans')
+        .select('*')
+        .eq('id', loanId)
+        .single();
+      
+      if (loanError) throw loanError;
+
+      // Update loan status
+      const { error } = await supabase
+        .from('locker_loans')
+        .update({ 
+          status: 'returned',
+          actual_return_date: new Date().toISOString().split('T')[0],
+          returned_by: user?.id
+        })
+        .eq('id', loanId);
+      if (error) throw error;
+
+      // Update locker status
+      await supabase
+        .from('lockers')
+        .update({ status: 'available' })
+        .eq('id', loan.locker_id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lockers'] });
+      queryClient.invalidateQueries({ queryKey: ['locker-loans'] });
+      toast.success('Devolução de escaninho registrada!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao registrar devolução: ' + error.message);
+    },
+  });
+}
