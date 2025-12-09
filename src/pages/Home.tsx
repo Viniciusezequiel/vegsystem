@@ -110,9 +110,12 @@ export default function Home() {
       <div className="space-y-8 animate-fade-in">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Setor Recursos Didáticos</h1>
           <p className="text-muted-foreground mt-1">
             Visão geral do sistema de gestão
+          </p>
+          <p className="text-xs text-muted-foreground/60 mt-1">
+            Criado por Vinicius Ezequiel
           </p>
         </div>
 

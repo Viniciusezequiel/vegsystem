@@ -140,6 +140,11 @@ const App = () => (
                 <LockerLoans />
               </ProtectedRoute>
             } />
+            <Route path="/lockers/allocations" element={
+              <ProtectedRoute>
+                <LockerLoans />
+              </ProtectedRoute>
+            } />
             
             {/* Legacy routes */}
             <Route path="/register" element={

@@ -13,19 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone } from 'lucide-react';
 import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, LockerLoan } from '@/hooks/useLockers';
+import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -37,13 +27,28 @@ const statusLabels = {
 
 export default function LockerLoans() {
   const [activeTab, setActiveTab] = useState('active');
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<LockerLoan | null>(null);
+  
   const { data: activeLoans } = useLockerLoans('active');
   const { data: returnedLoans } = useLockerLoans('returned');
   const { data: overdueLoans } = useOverdueLockerLoans();
   const returnLocker = useReturnLocker();
 
-  const handleReturn = (loanId: string) => {
-    returnLocker.mutate(loanId);
+  const handleOpenReturn = (loan: LockerLoan) => {
+    setSelectedLoan(loan);
+    setReturnDialogOpen(true);
+  };
+
+  const handleReturn = (data: ReturnData) => {
+    if (!selectedLoan) return;
+    
+    returnLocker.mutate(selectedLoan.id, {
+      onSuccess: () => {
+        setReturnDialogOpen(false);
+        setSelectedLoan(null);
+      },
+    });
   };
 
   const formatDate = (date: string) => {
@@ -58,7 +63,7 @@ export default function LockerLoans() {
     if (!loans?.length) {
       return (
         <div className="text-center py-8 text-muted-foreground">
-          Nenhum empréstimo encontrado
+          Nenhuma alocação encontrada
         </div>
       );
     }
@@ -69,12 +74,12 @@ export default function LockerLoans() {
           <TableHeader>
             <TableRow>
               <TableHead>Escaninho</TableHead>
-              <TableHead>Campus</TableHead>
+              <TableHead className="hidden sm:table-cell">Campus</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead>Telefone</TableHead>
-              <TableHead>Setor</TableHead>
+              <TableHead className="hidden lg:table-cell">Telefone</TableHead>
+              <TableHead className="hidden md:table-cell">Setor</TableHead>
               <TableHead>Prev. Devolução</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="hidden sm:table-cell">Status</TableHead>
               {showReturnButton && <TableHead className="text-right">Ações</TableHead>}
             </TableRow>
           </TableHeader>
@@ -86,11 +91,23 @@ export default function LockerLoans() {
               return (
                 <TableRow key={loan.id} className={overdue ? 'bg-destructive/10' : ''}>
                   <TableCell className="font-medium">
-                    {loan.locker?.code || 'N/A'}
+                    <div className="min-w-0">
+                      <span className="block">{loan.locker?.code || 'N/A'}</span>
+                      <span className="text-xs text-muted-foreground sm:hidden">
+                        {loan.locker?.campus}
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell>{loan.locker?.campus}</TableCell>
-                  <TableCell>{loan.borrower_name}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{loan.locker?.campus}</TableCell>
                   <TableCell>
+                    <div className="min-w-0">
+                      <span className="block truncate">{loan.borrower_name}</span>
+                      <span className="text-xs text-muted-foreground md:hidden">
+                        {loan.borrower_sector || '-'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <a 
                       href={`https://wa.me/55${loan.borrower_phone.replace(/\D/g, '')}`}
                       target="_blank"
@@ -101,12 +118,14 @@ export default function LockerLoans() {
                       {loan.borrower_phone}
                     </a>
                   </TableCell>
-                  <TableCell>{loan.borrower_sector || '-'}</TableCell>
+                  <TableCell className="hidden md:table-cell">{loan.borrower_sector || '-'}</TableCell>
                   <TableCell className={overdue ? 'text-destructive font-medium' : ''}>
-                    {formatDate(loan.expected_return_date)}
-                    {overdue && <span className="text-xs ml-1">(Atrasado)</span>}
+                    <div className="min-w-0">
+                      <span className="block">{formatDate(loan.expected_return_date)}</span>
+                      {overdue && <span className="text-xs">(Atrasado)</span>}
+                    </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Badge variant={overdue ? 'destructive' : statusLabels[loan.status].variant}>
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {overdue ? 'Atrasado' : statusLabels[loan.status].label}
@@ -114,28 +133,14 @@ export default function LockerLoans() {
                   </TableCell>
                   {showReturnButton && (
                     <TableCell className="text-right">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            Registrar Devolução
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar devolução</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Confirmar a devolução do escaninho "{loan.locker?.code}" 
-                              por {loan.borrower_name}?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleReturn(loan.id)}>
-                              Confirmar Devolução
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleOpenReturn(loan)}
+                      >
+                        <span className="hidden sm:inline">Registrar Devolução</span>
+                        <span className="sm:hidden">Devolver</span>
+                      </Button>
                     </TableCell>
                   )}
                 </TableRow>
@@ -158,14 +163,14 @@ export default function LockerLoans() {
               </Link>
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Empréstimos de Escaninhos</h1>
-              <p className="text-muted-foreground">Gerencie os empréstimos e devoluções</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Alocações de Escaninhos</h1>
+              <p className="text-sm text-muted-foreground">Gerencie as alocações e devoluções</p>
             </div>
           </div>
-          <Button asChild>
+          <Button asChild className="w-full sm:w-auto">
             <Link to="/lockers/loan/new">
               <Plus className="mr-2 h-4 w-4" />
-              Novo Empréstimo
+              Nova Alocação
             </Link>
           </Button>
         </div>
@@ -173,7 +178,7 @@ export default function LockerLoans() {
         {overdueLoans && overdueLoans.length > 0 && (
           <Card className="border-destructive bg-destructive/5">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-destructive">
+              <CardTitle className="flex items-center gap-2 text-destructive text-sm sm:text-base">
                 <AlertTriangle className="h-5 w-5" />
                 Atenção: {overdueLoans.length} escaninho(s) com devolução atrasada!
               </CardTitle>
@@ -185,23 +190,23 @@ export default function LockerLoans() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Box className="h-5 w-5" />
-              Lista de Empréstimos
+              Lista de Alocações
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="active" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Ativos ({activeLoans?.length || 0})
+                <TabsTrigger value="active" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Ativos</span> ({activeLoans?.length || 0})
                 </TabsTrigger>
-                <TabsTrigger value="overdue" className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  Atrasados ({overdueLoans?.length || 0})
+                <TabsTrigger value="overdue" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Atrasados</span> ({overdueLoans?.length || 0})
                 </TabsTrigger>
-                <TabsTrigger value="returned" className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Devolvidos ({returnedLoans?.length || 0})
+                <TabsTrigger value="returned" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Devolvidos</span> ({returnedLoans?.length || 0})
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="active" className="mt-4">
@@ -217,6 +222,18 @@ export default function LockerLoans() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Return Dialog */}
+      {selectedLoan && (
+        <ReturnDialog
+          open={returnDialogOpen}
+          onOpenChange={setReturnDialogOpen}
+          onConfirm={handleReturn}
+          itemName={`Escaninho ${selectedLoan.locker?.code || ''}`}
+          borrowerName={selectedLoan.borrower_name}
+          isPending={returnLocker.isPending}
+        />
+      )}
     </MainLayout>
   );
 }
