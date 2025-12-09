@@ -64,13 +64,15 @@ export default function Users() {
     setIsCreating(true);
     
     try {
-      // Refresh the session first to ensure we have a valid token
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Validate the session with the server (getUser makes a server call, unlike getSession which uses cache)
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      if (sessionError || !session) {
-        // Try to refresh the session
+      if (userError || !user) {
+        // Session is invalid on server, try to refresh
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !refreshData.session) {
+          // Clear the invalid local session
+          await supabase.auth.signOut();
           toast.error('Sua sessão expirou. Por favor, faça login novamente.');
           window.location.href = '/auth';
           return;
