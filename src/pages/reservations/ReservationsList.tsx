@@ -42,12 +42,12 @@ export default function ReservationsList() {
   };
 
   const pdfColumns = [
-    { key: 'reservation_rooms.name', label: 'Ambiente' },
-    { key: 'title', label: 'Título' },
-    { key: 'requester_name', label: 'Solicitante' },
-    { key: 'start_datetime', label: 'Início' },
-    { key: 'end_datetime', label: 'Término' },
-    { key: 'status', label: 'Status' },
+    { header: 'Ambiente', accessor: 'reservation_rooms.name' },
+    { header: 'Título', accessor: 'title' },
+    { header: 'Solicitante', accessor: 'requester_name' },
+    { header: 'Início', accessor: 'start_datetime' },
+    { header: 'Término', accessor: 'end_datetime' },
+    { header: 'Status', accessor: 'status' },
   ];
 
   const pdfFilters = [

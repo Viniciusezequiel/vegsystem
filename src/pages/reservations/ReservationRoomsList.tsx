@@ -20,11 +20,11 @@ export default function ReservationRoomsList() {
   ) || [];
 
   const pdfColumns = [
-    { key: 'code', label: 'Código' },
-    { key: 'name', label: 'Nome' },
-    { key: 'capacity', label: 'Capacidade' },
-    { key: 'location', label: 'Localização' },
-    { key: 'campus', label: 'Campus' },
+    { header: 'Código', accessor: 'code' },
+    { header: 'Nome', accessor: 'name' },
+    { header: 'Capacidade', accessor: 'capacity' },
+    { header: 'Localização', accessor: 'location' },
+    { header: 'Campus', accessor: 'campus' },
   ];
 
   return (

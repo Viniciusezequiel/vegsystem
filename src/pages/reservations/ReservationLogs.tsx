@@ -9,10 +9,10 @@ export default function ReservationLogs() {
   const { data: logs, isLoading } = useReservationLogs();
 
   const pdfColumns = [
-    { key: 'action', label: 'Ação' },
-    { key: 'details', label: 'Detalhes' },
-    { key: 'performer_name', label: 'Executado por' },
-    { key: 'created_at', label: 'Data/Hora' },
+    { header: 'Ação', accessor: 'action' },
+    { header: 'Detalhes', accessor: 'details' },
+    { header: 'Executado por', accessor: 'performer_name' },
+    { header: 'Data/Hora', accessor: 'created_at' },
   ];
 
   const formatDataForPdf = (data: typeof logs) => {
