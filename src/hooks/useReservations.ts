@@ -98,6 +98,36 @@ export function useUpdateReservationRoom() {
   });
 }
 
+export function useDeleteReservationRoom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('reservation_rooms')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservation-rooms'] });
+      toast({
+        title: 'Ambiente excluído',
+        description: 'O ambiente foi excluído com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 export function useReservations(filters?: { roomId?: string; status?: string; dateFrom?: string; dateTo?: string }) {
   return useQuery({
     queryKey: ['reservations', filters],
