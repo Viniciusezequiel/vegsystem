@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -13,17 +14,24 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { ArrowLeft, Package } from 'lucide-react';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { ArrowLeft, Package, Check, ChevronsUpDown, Search } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEquipmentList, useCreateEquipmentLoan } from '@/hooks/useEquipment';
+import { cn } from '@/lib/utils';
 
 const loanSchema = z.object({
   equipment_id: z.string().min(1, 'Selecione um equipamento'),
@@ -41,11 +49,24 @@ export default function EquipmentLoanForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedEquipment = searchParams.get('equipment') || '';
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
   
   const { data: equipment } = useEquipmentList();
   const createLoan = useCreateEquipmentLoan();
 
-  const availableEquipment = equipment?.filter(e => e.available_quantity > 0);
+  const availableEquipment = useMemo(() => {
+    return equipment?.filter(e => e.available_quantity > 0) || [];
+  }, [equipment]);
+
+  const filteredEquipment = useMemo(() => {
+    if (!searchValue) return availableEquipment;
+    const search = searchValue.toLowerCase();
+    return availableEquipment.filter(e => 
+      e.name.toLowerCase().includes(search) || 
+      e.patrimony_code.toLowerCase().includes(search)
+    );
+  }, [availableEquipment, searchValue]);
 
   const form = useForm<LoanFormData>({
     resolver: zodResolver(loanSchema),
@@ -85,8 +106,8 @@ export default function EquipmentLoanForm() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Novo Empréstimo</h1>
-            <p className="text-muted-foreground">Registre um empréstimo de equipamento</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Novo Empréstimo</h1>
+            <p className="text-sm text-muted-foreground">Registre um empréstimo de equipamento</p>
           </div>
         </div>
 
@@ -105,22 +126,73 @@ export default function EquipmentLoanForm() {
                     control={form.control}
                     name="equipment_id"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="flex flex-col">
                         <FormLabel>Equipamento *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o equipamento" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {availableEquipment?.map((equip) => (
-                              <SelectItem key={equip.id} value={equip.id}>
-                                {equip.name} ({equip.patrimony_code}) - {equip.available_quantity} disponível(eis)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={open} onOpenChange={setOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={open}
+                                className={cn(
+                                  "w-full justify-between",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value
+                                  ? (() => {
+                                      const equip = availableEquipment.find(e => e.id === field.value);
+                                      return equip ? `${equip.name} (${equip.patrimony_code})` : "Selecione...";
+                                    })()
+                                  : "Busque por nome ou patrimônio..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-full p-0" align="start">
+                            <Command>
+                              <div className="flex items-center border-b px-3">
+                                <Search className="h-4 w-4 shrink-0 opacity-50" />
+                                <CommandInput 
+                                  placeholder="Buscar por nome ou patrimônio..." 
+                                  value={searchValue}
+                                  onValueChange={setSearchValue}
+                                  className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                                />
+                              </div>
+                              <CommandList>
+                                <CommandEmpty>Nenhum equipamento encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  {filteredEquipment.map((equip) => (
+                                    <CommandItem
+                                      key={equip.id}
+                                      value={equip.id}
+                                      onSelect={() => {
+                                        form.setValue("equipment_id", equip.id);
+                                        setOpen(false);
+                                        setSearchValue('');
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          field.value === equip.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <div className="flex flex-col">
+                                        <span>{equip.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          Patrimônio: {equip.patrimony_code} | Disponível: {equip.available_quantity}
+                                        </span>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -225,15 +297,16 @@ export default function EquipmentLoanForm() {
                   )}
                 />
 
-                <div className="flex justify-end gap-4">
+                <div className="flex flex-col sm:flex-row justify-end gap-4">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => navigate('/equipment/loans')}
+                    className="w-full sm:w-auto"
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={createLoan.isPending}>
+                  <Button type="submit" disabled={createLoan.isPending} className="w-full sm:w-auto">
                     {createLoan.isPending ? 'Registrando...' : 'Registrar Empréstimo'}
                   </Button>
                 </div>

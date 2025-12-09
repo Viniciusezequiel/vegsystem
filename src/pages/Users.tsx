@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { mockUsers } from '@/data/mockData';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,9 +19,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { UserPlus, Shield, Eye, Edit2, Trash2 } from 'lucide-react';
-import { UserRole } from '@/types';
+import { Switch } from '@/components/ui/switch';
+import { UserPlus, Shield, Eye, Edit2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUsersList, useUpdateUserProfile, useToggleUserActive, UserProfile } from '@/hooks/useUsers';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+type UserRole = 'admin' | 'collaborator' | 'viewer';
 
 const roleLabels: Record<UserRole, { label: string; icon: React.ElementType; color: string }> = {
   admin: { label: 'Administrador', icon: Shield, color: 'text-destructive' },
@@ -32,40 +36,191 @@ const roleLabels: Record<UserRole, { label: string; icon: React.ElementType; col
 
 export default function Users() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Form states for new user
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newPosition, setNewPosition] = useState('');
+  const [newDepartment, setNewDepartment] = useState('');
+  const [newRole, setNewRole] = useState<UserRole>('viewer');
+
+  // Form states for edit user
+  const [editName, setEditName] = useState('');
+  const [editPosition, setEditPosition] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>('viewer');
+
+  const { data: users, isLoading } = useUsersList();
+  const updateProfile = useUpdateUserProfile();
+  const toggleActive = useToggleUserActive();
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreating(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Não autenticado');
+
+      const response = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newEmail,
+          password: newPassword,
+          full_name: newName,
+          position: newPosition,
+          department: newDepartment,
+          role: newRole,
+        },
+      });
+
+      if (response.error) throw response.error;
+      
+      toast.success('Usuário criado com sucesso!');
+      setIsDialogOpen(false);
+      resetNewUserForm();
+      // Refresh the users list
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao criar usuário');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const resetNewUserForm = () => {
+    setNewEmail('');
+    setNewPassword('');
+    setNewName('');
+    setNewPosition('');
+    setNewDepartment('');
+    setNewRole('viewer');
+  };
+
+  const handleEditUser = (user: UserProfile) => {
+    setEditingUser(user);
+    setEditName(user.full_name);
+    setEditPosition(user.position);
+    setEditDepartment(user.department);
+    setEditRole(user.role || 'viewer');
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    
+    await updateProfile.mutateAsync({
+      id: editingUser.id,
+      full_name: editName,
+      position: editPosition,
+      department: editDepartment,
+      role: editRole,
+    });
+    setIsEditDialogOpen(false);
+    setEditingUser(null);
+  };
+
+  const handleToggleActive = (user: UserProfile) => {
+    toggleActive.mutate({ id: user.id, is_active: !user.is_active });
+  };
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
-      <div className="page-header flex items-start justify-between">
+      <div className="page-header flex flex-col sm:flex-row items-start justify-between gap-4">
         <div>
           <h1 className="page-title">Gerenciar Usuários</h1>
           <p className="page-subtitle">Adicione e gerencie os usuários do sistema</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <UserPlus className="w-4 h-4 mr-2" />
               Novo Usuário
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Adicionar Novo Usuário</DialogTitle>
               <DialogDescription>
                 Preencha as informações para criar um novo usuário.
               </DialogDescription>
             </DialogHeader>
-            <form className="space-y-4 mt-4">
+            <form onSubmit={handleCreateUser} className="space-y-4 mt-4">
               <div>
                 <Label htmlFor="name">Nome completo *</Label>
-                <Input id="name" placeholder="Nome do usuário" className="mt-1.5" />
+                <Input 
+                  id="name" 
+                  placeholder="Nome do usuário" 
+                  className="mt-1.5" 
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  required
+                />
               </div>
               <div>
                 <Label htmlFor="email">Email *</Label>
-                <Input id="email" type="email" placeholder="email@empresa.com" className="mt-1.5" />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="email@empresa.com" 
+                  className="mt-1.5"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Senha *</Label>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  placeholder="Senha do usuário" 
+                  className="mt-1.5"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="position">Cargo</Label>
+                  <Input 
+                    id="position" 
+                    placeholder="Ex: Analista" 
+                    className="mt-1.5"
+                    value={newPosition}
+                    onChange={(e) => setNewPosition(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="department">Setor</Label>
+                  <Input 
+                    id="department" 
+                    placeholder="Ex: TI" 
+                    className="mt-1.5"
+                    value={newDepartment}
+                    onChange={(e) => setNewDepartment(e.target.value)}
+                  />
+                </div>
               </div>
               <div>
                 <Label htmlFor="role">Nível de Permissão *</Label>
-                <Select>
+                <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
                   <SelectTrigger className="mt-1.5">
                     <SelectValue placeholder="Selecione o nível" />
                   </SelectTrigger>
@@ -80,7 +235,10 @@ export default function Users() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Criar Usuário</Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {isCreating ? 'Criando...' : 'Criar Usuário'}
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -109,60 +267,155 @@ export default function Users() {
 
       {/* Users List */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Usuário</th>
-              <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Email</th>
-              <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Permissão</th>
-              <th className="text-right px-6 py-4 text-sm font-medium text-muted-foreground">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {mockUsers.map((user, index) => {
-              const roleConfig = roleLabels[user.role];
-              const RoleIcon = roleConfig.icon;
-              
-              return (
-                <tr 
-                  key={user.id} 
-                  className="hover:bg-muted/30 transition-colors animate-fade-in"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={user.avatar} alt={user.name} />
-                        <AvatarFallback>
-                          {user.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">{user.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground">{user.email}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <RoleIcon className={cn('w-4 h-4', roleConfig.color)} />
-                      <span>{roleConfig.label}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="sm">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground">Usuário</th>
+                <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Setor</th>
+                <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground">Permissão</th>
+                <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground hidden sm:table-cell">Ativo</th>
+                <th className="text-right px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {users?.map((user, index) => {
+                const roleConfig = roleLabels[user.role || 'viewer'];
+                const RoleIcon = roleConfig.icon;
+                
+                return (
+                  <tr 
+                    key={user.id} 
+                    className={cn(
+                      "hover:bg-muted/30 transition-colors animate-fade-in",
+                      !user.is_active && "opacity-60"
+                    )}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
+                          <AvatarImage src={user.avatar_url || ''} alt={user.full_name} />
+                          <AvatarFallback className="text-xs">
+                            {user.full_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <span className="font-medium block truncate">{user.full_name}</span>
+                          <span className="text-xs text-muted-foreground block sm:hidden">{user.position || '-'}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-muted-foreground hidden md:table-cell">
+                      {user.department || '-'}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <RoleIcon className={cn('w-4 h-4', roleConfig.color)} />
+                        <span className="hidden sm:inline">{roleConfig.label}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
+                      <Switch
+                        checked={user.is_active}
+                        onCheckedChange={() => handleToggleActive(user)}
+                      />
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleEditUser(user)}
+                      >
                         <Edit2 className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do usuário.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateUser} className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="edit-name">Nome completo *</Label>
+              <Input 
+                id="edit-name" 
+                placeholder="Nome do usuário" 
+                className="mt-1.5"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-position">Cargo</Label>
+                <Input 
+                  id="edit-position" 
+                  placeholder="Ex: Analista" 
+                  className="mt-1.5"
+                  value={editPosition}
+                  onChange={(e) => setEditPosition(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-department">Setor</Label>
+                <Input 
+                  id="edit-department" 
+                  placeholder="Ex: TI" 
+                  className="mt-1.5"
+                  value={editDepartment}
+                  onChange={(e) => setEditDepartment(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-role">Nível de Permissão *</Label>
+              <Select value={editRole} onValueChange={(v) => setEditRole(v as UserRole)}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Selecione o nível" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador - Acesso total</SelectItem>
+                  <SelectItem value="collaborator">Colaborador - Cadastrar e dar baixa</SelectItem>
+                  <SelectItem value="viewer">Visualizador - Apenas consultar</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div>
+                <Label>Status do usuário</Label>
+                <p className="text-xs text-muted-foreground">Usuários inativos não podem acessar o sistema</p>
+              </div>
+              <Switch
+                checked={editingUser?.is_active}
+                onCheckedChange={() => editingUser && handleToggleActive(editingUser)}
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={updateProfile.isPending}>
+                {updateProfile.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {updateProfile.isPending ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

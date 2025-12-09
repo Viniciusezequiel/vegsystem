@@ -74,7 +74,7 @@ const moduleGroups: NavGroup[] = [
     basePath: '/lockers',
     items: [
       { name: 'Escaninhos', href: '/lockers', icon: Lock },
-      { name: 'Alocações', href: '/lockers/allocations', icon: Users },
+      { name: 'Alocações', href: '/lockers/loans', icon: Users },
     ],
   },
 ];
@@ -143,13 +143,13 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar flex flex-col z-50">
       {/* Logo */}
-      <div className="p-6 border-b border-sidebar-border">
+      <div className="p-4 sm:p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
             <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
           </div>
-          <div>
-            <h1 className="font-semibold text-sidebar-foreground">GestãoPro</h1>
+          <div className="min-w-0">
+            <h1 className="font-semibold text-sidebar-foreground text-sm leading-tight">Setor Recursos Didáticos</h1>
             <p className="text-xs text-sidebar-foreground/60">Sistema Integrado</p>
           </div>
         </div>
