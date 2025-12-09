@@ -296,6 +296,21 @@ export function ExternalBookingSettings() {
                       }
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="end_date" className="text-xs text-muted-foreground">
+                      Data de Fim
+                    </Label>
+                    <Input
+                      id="end_date"
+                      type="date"
+                      value={newPeriod.end_date}
+                      onChange={(e) =>
+                        setNewPeriod({ ...newPeriod, end_date: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <Label className="text-xs text-muted-foreground">
                     Ambientes (deixe vazio para bloquear todos)
@@ -505,115 +520,6 @@ export function ExternalBookingSettings() {
                             </Badge>
                           ))}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-                    <Label htmlFor="end_date" className="text-xs text-muted-foreground">
-                      Data de Fim
-                    </Label>
-                    <Input
-                      id="end_date"
-                      type="date"
-                      value={newPeriod.end_date}
-                      onChange={(e) =>
-                        setNewPeriod({ ...newPeriod, end_date: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-xs text-muted-foreground">
-                    Ambientes (deixe vazio para bloquear todos)
-                  </Label>
-                  <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 bg-background">
-                    {rooms?.map((room) => (
-                      <label
-                        key={room.id}
-                        className="flex items-center gap-2 p-2 hover:bg-secondary/50 rounded cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={newPeriod.room_ids.includes(room.id)}
-                          onCheckedChange={() => handleToggleRoom(room.id)}
-                        />
-                        <span className="text-sm">
-                          {room.code} - {room.name}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="period_message" className="text-xs text-muted-foreground">
-                    Mensagem (opcional)
-                  </Label>
-                  <Input
-                    id="period_message"
-                    value={newPeriod.message}
-                    onChange={(e) =>
-                      setNewPeriod({ ...newPeriod, message: e.target.value })
-                    }
-                    placeholder="Ex: Manutenção programada"
-                  />
-                </div>
-
-                <Button onClick={handleAddPeriod} className="w-full gap-2">
-                  <Plus className="w-4 h-4" />
-                  Adicionar Período
-                </Button>
-              </div>
-
-              {/* Existing Periods */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Períodos Configurados</Label>
-                
-                {formData.blocked_periods.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg bg-secondary/20">
-                    Nenhum período de bloqueio configurado
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {formData.blocked_periods.map((period) => (
-                      <div
-                        key={period.id}
-                        className="flex items-start justify-between border rounded-lg p-3 bg-secondary/20"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-primary" />
-                            <span className="font-medium text-sm">
-                              {formatDate(period.start_date)} - {formatDate(period.end_date)}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {period.room_ids.length === 0 ? (
-                              <Badge variant="outline" className="text-xs">
-                                Todos os ambientes
-                              </Badge>
-                            ) : (
-                              period.room_ids.map((roomId) => (
-                                <Badge key={roomId} variant="secondary" className="text-xs">
-                                  {getRoomName(roomId)}
-                                </Badge>
-                              ))
-                            )}
-                          </div>
-                          {period.message && (
-                            <p className="text-xs text-muted-foreground">{period.message}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemovePeriod(period.id)}
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
                     ))}
                   </div>
