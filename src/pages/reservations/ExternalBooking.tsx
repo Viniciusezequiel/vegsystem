@@ -395,7 +395,10 @@ export default function ExternalBooking() {
                         className={`glass-morphism cursor-pointer transition-all hover:border-primary/40 ${
                           selectedRoom?.id === room.id ? 'border-primary ring-2 ring-primary/20' : 'border-border/30'
                         }`}
-                        onClick={() => setSelectedRoom(room)}
+                        onClick={() => {
+                          setSelectedRoom(room);
+                          setStep('booking');
+                        }}
                       >
                         <CardContent className="pt-6">
                           <div className="flex items-start justify-between mb-3">
@@ -403,9 +406,7 @@ export default function ExternalBooking() {
                               <p className="text-xs text-primary font-mono">{room.code}</p>
                               <h3 className="font-bold text-lg">{room.name}</h3>
                             </div>
-                            {selectedRoom?.id === room.id && (
-                              <CheckCircle2 className="w-6 h-6 text-primary" />
-                            )}
+                            <CheckCircle2 className="w-6 h-6 text-muted-foreground/30" />
                           </div>
                           <p className="text-sm text-muted-foreground mb-3">{room.description}</p>
                           <div className="flex gap-4 text-sm">
@@ -420,16 +421,11 @@ export default function ExternalBooking() {
                               </div>
                             )}
                           </div>
+                          <p className="text-xs text-primary mt-3 font-medium">Clique para reservar →</p>
                         </CardContent>
                       </Card>
                     ))}
                   </div>
-                )}
-
-                {selectedRoom && (
-                  <Button onClick={() => setStep('booking')} className="w-full btn-gradient">
-                    Continuar com {selectedRoom.name}
-                  </Button>
                 )}
               </div>
             )}
