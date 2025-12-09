@@ -14,6 +14,7 @@ export interface ReservationRoom {
   location: string | null;
   campus: CampusEnum;
   is_active: boolean;
+  auto_confirm: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -204,11 +205,22 @@ export function useCreateReservation() {
         throw new Error('Já existe uma reserva para este horário nesta sala.');
       }
 
+      // Fetch room to check auto_confirm setting
+      const { data: roomData } = await supabase
+        .from('reservation_rooms')
+        .select('auto_confirm')
+        .eq('id', data.room_id)
+        .single();
+
+      // Determine status: if room requires manual confirmation or is external, set to pending
+      const requiresManualConfirmation = roomData?.auto_confirm === false;
+      const initialStatus = (data.is_external || requiresManualConfirmation) ? 'pending' : 'confirmed';
+
       const { data: reservation, error } = await supabase
         .from('reservations')
         .insert({
           ...data,
-          status: data.is_external ? 'pending' : 'confirmed',
+          status: initialStatus,
         })
         .select()
         .single();

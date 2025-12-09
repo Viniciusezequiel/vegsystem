@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Loader2 } from 'lucide-react';
@@ -23,6 +24,7 @@ export function CreateRoomDialog() {
     description: '',
     location: '',
     campus: '' as CampusEnum | '',
+    auto_confirm: true,
   });
 
   const queryClient = useQueryClient();
@@ -42,6 +44,7 @@ export function CreateRoomDialog() {
           location: data.location || null,
           campus: data.campus as CampusEnum,
           is_active: true,
+          auto_confirm: data.auto_confirm,
         })
         .select()
         .single();
@@ -63,6 +66,7 @@ export function CreateRoomDialog() {
         description: '',
         location: '',
         campus: '',
+        auto_confirm: true,
       });
     },
     onError: (error: Error) => {
@@ -164,9 +168,21 @@ export function CreateRoomDialog() {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Recursos disponíveis, observações..."
-              rows={3}
-            />
+            rows={3}
+          />
+        </div>
+
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          <div>
+            <Label htmlFor="auto_confirm" className="font-medium">Confirmação Automática</Label>
+            <p className="text-xs text-muted-foreground">Quando desativado, reservas precisam de confirmação manual dos colaboradores</p>
           </div>
+          <Switch
+            id="auto_confirm"
+            checked={formData.auto_confirm}
+            onCheckedChange={(checked) => setFormData({ ...formData, auto_confirm: checked })}
+          />
+        </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
