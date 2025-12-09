@@ -14,6 +14,9 @@ import {
   ChevronDown,
   Loader2,
   Sparkles,
+  CalendarDays,
+  Calendar,
+  List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,6 +84,18 @@ const moduleGroups: NavGroup[] = [
     items: [
       { name: 'Escaninhos', href: '/lockers', icon: Lock },
       { name: 'Alocações', href: '/lockers/loans', icon: Users },
+    ],
+  },
+  {
+    name: 'Reservas',
+    icon: CalendarDays,
+    basePath: '/reservations',
+    gradient: 'from-indigo-500 to-violet-500',
+    items: [
+      { name: 'Ambientes', href: '/reservations', icon: CalendarDays },
+      { name: 'Reservas', href: '/reservations/list', icon: List },
+      { name: 'Calendário', href: '/reservations/calendar', icon: Calendar },
+      { name: 'Histórico', href: '/reservations/logs', icon: History },
     ],
   },
 ];

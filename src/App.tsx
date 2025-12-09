@@ -32,6 +32,14 @@ import RoomsList from "./pages/rooms/RoomsList";
 import ChecklistForm from "./pages/rooms/ChecklistForm";
 import ChecklistHistory from "./pages/rooms/ChecklistHistory";
 
+// Reservations Module
+import ReservationRoomsList from "./pages/reservations/ReservationRoomsList";
+import ReservationsList from "./pages/reservations/ReservationsList";
+import ReservationForm from "./pages/reservations/ReservationForm";
+import ReservationsCalendar from "./pages/reservations/ReservationsCalendar";
+import ReservationLogs from "./pages/reservations/ReservationLogs";
+import ExternalBooking from "./pages/reservations/ExternalBooking";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -145,6 +153,34 @@ const App = () => (
                 <LockerLoans />
               </ProtectedRoute>
             } />
+            
+            {/* Reservations Module */}
+            <Route path="/reservations" element={
+              <ProtectedRoute>
+                <ReservationRoomsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/reservations/list" element={
+              <ProtectedRoute>
+                <ReservationsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/reservations/new" element={
+              <ProtectedRoute>
+                <ReservationForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/reservations/calendar" element={
+              <ProtectedRoute>
+                <ReservationsCalendar />
+              </ProtectedRoute>
+            } />
+            <Route path="/reservations/logs" element={
+              <ProtectedRoute>
+                <ReservationLogs />
+              </ProtectedRoute>
+            } />
+            <Route path="/booking" element={<ExternalBooking />} />
             
             {/* Legacy routes */}
             <Route path="/register" element={
