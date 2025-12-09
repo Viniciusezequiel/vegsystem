@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useFindAvailableRooms, useCreateReservation, useReservations, ReservationRoom, Reservation } from '@/hooks/useReservations';
+import { useExternalBookingSettings } from '@/hooks/useAppSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,9 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User } from 'lucide-react';
+import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock } from 'lucide-react';
 import { z } from 'zod';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import batmanLogo from '@/assets/batman-logo.png';
 
@@ -39,6 +40,16 @@ export default function ExternalBooking() {
   const findRooms = useFindAvailableRooms();
   const createReservation = useCreateReservation();
   const { data: allReservations } = useReservations();
+  const { data: bookingSettings, isLoading: settingsLoading } = useExternalBookingSettings();
+
+  // Check if booking is blocked
+  const isBookingBlocked = useMemo(() => {
+    if (!bookingSettings?.blocked) return false;
+    if (bookingSettings.blocked_until) {
+      return !isBefore(new Date(), new Date(bookingSettings.blocked_until));
+    }
+    return true;
+  }, [bookingSettings]);
 
   const [mainTab, setMainTab] = useState<'booking' | 'myreservations'>('booking');
   const [step, setStep] = useState<'search' | 'select' | 'booking' | 'success'>('search');
@@ -203,31 +214,51 @@ export default function ExternalBooking() {
 
           {/* New Booking Tab */}
           <TabsContent value="booking">
-            {/* Steps */}
-            <div className="flex justify-center mb-8">
-              <div className="flex items-center gap-4">
-                {['Buscar', 'Selecionar', 'Reservar', 'Confirmação'].map((label, i) => {
-                  const stepIndex = ['search', 'select', 'booking', 'success'].indexOf(step);
-                  const isActive = i === stepIndex;
-                  const isCompleted = i < stepIndex;
-                  return (
-                    <div key={label} className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                        isCompleted ? 'bg-success text-success-foreground' :
-                        isActive ? 'gradient-primary text-primary-foreground' :
-                        'bg-secondary text-muted-foreground'
-                      }`}>
-                        {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-                      </div>
-                      <span className={`text-sm hidden sm:inline ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                        {label}
-                      </span>
-                      {i < 3 && <div className="w-8 h-px bg-border" />}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Blocked Message */}
+            {isBookingBlocked && (
+              <Card className="glass-morphism border-warning/30 mb-6">
+                <CardContent className="pt-6 text-center">
+                  <Lock className="w-12 h-12 text-warning mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Reservas Temporariamente Indisponíveis</h3>
+                  <p className="text-muted-foreground">
+                    {bookingSettings?.message || 'O sistema de reservas está temporariamente fechado. Tente novamente mais tarde.'}
+                  </p>
+                  {bookingSettings?.blocked_until && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Previsão de retorno: {format(new Date(bookingSettings.blocked_until), "dd/MM/yyyy", { locale: ptBR })}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {!isBookingBlocked && (
+              <>
+                {/* Steps */}
+                <div className="flex justify-center mb-8">
+                  <div className="flex items-center gap-4">
+                    {['Buscar', 'Selecionar', 'Reservar', 'Confirmação'].map((label, i) => {
+                      const stepIndex = ['search', 'select', 'booking', 'success'].indexOf(step);
+                      const isActive = i === stepIndex;
+                      const isCompleted = i < stepIndex;
+                      return (
+                        <div key={label} className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                            isCompleted ? 'bg-success text-success-foreground' :
+                            isActive ? 'gradient-primary text-primary-foreground' :
+                            'bg-secondary text-muted-foreground'
+                          }`}>
+                            {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                          </div>
+                          <span className={`text-sm hidden sm:inline ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                            {label}
+                          </span>
+                          {i < 3 && <div className="w-8 h-px bg-border" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
             {/* Step 1: Search */}
             {step === 'search' && (
@@ -474,6 +505,8 @@ export default function ExternalBooking() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+              </>
             )}
           </TabsContent>
 

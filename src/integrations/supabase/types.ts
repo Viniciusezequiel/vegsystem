@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       checklist_answers: {
         Row: {
           answer: boolean
@@ -278,6 +305,84 @@ export type Database = {
           id?: string
           location?: string
           status?: Database["public"]["Enums"]["locker_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lost_items: {
+        Row: {
+          box: string | null
+          campus: Database["public"]["Enums"]["campus_enum"]
+          code: string
+          created_at: string
+          delivered_at: string | null
+          delivered_by_contact: string | null
+          delivered_by_name: string
+          delivered_by_team_member: string | null
+          description: string
+          found_date: string
+          found_location: string
+          id: string
+          image_url: string | null
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          owner_signature: string | null
+          received_date: string
+          registered_by: string | null
+          seal_number: string | null
+          shelf: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          box?: string | null
+          campus: Database["public"]["Enums"]["campus_enum"]
+          code: string
+          created_at?: string
+          delivered_at?: string | null
+          delivered_by_contact?: string | null
+          delivered_by_name: string
+          delivered_by_team_member?: string | null
+          description: string
+          found_date: string
+          found_location: string
+          id?: string
+          image_url?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          owner_signature?: string | null
+          received_date: string
+          registered_by?: string | null
+          seal_number?: string | null
+          shelf?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          box?: string | null
+          campus?: Database["public"]["Enums"]["campus_enum"]
+          code?: string
+          created_at?: string
+          delivered_at?: string | null
+          delivered_by_contact?: string | null
+          delivered_by_name?: string
+          delivered_by_team_member?: string | null
+          description?: string
+          found_date?: string
+          found_location?: string
+          id?: string
+          image_url?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          owner_signature?: string | null
+          received_date?: string
+          registered_by?: string | null
+          seal_number?: string | null
+          shelf?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -576,6 +681,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      expire_old_lost_items: { Args: never; Returns: undefined }
       find_available_rooms: {
         Args: {
           p_attendees_count?: number

@@ -1,20 +1,27 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { useReservationRooms, useUpdateReservationRoom, ReservationRoom } from '@/hooks/useReservations';
+import { useReservationRooms, useUpdateReservationRoom, useDeleteReservationRoom, ReservationRoom } from '@/hooks/useReservations';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Users, MapPin, Calendar, Pencil } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Search, Plus, Users, MapPin, Calendar, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { RoomEditDialog } from '@/components/reservations/RoomEditDialog';
+import { AvailabilityChecker } from '@/components/reservations/AvailabilityChecker';
+import { ExternalBookingSettings } from '@/components/reservations/ExternalBookingSettings';
+import { RecurringReservation } from '@/components/reservations/RecurringReservation';
 
 export default function ReservationRoomsList() {
   const navigate = useNavigate();
   const { data: rooms, isLoading } = useReservationRooms();
   const updateRoom = useUpdateReservationRoom();
+  const deleteRoom = useDeleteReservationRoom();
   const [searchQuery, setSearchQuery] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<ReservationRoom | null>(null);
 
   const filteredRooms = rooms?.filter(room =>
@@ -31,10 +38,25 @@ export default function ReservationRoomsList() {
     { header: 'Campus', accessor: 'campus' },
   ];
 
-  const handleEditClick = (room: ReservationRoom, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleEditClick = (room: ReservationRoom) => {
     setSelectedRoom(room);
     setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (room: ReservationRoom) => {
+    setSelectedRoom(room);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedRoom) {
+      deleteRoom.mutate(selectedRoom.id, {
+        onSuccess: () => {
+          setDeleteDialogOpen(false);
+          setSelectedRoom(null);
+        },
+      });
+    }
   };
 
   const handleSaveRoom = (data: Partial<ReservationRoom>) => {
@@ -62,13 +84,16 @@ export default function ReservationRoomsList() {
           </div>
           <p className="page-subtitle">Gerencie os ambientes disponíveis para reservas</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <PdfExportButton
             data={filteredRooms}
             columns={pdfColumns}
             title="Relatório de Ambientes"
             filename="ambientes-reserva"
           />
+          <ExternalBookingSettings />
+          <AvailabilityChecker />
+          <RecurringReservation />
           <Button onClick={() => navigate('/reservations/calendar')} variant="outline" className="gap-2">
             <Calendar className="w-4 h-4" />
             Calendário
@@ -109,8 +134,7 @@ export default function ReservationRoomsList() {
           {filteredRooms.map((room) => (
             <div
               key={room.id}
-              className="glass-card rounded-2xl p-6 cursor-pointer hover:border-primary/40 transition-all card-shine group"
-              onClick={() => navigate(`/reservations/new?room=${room.id}`)}
+              className="glass-card rounded-2xl p-6 hover:border-primary/40 transition-all card-shine group"
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -118,14 +142,30 @@ export default function ReservationRoomsList() {
                   <h3 className="font-bold text-lg text-foreground">{room.name}</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => handleEditClick(room, e)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditClick(room)}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(room)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Badge variant={room.is_active ? 'default' : 'secondary'} className={room.is_active ? 'bg-success/20 text-success' : ''}>
                     {room.is_active ? 'Ativo' : 'Inativo'}
                   </Badge>
@@ -169,6 +209,27 @@ export default function ReservationRoomsList() {
         onSave={handleSaveRoom}
         isPending={updateRoom.isPending}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Ambiente</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o ambiente "{selectedRoom?.name}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteRoom.isPending ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
