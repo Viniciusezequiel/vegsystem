@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Plus, Users, MapPin, Calendar, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, Users, MapPin, Calendar, MoreVertical, Pencil, Trash2, Building } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { RoomEditDialog } from '@/components/reservations/RoomEditDialog';
@@ -14,6 +14,8 @@ import { AvailabilityChecker } from '@/components/reservations/AvailabilityCheck
 import { ExternalBookingSettings } from '@/components/reservations/ExternalBookingSettings';
 import { RecurringReservation } from '@/components/reservations/RecurringReservation';
 import { RoomCombinationsDialog } from '@/components/reservations/RoomCombinationsDialog';
+import { CreateRoomDialog } from '@/components/reservations/CreateRoomDialog';
+import { QuickCombinedReservation } from '@/components/reservations/QuickCombinedReservation';
 
 export default function ReservationRoomsList() {
   const navigate = useNavigate();
@@ -93,7 +95,8 @@ export default function ReservationRoomsList() {
             filename="ambientes-reserva"
           />
           <ExternalBookingSettings />
-          <RoomCombinationsDialog />
+          <CreateRoomDialog />
+          <QuickCombinedReservation />
           <AvailabilityChecker />
           <RecurringReservation />
           <Button onClick={() => navigate('/reservations/calendar')} variant="outline" className="gap-2">
@@ -189,6 +192,10 @@ export default function ReservationRoomsList() {
                     <span>{room.location}</span>
                   </div>
                 )}
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Building className="w-4 h-4 text-success" />
+                  <span>{room.campus}</span>
+                </div>
               </div>
             </div>
           ))}
