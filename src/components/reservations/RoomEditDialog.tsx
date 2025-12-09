@@ -48,6 +48,7 @@ export function RoomEditDialog({
     location: '',
     campus: 'Campus I' as CampusEnum,
     is_active: true,
+    auto_confirm: true,
   });
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export function RoomEditDialog({
         location: room.location || '',
         campus: room.campus as CampusEnum,
         is_active: room.is_active,
+        auto_confirm: (room as any).auto_confirm ?? true,
       });
     }
   }, [room]);
@@ -159,6 +161,17 @@ export function RoomEditDialog({
               placeholder="Descrição do ambiente..."
               rows={3}
               className="mt-1.5"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="auto_confirm">Confirmação Automática</Label>
+              <p className="text-xs text-muted-foreground">Quando desativado, reservas precisam de confirmação manual</p>
+            </div>
+            <Switch
+              id="auto_confirm"
+              checked={formData.auto_confirm}
+              onCheckedChange={(checked) => setFormData({ ...formData, auto_confirm: checked })}
             />
           </div>
           <div className="flex items-center justify-between">

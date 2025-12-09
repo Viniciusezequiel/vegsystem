@@ -473,6 +473,7 @@ export type Database = {
       }
       reservation_rooms: {
         Row: {
+          auto_confirm: boolean
           campus: Database["public"]["Enums"]["campus_enum"]
           capacity: number
           code: string
@@ -485,6 +486,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_confirm?: boolean
           campus: Database["public"]["Enums"]["campus_enum"]
           capacity?: number
           code: string
@@ -497,6 +499,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_confirm?: boolean
           campus?: Database["public"]["Enums"]["campus_enum"]
           capacity?: number
           code?: string

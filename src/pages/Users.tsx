@@ -90,14 +90,18 @@ export default function Users() {
         },
       });
 
-      if (response.error) {
+      // Check if there's an error in response.error OR in response.data.error
+      const hasError = response.error || response.data?.error;
+      
+      if (hasError) {
+        const errorMessage = response.error?.message || response.data?.error || 'Erro desconhecido';
         // Check for authentication errors
-        if (response.error.message?.includes('Invalid token') || response.error.message?.includes('401')) {
+        if (errorMessage.includes('Invalid token') || errorMessage.includes('401')) {
           toast.error('Sua sessão expirou. Por favor, faça login novamente.');
           window.location.href = '/auth';
           return;
         }
-        throw response.error;
+        throw new Error(errorMessage);
       }
       
       toast.success('Usuário criado com sucesso!');
