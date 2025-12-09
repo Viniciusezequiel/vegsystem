@@ -13,6 +13,7 @@ import { RoomEditDialog } from '@/components/reservations/RoomEditDialog';
 import { AvailabilityChecker } from '@/components/reservations/AvailabilityChecker';
 import { ExternalBookingSettings } from '@/components/reservations/ExternalBookingSettings';
 import { RecurringReservation } from '@/components/reservations/RecurringReservation';
+import { RoomCombinationsDialog } from '@/components/reservations/RoomCombinationsDialog';
 
 export default function ReservationRoomsList() {
   const navigate = useNavigate();
@@ -92,6 +93,7 @@ export default function ReservationRoomsList() {
             filename="ambientes-reserva"
           />
           <ExternalBookingSettings />
+          <RoomCombinationsDialog />
           <AvailabilityChecker />
           <RecurringReservation />
           <Button onClick={() => navigate('/reservations/calendar')} variant="outline" className="gap-2">

@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react';
-import { useExternalBookingSettings, useUpdateExternalBookingSettings, ExternalBookingSettings as Settings } from '@/hooks/useAppSettings';
+import { useExternalBookingSettings, useUpdateExternalBookingSettings, ExternalBookingSettings as Settings, BlockedPeriod } from '@/hooks/useAppSettings';
+import { useReservationRooms } from '@/hooks/useReservations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings as SettingsIcon, Copy, Check, Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Settings as SettingsIcon, Copy, Check, Loader2, Plus, Trash2, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export function ExternalBookingSettings() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { data: settings, isLoading } = useExternalBookingSettings();
+  const { data: rooms } = useReservationRooms();
   const updateSettings = useUpdateExternalBookingSettings();
   const { toast } = useToast();
 
@@ -20,11 +27,22 @@ export function ExternalBookingSettings() {
     blocked: false,
     blocked_until: null,
     message: '',
+    blocked_periods: [],
+  });
+
+  const [newPeriod, setNewPeriod] = useState<Omit<BlockedPeriod, 'id'>>({
+    start_date: '',
+    end_date: '',
+    room_ids: [],
+    message: '',
   });
 
   useEffect(() => {
     if (settings) {
-      setFormData(settings);
+      setFormData({
+        ...settings,
+        blocked_periods: settings.blocked_periods || [],
+      });
     }
   }, [settings]);
 
@@ -48,10 +66,64 @@ export function ExternalBookingSettings() {
     }
   };
 
+  const handleAddPeriod = () => {
+    if (!newPeriod.start_date || !newPeriod.end_date) {
+      toast({
+        title: 'Erro',
+        description: 'Preencha as datas de início e fim.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const period: BlockedPeriod = {
+      ...newPeriod,
+      id: crypto.randomUUID(),
+    };
+
+    setFormData({
+      ...formData,
+      blocked_periods: [...formData.blocked_periods, period],
+    });
+
+    setNewPeriod({
+      start_date: '',
+      end_date: '',
+      room_ids: [],
+      message: '',
+    });
+  };
+
+  const handleRemovePeriod = (id: string) => {
+    setFormData({
+      ...formData,
+      blocked_periods: formData.blocked_periods.filter((p) => p.id !== id),
+    });
+  };
+
+  const handleToggleRoom = (roomId: string) => {
+    setNewPeriod((prev) => ({
+      ...prev,
+      room_ids: prev.room_ids.includes(roomId)
+        ? prev.room_ids.filter((id) => id !== roomId)
+        : [...prev.room_ids, roomId],
+    }));
+  };
+
   const handleSave = () => {
     updateSettings.mutate(formData, {
       onSuccess: () => setOpen(false),
     });
+  };
+
+  const getRoomName = (id: string) => rooms?.find((r) => r.id === id)?.code || 'Sala';
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return format(new Date(dateStr), 'dd/MM/yyyy', { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
   };
 
   return (
@@ -62,7 +134,7 @@ export function ExternalBookingSettings() {
           Configurações
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Configurações de Reservas Externas</DialogTitle>
         </DialogHeader>
@@ -72,88 +144,225 @@ export function ExternalBookingSettings() {
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Copy Link */}
-            <div className="space-y-2">
-              <Label>Link para Clientes Externos</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={bookingUrl}
-                  readOnly
-                  className="bg-secondary/50 text-sm"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopyLink}
-                  className="shrink-0"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-success" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Compartilhe este link para que clientes externos possam fazer reservas.
-              </p>
-            </div>
+          <Tabs defaultValue="general" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="general">Geral</TabsTrigger>
+              <TabsTrigger value="periods">Períodos de Bloqueio</TabsTrigger>
+            </TabsList>
 
-            {/* Block Booking */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Bloquear Reservas Externas</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Impede novos agendamentos por clientes externos
-                  </p>
+            <TabsContent value="general" className="space-y-6 mt-4">
+              {/* Copy Link */}
+              <div className="space-y-2">
+                <Label>Link para Clientes Externos</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={bookingUrl}
+                    readOnly
+                    className="bg-secondary/50 text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyLink}
+                    className="shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-success" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
                 </div>
-                <Switch
-                  checked={formData.blocked}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, blocked: checked })
-                  }
-                />
+                <p className="text-xs text-muted-foreground">
+                  Compartilhe este link para que clientes externos possam fazer reservas.
+                </p>
               </div>
 
-              {formData.blocked && (
-                <>
+              {/* Block All Bookings */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="blocked_until">Bloquear até (opcional)</Label>
-                    <Input
-                      id="blocked_until"
-                      type="date"
-                      value={formData.blocked_until || ''}
-                      onChange={(e) =>
-                        setFormData({ ...formData, blocked_until: e.target.value || null })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Deixe vazio para bloquear indefinidamente
+                    <Label>Bloquear Todas as Reservas Externas</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Impede todos os novos agendamentos por clientes externos
                     </p>
                   </div>
+                  <Switch
+                    checked={formData.blocked}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, blocked: checked })
+                    }
+                  />
+                </div>
 
+                {formData.blocked && (
+                  <>
+                    <div>
+                      <Label htmlFor="blocked_until">Bloquear até (opcional)</Label>
+                      <Input
+                        id="blocked_until"
+                        type="date"
+                        value={formData.blocked_until || ''}
+                        onChange={(e) =>
+                          setFormData({ ...formData, blocked_until: e.target.value || null })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Deixe vazio para bloquear indefinidamente
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="message">Mensagem para clientes</Label>
+                      <Textarea
+                        id="message"
+                        value={formData.message}
+                        onChange={(e) =>
+                          setFormData({ ...formData, message: e.target.value })
+                        }
+                        placeholder="Ex: Estamos em recesso. Retornaremos em Janeiro."
+                        rows={3}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="periods" className="space-y-6 mt-4">
+              {/* Add New Period */}
+              <div className="space-y-4 border rounded-lg p-4 bg-secondary/30">
+                <Label className="text-sm font-medium">Novo Período de Bloqueio</Label>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="message">Mensagem para clientes</Label>
-                    <Textarea
-                      id="message"
-                      value={formData.message}
+                    <Label htmlFor="start_date" className="text-xs text-muted-foreground">
+                      Data de Início
+                    </Label>
+                    <Input
+                      id="start_date"
+                      type="date"
+                      value={newPeriod.start_date}
                       onChange={(e) =>
-                        setFormData({ ...formData, message: e.target.value })
+                        setNewPeriod({ ...newPeriod, start_date: e.target.value })
                       }
-                      placeholder="Ex: Estamos em recesso. Retornaremos em Janeiro."
-                      rows={3}
                     />
                   </div>
-                </>
-              )}
-            </div>
+                  <div>
+                    <Label htmlFor="end_date" className="text-xs text-muted-foreground">
+                      Data de Fim
+                    </Label>
+                    <Input
+                      id="end_date"
+                      type="date"
+                      value={newPeriod.end_date}
+                      onChange={(e) =>
+                        setNewPeriod({ ...newPeriod, end_date: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    Ambientes (deixe vazio para bloquear todos)
+                  </Label>
+                  <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 bg-background">
+                    {rooms?.map((room) => (
+                      <label
+                        key={room.id}
+                        className="flex items-center gap-2 p-2 hover:bg-secondary/50 rounded cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={newPeriod.room_ids.includes(room.id)}
+                          onCheckedChange={() => handleToggleRoom(room.id)}
+                        />
+                        <span className="text-sm">
+                          {room.code} - {room.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="period_message" className="text-xs text-muted-foreground">
+                    Mensagem (opcional)
+                  </Label>
+                  <Input
+                    id="period_message"
+                    value={newPeriod.message}
+                    onChange={(e) =>
+                      setNewPeriod({ ...newPeriod, message: e.target.value })
+                    }
+                    placeholder="Ex: Manutenção programada"
+                  />
+                </div>
+
+                <Button onClick={handleAddPeriod} className="w-full gap-2">
+                  <Plus className="w-4 h-4" />
+                  Adicionar Período
+                </Button>
+              </div>
+
+              {/* Existing Periods */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Períodos Configurados</Label>
+                
+                {formData.blocked_periods.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg bg-secondary/20">
+                    Nenhum período de bloqueio configurado
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {formData.blocked_periods.map((period) => (
+                      <div
+                        key={period.id}
+                        className="flex items-start justify-between border rounded-lg p-3 bg-secondary/20"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-primary" />
+                            <span className="font-medium text-sm">
+                              {formatDate(period.start_date)} - {formatDate(period.end_date)}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {period.room_ids.length === 0 ? (
+                              <Badge variant="outline" className="text-xs">
+                                Todos os ambientes
+                              </Badge>
+                            ) : (
+                              period.room_ids.map((roomId) => (
+                                <Badge key={roomId} variant="secondary" className="text-xs">
+                                  {getRoomName(roomId)}
+                                </Badge>
+                              ))
+                            )}
+                          </div>
+                          {period.message && (
+                            <p className="text-xs text-muted-foreground">{period.message}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemovePeriod(period.id)}
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
             <Button
               onClick={handleSave}
               disabled={updateSettings.isPending}
-              className="w-full btn-gradient"
+              className="w-full btn-gradient mt-4"
             >
               {updateSettings.isPending ? (
                 <>
@@ -164,7 +373,7 @@ export function ExternalBookingSettings() {
                 'Salvar Configurações'
               )}
             </Button>
-          </div>
+          </Tabs>
         )}
       </DialogContent>
     </Dialog>

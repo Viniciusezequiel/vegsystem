@@ -42,14 +42,44 @@ export default function ExternalBooking() {
   const { data: allReservations } = useReservations();
   const { data: bookingSettings, isLoading: settingsLoading } = useExternalBookingSettings();
 
-  // Check if booking is blocked
+  // Check if booking is blocked globally
   const isBookingBlocked = useMemo(() => {
     if (!bookingSettings?.blocked) return false;
     if (bookingSettings.blocked_until) {
-      return !isBefore(new Date(), new Date(bookingSettings.blocked_until));
+      return isBefore(new Date(), new Date(bookingSettings.blocked_until));
     }
     return true;
   }, [bookingSettings]);
+
+  // Check if a specific room is blocked for a specific date
+  const isRoomBlockedForDate = (roomId: string, date: string): { blocked: boolean; message?: string } => {
+    if (!bookingSettings?.blocked_periods || bookingSettings.blocked_periods.length === 0) {
+      return { blocked: false };
+    }
+
+    const selectedDate = new Date(date);
+    
+    for (const period of bookingSettings.blocked_periods) {
+      const startDate = new Date(period.start_date);
+      const endDate = new Date(period.end_date);
+      
+      // Check if date is within period
+      if (selectedDate >= startDate && selectedDate <= endDate) {
+        // Check if room is affected (empty room_ids means all rooms)
+        if (period.room_ids.length === 0 || period.room_ids.includes(roomId)) {
+          return { blocked: true, message: period.message };
+        }
+      }
+    }
+    
+    return { blocked: false };
+  };
+
+  // Filter available rooms to exclude blocked ones
+  const filterBlockedRooms = (rooms: ReservationRoom[]): ReservationRoom[] => {
+    if (!searchData.start_date) return rooms;
+    return rooms.filter((room) => !isRoomBlockedForDate(room.id, searchData.start_date).blocked);
+  };
 
   const [mainTab, setMainTab] = useState<'booking' | 'myreservations'>('booking');
   const [step, setStep] = useState<'search' | 'select' | 'booking' | 'success'>('search');
@@ -117,7 +147,9 @@ export default function ExternalBooking() {
       },
       {
         onSuccess: (rooms) => {
-          setAvailableRooms(rooms);
+          // Filter out rooms that are blocked for the selected date
+          const filteredRooms = filterBlockedRooms(rooms);
+          setAvailableRooms(filteredRooms);
           setStep('select');
         },
       }
