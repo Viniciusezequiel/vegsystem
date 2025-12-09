@@ -23,6 +23,7 @@ import {
 import { Plus, Search, Package, ArrowRight, Edit, Trash2 } from 'lucide-react';
 import { useEquipmentList, useDeleteEquipment, Equipment } from '@/hooks/useEquipment';
 import { useAuth } from '@/contexts/AuthContext';
+import { PdfExportButton, PdfColumn, PdfFilter } from '@/components/ui/PdfExportButton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,7 +65,42 @@ export default function EquipmentList() {
             <h1 className="text-2xl font-bold text-foreground">Gestão de Patrimônios</h1>
             <p className="text-muted-foreground">Gerencie o inventário de equipamentos</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <PdfExportButton
+              title="Relatório de Equipamentos"
+              filename="equipamentos"
+              columns={[
+                { header: 'Nome', accessor: 'name' },
+                { header: 'Patrimônio', accessor: 'patrimony_code' },
+                { header: 'Qtd. Total', accessor: (row) => String(row.quantity) },
+                { header: 'Disponível', accessor: (row) => String(row.available_quantity) },
+                { header: 'Campus', accessor: 'campus' },
+                { header: 'Local', accessor: 'location' },
+                { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
+              ]}
+              data={filteredEquipment || []}
+              filters={[
+                {
+                  label: 'Campus',
+                  key: 'campus',
+                  options: [
+                    { label: 'Campus I', value: 'Campus I' },
+                    { label: 'Campus II', value: 'Campus II' },
+                    { label: 'Campus IV', value: 'Campus IV' },
+                    { label: 'Campus HUCM Adm', value: 'Campus HUCM Adm' },
+                  ],
+                },
+                {
+                  label: 'Status',
+                  key: 'status',
+                  options: [
+                    { label: 'Disponível', value: 'available' },
+                    { label: 'Emprestado', value: 'borrowed' },
+                    { label: 'Manutenção', value: 'maintenance' },
+                  ],
+                },
+              ]}
+            />
             <Button asChild variant="outline">
               <Link to="/equipment/loans">
                 <ArrowRight className="mr-2 h-4 w-4" />

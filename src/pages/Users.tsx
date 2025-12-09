@@ -23,6 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { UserPlus, Shield, Eye, Edit2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUsersList, useUpdateUserProfile, useToggleUserActive, UserProfile } from '@/hooks/useUsers';
+import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -145,14 +146,46 @@ export default function Users() {
           <h1 className="page-title">Gerenciar Usuários</h1>
           <p className="page-subtitle">Adicione e gerencie os usuários do sistema</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
-              <UserPlus className="w-4 h-4 mr-2" />
-              Novo Usuário
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <PdfExportButton
+            title="Relatório de Usuários"
+            filename="usuarios"
+            columns={[
+              { header: 'Nome', accessor: 'full_name' },
+              { header: 'Cargo', accessor: (row) => row.position || '-' },
+              { header: 'Setor', accessor: (row) => row.department || '-' },
+              { header: 'Permissão', accessor: (row) => roleLabels[row.role as UserRole]?.label || 'Visualizador' },
+              { header: 'Status', accessor: (row) => row.is_active ? 'Ativo' : 'Inativo' },
+            ]}
+            data={users || []}
+            filters={[
+              {
+                label: 'Permissão',
+                key: 'role',
+                options: [
+                  { label: 'Administrador', value: 'admin' },
+                  { label: 'Colaborador', value: 'collaborator' },
+                  { label: 'Visualizador', value: 'viewer' },
+                ],
+              },
+              {
+                label: 'Status',
+                key: 'is_active',
+                options: [
+                  { label: 'Ativo', value: 'true' },
+                  { label: 'Inativo', value: 'false' },
+                ],
+              },
+            ]}
+          />
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex-1 sm:flex-initial">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Novo Usuário
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Adicionar Novo Usuário</DialogTitle>
               <DialogDescription>
@@ -241,8 +274,9 @@ export default function Users() {
                 </Button>
               </div>
             </form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Permission Levels Info */}

@@ -16,6 +16,7 @@ import {
 import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone } from 'lucide-react';
 import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, LockerLoan } from '@/hooks/useLockers';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
+import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -167,12 +168,39 @@ export default function LockerLoans() {
               <p className="text-sm text-muted-foreground">Gerencie as alocações e devoluções</p>
             </div>
           </div>
-          <Button asChild className="w-full sm:w-auto">
-            <Link to="/lockers/loan/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Alocação
-            </Link>
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <PdfExportButton
+              title="Relatório de Alocações de Escaninhos"
+              filename="alocacoes_escaninhos"
+              columns={[
+                { header: 'Escaninho', accessor: (row) => row.locker?.code || 'N/A' },
+                { header: 'Campus', accessor: (row) => row.locker?.campus || 'N/A' },
+                { header: 'Cliente', accessor: 'borrower_name' },
+                { header: 'Telefone', accessor: 'borrower_phone' },
+                { header: 'Setor', accessor: (row) => row.borrower_sector || '-' },
+                { header: 'Prev. Devolução', accessor: (row) => formatDate(row.expected_return_date) },
+                { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
+              ]}
+              data={[...(activeLoans || []), ...(returnedLoans || [])]}
+              filters={[
+                {
+                  label: 'Status',
+                  key: 'status',
+                  options: [
+                    { label: 'Ativo', value: 'active' },
+                    { label: 'Devolvido', value: 'returned' },
+                    { label: 'Atrasado', value: 'overdue' },
+                  ],
+                },
+              ]}
+            />
+            <Button asChild className="flex-1 sm:flex-initial">
+              <Link to="/lockers/loan/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Alocação
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {overdueLoans && overdueLoans.length > 0 && (
