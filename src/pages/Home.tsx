@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,137 +9,101 @@ import {
   ClipboardCheck, 
   Lock,
   ArrowRight,
-  TrendingUp,
-  AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Clock,
   Users,
-  Calendar
+  Phone
 } from 'lucide-react';
-import { mockModuleStats, mockLogs, mockRoomChecklists, mockEquipmentLoans } from '@/data/mockData';
-import { format } from 'date-fns';
+import { useOverdueLoans } from '@/hooks/useEquipment';
+import { useOverdueLockerLoans } from '@/hooks/useLockers';
+import { useEquipmentList } from '@/hooks/useEquipment';
+import { useLockersList } from '@/hooks/useLockers';
+import { useRoomsList } from '@/hooks/useRooms';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-const modules = [
-  {
-    id: 'lost-found',
-    title: 'Achados e Perdidos',
-    description: 'Gestão de itens encontrados e entregas',
-    icon: Package,
-    href: '/lost-found',
-    color: 'from-blue-500 to-blue-600',
-    bgColor: 'bg-blue-500/10',
-    stats: [
-      { label: 'Disponíveis', value: mockModuleStats.lostFound.available, icon: CheckCircle2 },
-      { label: 'Pendentes', value: mockModuleStats.lostFound.pending, icon: Clock },
-      { label: 'Entregues', value: mockModuleStats.lostFound.delivered, icon: TrendingUp },
-    ],
-  },
-  {
-    id: 'equipment',
-    title: 'Equipamentos',
-    description: 'Controle de estoque e empréstimos',
-    icon: Monitor,
-    href: '/equipment',
-    color: 'from-emerald-500 to-emerald-600',
-    bgColor: 'bg-emerald-500/10',
-    stats: [
-      { label: 'Disponíveis', value: mockModuleStats.equipment.available, icon: CheckCircle2 },
-      { label: 'Emprestados', value: mockModuleStats.equipment.borrowed, icon: Users },
-      { label: 'Manutenção', value: mockModuleStats.equipment.maintenance, icon: AlertCircle },
-    ],
-  },
-  {
-    id: 'rooms',
-    title: 'Checklist de Salas',
-    description: 'Verificação e controle de ambientes',
-    icon: ClipboardCheck,
-    href: '/rooms',
-    color: 'from-amber-500 to-amber-600',
-    bgColor: 'bg-amber-500/10',
-    stats: [
-      { label: 'Salas', value: mockModuleStats.rooms.total, icon: CheckCircle2 },
-      { label: 'Pendentes', value: mockModuleStats.rooms.pendingChecklists, icon: Clock },
-      { label: 'Com Problemas', value: mockModuleStats.rooms.issuesReported, icon: AlertCircle },
-    ],
-  },
-  {
-    id: 'lockers',
-    title: 'Escaninhos',
-    description: 'Gestão de armários e alocações',
-    icon: Lock,
-    href: '/lockers',
-    color: 'from-purple-500 to-purple-600',
-    bgColor: 'bg-purple-500/10',
-    stats: [
-      { label: 'Disponíveis', value: mockModuleStats.lockers.available, icon: CheckCircle2 },
-      { label: 'Ocupados', value: mockModuleStats.lockers.occupied, icon: Users },
-      { label: 'Vencendo', value: mockModuleStats.lockers.expiringSoon, icon: AlertCircle },
-    ],
-  },
-];
 
 export default function Home() {
   const navigate = useNavigate();
-
-  type ActivityType = 'lost-found' | 'equipment' | 'rooms' | 'lockers';
   
-  interface Activity {
-    id: string;
-    type: ActivityType;
-    title: string;
-    description: string | undefined;
-    user: string;
-    time: string;
-  }
+  // Fetch real data
+  const { data: overdueEquipment } = useOverdueLoans();
+  const { data: overdueLockers } = useOverdueLockerLoans();
+  const { data: equipment } = useEquipmentList();
+  const { data: lockers } = useLockersList();
+  const { data: rooms } = useRoomsList();
 
-  interface PendingTask {
-    id: string;
-    type: ActivityType;
-    title: string;
-    description: string;
-    dueDate: string;
-  }
+  // Calculate stats
+  const equipmentStats = {
+    available: equipment?.filter(e => e.status === 'available').length || 0,
+    borrowed: equipment?.filter(e => e.status === 'borrowed').length || 0,
+    maintenance: equipment?.filter(e => e.status === 'maintenance').length || 0,
+  };
 
-  const lostFoundActivities: Activity[] = mockLogs.slice(0, 3).map(log => ({
-    id: log.id,
-    type: 'lost-found',
-    title: log.action === 'Item registrado' ? 'Item registrado' : log.action === 'Item entregue' ? 'Item entregue' : 'Atividade',
-    description: log.itemDescription,
-    user: log.userName,
-    time: log.timestamp,
-  }));
+  const lockerStats = {
+    available: lockers?.filter(l => l.status === 'available').length || 0,
+    occupied: lockers?.filter(l => l.status === 'occupied').length || 0,
+  };
 
-  const equipmentActivities: Activity[] = mockEquipmentLoans.filter(l => l.status === 'active').slice(0, 2).map(loan => ({
-    id: loan.id,
-    type: 'equipment',
-    title: 'Equipamento emprestado',
-    description: loan.equipmentName,
-    user: loan.borrowerName,
-    time: loan.loanDate,
-  }));
+  const totalOverdue = (overdueEquipment?.length || 0) + (overdueLockers?.length || 0);
 
-  const recentActivities = [...lostFoundActivities, ...equipmentActivities]
-    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-    .slice(0, 5);
+  const modules = [
+    {
+      id: 'lost-found',
+      title: 'Achados e Perdidos',
+      description: 'Gestão de itens encontrados e entregas',
+      icon: Package,
+      href: '/lost-found',
+      color: 'from-blue-500 to-blue-600',
+      bgColor: 'bg-blue-500/10',
+      stats: [
+        { label: 'Módulo', value: 'Ativo', icon: CheckCircle2 },
+      ],
+    },
+    {
+      id: 'equipment',
+      title: 'Equipamentos',
+      description: 'Controle de estoque e empréstimos',
+      icon: Monitor,
+      href: '/equipment',
+      color: 'from-emerald-500 to-emerald-600',
+      bgColor: 'bg-emerald-500/10',
+      stats: [
+        { label: 'Disponíveis', value: equipmentStats.available, icon: CheckCircle2 },
+        { label: 'Emprestados', value: equipmentStats.borrowed, icon: Users },
+        { label: 'Manutenção', value: equipmentStats.maintenance, icon: Clock },
+      ],
+    },
+    {
+      id: 'rooms',
+      title: 'Checklist de Salas',
+      description: 'Verificação e controle de ambientes',
+      icon: ClipboardCheck,
+      href: '/rooms',
+      color: 'from-amber-500 to-amber-600',
+      bgColor: 'bg-amber-500/10',
+      stats: [
+        { label: 'Salas', value: rooms?.length || 0, icon: CheckCircle2 },
+      ],
+    },
+    {
+      id: 'lockers',
+      title: 'Escaninhos',
+      description: 'Gestão de armários e alocações',
+      icon: Lock,
+      href: '/lockers',
+      color: 'from-purple-500 to-purple-600',
+      bgColor: 'bg-purple-500/10',
+      stats: [
+        { label: 'Disponíveis', value: lockerStats.available, icon: CheckCircle2 },
+        { label: 'Ocupados', value: lockerStats.occupied, icon: Users },
+      ],
+    },
+  ];
 
-  const roomTasks: PendingTask[] = mockRoomChecklists.filter(c => c.status === 'pending').map(c => ({
-    id: c.id,
-    type: 'rooms',
-    title: 'Checklist pendente',
-    description: c.roomName,
-    dueDate: c.date,
-  }));
-
-  const loanTasks: PendingTask[] = mockEquipmentLoans.filter(l => l.status === 'active').map(loan => ({
-    id: loan.id,
-    type: 'equipment',
-    title: 'Devolução esperada',
-    description: `${loan.equipmentName} - ${loan.borrowerName}`,
-    dueDate: loan.expectedReturn,
-  }));
-
-  const pendingTasks: PendingTask[] = [...roomTasks, ...loanTasks];
+  const getDaysOverdue = (date: string) => {
+    return differenceInDays(new Date(), parseISO(date));
+  };
 
   return (
     <MainLayout>
@@ -151,6 +115,91 @@ export default function Home() {
             Visão geral do sistema de gestão
           </p>
         </div>
+
+        {/* Overdue Alerts */}
+        {totalOverdue > 0 && (
+          <Card className="border-destructive bg-destructive/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Atenção: {totalOverdue} item(ns) com devolução atrasada!
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Equipment Overdue */}
+              {overdueEquipment && overdueEquipment.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Equipamentos:</p>
+                  <div className="space-y-2">
+                    {overdueEquipment.slice(0, 5).map((loan) => (
+                      <div key={loan.id} className="flex items-center justify-between bg-background/50 rounded-lg p-3">
+                        <div>
+                          <p className="font-medium text-sm">{loan.equipment?.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {loan.borrower_name} - {loan.borrower_sector}
+                          </p>
+                          <p className="text-xs text-destructive font-medium">
+                            {getDaysOverdue(loan.expected_return_date)} dias de atraso
+                          </p>
+                        </div>
+                        <a
+                          href={`https://wa.me/55${loan.borrower_phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg"
+                        >
+                          <Phone className="h-3 w-3" />
+                          Contatar
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                  {overdueEquipment.length > 5 && (
+                    <Button asChild variant="link" size="sm" className="mt-2">
+                      <Link to="/equipment/loans">Ver todos ({overdueEquipment.length})</Link>
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* Lockers Overdue */}
+              {overdueLockers && overdueLockers.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Escaninhos:</p>
+                  <div className="space-y-2">
+                    {overdueLockers.slice(0, 5).map((loan) => (
+                      <div key={loan.id} className="flex items-center justify-between bg-background/50 rounded-lg p-3">
+                        <div>
+                          <p className="font-medium text-sm">Escaninho {loan.locker?.code}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {loan.borrower_name}
+                          </p>
+                          <p className="text-xs text-destructive font-medium">
+                            {getDaysOverdue(loan.expected_return_date)} dias de atraso
+                          </p>
+                        </div>
+                        <a
+                          href={`https://wa.me/55${loan.borrower_phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg"
+                        >
+                          <Phone className="h-3 w-3" />
+                          Contatar
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                  {overdueLockers.length > 5 && (
+                    <Button asChild variant="link" size="sm" className="mt-2">
+                      <Link to="/lockers/loans">Ver todos ({overdueLockers.length})</Link>
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Module Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -179,7 +228,7 @@ export default function Home() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-4">
+                <div className={`grid grid-cols-${module.stats.length} gap-4`}>
                   {module.stats.map((stat, index) => (
                     <div 
                       key={index} 
@@ -198,92 +247,40 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Bottom Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Activity */}
-          <Card className="border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
-                Atividade Recente
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/history')}>
-                Ver tudo
-                <ArrowRight className="w-4 h-4 ml-1" />
+        {/* Quick Actions */}
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Ações Rápidas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+                <Link to="/equipment/register">
+                  <Monitor className="h-5 w-5" />
+                  <span className="text-xs">Cadastrar Equipamento</span>
+                </Link>
               </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className={`w-2 h-2 rounded-full mt-2 ${
-                    activity.type === 'lost-found' ? 'bg-blue-500' :
-                    activity.type === 'equipment' ? 'bg-emerald-500' :
-                    activity.type === 'rooms' ? 'bg-amber-500' : 'bg-purple-500'
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">{activity.title}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {activity.type === 'lost-found' ? 'A&P' :
-                         activity.type === 'equipment' ? 'Equip.' :
-                         activity.type === 'rooms' ? 'Salas' : 'Esc.'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">{activity.description}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {activity.user} • {format(new Date(activity.time), "dd MMM 'às' HH:mm", { locale: ptBR })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Pending Tasks */}
-          <Card className="border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                Tarefas Pendentes
-              </CardTitle>
-              <Badge variant="secondary" className="text-xs">
-                {pendingTasks.length} pendentes
-              </Badge>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {pendingTasks.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Nenhuma tarefa pendente</p>
-                </div>
-              ) : (
-                pendingTasks.map((task) => (
-                  <div key={task.id} className="flex items-start gap-4 p-3 rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      task.type === 'rooms' ? 'bg-amber-500/10' : 'bg-emerald-500/10'
-                    }`}>
-                      {task.type === 'rooms' ? (
-                        <ClipboardCheck className="w-5 h-5 text-amber-600" />
-                      ) : (
-                        <Monitor className="w-5 h-5 text-emerald-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">{task.title}</p>
-                      <p className="text-sm text-muted-foreground truncate">{task.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Previsto: {format(new Date(task.dueDate), "dd 'de' MMMM", { locale: ptBR })}
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Ver
-                    </Button>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+                <Link to="/equipment/loan/new">
+                  <Package className="h-5 w-5" />
+                  <span className="text-xs">Novo Empréstimo</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+                <Link to="/rooms/checklist/new">
+                  <ClipboardCheck className="h-5 w-5" />
+                  <span className="text-xs">Novo Checklist</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+                <Link to="/lost-found/register">
+                  <Package className="h-5 w-5" />
+                  <span className="text-xs">Registrar Item</span>
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   );
