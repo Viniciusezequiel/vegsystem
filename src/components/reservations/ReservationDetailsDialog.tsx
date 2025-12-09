@@ -1,10 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Reservation, useUpdateReservation } from '@/hooks/useReservations';
+import { Reservation, useUpdateReservation, useDeleteReservation } from '@/hooks/useReservations';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Check, X, Calendar, Clock, Users, Mail, Phone, MapPin, Building } from 'lucide-react';
+import { Check, X, Calendar, Clock, Users, Mail, Phone, MapPin, Building, Trash2 } from 'lucide-react';
 
 const statusConfig = {
   pending: { label: 'Pendente', className: 'bg-warning/20 text-warning border-warning/30' },
@@ -21,11 +22,18 @@ interface ReservationDetailsDialogProps {
 
 export function ReservationDetailsDialog({ reservation, open, onOpenChange }: ReservationDetailsDialogProps) {
   const updateReservation = useUpdateReservation();
+  const deleteReservation = useDeleteReservation();
 
   if (!reservation) return null;
 
   const handleStatusChange = (status: string) => {
     updateReservation.mutate({ id: reservation.id, status: status as Reservation['status'] }, {
+      onSuccess: () => onOpenChange(false),
+    });
+  };
+
+  const handleDelete = () => {
+    deleteReservation.mutate(reservation.id, {
       onSuccess: () => onOpenChange(false),
     });
   };
@@ -163,6 +171,36 @@ export function ReservationDetailsDialog({ reservation, open, onOpenChange }: Re
               </Button>
             </div>
           )}
+
+          {/* Delete Button */}
+          <div className="pt-4 border-t">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                  disabled={deleteReservation.isPending}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir Reserva
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir reserva?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação não pode ser desfeita. A reserva "{reservation.title}" será permanentemente removida do sistema.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

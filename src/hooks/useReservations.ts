@@ -286,6 +286,44 @@ export function useUpdateReservation() {
   });
 }
 
+export function useDeleteReservation() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // Log before delete
+      await supabase.from('reservation_logs').insert({
+        reservation_id: id,
+        action: 'Reserva excluída',
+        details: 'Reserva removida do sistema',
+      });
+
+      const { error } = await supabase
+        .from('reservations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['reservation-logs'] });
+      toast({
+        title: 'Reserva excluída',
+        description: 'A reserva foi excluída com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 export function useFindAvailableRooms() {
   const { toast } = useToast();
 
