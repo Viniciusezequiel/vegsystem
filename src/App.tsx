@@ -16,6 +16,22 @@ import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
+// Equipment Module
+import EquipmentList from "./pages/equipment/EquipmentList";
+import EquipmentRegister from "./pages/equipment/EquipmentRegister";
+import EquipmentLoans from "./pages/equipment/EquipmentLoans";
+import EquipmentLoanForm from "./pages/equipment/EquipmentLoanForm";
+
+// Lockers Module
+import LockersList from "./pages/lockers/LockersList";
+import LockerLoanForm from "./pages/lockers/LockerLoanForm";
+import LockerLoans from "./pages/lockers/LockerLoans";
+
+// Rooms Module
+import RoomsList from "./pages/rooms/RoomsList";
+import ChecklistForm from "./pages/rooms/ChecklistForm";
+import ChecklistHistory from "./pages/rooms/ChecklistHistory";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -29,6 +45,7 @@ const App = () => (
             {/* Public Routes */}
             <Route path="/auth" element={<Auth />} />
             <Route path="/setup" element={<Setup />} />
+            
             {/* Protected Routes */}
             <Route path="/" element={
               <ProtectedRoute>
@@ -63,39 +80,64 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Equipment Module (placeholder) */}
+            {/* Equipment Module */}
             <Route path="/equipment" element={
               <ProtectedRoute>
-                <NotFound />
+                <EquipmentList />
+              </ProtectedRoute>
+            } />
+            <Route path="/equipment/register" element={
+              <ProtectedRoute>
+                <EquipmentRegister />
               </ProtectedRoute>
             } />
             <Route path="/equipment/loans" element={
               <ProtectedRoute>
-                <NotFound />
+                <EquipmentLoans />
+              </ProtectedRoute>
+            } />
+            <Route path="/equipment/loan/new" element={
+              <ProtectedRoute>
+                <EquipmentLoanForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/equipment/edit/:id" element={
+              <ProtectedRoute>
+                <EquipmentRegister />
               </ProtectedRoute>
             } />
             
-            {/* Rooms Module (placeholder) */}
+            {/* Rooms Module */}
             <Route path="/rooms" element={
               <ProtectedRoute>
-                <NotFound />
+                <RoomsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/rooms/checklist/new" element={
+              <ProtectedRoute>
+                <ChecklistForm />
               </ProtectedRoute>
             } />
             <Route path="/rooms/checklists" element={
               <ProtectedRoute>
-                <NotFound />
+                <ChecklistHistory />
               </ProtectedRoute>
             } />
             
-            {/* Lockers Module (placeholder) */}
+            {/* Lockers Module */}
             <Route path="/lockers" element={
               <ProtectedRoute>
-                <NotFound />
+                <LockersList />
               </ProtectedRoute>
             } />
-            <Route path="/lockers/allocations" element={
+            <Route path="/lockers/loan/new" element={
               <ProtectedRoute>
-                <NotFound />
+                <LockerLoanForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/lockers/loans" element={
+              <ProtectedRoute>
+                <LockerLoans />
               </ProtectedRoute>
             } />
             
