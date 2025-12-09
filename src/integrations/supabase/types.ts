@@ -315,6 +315,161 @@ export type Database = {
         }
         Relationships: []
       }
+      reservation_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: string | null
+          id: string
+          performed_by: string | null
+          performer_name: string | null
+          reservation_id: string | null
+          room_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          performed_by?: string | null
+          performer_name?: string | null
+          reservation_id?: string | null
+          room_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          performed_by?: string | null
+          performer_name?: string | null
+          reservation_id?: string | null
+          room_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_logs_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_logs_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_rooms: {
+        Row: {
+          campus: Database["public"]["Enums"]["campus_enum"]
+          capacity: number
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          location: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          campus: Database["public"]["Enums"]["campus_enum"]
+          capacity?: number
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          campus?: Database["public"]["Enums"]["campus_enum"]
+          capacity?: number
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reservations: {
+        Row: {
+          approved_by: string | null
+          attendees_count: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_datetime: string
+          id: string
+          is_external: boolean
+          notes: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone: string | null
+          room_id: string
+          start_datetime: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          attendees_count?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_datetime: string
+          id?: string
+          is_external?: boolean
+          notes?: string | null
+          requester_email: string
+          requester_name: string
+          requester_phone?: string | null
+          room_id: string
+          start_datetime: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          attendees_count?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_datetime?: string
+          id?: string
+          is_external?: boolean
+          notes?: string | null
+          requester_email?: string
+          requester_name?: string
+          requester_phone?: string | null
+          room_id?: string
+          start_datetime?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_checklists: {
         Row: {
           filled_at: string
@@ -409,6 +564,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_reservation_conflict: {
+        Args: {
+          p_end_datetime: string
+          p_exclude_reservation_id?: string
+          p_room_id: string
+          p_start_datetime: string
+        }
+        Returns: boolean
+      }
+      find_available_rooms: {
+        Args: {
+          p_attendees_count?: number
+          p_campus?: Database["public"]["Enums"]["campus_enum"]
+          p_end_datetime: string
+          p_start_datetime: string
+        }
+        Returns: {
+          campus: Database["public"]["Enums"]["campus_enum"]
+          capacity: number
+          code: string
+          description: string
+          id: string
+          location: string
+          name: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
