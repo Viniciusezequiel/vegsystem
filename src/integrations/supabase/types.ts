@@ -193,6 +193,7 @@ export type Database = {
       locker_loans: {
         Row: {
           actual_return_date: string | null
+          borrower_email: string | null
           borrower_name: string
           borrower_phone: string
           borrower_sector: string | null
@@ -208,6 +209,7 @@ export type Database = {
         }
         Insert: {
           actual_return_date?: string | null
+          borrower_email?: string | null
           borrower_name: string
           borrower_phone: string
           borrower_sector?: string | null
@@ -223,6 +225,7 @@ export type Database = {
         }
         Update: {
           actual_return_date?: string | null
+          borrower_email?: string | null
           borrower_name?: string
           borrower_phone?: string
           borrower_sector?: string | null

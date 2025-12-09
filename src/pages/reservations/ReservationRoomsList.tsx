@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { useReservationRooms } from '@/hooks/useReservations';
+import { useReservationRooms, useUpdateReservationRoom, ReservationRoom } from '@/hooks/useReservations';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Users, MapPin, Calendar } from 'lucide-react';
+import { Search, Plus, Users, MapPin, Calendar, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
+import { RoomEditDialog } from '@/components/reservations/RoomEditDialog';
 
 export default function ReservationRoomsList() {
   const navigate = useNavigate();
   const { data: rooms, isLoading } = useReservationRooms();
+  const updateRoom = useUpdateReservationRoom();
   const [searchQuery, setSearchQuery] = useState('');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<ReservationRoom | null>(null);
 
   const filteredRooms = rooms?.filter(room =>
     room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -26,6 +30,25 @@ export default function ReservationRoomsList() {
     { header: 'Localização', accessor: 'location' },
     { header: 'Campus', accessor: 'campus' },
   ];
+
+  const handleEditClick = (room: ReservationRoom, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedRoom(room);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveRoom = (data: Partial<ReservationRoom>) => {
+    if (!data.id) return;
+    updateRoom.mutate(
+      { id: data.id, ...data },
+      {
+        onSuccess: () => {
+          setEditDialogOpen(false);
+          setSelectedRoom(null);
+        },
+      }
+    );
+  };
 
   return (
     <MainLayout>
@@ -86,17 +109,27 @@ export default function ReservationRoomsList() {
           {filteredRooms.map((room) => (
             <div
               key={room.id}
-              className="glass-card rounded-2xl p-6 cursor-pointer hover:border-primary/40 transition-all card-shine"
-              onClick={() => navigate(`/reservations/room/${room.id}`)}
+              className="glass-card rounded-2xl p-6 cursor-pointer hover:border-primary/40 transition-all card-shine group"
+              onClick={() => navigate(`/reservations/new?room=${room.id}`)}
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <p className="text-xs text-primary font-mono font-medium mb-1">{room.code}</p>
                   <h3 className="font-bold text-lg text-foreground">{room.name}</h3>
                 </div>
-                <Badge variant={room.is_active ? 'default' : 'secondary'} className={room.is_active ? 'bg-success/20 text-success' : ''}>
-                  {room.is_active ? 'Ativo' : 'Inativo'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => handleEditClick(room, e)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Badge variant={room.is_active ? 'default' : 'secondary'} className={room.is_active ? 'bg-success/20 text-success' : ''}>
+                    {room.is_active ? 'Ativo' : 'Inativo'}
+                  </Badge>
+                </div>
               </div>
 
               <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
@@ -127,6 +160,15 @@ export default function ReservationRoomsList() {
           <p className="text-muted-foreground">Tente ajustar os filtros de busca.</p>
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <RoomEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        room={selectedRoom}
+        onSave={handleSaveRoom}
+        isPending={updateRoom.isPending}
+      />
     </MainLayout>
   );
 }

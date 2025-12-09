@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
+type CampusEnum = Database['public']['Enums']['campus_enum'];
+
 export interface ReservationRoom {
   id: string;
   name: string;
@@ -10,7 +12,7 @@ export interface ReservationRoom {
   capacity: number;
   description: string | null;
   location: string | null;
-  campus: string;
+  campus: CampusEnum;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -59,6 +61,39 @@ export function useReservationRooms() {
       
       if (error) throw error;
       return data as ReservationRoom[];
+    },
+  });
+}
+
+export function useUpdateReservationRoom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<ReservationRoom> & { id: string }) => {
+      const { data: room, error } = await supabase
+        .from('reservation_rooms')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return room;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservation-rooms'] });
+      toast({
+        title: 'Ambiente atualizado',
+        description: 'O ambiente foi atualizado com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
     },
   });
 }
