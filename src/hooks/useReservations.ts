@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
 
 export interface ReservationRoom {
   id: string;
@@ -228,13 +229,13 @@ export function useFindAvailableRooms() {
       start_datetime: string;
       end_datetime: string;
       attendees_count: number;
-      campus?: string;
+      campus?: Database['public']['Enums']['campus_enum'];
     }) => {
       const { data, error } = await supabase.rpc('find_available_rooms', {
         p_start_datetime: params.start_datetime,
         p_end_datetime: params.end_datetime,
         p_attendees_count: params.attendees_count,
-        p_campus: params.campus || null,
+        p_campus: params.campus ?? null,
       });
 
       if (error) throw error;
