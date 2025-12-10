@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useFindAvailableRooms, useCreateReservation, useReservations, ReservationRoom, Reservation } from '@/hooks/useReservations';
+import { useFindAvailableRooms, useReservations, ReservationRoom, Reservation } from '@/hooks/useReservations';
 import { useExternalBookingSettings } from '@/hooks/useAppSettings';
+import { useCreateExternalReservation } from '@/hooks/useExternalReservation';
 import { useEquipmentList } from '@/hooks/useEquipment';
 import { useCreateExternalEquipmentRequest, useExternalEquipmentRequestsByEmail } from '@/hooks/useExternalEquipmentRequests';
 import { Button } from '@/components/ui/button';
@@ -56,7 +57,7 @@ const statusLabels: Record<string, { label: string; variant: 'default' | 'second
 
 export default function ExternalBooking() {
   const findRooms = useFindAvailableRooms();
-  const createReservation = useCreateReservation();
+  const createExternalReservation = useCreateExternalReservation();
   const { data: allReservations } = useReservations();
   const { data: bookingSettings, isLoading: settingsLoading } = useExternalBookingSettings();
   const { data: equipment } = useEquipmentList();
@@ -215,7 +216,7 @@ export default function ExternalBooking() {
     const start_datetime = `${searchData.start_date}T${searchData.start_time}:00`;
     const end_datetime = `${searchData.start_date}T${searchData.end_time}:00`;
 
-    createReservation.mutate(
+    createExternalReservation.mutate(
       {
         room_id: selectedRoom.id,
         title: bookingData.title,
@@ -226,7 +227,6 @@ export default function ExternalBooking() {
         start_datetime,
         end_datetime,
         description: bookingData.description || undefined,
-        is_external: true,
       },
       {
         onSuccess: () => setStep('success'),
@@ -573,8 +573,8 @@ export default function ExternalBooking() {
                             rows={3}
                           />
                         </div>
-                        <Button type="submit" className="w-full btn-gradient" disabled={createReservation.isPending}>
-                          {createReservation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        <Button type="submit" className="w-full btn-gradient" disabled={createExternalReservation.isPending}>
+                          {createExternalReservation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                           Confirmar Reserva
                         </Button>
                       </form>
