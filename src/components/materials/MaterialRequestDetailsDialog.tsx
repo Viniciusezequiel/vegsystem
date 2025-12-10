@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Clock, 
   CheckCircle, 
@@ -20,12 +21,14 @@ import {
   Package,
   User,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  UserCheck
 } from 'lucide-react';
 import { MaterialRequest, useUpdateMaterialRequest, useDeleteMaterialRequest } from '@/hooks/useMaterialRequests';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUsersList } from '@/hooks/useUsers';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,17 +66,32 @@ export function MaterialRequestDetailsDialog({ request, open, onClose, canManage
   const { isAdmin } = useAuth();
   const updateRequest = useUpdateMaterialRequest();
   const deleteRequest = useDeleteMaterialRequest();
+  const { data: users = [] } = useUsersList();
   const [adminNotes, setAdminNotes] = useState(request.admin_notes || '');
+  const [assignedTo, setAssignedTo] = useState(request.assigned_to || '');
   
   const status = statusConfig[request.status];
   const priority = priorityConfig[request.priority];
   const StatusIcon = status.icon;
+
+  // Filter only active collaborators and admins
+  const collaborators = users.filter(u => u.is_active && (u.role === 'admin' || u.role === 'collaborator'));
 
   const handleStatusChange = async (newStatus: string) => {
     await updateRequest.mutateAsync({
       id: request.id,
       status: newStatus,
       admin_notes: adminNotes,
+    });
+    onClose();
+  };
+
+  const handleAssign = async () => {
+    const selectedUser = users.find(u => u.user_id === assignedTo);
+    await updateRequest.mutateAsync({
+      id: request.id,
+      assigned_to: assignedTo || undefined,
+      assigned_to_name: selectedUser?.full_name,
     });
     onClose();
   };
@@ -118,6 +136,13 @@ export function MaterialRequestDetailsDialog({ request, open, onClose, canManage
                 {format(new Date(request.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
               </span>
             </div>
+            {request.assigned_to_name && (
+              <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+                <UserCheck className="w-4 h-4" />
+                <span>Atribuído a:</span>
+                <span className="text-foreground font-medium">{request.assigned_to_name}</span>
+              </div>
+            )}
           </div>
 
           {request.description && (
@@ -154,6 +179,41 @@ export function MaterialRequestDetailsDialog({ request, open, onClose, canManage
               ))}
             </div>
           </div>
+
+          {/* Assign Collaborator */}
+          {canManage && (
+            <>
+              <Separator />
+              <div>
+                <Label className="flex items-center gap-2 mb-2">
+                  <UserCheck className="w-4 h-4" />
+                  Atribuir a um Colaborador
+                </Label>
+                <div className="flex gap-2">
+                  <Select value={assignedTo} onValueChange={setAssignedTo}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecione um colaborador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {collaborators.map((user) => (
+                        <SelectItem key={user.user_id} value={user.user_id}>
+                          {user.full_name} - {user.position || user.department || user.role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleAssign}
+                    disabled={updateRequest.isPending}
+                  >
+                    Salvar
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Admin Notes */}
           {canManage && (

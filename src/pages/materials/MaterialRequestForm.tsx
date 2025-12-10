@@ -7,16 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, Package, Send } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, Send, UserCheck } from 'lucide-react';
 import { useCreateMaterialRequest, MaterialRequestItem } from '@/hooks/useMaterialRequests';
+import { useUsersList } from '@/hooks/useUsers';
 
 export default function MaterialRequestForm() {
   const navigate = useNavigate();
   const createRequest = useCreateMaterialRequest();
+  const { data: users = [] } = useUsersList();
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
+  const [assignedTo, setAssignedTo] = useState<string>('');
   const [items, setItems] = useState<MaterialRequestItem[]>([
     { name: '', quantity: 1, description: '' }
   ]);
@@ -45,15 +48,22 @@ export default function MaterialRequestForm() {
       return;
     }
     
+    const selectedUser = users.find(u => u.user_id === assignedTo);
+    
     await createRequest.mutateAsync({
       title,
       description,
       items: validItems,
       priority,
+      assigned_to: assignedTo || undefined,
+      assigned_to_name: selectedUser?.full_name,
     });
     
     navigate('/materials');
   };
+
+  // Filter only active collaborators and admins
+  const collaborators = users.filter(u => u.is_active && (u.role === 'admin' || u.role === 'collaborator'));
 
   return (
     <MainLayout>
@@ -109,6 +119,29 @@ export default function MaterialRequestForm() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="assigned" className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4" />
+                Atribuir a um Colaborador
+              </Label>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um colaborador (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum (aguardar atribuição)</SelectItem>
+                  {collaborators.map((user) => (
+                    <SelectItem key={user.user_id} value={user.user_id}>
+                      {user.full_name} - {user.position || user.department || user.role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Selecione um colaborador para dar andamento à solicitação
+              </p>
             </div>
             
             <div className="space-y-2">

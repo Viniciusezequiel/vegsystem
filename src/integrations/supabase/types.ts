@@ -460,6 +460,8 @@ export type Database = {
           admin_notes: string | null
           approved_at: string | null
           approved_by: string | null
+          assigned_to: string | null
+          assigned_to_name: string | null
           created_at: string
           description: string | null
           id: string
@@ -475,6 +477,8 @@ export type Database = {
           admin_notes?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          assigned_to?: string | null
+          assigned_to_name?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -490,6 +494,8 @@ export type Database = {
           admin_notes?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          assigned_to?: string | null
+          assigned_to_name?: string | null
           created_at?: string
           description?: string | null
           id?: string
