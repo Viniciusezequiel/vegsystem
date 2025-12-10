@@ -23,8 +23,10 @@ import {
   CheckSquare,
   ShoppingCart,
   RefreshCw,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -128,6 +130,15 @@ const moduleGroups: NavGroup[] = [
       { name: 'Solicitações', href: '/materials', icon: ShoppingCart },
     ],
   },
+  {
+    name: 'Chamados de Sala',
+    icon: Bell,
+    basePath: '/classroom-calls',
+    gradient: 'from-red-500 to-orange-500',
+    items: [
+      { name: 'Chamados', href: '/classroom-calls', icon: Bell },
+    ],
+  },
 ];
 
 const bottomNav: NavItem[] = [
@@ -147,6 +158,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { profile, role, signOut, isAdmin } = useAuth();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { data: pendingCallsCount } = usePendingCallsCount();
   
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const currentGroup = moduleGroups.find(group => 
@@ -305,10 +317,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       )}
                     >
                       <div className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center transition-all',
+                        'w-8 h-8 rounded-lg flex items-center justify-center transition-all relative',
                         isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
                       )}>
                         <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
+                        {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                            {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
+                          </span>
+                        )}
                       </div>
                     </RouterNavLink>
                   </TooltipTrigger>
@@ -329,10 +346,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 )}>
                   <div className="flex items-center gap-3">
                     <div className={cn(
-                      'w-8 h-8 rounded-lg flex items-center justify-center transition-all',
+                      'w-8 h-8 rounded-lg flex items-center justify-center transition-all relative',
                       isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
                     )}>
                       <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
+                      {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                          {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
+                        </span>
+                      )}
                     </div>
                     <span className="font-medium text-sm truncate">{group.name}</span>
                   </div>
