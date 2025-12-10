@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ExternalProtectedRoute } from "@/components/ExternalProtectedRoute";
 import Auth from "./pages/Auth";
 import Setup from "./pages/Setup";
 import Home from "./pages/Home";
@@ -43,6 +44,7 @@ import ReservationsCalendar from "./pages/reservations/ReservationsCalendar";
 import ReservationLogs from "./pages/reservations/ReservationLogs";
 import ReservationApprovals from "./pages/reservations/ReservationApprovals";
 import ExternalBooking from "./pages/reservations/ExternalBooking";
+import ExternalAuth from "./pages/reservations/ExternalAuth";
 import ReschedulingsList from "./pages/reservations/ReschedulingsList";
 
 // Materials Module
@@ -209,7 +211,12 @@ const App = () => (
                 <ReschedulingsList />
               </ProtectedRoute>
             } />
-            <Route path="/booking" element={<ExternalBooking />} />
+            <Route path="/booking-auth" element={<ExternalAuth />} />
+            <Route path="/booking" element={
+              <ExternalProtectedRoute>
+                <ExternalBooking />
+              </ExternalProtectedRoute>
+            } />
             
             {/* Materials Module */}
             <Route path="/materials" element={
