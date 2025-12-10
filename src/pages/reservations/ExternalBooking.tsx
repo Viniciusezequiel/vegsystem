@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFindAvailableRooms, useReservations, ReservationRoom, Reservation } from '@/hooks/useReservations';
 import { useExternalBookingSettings } from '@/hooks/useAppSettings';
 import { useCreateExternalReservation } from '@/hooks/useExternalReservation';
 import { useEquipmentList } from '@/hooks/useEquipment';
 import { useCreateExternalEquipmentRequest, useExternalEquipmentRequestsByEmail } from '@/hooks/useExternalEquipmentRequests';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box } from 'lucide-react';
+import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut } from 'lucide-react';
 import { z } from 'zod';
 import { format, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -56,12 +58,16 @@ const statusLabels: Record<string, { label: string; variant: 'default' | 'second
 };
 
 export default function ExternalBooking() {
+  const navigate = useNavigate();
   const findRooms = useFindAvailableRooms();
   const createExternalReservation = useCreateExternalReservation();
   const { data: allReservations } = useReservations();
   const { data: bookingSettings, isLoading: settingsLoading } = useExternalBookingSettings();
   const { data: equipment } = useEquipmentList();
   const createEquipmentRequest = useCreateExternalEquipmentRequest();
+
+  // Current user state
+  const [currentUser, setCurrentUser] = useState<{ email: string; full_name?: string; phone?: string } | null>(null);
 
   // Check if booking is blocked globally
   const isBookingBlocked = useMemo(() => {
@@ -97,6 +103,42 @@ export default function ExternalBooking() {
   const filterBlockedRooms = (rooms: ReservationRoom[]): ReservationRoom[] => {
     if (!searchData.start_date) return rooms;
     return rooms.filter((room) => !isRoomBlockedForDate(room.id, searchData.start_date).blocked);
+  };
+
+  // Fetch current user data on mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const userData = {
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || '',
+          phone: user.user_metadata?.phone || '',
+        };
+        setCurrentUser(userData);
+        
+        // Pre-fill forms with user data
+        setBookingData(prev => ({
+          ...prev,
+          requester_name: userData.full_name || prev.requester_name,
+          requester_email: userData.email || prev.requester_email,
+          requester_phone: userData.phone || prev.requester_phone,
+        }));
+        setEquipmentData(prev => ({
+          ...prev,
+          requester_name: userData.full_name || prev.requester_name,
+          requester_email: userData.email || prev.requester_email,
+          requester_phone: userData.phone || prev.requester_phone,
+        }));
+        setEmailFilter(userData.email);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/booking-auth');
   };
 
   const [mainTab, setMainTab] = useState<'booking' | 'equipment' | 'myreservations'>('booking');
@@ -322,6 +364,14 @@ export default function ExternalBooking() {
       <div className="relative z-10 container max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
+          {/* Logout button */}
+          <div className="flex justify-end mb-4">
+            <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+              <LogOut className="w-4 h-4" />
+              Sair
+            </Button>
+          </div>
+          
           <div className="flex justify-center mb-4">
             <div className="relative">
               <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
@@ -331,7 +381,7 @@ export default function ExternalBooking() {
           <h1 className="text-3xl font-bold gradient-text mb-2">Portal de Solicitações</h1>
           <p className="text-muted-foreground flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
-            Sistema de agendamento para clientes externos
+            Olá, {currentUser?.full_name || currentUser?.email || 'Usuário'}
             <Sparkles className="w-4 h-4 text-primary" />
           </p>
         </div>
