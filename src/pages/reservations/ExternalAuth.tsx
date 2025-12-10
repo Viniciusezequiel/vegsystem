@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mail, User, Phone, Sparkles, ArrowLeft } from 'lucide-react';
+import { Loader2, Lock, Mail, User, Phone, Sparkles, ArrowLeft, CreditCard } from 'lucide-react';
 import { z } from 'zod';
 import batmanLogo from '@/assets/batman-logo.png';
 
@@ -19,6 +19,7 @@ const loginSchema = z.object({
 const signupSchema = z.object({
   full_name: z.string().min(3, { message: 'Nome deve ter no mínimo 3 caracteres' }),
   email: z.string().trim().email({ message: 'Email inválido' }),
+  cpf: z.string().min(11, { message: 'CPF deve ter 11 dígitos' }).max(14, { message: 'CPF inválido' }),
   phone: z.string().min(8, { message: 'Telefone deve ter no mínimo 8 caracteres' }),
   password: z.string().min(6, { message: 'Senha deve ter no mínimo 6 caracteres' }),
   confirmPassword: z.string().min(6, { message: 'Confirmação de senha obrigatória' }),
@@ -30,6 +31,15 @@ const signupSchema = z.object({
 const resetSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
 });
+
+// CPF mask function
+const formatCPF = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
 
 export default function ExternalAuth() {
   const navigate = useNavigate();
@@ -46,6 +56,7 @@ export default function ExternalAuth() {
   const [signupData, setSignupData] = useState({
     full_name: '',
     email: '',
+    cpf: '',
     phone: '',
     password: '',
     confirmPassword: '',
@@ -137,8 +148,9 @@ export default function ExternalAuth() {
     setIsLoading(true);
 
     const redirectUrl = `${window.location.origin}/booking`;
+    const cpfDigits = signupData.cpf.replace(/\D/g, '');
 
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email: signupData.email,
       password: signupData.password,
       options: {
@@ -146,13 +158,15 @@ export default function ExternalAuth() {
         data: {
           full_name: signupData.full_name,
           phone: signupData.phone,
+          cpf: cpfDigits,
+          is_external: true,
         },
       },
     });
 
-    if (error) {
+    if (authError) {
       let message = 'Erro ao criar conta.';
-      if (error.message.includes('already registered')) {
+      if (authError.message.includes('already registered')) {
         message = 'Este email já está cadastrado.';
       }
       toast({
@@ -160,21 +174,41 @@ export default function ExternalAuth() {
         description: message,
         variant: 'destructive',
       });
-    } else {
-      toast({
-        title: 'Cadastro realizado!',
-        description: 'Você já pode fazer login.',
-      });
-      setActiveTab('login');
-      setLoginData({ email: signupData.email, password: '' });
-      setSignupData({
-        full_name: '',
-        email: '',
-        phone: '',
-        password: '',
-        confirmPassword: '',
-      });
+      setIsLoading(false);
+      return;
     }
+
+    // Create external_users record
+    if (authData.user) {
+      const { error: profileError } = await (supabase as any)
+        .from('external_users')
+        .insert({
+          user_id: authData.user.id,
+          full_name: signupData.full_name,
+          email: signupData.email,
+          cpf: cpfDigits,
+          phone: signupData.phone,
+        });
+
+      if (profileError) {
+        console.error('Error creating external user profile:', profileError);
+      }
+    }
+
+    toast({
+      title: 'Cadastro realizado!',
+      description: 'Você já pode fazer login.',
+    });
+    setActiveTab('login');
+    setLoginData({ email: signupData.email, password: '' });
+    setSignupData({
+      full_name: '',
+      email: '',
+      cpf: '',
+      phone: '',
+      password: '',
+      confirmPassword: '',
+    });
 
     setIsLoading(false);
   };
@@ -327,6 +361,23 @@ export default function ExternalAuth() {
                     />
                   </div>
                   {signupErrors.full_name && <p className="text-xs text-destructive">{signupErrors.full_name}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>CPF</Label>
+                  <div className="relative group">
+                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input
+                      type="text"
+                      placeholder="000.000.000-00"
+                      value={signupData.cpf}
+                      onChange={(e) => setSignupData({ ...signupData, cpf: formatCPF(e.target.value) })}
+                      className={`pl-11 h-11 bg-secondary/50 ${signupErrors.cpf ? 'border-destructive' : ''}`}
+                      disabled={isLoading}
+                      maxLength={14}
+                    />
+                  </div>
+                  {signupErrors.cpf && <p className="text-xs text-destructive">{signupErrors.cpf}</p>}
                 </div>
 
                 <div className="space-y-2">
