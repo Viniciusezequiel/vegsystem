@@ -23,8 +23,6 @@ export default function ClassroomCallsList() {
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [previousPendingCount, setPreviousPendingCount] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab);
@@ -33,10 +31,35 @@ export default function ClassroomCallsList() {
   const resolveCall = useResolveClassroomCall();
   const deleteCall = useDeleteClassroomCall();
 
-  // Initialize audio
+  // Initialize continuous alarm audio
   useEffect(() => {
-    audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleDoAAABBmeDrl1wEChU4drjeyIhlJxFnvObdbj4BABQvYqHNzptbKhZPnNnPe0sGABM/cpnNynNKFA5RndvMfEsDAA9Ed5THzHZGDApWod3Lf0cCAAxHe5TGy3dECgZbpd/KgUUAAApKf5TFyng/BwNgqeHJgkIAAAdNgpXDynk9BQBkrOTIg0AAAQVPhZfByno6AwBns+fGhD0AAANRh5rAyXo4AQBsuOrEhDsAAAFTipzAyHs2AAB0v+3ChDoAAABVjJ3AyHo0AAB8xvDAhDkAAABXjp+/x3ozAACD0PHAhDgAAABZkKC+xnkyAAGK2fO/hDcAAABbkqK9xXgwAAGR4fa+hDUAAABdlKO8xHcvAAKY5/i9gzQAAABfl6W7w3YtAAOf7Pq8gzIAAABhmKe6wnUrAASm8fy7gi8AAABjmqi5wXQpAAWt9/66gS0AAABlnKq4wHMnAAa0/QC5gCsAAABnnqu3v3ImAAe7/wG4fyoAAABpoa21vnEkAAnC/wK2fiMAAABro663vXAiAAjL/wO1fCIAAABtpK62vG8hAArS/wSzeyAAEABvprC1u24fAAvZ/wWyeR4AEABxqLK0um0dAA3h/wawdxwAEABzqrOzuWwbAA7p/waudhoAEAB1rLWyuGsZABDx/wisc/+/');
-    
+    // Create oscillator-based continuous alarm
+    const createAlarmSound = () => {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      
+      // Create pulsing effect for urgency
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      
+      const pulseAlarm = () => {
+        const now = audioContext.currentTime;
+        gainNode.gain.cancelScheduledValues(now);
+        gainNode.gain.setValueAtTime(0.3, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      };
+      
+      oscillator.start();
+      
+      return { audioContext, oscillator, gainNode, pulseAlarm };
+    };
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -44,45 +67,50 @@ export default function ClassroomCallsList() {
     };
   }, []);
 
-  // Play sound when new pending calls arrive
+  // Play continuous alarm when there are pending calls
   useEffect(() => {
-    if (pendingCount !== undefined && pendingCount > previousPendingCount && soundEnabled && pendingCount > 0) {
-      // Play sound repeatedly while there are pending calls
-      const playSound = () => {
-        if (audioRef.current && soundEnabled) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(console.error);
+    if (pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
+      // Create audio context for continuous sound
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      oscillator.start();
+      
+      // Continuous pulsing alarm
+      const pulseAlarm = () => {
+        if (audioContext.state === 'running') {
+          const now = audioContext.currentTime;
+          gainNode.gain.cancelScheduledValues(now);
+          gainNode.gain.setValueAtTime(0.25, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
         }
       };
       
-      playSound();
+      pulseAlarm();
+      intervalRef.current = setInterval(pulseAlarm, 300); // Rapid pulsing for continuous effect
       
-      // Set up interval to repeat sound every 5 seconds
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        oscillator.stop();
+        audioContext.close();
+      };
+    } else {
+      // Stop sound when no pending calls or sound disabled
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
-      }
-      
-      if (pendingCount > 0) {
-        intervalRef.current = setInterval(playSound, 5000);
+        intervalRef.current = null;
       }
     }
-    
-    // Stop sound when no pending calls
-    if (pendingCount === 0 && intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    
-    setPreviousPendingCount(pendingCount || 0);
-  }, [pendingCount, soundEnabled, previousPendingCount]);
-
-  // Stop sound when user interacts
-  useEffect(() => {
-    if (!soundEnabled && intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, [soundEnabled]);
+  }, [pendingCount, soundEnabled]);
 
   const handleAccept = async (id: string) => {
     await acceptCall.mutateAsync(id);
