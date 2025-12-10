@@ -5,6 +5,7 @@ import { useExternalBookingSettings } from '@/hooks/useAppSettings';
 import { useCreateExternalReservation } from '@/hooks/useExternalReservation';
 import { useEquipmentList } from '@/hooks/useEquipment';
 import { useCreateExternalEquipmentRequest, useExternalEquipmentRequestsByEmail } from '@/hooks/useExternalEquipmentRequests';
+import { useExternalUserProfile } from '@/hooks/useExternalUsers';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus } from 'lucide-react';
 import { z } from 'zod';
 import { format, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,16 +36,12 @@ const bookingSchema = z.object({
   description: z.string().optional(),
 });
 
-const equipmentRequestSchema = z.object({
-  equipment_name: z.string().min(3, 'Nome do equipamento obrigatório'),
-  quantity_requested: z.number().min(1, 'Mínimo 1 unidade'),
-  requester_name: z.string().min(3, 'Nome obrigatório'),
-  requester_email: z.string().email('Email inválido'),
-  requester_phone: z.string().min(8, 'Telefone obrigatório'),
-  purpose: z.string().min(10, 'Descreva a finalidade'),
-  requested_date: z.string().min(1, 'Data obrigatória'),
-  expected_return_date: z.string().min(1, 'Data de devolução obrigatória'),
-});
+interface SelectedEquipment {
+  equipment_id: string;
+  equipment_name: string;
+  quantity: number;
+  max_available: number;
+}
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pendente', variant: 'default' },
@@ -65,9 +62,10 @@ export default function ExternalBooking() {
   const { data: bookingSettings, isLoading: settingsLoading } = useExternalBookingSettings();
   const { data: equipment } = useEquipmentList();
   const createEquipmentRequest = useCreateExternalEquipmentRequest();
+  const { data: externalUserProfile } = useExternalUserProfile();
 
   // Current user state
-  const [currentUser, setCurrentUser] = useState<{ email: string; full_name?: string; phone?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ email: string; full_name?: string; phone?: string; cpf?: string } | null>(null);
 
   // Check if booking is blocked globally
   const isBookingBlocked = useMemo(() => {
@@ -114,27 +112,35 @@ export default function ExternalBooking() {
           email: user.email || '',
           full_name: user.user_metadata?.full_name || '',
           phone: user.user_metadata?.phone || '',
+          cpf: user.user_metadata?.cpf || '',
         };
         setCurrentUser(userData);
-        
-        // Pre-fill forms with user data
-        setBookingData(prev => ({
-          ...prev,
-          requester_name: userData.full_name || prev.requester_name,
-          requester_email: userData.email || prev.requester_email,
-          requester_phone: userData.phone || prev.requester_phone,
-        }));
-        setEquipmentData(prev => ({
-          ...prev,
-          requester_name: userData.full_name || prev.requester_name,
-          requester_email: userData.email || prev.requester_email,
-          requester_phone: userData.phone || prev.requester_phone,
-        }));
         setEmailFilter(userData.email);
       }
     };
     fetchUser();
   }, []);
+
+  // Update form data when external user profile loads
+  useEffect(() => {
+    if (externalUserProfile) {
+      setBookingData(prev => ({
+        ...prev,
+        requester_name: externalUserProfile.full_name || prev.requester_name,
+        requester_email: externalUserProfile.email || prev.requester_email,
+        requester_phone: externalUserProfile.phone || prev.requester_phone,
+      }));
+      setEquipmentFormData(prev => ({
+        ...prev,
+        requester_name: externalUserProfile.full_name || prev.requester_name,
+        requester_email: externalUserProfile.email || prev.requester_email,
+        requester_phone: externalUserProfile.phone || prev.requester_phone,
+      }));
+      if (externalUserProfile.email) {
+        setEmailFilter(externalUserProfile.email);
+      }
+    }
+  }, [externalUserProfile]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -165,10 +171,9 @@ export default function ExternalBooking() {
     description: '',
   });
 
-  const [equipmentData, setEquipmentData] = useState({
-    equipment_id: '',
-    equipment_name: '',
-    quantity_requested: 1,
+  // Multi-select equipment state
+  const [selectedEquipments, setSelectedEquipments] = useState<SelectedEquipment[]>([]);
+  const [equipmentFormData, setEquipmentFormData] = useState({
     requester_name: '',
     requester_email: '',
     requester_phone: '',
@@ -276,41 +281,89 @@ export default function ExternalBooking() {
     );
   };
 
+  // Handle equipment toggle
+  const handleToggleEquipment = (eq: typeof availableEquipment[0]) => {
+    setSelectedEquipments(prev => {
+      const existing = prev.find(e => e.equipment_id === eq.id);
+      if (existing) {
+        return prev.filter(e => e.equipment_id !== eq.id);
+      }
+      return [...prev, {
+        equipment_id: eq.id,
+        equipment_name: eq.name,
+        quantity: 1,
+        max_available: eq.available_quantity,
+      }];
+    });
+  };
+
+  // Handle quantity change
+  const handleQuantityChange = (equipmentId: string, delta: number) => {
+    setSelectedEquipments(prev =>
+      prev.map(eq => {
+        if (eq.equipment_id === equipmentId) {
+          const newQty = Math.max(1, Math.min(eq.max_available, eq.quantity + delta));
+          return { ...eq, quantity: newQty };
+        }
+        return eq;
+      })
+    );
+  };
+
   const handleEquipmentRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setEquipmentErrors({});
 
-    const result = equipmentRequestSchema.safeParse({
-      ...equipmentData,
-      quantity_requested: Number(equipmentData.quantity_requested),
-    });
-
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      result.error.errors.forEach((err) => {
-        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
-      });
-      setEquipmentErrors(fieldErrors);
+    // Validate
+    if (selectedEquipments.length === 0) {
+      setEquipmentErrors({ equipment: 'Selecione pelo menos um equipamento' });
+      return;
+    }
+    if (!equipmentFormData.requester_name || equipmentFormData.requester_name.length < 3) {
+      setEquipmentErrors({ requester_name: 'Nome obrigatório' });
+      return;
+    }
+    if (!equipmentFormData.requester_email) {
+      setEquipmentErrors({ requester_email: 'Email obrigatório' });
+      return;
+    }
+    if (!equipmentFormData.requester_phone || equipmentFormData.requester_phone.length < 8) {
+      setEquipmentErrors({ requester_phone: 'Telefone obrigatório' });
+      return;
+    }
+    if (!equipmentFormData.purpose || equipmentFormData.purpose.length < 10) {
+      setEquipmentErrors({ purpose: 'Descreva a finalidade (mín. 10 caracteres)' });
+      return;
+    }
+    if (!equipmentFormData.requested_date) {
+      setEquipmentErrors({ requested_date: 'Data obrigatória' });
+      return;
+    }
+    if (!equipmentFormData.expected_return_date) {
+      setEquipmentErrors({ expected_return_date: 'Data de devolução obrigatória' });
       return;
     }
 
-    if (new Date(equipmentData.expected_return_date) <= new Date(equipmentData.requested_date)) {
+    if (new Date(equipmentFormData.expected_return_date) <= new Date(equipmentFormData.requested_date)) {
       setEquipmentErrors({ expected_return_date: 'A data de devolução deve ser após a data de retirada' });
       return;
     }
 
-    await createEquipmentRequest.mutateAsync({
-      equipment_id: equipmentData.equipment_id || undefined,
-      equipment_name: equipmentData.equipment_name,
-      quantity_requested: Number(equipmentData.quantity_requested),
-      requester_name: equipmentData.requester_name,
-      requester_email: equipmentData.requester_email,
-      requester_phone: equipmentData.requester_phone,
-      requester_organization: equipmentData.requester_organization || undefined,
-      purpose: equipmentData.purpose,
-      requested_date: equipmentData.requested_date,
-      expected_return_date: equipmentData.expected_return_date,
-    });
+    // Create requests for each equipment
+    for (const eq of selectedEquipments) {
+      await createEquipmentRequest.mutateAsync({
+        equipment_id: eq.equipment_id,
+        equipment_name: eq.equipment_name,
+        quantity_requested: eq.quantity,
+        requester_name: equipmentFormData.requester_name,
+        requester_email: equipmentFormData.requester_email,
+        requester_phone: equipmentFormData.requester_phone,
+        requester_organization: equipmentFormData.requester_organization || undefined,
+        purpose: equipmentFormData.purpose,
+        requested_date: equipmentFormData.requested_date,
+        expected_return_date: equipmentFormData.expected_return_date,
+      });
+    }
 
     setEquipmentStep('success');
   };
@@ -325,13 +378,11 @@ export default function ExternalBooking() {
 
   const resetEquipmentForm = () => {
     setEquipmentStep('form');
-    setEquipmentData({
-      equipment_id: '',
-      equipment_name: '',
-      quantity_requested: 1,
-      requester_name: '',
-      requester_email: '',
-      requester_phone: '',
+    setSelectedEquipments([]);
+    setEquipmentFormData({
+      requester_name: externalUserProfile?.full_name || '',
+      requester_email: externalUserProfile?.email || '',
+      requester_phone: externalUserProfile?.phone || '',
       requester_organization: '',
       purpose: '',
       requested_date: '',
@@ -341,17 +392,6 @@ export default function ExternalBooking() {
 
   const formatDateTime = (datetime: string) => {
     return format(parseISO(datetime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-  };
-
-  const handleEquipmentSelect = (equipmentId: string) => {
-    const selected = availableEquipment.find(e => e.id === equipmentId);
-    if (selected) {
-      setEquipmentData({
-        ...equipmentData,
-        equipment_id: selected.id,
-        equipment_name: selected.name,
-      });
-    }
   };
 
   return (
@@ -381,7 +421,7 @@ export default function ExternalBooking() {
           <h1 className="text-3xl font-bold gradient-text mb-2">Portal de Solicitações</h1>
           <p className="text-muted-foreground flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
-            Olá, {currentUser?.full_name || currentUser?.email || 'Usuário'}
+            Olá, {externalUserProfile?.full_name || currentUser?.full_name || currentUser?.email || 'Usuário'}
             <Sparkles className="w-4 h-4 text-primary" />
           </p>
         </div>
@@ -449,11 +489,14 @@ export default function ExternalBooking() {
                 {step === 'search' && (
                   <Card className="glass-morphism border-primary/20">
                     <CardHeader>
-                      <CardTitle>Buscar Disponibilidade</CardTitle>
-                      <CardDescription>Informe a data, horário e número de participantes.</CardDescription>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5" />
+                        Buscar Salas Disponíveis
+                      </CardTitle>
+                      <CardDescription>Informe os detalhes da sua reserva</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <form onSubmit={handleSearch} className="space-y-6">
+                      <form onSubmit={handleSearch} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Data *</Label>
@@ -461,13 +504,13 @@ export default function ExternalBooking() {
                               type="date"
                               value={searchData.start_date}
                               onChange={(e) => setSearchData({ ...searchData, start_date: e.target.value })}
-                              min={new Date().toISOString().split('T')[0]}
+                              min={format(new Date(), 'yyyy-MM-dd')}
                               className={searchErrors.start_date ? 'border-destructive' : ''}
                             />
                             {searchErrors.start_date && <p className="text-xs text-destructive mt-1">{searchErrors.start_date}</p>}
                           </div>
                           <div>
-                            <Label>Número de Participantes *</Label>
+                            <Label>Participantes *</Label>
                             <Input
                               type="number"
                               min={1}
@@ -479,7 +522,7 @@ export default function ExternalBooking() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label>Horário de Início *</Label>
+                            <Label>Início *</Label>
                             <Input
                               type="time"
                               value={searchData.start_time}
@@ -488,18 +531,19 @@ export default function ExternalBooking() {
                             />
                           </div>
                           <div>
-                            <Label>Horário de Término *</Label>
+                            <Label>Término *</Label>
                             <Input
                               type="time"
                               value={searchData.end_time}
                               onChange={(e) => setSearchData({ ...searchData, end_time: e.target.value })}
                               className={searchErrors.end_time ? 'border-destructive' : ''}
                             />
+                            {searchErrors.end_time && <p className="text-xs text-destructive mt-1">{searchErrors.end_time}</p>}
                           </div>
                         </div>
                         <Button type="submit" className="w-full btn-gradient" disabled={findRooms.isPending}>
                           {findRooms.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                          Buscar Ambientes Disponíveis
+                          Buscar Salas
                         </Button>
                       </form>
                     </CardContent>
@@ -508,86 +552,86 @@ export default function ExternalBooking() {
 
                 {/* Step 2: Select Room */}
                 {step === 'select' && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <Button variant="ghost" onClick={() => setStep('search')}>← Voltar</Button>
-                      <p className="text-sm text-muted-foreground">{availableRooms.length} ambiente(s) disponível(is)</p>
-                    </div>
-
-                    {availableRooms.length === 0 ? (
-                      <Card className="glass-morphism border-warning/30">
-                        <CardContent className="pt-6 text-center">
+                  <Card className="glass-morphism border-primary/20">
+                    <CardHeader>
+                      <CardTitle>Salas Disponíveis</CardTitle>
+                      <CardDescription>
+                        {searchData.start_date} • {searchData.start_time} - {searchData.end_time} • {searchData.attendees_count} participantes
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {availableRooms.length === 0 ? (
+                        <div className="text-center py-8">
                           <AlertCircle className="w-12 h-12 text-warning mx-auto mb-4" />
-                          <h3 className="text-lg font-semibold mb-2">Nenhum ambiente disponível</h3>
-                          <p className="text-muted-foreground mb-4">Tente outro horário ou data.</p>
-                          <Button onClick={() => setStep('search')} variant="outline">Buscar Novamente</Button>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {availableRooms.map((room) => (
-                          <Card
-                            key={room.id}
-                            className={`glass-morphism cursor-pointer transition-all hover:border-primary/40 ${
-                              selectedRoom?.id === room.id ? 'border-primary ring-2 ring-primary/20' : 'border-border/30'
-                            }`}
-                            onClick={() => { setSelectedRoom(room); setStep('booking'); }}
-                          >
-                            <CardContent className="pt-6">
-                              <div className="flex items-start justify-between mb-3">
+                          <p className="text-muted-foreground">Nenhuma sala disponível para o horário selecionado.</p>
+                          <Button variant="outline" onClick={() => setStep('search')} className="mt-4">
+                            Alterar busca
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {availableRooms.map((room) => (
+                            <div
+                              key={room.id}
+                              className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                                selectedRoom?.id === room.id
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                              onClick={() => setSelectedRoom(room)}
+                            >
+                              <div className="flex justify-between items-start">
                                 <div>
-                                  <p className="text-xs text-primary font-mono">{room.code}</p>
-                                  <h3 className="font-bold text-lg">{room.name}</h3>
+                                  <h4 className="font-semibold">{room.name}</h4>
+                                  <p className="text-sm text-muted-foreground">{room.code}</p>
+                                </div>
+                                <div className="text-right">
+                                  <Badge variant="secondary">{room.capacity} pessoas</Badge>
+                                  <p className="text-xs text-muted-foreground mt-1">{room.campus}</p>
                                 </div>
                               </div>
-                              <p className="text-sm text-muted-foreground mb-3">{room.description}</p>
-                              <div className="flex gap-4 text-sm">
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Users className="w-4 h-4 text-accent" />
-                                  <span>{room.capacity} pessoas</span>
-                                </div>
-                                {room.location && (
-                                  <div className="flex items-center gap-1 text-muted-foreground">
-                                    <MapPin className="w-4 h-4 text-primary" />
-                                    <span>{room.location}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                            </div>
+                          ))}
+                          <div className="flex gap-2 pt-4">
+                            <Button variant="outline" onClick={() => setStep('search')}>Voltar</Button>
+                            <Button 
+                              className="flex-1 btn-gradient" 
+                              disabled={!selectedRoom}
+                              onClick={() => setStep('booking')}
+                            >
+                              Continuar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 )}
 
                 {/* Step 3: Booking Form */}
                 {step === 'booking' && selectedRoom && (
                   <Card className="glass-morphism border-primary/20">
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>Dados da Reserva</CardTitle>
-                          <CardDescription>Preencha seus dados para confirmar a reserva em {selectedRoom.name}</CardDescription>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => setStep('select')}>← Voltar</Button>
-                      </div>
+                      <CardTitle>Dados da Reserva</CardTitle>
+                      <CardDescription>
+                        {selectedRoom.name} • {searchData.start_date} • {searchData.start_time} - {searchData.end_time}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <form onSubmit={handleBooking} className="space-y-6">
+                      <form onSubmit={handleBooking} className="space-y-4">
                         <div>
-                          <Label>Título da Reserva *</Label>
+                          <Label>Título do Evento *</Label>
                           <Input
                             value={bookingData.title}
                             onChange={(e) => setBookingData({ ...bookingData, title: e.target.value })}
-                            placeholder="Ex: Reunião de Equipe"
+                            placeholder="Ex: Reunião de Planejamento"
                             className={bookingErrors.title ? 'border-destructive' : ''}
                           />
                           {bookingErrors.title && <p className="text-xs text-destructive mt-1">{bookingErrors.title}</p>}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <Label>Seu Nome Completo *</Label>
+                            <Label>Seu Nome *</Label>
                             <Input
                               value={bookingData.requester_name}
                               onChange={(e) => setBookingData({ ...bookingData, requester_name: e.target.value })}
@@ -623,10 +667,13 @@ export default function ExternalBooking() {
                             rows={3}
                           />
                         </div>
-                        <Button type="submit" className="w-full btn-gradient" disabled={createExternalReservation.isPending}>
-                          {createExternalReservation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                          Confirmar Reserva
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" type="button" onClick={() => setStep('select')}>Voltar</Button>
+                          <Button type="submit" className="flex-1 btn-gradient" disabled={createExternalReservation.isPending}>
+                            {createExternalReservation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Confirmar Reserva
+                          </Button>
+                        </div>
                       </form>
                     </CardContent>
                   </Card>
@@ -645,7 +692,7 @@ export default function ExternalBooking() {
                       </p>
                       <div className="flex gap-4 justify-center">
                         <Button onClick={resetForm} variant="outline">Nova Reserva</Button>
-                        <Button onClick={() => { setMainTab('myreservations'); setEmailFilter(bookingData.requester_email); }} className="btn-gradient">
+                        <Button onClick={() => setMainTab('myreservations')} className="btn-gradient">
                           Ver Minhas Solicitações
                         </Button>
                       </div>
@@ -663,60 +710,80 @@ export default function ExternalBooking() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="w-5 h-5" />
-                    Solicitar Empréstimo de Equipamento
+                    Solicitar Empréstimo de Equipamentos
                   </CardTitle>
-                  <CardDescription>Preencha os dados para solicitar um empréstimo</CardDescription>
+                  <CardDescription>Selecione os equipamentos e preencha os dados</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleEquipmentRequest} className="space-y-6">
                     {/* Equipment Selection */}
                     <div className="space-y-4">
-                      <div>
-                        <Label>Selecione um equipamento disponível</Label>
-                        <Select value={equipmentData.equipment_id} onValueChange={handleEquipmentSelect}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Escolha um equipamento..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableEquipment.map(eq => (
-                              <SelectItem key={eq.id} value={eq.id}>
-                                {eq.name} - {eq.campus} (Disponível: {eq.available_quantity})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <Label>Selecione os equipamentos *</Label>
+                      {equipmentErrors.equipment && <p className="text-xs text-destructive">{equipmentErrors.equipment}</p>}
                       
-                      <div>
-                        <Label>Ou digite o nome do equipamento *</Label>
-                        <Input
-                          value={equipmentData.equipment_name}
-                          onChange={(e) => setEquipmentData({ ...equipmentData, equipment_name: e.target.value })}
-                          placeholder="Ex: Projetor, Notebook, etc."
-                          className={equipmentErrors.equipment_name ? 'border-destructive' : ''}
-                        />
-                        {equipmentErrors.equipment_name && <p className="text-xs text-destructive mt-1">{equipmentErrors.equipment_name}</p>}
+                      <div className="grid gap-3 max-h-64 overflow-y-auto p-1">
+                        {availableEquipment.map(eq => {
+                          const isSelected = selectedEquipments.some(s => s.equipment_id === eq.id);
+                          const selectedItem = selectedEquipments.find(s => s.equipment_id === eq.id);
+                          
+                          return (
+                            <div
+                              key={eq.id}
+                              className={`p-4 rounded-lg border transition-all ${
+                                isSelected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => handleToggleEquipment(eq)}
+                                />
+                                <div className="flex-1">
+                                  <p className="font-medium">{eq.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {eq.campus} • Disponível: {eq.available_quantity}
+                                  </p>
+                                </div>
+                                
+                                {isSelected && selectedItem && (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleQuantityChange(eq.id, -1)}
+                                      disabled={selectedItem.quantity <= 1}
+                                    >
+                                      <Minus className="w-4 h-4" />
+                                    </Button>
+                                    <span className="w-8 text-center font-medium">{selectedItem.quantity}</span>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleQuantityChange(eq.id, 1)}
+                                      disabled={selectedItem.quantity >= selectedItem.max_available}
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Quantidade *</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={equipmentData.quantity_requested}
-                            onChange={(e) => setEquipmentData({ ...equipmentData, quantity_requested: parseInt(e.target.value) || 1 })}
-                          />
+                      {selectedEquipments.length > 0 && (
+                        <div className="p-3 bg-primary/10 rounded-lg">
+                          <p className="text-sm font-medium">Selecionados: {selectedEquipments.length} equipamento(s)</p>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedEquipments.map(s => `${s.equipment_name} (${s.quantity})`).join(', ')}
+                          </p>
                         </div>
-                        <div>
-                          <Label>Organização</Label>
-                          <Input
-                            value={equipmentData.requester_organization}
-                            onChange={(e) => setEquipmentData({ ...equipmentData, requester_organization: e.target.value })}
-                            placeholder="Nome da empresa/instituição"
-                          />
-                        </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Personal Data */}
@@ -724,8 +791,8 @@ export default function ExternalBooking() {
                       <div>
                         <Label>Seu Nome *</Label>
                         <Input
-                          value={equipmentData.requester_name}
-                          onChange={(e) => setEquipmentData({ ...equipmentData, requester_name: e.target.value })}
+                          value={equipmentFormData.requester_name}
+                          onChange={(e) => setEquipmentFormData({ ...equipmentFormData, requester_name: e.target.value })}
                           placeholder="João Silva"
                           className={equipmentErrors.requester_name ? 'border-destructive' : ''}
                         />
@@ -733,8 +800,8 @@ export default function ExternalBooking() {
                       <div>
                         <Label>Telefone *</Label>
                         <Input
-                          value={equipmentData.requester_phone}
-                          onChange={(e) => setEquipmentData({ ...equipmentData, requester_phone: e.target.value })}
+                          value={equipmentFormData.requester_phone}
+                          onChange={(e) => setEquipmentFormData({ ...equipmentFormData, requester_phone: e.target.value })}
                           placeholder="(00) 00000-0000"
                           className={equipmentErrors.requester_phone ? 'border-destructive' : ''}
                         />
@@ -745,22 +812,42 @@ export default function ExternalBooking() {
                       <Label>Email *</Label>
                       <Input
                         type="email"
-                        value={equipmentData.requester_email}
-                        onChange={(e) => setEquipmentData({ ...equipmentData, requester_email: e.target.value })}
+                        value={equipmentFormData.requester_email}
+                        onChange={(e) => setEquipmentFormData({ ...equipmentFormData, requester_email: e.target.value })}
                         placeholder="seu.email@exemplo.com"
                         className={equipmentErrors.requester_email ? 'border-destructive' : ''}
                       />
                     </div>
 
-                    {/* Dates */}
+                    <div>
+                      <Label>Organização</Label>
+                      <Input
+                        value={equipmentFormData.requester_organization}
+                        onChange={(e) => setEquipmentFormData({ ...equipmentFormData, requester_organization: e.target.value })}
+                        placeholder="Nome da empresa/instituição"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Finalidade do Empréstimo *</Label>
+                      <Textarea
+                        value={equipmentFormData.purpose}
+                        onChange={(e) => setEquipmentFormData({ ...equipmentFormData, purpose: e.target.value })}
+                        placeholder="Descreva o motivo e como será utilizado..."
+                        rows={3}
+                        className={equipmentErrors.purpose ? 'border-destructive' : ''}
+                      />
+                      {equipmentErrors.purpose && <p className="text-xs text-destructive mt-1">{equipmentErrors.purpose}</p>}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Data de Retirada *</Label>
                         <Input
                           type="date"
-                          value={equipmentData.requested_date}
-                          onChange={(e) => setEquipmentData({ ...equipmentData, requested_date: e.target.value })}
-                          min={new Date().toISOString().split('T')[0]}
+                          value={equipmentFormData.requested_date}
+                          onChange={(e) => setEquipmentFormData({ ...equipmentFormData, requested_date: e.target.value })}
+                          min={format(new Date(), 'yyyy-MM-dd')}
                           className={equipmentErrors.requested_date ? 'border-destructive' : ''}
                         />
                       </div>
@@ -768,25 +855,15 @@ export default function ExternalBooking() {
                         <Label>Data de Devolução *</Label>
                         <Input
                           type="date"
-                          value={equipmentData.expected_return_date}
-                          onChange={(e) => setEquipmentData({ ...equipmentData, expected_return_date: e.target.value })}
-                          min={equipmentData.requested_date || new Date().toISOString().split('T')[0]}
+                          value={equipmentFormData.expected_return_date}
+                          onChange={(e) => setEquipmentFormData({ ...equipmentFormData, expected_return_date: e.target.value })}
+                          min={equipmentFormData.requested_date || format(new Date(), 'yyyy-MM-dd')}
                           className={equipmentErrors.expected_return_date ? 'border-destructive' : ''}
                         />
-                        {equipmentErrors.expected_return_date && <p className="text-xs text-destructive mt-1">{equipmentErrors.expected_return_date}</p>}
+                        {equipmentErrors.expected_return_date && (
+                          <p className="text-xs text-destructive mt-1">{equipmentErrors.expected_return_date}</p>
+                        )}
                       </div>
-                    </div>
-
-                    <div>
-                      <Label>Finalidade / Justificativa *</Label>
-                      <Textarea
-                        value={equipmentData.purpose}
-                        onChange={(e) => setEquipmentData({ ...equipmentData, purpose: e.target.value })}
-                        placeholder="Descreva para que será utilizado o equipamento..."
-                        rows={3}
-                        className={equipmentErrors.purpose ? 'border-destructive' : ''}
-                      />
-                      {equipmentErrors.purpose && <p className="text-xs text-destructive mt-1">{equipmentErrors.purpose}</p>}
                     </div>
 
                     <Button type="submit" className="w-full btn-gradient" disabled={createEquipmentRequest.isPending}>
@@ -804,11 +881,11 @@ export default function ExternalBooking() {
                   </div>
                   <h3 className="text-2xl font-bold mb-2">Solicitação Enviada!</h3>
                   <p className="text-muted-foreground mb-6">
-                    Sua solicitação de empréstimo foi recebida e será analisada pela equipe.
+                    Sua solicitação de empréstimo foi recebida e será analisada.
                   </p>
                   <div className="flex gap-4 justify-center">
                     <Button onClick={resetEquipmentForm} variant="outline">Nova Solicitação</Button>
-                    <Button onClick={() => { setMainTab('myreservations'); setEmailFilter(equipmentData.requester_email); }} className="btn-gradient">
+                    <Button onClick={() => setMainTab('myreservations')} className="btn-gradient">
                       Ver Minhas Solicitações
                     </Button>
                   </div>
@@ -817,120 +894,85 @@ export default function ExternalBooking() {
             )}
           </TabsContent>
 
-          {/* My Requests Tab */}
+          {/* My Reservations Tab */}
           <TabsContent value="myreservations">
             <Card className="glass-morphism border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
+                  <List className="w-5 h-5" />
                   Minhas Solicitações
                 </CardTitle>
-                <CardDescription>Digite seu email para visualizar suas solicitações</CardDescription>
+                <CardDescription>Visualize suas reservas e empréstimos</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Reservations */}
                 <div>
-                  <Label>Email cadastrado</Label>
-                  <Input
-                    type="email"
-                    value={emailFilter}
-                    onChange={(e) => setEmailFilter(e.target.value)}
-                    placeholder="seu.email@exemplo.com"
-                  />
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Reservas de Salas
+                  </h4>
+                  {myReservations.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Nenhuma reserva encontrada.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {myReservations.map((r) => (
+                        <div key={r.id} className="p-3 rounded-lg border bg-card">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{r.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {r.reservation_rooms?.name} • {formatDateTime(r.start_datetime)}
+                              </p>
+                            </div>
+                            <Badge variant={statusLabels[r.status]?.variant || 'default'}>
+                              {statusLabels[r.status]?.label || r.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {emailFilter && (
-                  <Tabs defaultValue="reservations">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="reservations" className="gap-1">
-                        <Calendar className="w-3 h-3" />
-                        Reservas
-                      </TabsTrigger>
-                      <TabsTrigger value="equipment" className="gap-1">
-                        <Package className="w-3 h-3" />
-                        Empréstimos
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="reservations" className="mt-4">
-                      {myReservations.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                          <p className="text-muted-foreground">Nenhuma reserva encontrada</p>
+                {/* Equipment Requests */}
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    Empréstimos de Equipamentos
+                  </h4>
+                  {!myEquipmentRequests || myEquipmentRequests.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Nenhum empréstimo encontrado.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {myEquipmentRequests.map((req) => (
+                        <div key={req.id} className="p-3 rounded-lg border bg-card">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{req.equipment_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Qtd: {req.quantity_requested} • {format(parseISO(req.requested_date), 'dd/MM/yyyy', { locale: ptBR })}
+                              </p>
+                            </div>
+                            <Badge variant={statusLabels[req.status]?.variant || 'default'}>
+                              {statusLabels[req.status]?.label || req.status}
+                            </Badge>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {myReservations.map((reservation) => (
-                            <Card key={reservation.id} className="border-border/30">
-                              <CardContent className="pt-4">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div>
-                                    <h4 className="font-semibold">{reservation.title}</h4>
-                                    <p className="text-sm text-primary">{reservation.reservation_rooms?.name}</p>
-                                  </div>
-                                  <Badge variant={statusLabels[reservation.status]?.variant || 'default'}>
-                                    {statusLabels[reservation.status]?.label || reservation.status}
-                                  </Badge>
-                                </div>
-                                <div className="flex gap-4 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <Clock className="w-4 h-4" />
-                                    <span>{formatDateTime(reservation.start_datetime)}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Users className="w-4 h-4" />
-                                    <span>{reservation.attendees_count} participantes</span>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="equipment" className="mt-4">
-                      {!myEquipmentRequests || myEquipmentRequests.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                          <p className="text-muted-foreground">Nenhuma solicitação de empréstimo encontrada</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {myEquipmentRequests.map((request) => (
-                            <Card key={request.id} className="border-border/30">
-                              <CardContent className="pt-4">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div>
-                                    <h4 className="font-semibold">{request.equipment_name}</h4>
-                                    <p className="text-sm text-muted-foreground">Qtd: {request.quantity_requested}</p>
-                                  </div>
-                                  <Badge variant={statusLabels[request.status]?.variant || 'default'}>
-                                    {statusLabels[request.status]?.label || request.status}
-                                  </Badge>
-                                </div>
-                                <div className="flex gap-4 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="w-4 h-4" />
-                                    <span>{format(parseISO(request.requested_date), 'dd/MM/yyyy')}</span>
-                                  </div>
-                                </div>
-                                {request.admin_notes && (
-                                  <p className="text-sm text-muted-foreground mt-2 pt-2 border-t border-border/30">
-                                    {request.admin_notes}
-                                  </p>
-                                )}
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
+
+        <div className="mt-8 text-center">
+          <p className="text-xs text-muted-foreground/60">
+            Criado por{' '}
+            <span className="font-medium gradient-text">Vinicius Ezequiel</span>
+          </p>
+        </div>
       </div>
     </div>
   );
