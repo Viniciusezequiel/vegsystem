@@ -1,12 +1,26 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { OnlineUsersIndicator } from './OnlineUsersIndicator';
+import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const stored = localStorage.getItem('sidebar-collapsed');
+    return stored === 'true';
+  });
+
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const newValue = !prev;
+      localStorage.setItem('sidebar-collapsed', String(newValue));
+      return newValue;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Background Effects */}
@@ -16,10 +30,17 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="absolute inset-0 mesh-gradient opacity-30" />
       </div>
       
-      <Sidebar />
-      <main className="ml-64 min-h-screen relative z-10">
+      <Sidebar collapsed={sidebarCollapsed} onToggle={handleToggleSidebar} />
+      
+      <main className={cn(
+        'min-h-screen relative z-10 transition-all duration-300',
+        sidebarCollapsed ? 'ml-16' : 'ml-64'
+      )}>
         {/* Top Bar with Online Users */}
-        <div className="fixed top-0 right-0 left-64 z-20 px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50">
+        <div className={cn(
+          'fixed top-0 right-0 z-20 px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 transition-all duration-300',
+          sidebarCollapsed ? 'left-16' : 'left-64'
+        )}>
           <div className="flex justify-end max-w-[1600px] mx-auto">
             <OnlineUsersIndicator />
           </div>
