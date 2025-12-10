@@ -17,6 +17,8 @@ import {
   CalendarDays,
   Calendar,
   List,
+  BarChart3,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -101,6 +103,7 @@ const moduleGroups: NavGroup[] = [
 ];
 
 const bottomNav: NavItem[] = [
+  { name: 'Relatórios', href: '/reports', icon: BarChart3 },
   { name: 'Usuários', href: '/users', icon: Users, adminOnly: true },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
