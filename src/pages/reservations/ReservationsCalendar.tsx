@@ -229,54 +229,6 @@ export default function ReservationsCalendar() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Button>
-          <h2 className="text-xl font-bold text-foreground min-w-48 text-center">
-            {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-          </h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-          >
-            <ChevronRight className="w-5 h-5" />
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="date"
-            className="h-10 px-3 rounded-md border border-input bg-secondary/50 text-sm"
-            onChange={(e) => {
-              if (e.target.value) {
-                setCurrentMonth(new Date(e.target.value));
-              }
-            }}
-          />
-          <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-            <SelectTrigger className="w-64 bg-secondary/50">
-              <SelectValue placeholder="Filtrar por ambiente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os ambientes</SelectItem>
-              {rooms?.map((room) => (
-                <SelectItem key={room.id} value={room.id}>
-                  {room.name} ({room.code})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
       {/* Calendar Grid */}
       <div className="glass-card rounded-2xl overflow-hidden">
         {/* Header */}

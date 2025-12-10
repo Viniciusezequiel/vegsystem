@@ -14,6 +14,7 @@ import ItemDetail from "./pages/ItemDetail";
 import History from "./pages/History";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 // Equipment Module
@@ -213,6 +214,11 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+              <ProtectedRoute>
+                <Reports />
               </ProtectedRoute>
             } />
             
