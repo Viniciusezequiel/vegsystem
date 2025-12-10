@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Repeat, Loader2 } from 'lucide-react';
 import { addDays, format, getDay, isBefore, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -129,6 +130,7 @@ export function RecurringReservation() {
           description: formData.description || undefined,
           notes: formData.notes || undefined,
           is_external: false,
+          is_fixed: true, // Reservas recorrentes são fixas
         });
         successCount++;
       } catch {
@@ -220,18 +222,18 @@ export function RecurringReservation() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Data Inicial *</Label>
-              <Input
-                type="date"
+              <DatePickerInput
                 value={formData.start_date}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                onChange={(v) => setFormData({ ...formData, start_date: v })}
+                placeholder="Selecionar data"
               />
             </div>
             <div>
               <Label>Data Final *</Label>
-              <Input
-                type="date"
+              <DatePickerInput
                 value={formData.end_date}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                onChange={(v) => setFormData({ ...formData, end_date: v })}
+                placeholder="Selecionar data"
               />
             </div>
           </div>

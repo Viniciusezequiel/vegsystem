@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
+import { OnlineUsersIndicator } from './OnlineUsersIndicator';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -17,7 +18,13 @@ export function MainLayout({ children }: MainLayoutProps) {
       
       <Sidebar />
       <main className="ml-64 min-h-screen relative z-10">
-        <div className="p-8 max-w-[1600px] mx-auto">
+        {/* Top Bar with Online Users */}
+        <div className="fixed top-0 right-0 left-64 z-20 px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50">
+          <div className="flex justify-end max-w-[1600px] mx-auto">
+            <OnlineUsersIndicator />
+          </div>
+        </div>
+        <div className="p-8 pt-20 max-w-[1600px] mx-auto">
           {children}
         </div>
       </main>

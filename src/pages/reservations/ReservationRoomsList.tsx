@@ -41,6 +41,34 @@ export default function ReservationRoomsList() {
     { header: 'Campus', accessor: 'campus' },
   ];
 
+  const pdfFilters = [
+    {
+      key: 'campus',
+      label: 'Unidade',
+      options: [
+        { value: 'Campus I', label: 'Campus I' },
+        { value: 'Campus II', label: 'Campus II' },
+        { value: 'Campus IV', label: 'Campus IV' },
+        { value: 'Campus HUCM Adm', label: 'Campus HUCM Adm' },
+      ],
+    },
+    {
+      key: 'is_active',
+      label: 'Status',
+      options: [
+        { value: 'true', label: 'Ativo' },
+        { value: 'false', label: 'Inativo' },
+      ],
+    },
+  ];
+
+  const formatRoomsForPdf = (data: ReservationRoom[]) => {
+    return data.map(room => ({
+      ...room,
+      is_active: room.is_active ? 'true' : 'false',
+    }));
+  };
+
   const handleEditClick = (room: ReservationRoom) => {
     setSelectedRoom(room);
     setEditDialogOpen(true);
@@ -89,8 +117,9 @@ export default function ReservationRoomsList() {
         </div>
         <div className="flex flex-wrap gap-2">
           <PdfExportButton
-            data={filteredRooms}
+            data={formatRoomsForPdf(filteredRooms)}
             columns={pdfColumns}
+            filters={pdfFilters}
             title="Relatório de Ambientes"
             filename="ambientes-reserva"
           />

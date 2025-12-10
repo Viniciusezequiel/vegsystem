@@ -32,6 +32,7 @@ export interface Reservation {
   end_datetime: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   is_external: boolean;
+  is_fixed: boolean;
   created_by: string | null;
   approved_by: string | null;
   notes: string | null;
@@ -190,6 +191,7 @@ export function useCreateReservation() {
       start_datetime: string;
       end_datetime: string;
       is_external?: boolean;
+      is_fixed?: boolean;
       notes?: string;
     }) => {
       // Check for conflicts first
