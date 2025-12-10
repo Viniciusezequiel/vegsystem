@@ -149,9 +149,6 @@ export default function Setup() {
                   required
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Use a chave: SETUP_FIRST_ADMIN_2024
-              </p>
             </div>
 
             <Button 
