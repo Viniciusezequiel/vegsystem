@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Calendar, ArrowLeft, Loader2 } from 'lucide-react';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
@@ -156,11 +157,10 @@ export default function ReservationForm() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="start_date">Data de Início *</Label>
-                  <Input
-                    id="start_date"
-                    type="date"
+                  <DatePickerInput
                     value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, start_date: value })}
+                    placeholder="Selecionar data"
                     className={errors.start_date ? 'border-destructive' : ''}
                   />
                   {errors.start_date && <p className="text-xs text-destructive mt-1">{errors.start_date}</p>}
@@ -175,6 +175,30 @@ export default function ReservationForm() {
                     className={errors.start_time ? 'border-destructive' : ''}
                   />
                   {errors.start_time && <p className="text-xs text-destructive mt-1">{errors.start_time}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="end_date">Data de Término *</Label>
+                  <DatePickerInput
+                    value={formData.end_date}
+                    onChange={(value) => setFormData({ ...formData, end_date: value })}
+                    placeholder="Selecionar data"
+                    className={errors.end_date ? 'border-destructive' : ''}
+                  />
+                  {errors.end_date && <p className="text-xs text-destructive mt-1">{errors.end_date}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="end_time">Horário de Término *</Label>
+                  <Input
+                    id="end_time"
+                    type="time"
+                    value={formData.end_time}
+                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                    className={errors.end_time ? 'border-destructive' : ''}
+                  />
+                  {errors.end_time && <p className="text-xs text-destructive mt-1">{errors.end_time}</p>}
                 </div>
               </div>
 

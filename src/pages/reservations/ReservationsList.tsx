@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Calendar, Clock, Users, Eye, Check, X } from 'lucide-react';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
+import { Search, Plus, Calendar, Clock, Users, Eye, Check, X, Pin, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,6 +26,7 @@ export default function ReservationsList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [campusFilter, setCampusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   
@@ -52,7 +54,12 @@ export default function ReservationsList() {
     
     const matchesCampus = campusFilter === 'all' || res.reservation_rooms?.campus === campusFilter;
     
-    return matchesSearch && matchesCampus;
+    const matchesType = typeFilter === 'all' || 
+      (typeFilter === 'fixed' && res.is_fixed) ||
+      (typeFilter === 'free' && res.is_external && !res.is_fixed) ||
+      (typeFilter === 'regular' && !res.is_external && !res.is_fixed);
+    
+    return matchesSearch && matchesCampus && matchesType;
   }) || [];
 
   const handleStatusChange = (id: string, status: string) => {
@@ -65,6 +72,7 @@ export default function ReservationsList() {
     { header: 'Solicitante', accessor: 'requester_name' },
     { header: 'Início', accessor: 'start_datetime' },
     { header: 'Término', accessor: 'end_datetime' },
+    { header: 'Tipo', accessor: 'type' },
     { header: 'Status', accessor: 'status' },
   ];
 
@@ -84,7 +92,28 @@ export default function ReservationsList() {
       label: 'Campus',
       options: Constants.public.Enums.campus_enum.map(c => ({ value: c, label: c })),
     },
+    {
+      key: 'type',
+      label: 'Tipo',
+      options: [
+        { value: 'fixed', label: 'Reserva Fixa' },
+        { value: 'free', label: 'Reserva Livre' },
+        { value: 'regular', label: 'Reserva Regular' },
+      ],
+    },
   ];
+
+  const getReservationType = (res: Reservation) => {
+    if (res.is_fixed) return 'Reserva Fixa';
+    if (res.is_external) return 'Reserva Livre';
+    return 'Reserva Regular';
+  };
+
+  const getReservationTypeValue = (res: Reservation) => {
+    if (res.is_fixed) return 'fixed';
+    if (res.is_external) return 'free';
+    return 'regular';
+  };
 
   const formatDataForPdf = (data: Reservation[]) => {
     return data.map(res => ({
@@ -93,6 +122,7 @@ export default function ReservationsList() {
       campus: res.reservation_rooms?.campus || '',
       start_datetime: format(new Date(res.start_datetime), 'dd/MM/yyyy HH:mm'),
       end_datetime: format(new Date(res.end_datetime), 'dd/MM/yyyy HH:mm'),
+      type: getReservationTypeValue(res),
       status: statusConfig[res.status]?.label || res.status,
     }));
   };
@@ -164,13 +194,24 @@ export default function ReservationsList() {
             ))}
           </SelectContent>
         </Select>
-        <Input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="w-48 bg-secondary/50"
-          placeholder="Filtrar por dia"
-        />
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-48 bg-secondary/50">
+            <SelectValue placeholder="Tipo de reserva" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            <SelectItem value="fixed">Reserva Fixa</SelectItem>
+            <SelectItem value="free">Reserva Livre</SelectItem>
+            <SelectItem value="regular">Reserva Regular</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="w-48">
+          <DatePickerInput
+            value={dateFilter}
+            onChange={setDateFilter}
+            placeholder="Filtrar por dia"
+          />
+        </div>
         {dateFilter && (
           <Button variant="ghost" size="sm" onClick={() => setDateFilter('')}>
             Limpar data
@@ -207,9 +248,16 @@ export default function ReservationsList() {
                     <Badge className={`${statusConfig[reservation.status].className} border`}>
                       {statusConfig[reservation.status].label}
                     </Badge>
-                    {reservation.is_external && (
-                      <Badge variant="outline" className="border-accent text-accent">
-                        Externo
+                    {reservation.is_fixed && (
+                      <Badge variant="outline" className="border-primary text-primary gap-1">
+                        <Pin className="w-3 h-3" />
+                        Fixa
+                      </Badge>
+                    )}
+                    {reservation.is_external && !reservation.is_fixed && (
+                      <Badge variant="outline" className="border-accent text-accent gap-1">
+                        <ExternalLink className="w-3 h-3" />
+                        Livre
                       </Badge>
                     )}
                   </div>

@@ -119,7 +119,7 @@ export default function Auth() {
           </div>
           
           <CardTitle className="text-3xl font-bold gradient-text">
-            GestãoPro
+            Vinicius Corp
           </CardTitle>
           <CardDescription className="text-muted-foreground flex items-center justify-center gap-2 mt-2">
             <Sparkles className="w-4 h-4 text-primary" />

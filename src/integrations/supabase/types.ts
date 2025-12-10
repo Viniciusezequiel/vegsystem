@@ -523,6 +523,7 @@ export type Database = {
           end_datetime: string
           id: string
           is_external: boolean
+          is_fixed: boolean
           notes: string | null
           requester_email: string
           requester_name: string
@@ -542,6 +543,7 @@ export type Database = {
           end_datetime: string
           id?: string
           is_external?: boolean
+          is_fixed?: boolean
           notes?: string | null
           requester_email: string
           requester_name: string
@@ -561,6 +563,7 @@ export type Database = {
           end_datetime?: string
           id?: string
           is_external?: boolean
+          is_fixed?: boolean
           notes?: string | null
           requester_email?: string
           requester_name?: string

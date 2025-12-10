@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Search, Users, MapPin, CheckCircle2 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -71,11 +72,10 @@ export function AvailabilityChecker() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="check-date">Data</Label>
-              <Input
-                id="check-date"
-                type="date"
+              <DatePickerInput
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={setDate}
+                placeholder="Selecionar data"
               />
             </div>
             <div>
