@@ -19,13 +19,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2 } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUsersList, useUpdateUserProfile, useToggleUserActive, UserProfile } from '@/hooks/useUsers';
+import { useUsersList, useUpdateUserProfile, useToggleUserActive, useDeleteUser, UserProfile } from '@/hooks/useUsers';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 type UserRole = 'admin' | 'collaborator' | 'viewer';
 
@@ -58,6 +70,8 @@ export default function Users() {
   const { data: users, isLoading } = useUsersList();
   const updateProfile = useUpdateUserProfile();
   const toggleActive = useToggleUserActive();
+  const deleteUser = useDeleteUser();
+  const { user: currentUser } = useAuth();
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -386,13 +400,42 @@ export default function Users() {
                       />
                     </td>
                     <td className="px-4 sm:px-6 py-4 text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleEditUser(user)}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditUser(user)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        {user.user_id !== currentUser?.id && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta ação irá excluir permanentemente o usuário <strong>{user.full_name}</strong> e todos os seus dados. Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteUser.mutate(user.user_id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  disabled={deleteUser.isPending}
+                                >
+                                  {deleteUser.isPending ? 'Excluindo...' : 'Excluir'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
