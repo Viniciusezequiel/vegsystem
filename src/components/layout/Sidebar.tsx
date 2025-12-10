@@ -22,6 +22,7 @@ import {
   ChevronRight,
   CheckSquare,
   ShoppingCart,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -113,6 +114,7 @@ const moduleGroups: NavGroup[] = [
       { name: 'Ambientes', href: '/reservations', icon: CalendarDays },
       { name: 'Reservas', href: '/reservations/list', icon: List },
       { name: 'Calendário', href: '/reservations/calendar', icon: Calendar },
+      { name: 'Remanejamentos', href: '/reservations/reschedulings', icon: RefreshCw },
       { name: 'Aprovações', href: '/reservations/approvals', icon: CheckSquare },
       { name: 'Histórico', href: '/reservations/logs', icon: History },
     ],
