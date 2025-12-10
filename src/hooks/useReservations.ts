@@ -187,12 +187,14 @@ export function useCreateReservation() {
       requester_name: string;
       requester_email: string;
       requester_phone?: string;
+      requester_cpf?: string;
       attendees_count: number;
       start_datetime: string;
       end_datetime: string;
       is_external?: boolean;
       is_fixed?: boolean;
       notes?: string;
+      external_user_id?: string;
     }) => {
       // Check for conflicts first
       const { data: hasConflict, error: conflictError } = await supabase
