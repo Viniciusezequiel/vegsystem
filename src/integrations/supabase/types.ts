@@ -107,6 +107,42 @@ export type Database = {
         }
         Relationships: []
       }
+      classroom_calls: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          accepted_by_name: string | null
+          created_at: string
+          id: string
+          reason: string
+          resolved_at: string | null
+          room_name: string
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          accepted_by_name?: string | null
+          created_at?: string
+          id?: string
+          reason: string
+          resolved_at?: string | null
+          room_name: string
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          accepted_by_name?: string | null
+          created_at?: string
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          room_name?: string
+          status?: string
+        }
+        Relationships: []
+      }
       equipment: {
         Row: {
           available_quantity: number

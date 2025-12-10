@@ -49,6 +49,10 @@ import ReschedulingsList from "./pages/reservations/ReschedulingsList";
 import MaterialRequestsList from "./pages/materials/MaterialRequestsList";
 import MaterialRequestForm from "./pages/materials/MaterialRequestForm";
 
+// Classroom Calls Module
+import ClassroomCallForm from "./pages/classroom/ClassroomCallForm";
+import ClassroomCallsList from "./pages/classroom/ClassroomCallsList";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -216,6 +220,14 @@ const App = () => (
             <Route path="/materials/new" element={
               <ProtectedRoute>
                 <MaterialRequestForm />
+              </ProtectedRoute>
+            } />
+            
+            {/* Classroom Calls Module */}
+            <Route path="/chamado-sala" element={<ClassroomCallForm />} />
+            <Route path="/classroom-calls" element={
+              <ProtectedRoute>
+                <ClassroomCallsList />
               </ProtectedRoute>
             } />
             
