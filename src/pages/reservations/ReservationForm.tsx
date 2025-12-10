@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useReservationRooms, useCreateReservation } from '@/hooks/useReservations';
+import { ExternalUser } from '@/hooks/useExternalUsers';
+import { ExternalUserSelector } from '@/components/reservations/ExternalUserSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
-import { Calendar, ArrowLeft, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Calendar, ArrowLeft, Loader2, ExternalLink } from 'lucide-react';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -18,6 +21,7 @@ const reservationSchema = z.object({
   requester_name: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
   requester_email: z.string().email('Email inválido'),
   requester_phone: z.string().optional(),
+  requester_cpf: z.string().optional(),
   attendees_count: z.number().min(1, 'Mínimo 1 participante'),
   start_date: z.string().min(1, 'Data de início obrigatória'),
   start_time: z.string().min(1, 'Horário de início obrigatório'),
@@ -33,12 +37,16 @@ export default function ReservationForm() {
   const { data: rooms, isLoading: roomsLoading } = useReservationRooms();
   const createReservation = useCreateReservation();
 
+  const [isExternalReservation, setIsExternalReservation] = useState(false);
+  const [selectedExternalUser, setSelectedExternalUser] = useState<ExternalUser | { full_name: string; email: string; cpf: string; phone?: string } | null>(null);
+
   const [formData, setFormData] = useState({
     room_id: '',
     title: '',
     requester_name: profile?.full_name || '',
     requester_email: '',
     requester_phone: '',
+    requester_cpf: '',
     attendees_count: 1,
     start_date: '',
     start_time: '',
@@ -48,6 +56,17 @@ export default function ReservationForm() {
     notes: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleExternalUserSelect = (user: ExternalUser | { full_name: string; email: string; cpf: string; phone?: string }) => {
+    setSelectedExternalUser(user);
+    setFormData(prev => ({
+      ...prev,
+      requester_name: user.full_name,
+      requester_email: user.email,
+      requester_phone: user.phone || '',
+      requester_cpf: user.cpf,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,12 +101,14 @@ export default function ReservationForm() {
         requester_name: formData.requester_name,
         requester_email: formData.requester_email,
         requester_phone: formData.requester_phone || undefined,
+        requester_cpf: isExternalReservation ? formData.requester_cpf : undefined,
         attendees_count: Number(formData.attendees_count),
         start_datetime,
         end_datetime,
         description: formData.description || undefined,
         notes: formData.notes || undefined,
-        is_external: false,
+        is_external: isExternalReservation,
+        external_user_id: isExternalReservation && selectedExternalUser && 'id' in selectedExternalUser ? selectedExternalUser.id : undefined,
       },
       {
         onSuccess: () => navigate('/reservations'),
@@ -254,7 +275,42 @@ export default function ReservationForm() {
           </div>
 
           <div className="glass-card rounded-2xl p-6 space-y-6">
-            <h2 className="text-lg font-semibold text-foreground">Dados do Solicitante</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Dados do Solicitante</h2>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="is_external" className="text-sm">Reserva para usuário externo</Label>
+                <Switch
+                  id="is_external"
+                  checked={isExternalReservation}
+                  onCheckedChange={(checked) => {
+                    setIsExternalReservation(checked);
+                    if (!checked) {
+                      setSelectedExternalUser(null);
+                      setFormData(prev => ({
+                        ...prev,
+                        requester_name: profile?.full_name || '',
+                        requester_email: '',
+                        requester_phone: '',
+                        requester_cpf: '',
+                      }));
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {isExternalReservation && (
+              <div className="p-4 rounded-lg bg-accent/10 border border-accent/30 space-y-4">
+                <div className="flex items-center gap-2 text-sm text-accent">
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Reserva vinculada a um usuário externo (aparecerá no perfil dele)</span>
+                </div>
+                <ExternalUserSelector
+                  onSelect={handleExternalUserSelect}
+                  selectedUser={selectedExternalUser as ExternalUser}
+                />
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
@@ -263,8 +319,9 @@ export default function ReservationForm() {
                   id="requester_name"
                   value={formData.requester_name}
                   onChange={(e) => setFormData({ ...formData, requester_name: e.target.value })}
-                  placeholder="Seu nome completo"
+                  placeholder="Nome do solicitante"
                   className={errors.requester_name ? 'border-destructive' : ''}
+                  disabled={isExternalReservation && !!selectedExternalUser}
                 />
                 {errors.requester_name && <p className="text-xs text-destructive mt-1">{errors.requester_name}</p>}
               </div>
@@ -277,8 +334,9 @@ export default function ReservationForm() {
                     type="email"
                     value={formData.requester_email}
                     onChange={(e) => setFormData({ ...formData, requester_email: e.target.value })}
-                    placeholder="seu.email@exemplo.com"
+                    placeholder="email@exemplo.com"
                     className={errors.requester_email ? 'border-destructive' : ''}
+                    disabled={isExternalReservation && !!selectedExternalUser}
                   />
                   {errors.requester_email && <p className="text-xs text-destructive mt-1">{errors.requester_email}</p>}
                 </div>
@@ -289,9 +347,24 @@ export default function ReservationForm() {
                     value={formData.requester_phone}
                     onChange={(e) => setFormData({ ...formData, requester_phone: e.target.value })}
                     placeholder="(00) 00000-0000"
+                    disabled={isExternalReservation && !!selectedExternalUser}
                   />
                 </div>
               </div>
+
+              {isExternalReservation && (
+                <div>
+                  <Label htmlFor="requester_cpf">CPF</Label>
+                  <Input
+                    id="requester_cpf"
+                    value={formData.requester_cpf}
+                    onChange={(e) => setFormData({ ...formData, requester_cpf: e.target.value })}
+                    placeholder="000.000.000-00"
+                    disabled={!!selectedExternalUser}
+                    className="font-mono"
+                  />
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="notes">Observações</Label>

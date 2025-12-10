@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
-import { Search, Plus, Calendar, Clock, Users, Eye, Check, X, Pin, ExternalLink } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, Plus, Calendar, Clock, Users, Eye, Check, X, Pin, ExternalLink, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { ReservationDetailsDialog } from '@/components/reservations/ReservationDetailsDialog';
+import { ExternalUsersTab } from '@/components/reservations/ExternalUsersTab';
 import { Constants } from '@/integrations/supabase/types';
 
 const statusConfig = {
@@ -23,6 +25,7 @@ const statusConfig = {
 
 export default function ReservationsList() {
   const navigate = useNavigate();
+  const [mainTab, setMainTab] = useState<'reservations' | 'external-users'>('reservations');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [campusFilter, setCampusFilter] = useState<string>('all');
@@ -157,6 +160,21 @@ export default function ReservationsList() {
           </Button>
         </div>
       </div>
+
+      {/* Main Tabs */}
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as typeof mainTab)} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="reservations" className="gap-2">
+            <Calendar className="w-4 h-4" />
+            Reservas
+          </TabsTrigger>
+          <TabsTrigger value="external-users" className="gap-2">
+            <UserCheck className="w-4 h-4" />
+            Usuários Externos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="reservations" className="mt-6">
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6 flex-wrap">
@@ -335,6 +353,12 @@ export default function ReservationsList() {
         open={!!selectedReservation}
         onOpenChange={(open) => !open && setSelectedReservation(null)}
       />
+        </TabsContent>
+
+        <TabsContent value="external-users" className="mt-6">
+          <ExternalUsersTab />
+        </TabsContent>
+      </Tabs>
     </MainLayout>
   );
 }
