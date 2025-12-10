@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Setup from "./pages/Setup";
@@ -39,18 +40,24 @@ import ReservationsList from "./pages/reservations/ReservationsList";
 import ReservationForm from "./pages/reservations/ReservationForm";
 import ReservationsCalendar from "./pages/reservations/ReservationsCalendar";
 import ReservationLogs from "./pages/reservations/ReservationLogs";
+import ReservationApprovals from "./pages/reservations/ReservationApprovals";
 import ExternalBooking from "./pages/reservations/ExternalBooking";
+
+// Materials Module
+import MaterialRequestsList from "./pages/materials/MaterialRequestsList";
+import MaterialRequestForm from "./pages/materials/MaterialRequestForm";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
             {/* Public Routes */}
             <Route path="/auth" element={<Auth />} />
             <Route path="/setup" element={<Setup />} />
@@ -181,7 +188,24 @@ const App = () => (
                 <ReservationLogs />
               </ProtectedRoute>
             } />
+            <Route path="/reservations/approvals" element={
+              <ProtectedRoute>
+                <ReservationApprovals />
+              </ProtectedRoute>
+            } />
             <Route path="/booking" element={<ExternalBooking />} />
+            
+            {/* Materials Module */}
+            <Route path="/materials" element={
+              <ProtectedRoute>
+                <MaterialRequestsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/materials/new" element={
+              <ProtectedRoute>
+                <MaterialRequestForm />
+              </ProtectedRoute>
+            } />
             
             {/* Legacy routes */}
             <Route path="/register" element={
@@ -222,11 +246,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
