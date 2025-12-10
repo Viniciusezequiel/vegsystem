@@ -20,8 +20,7 @@ export function useExternalUserProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      // Cast to any to handle new table not in types yet
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('external_users')
         .select('*')
         .eq('user_id', user.id)
@@ -30,6 +29,46 @@ export function useExternalUserProfile() {
       if (error) throw error;
       return data as ExternalUser | null;
     },
+  });
+}
+
+export function useExternalUsers() {
+  return useQuery({
+    queryKey: ['external-users'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('external_users')
+        .select('*')
+        .order('full_name');
+
+      if (error) throw error;
+      return data as ExternalUser[];
+    },
+  });
+}
+
+export function useSearchExternalUsers(searchTerm: string) {
+  return useQuery({
+    queryKey: ['external-users-search', searchTerm],
+    queryFn: async () => {
+      if (!searchTerm || searchTerm.length < 3) return [];
+      
+      const cleanedTerm = searchTerm.replace(/\D/g, '');
+      const isCpfSearch = cleanedTerm.length >= 3;
+
+      let query = supabase.from('external_users').select('*');
+
+      if (isCpfSearch && cleanedTerm.length >= 3) {
+        query = query.ilike('cpf', `%${cleanedTerm}%`);
+      } else {
+        query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error } = await query.limit(10);
+      if (error) throw error;
+      return data as ExternalUser[];
+    },
+    enabled: searchTerm.length >= 3,
   });
 }
 
@@ -42,8 +81,7 @@ export function useCreateExternalUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      // Cast to any to handle new table not in types yet
-      const { data: externalUser, error } = await (supabase as any)
+      const { data: externalUser, error } = await supabase
         .from('external_users')
         .insert({
           user_id: user.id,
@@ -60,9 +98,49 @@ export function useCreateExternalUser() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['external-user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['external-users'] });
       toast({
         title: 'Perfil criado',
         description: 'Seu perfil foi criado com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useCreateExternalUserAdmin() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (data: { full_name: string; email: string; cpf: string; phone?: string }) => {
+      // Admin creating user without auth binding
+      const { data: externalUser, error } = await supabase
+        .from('external_users')
+        .insert({
+          user_id: crypto.randomUUID(), // Placeholder until user signs up
+          full_name: data.full_name,
+          email: data.email,
+          cpf: data.cpf.replace(/\D/g, ''),
+          phone: data.phone,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return externalUser as ExternalUser;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['external-users'] });
+      toast({
+        title: 'Usuário externo criado',
+        description: 'O usuário foi cadastrado com sucesso.',
       });
     },
     onError: (error: Error) => {
@@ -80,23 +158,51 @@ export function useUpdateExternalUser() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: { full_name?: string; phone?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      // Cast to any to handle new table not in types yet
-      const { error } = await (supabase as any)
+    mutationFn: async (data: { id: string; full_name?: string; phone?: string; cpf?: string }) => {
+      const { id, ...updateData } = data;
+      const { error } = await supabase
         .from('external_users')
-        .update(data)
-        .eq('user_id', user.id);
+        .update(updateData)
+        .eq('id', id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['external-user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['external-users'] });
       toast({
         title: 'Perfil atualizado',
-        description: 'Suas informações foram atualizadas.',
+        description: 'As informações foram atualizadas.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useDeleteExternalUser() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('external_users')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['external-users'] });
+      toast({
+        title: 'Usuário removido',
+        description: 'O usuário externo foi removido.',
       });
     },
     onError: (error: Error) => {

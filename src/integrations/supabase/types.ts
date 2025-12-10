@@ -321,6 +321,39 @@ export type Database = {
           },
         ]
       }
+      external_users: {
+        Row: {
+          cpf: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       locker_loans: {
         Row: {
           actual_return_date: string | null
@@ -752,10 +785,12 @@ export type Database = {
           created_by: string | null
           description: string | null
           end_datetime: string
+          external_user_id: string | null
           id: string
           is_external: boolean
           is_fixed: boolean
           notes: string | null
+          requester_cpf: string | null
           requester_email: string
           requester_name: string
           requester_phone: string | null
@@ -772,10 +807,12 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_datetime: string
+          external_user_id?: string | null
           id?: string
           is_external?: boolean
           is_fixed?: boolean
           notes?: string | null
+          requester_cpf?: string | null
           requester_email: string
           requester_name: string
           requester_phone?: string | null
@@ -792,10 +829,12 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_datetime?: string
+          external_user_id?: string | null
           id?: string
           is_external?: boolean
           is_fixed?: boolean
           notes?: string | null
+          requester_cpf?: string | null
           requester_email?: string
           requester_name?: string
           requester_phone?: string | null
@@ -806,6 +845,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reservations_external_user_id_fkey"
+            columns: ["external_user_id"]
+            isOneToOne: false
+            referencedRelation: "external_users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reservations_room_id_fkey"
             columns: ["room_id"]
