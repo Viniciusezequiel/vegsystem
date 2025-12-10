@@ -21,7 +21,15 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const setupKey = Deno.env.get('ADMIN_SETUP_KEY') || 'SETUP_FIRST_ADMIN_2024';
+    const setupKey = Deno.env.get('ADMIN_SETUP_KEY');
+
+    if (!setupKey) {
+      console.error('ADMIN_SETUP_KEY environment variable is not configured');
+      return new Response(
+        JSON.stringify({ error: 'Setup is not properly configured. Please contact the administrator.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
