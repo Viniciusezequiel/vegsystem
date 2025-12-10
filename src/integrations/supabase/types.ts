@@ -593,6 +593,79 @@ export type Database = {
           },
         ]
       }
+      reservation_reschedulings: {
+        Row: {
+          affected_reservations_count: number
+          created_at: string
+          id: string
+          is_recurring_update: boolean
+          new_end_datetime: string
+          new_room_id: string
+          new_start_datetime: string
+          original_end_datetime: string
+          original_room_id: string
+          original_start_datetime: string
+          reason: string | null
+          rescheduled_by: string | null
+          rescheduled_by_name: string | null
+          reservation_id: string
+        }
+        Insert: {
+          affected_reservations_count?: number
+          created_at?: string
+          id?: string
+          is_recurring_update?: boolean
+          new_end_datetime: string
+          new_room_id: string
+          new_start_datetime: string
+          original_end_datetime: string
+          original_room_id: string
+          original_start_datetime: string
+          reason?: string | null
+          rescheduled_by?: string | null
+          rescheduled_by_name?: string | null
+          reservation_id: string
+        }
+        Update: {
+          affected_reservations_count?: number
+          created_at?: string
+          id?: string
+          is_recurring_update?: boolean
+          new_end_datetime?: string
+          new_room_id?: string
+          new_start_datetime?: string
+          original_end_datetime?: string
+          original_room_id?: string
+          original_start_datetime?: string
+          reason?: string | null
+          rescheduled_by?: string | null
+          rescheduled_by_name?: string | null
+          reservation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_reschedulings_new_room_id_fkey"
+            columns: ["new_room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_reschedulings_original_room_id_fkey"
+            columns: ["original_room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_reschedulings_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservation_rooms: {
         Row: {
           auto_confirm: boolean
