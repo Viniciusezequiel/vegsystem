@@ -190,12 +190,12 @@ export function MaterialRequestDetailsDialog({ request, open, onClose, canManage
                   Atribuir a um Colaborador
                 </Label>
                 <div className="flex gap-2">
-                  <Select value={assignedTo} onValueChange={setAssignedTo}>
+                  <Select value={assignedTo || "none"} onValueChange={(v) => setAssignedTo(v === "none" ? "" : v)}>
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Selecione um colaborador" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value="none">Nenhum</SelectItem>
                       {collaborators.map((user) => (
                         <SelectItem key={user.user_id} value={user.user_id}>
                           {user.full_name} - {user.position || user.department || user.role}
