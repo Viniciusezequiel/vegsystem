@@ -126,12 +126,12 @@ export default function MaterialRequestForm() {
                 <UserCheck className="w-4 h-4" />
                 Atribuir a um Colaborador
               </Label>
-              <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <Select value={assignedTo || "none"} onValueChange={(v) => setAssignedTo(v === "none" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um colaborador (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum (aguardar atribuição)</SelectItem>
+                  <SelectItem value="none">Nenhum (aguardar atribuição)</SelectItem>
                   {collaborators.map((user) => (
                     <SelectItem key={user.user_id} value={user.user_id}>
                       {user.full_name} - {user.position || user.department || user.role}
