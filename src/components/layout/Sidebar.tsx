@@ -81,6 +81,7 @@ const moduleGroups: NavGroup[] = [
     items: [
       { name: 'Inventário', href: '/equipment', icon: Monitor },
       { name: 'Empréstimos', href: '/equipment/loans', icon: PackagePlus },
+      { name: 'Solicitações Ext.', href: '/equipment/external-requests', icon: Users },
     ],
   },
   {

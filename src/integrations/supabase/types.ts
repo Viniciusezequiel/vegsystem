@@ -217,6 +217,74 @@ export type Database = {
           },
         ]
       }
+      external_equipment_requests: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          equipment_id: string | null
+          equipment_name: string
+          expected_return_date: string
+          id: string
+          processed_at: string | null
+          processed_by: string | null
+          purpose: string
+          quantity_requested: number
+          requested_date: string
+          requester_email: string
+          requester_name: string
+          requester_organization: string | null
+          requester_phone: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          equipment_id?: string | null
+          equipment_name: string
+          expected_return_date: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          purpose: string
+          quantity_requested?: number
+          requested_date: string
+          requester_email: string
+          requester_name: string
+          requester_organization?: string | null
+          requester_phone: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          equipment_id?: string | null
+          equipment_name?: string
+          expected_return_date?: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          purpose?: string
+          quantity_requested?: number
+          requested_date?: string
+          requester_email?: string
+          requester_name?: string
+          requester_organization?: string | null
+          requester_phone?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_equipment_requests_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locker_loans: {
         Row: {
           actual_return_date: string | null

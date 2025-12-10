@@ -23,6 +23,7 @@ import EquipmentList from "./pages/equipment/EquipmentList";
 import EquipmentRegister from "./pages/equipment/EquipmentRegister";
 import EquipmentLoans from "./pages/equipment/EquipmentLoans";
 import EquipmentLoanForm from "./pages/equipment/EquipmentLoanForm";
+import ExternalEquipmentRequestsList from "./pages/equipment/ExternalEquipmentRequestsList";
 
 // Lockers Module
 import LockersList from "./pages/lockers/LockersList";
@@ -120,6 +121,11 @@ const App = () => (
             <Route path="/equipment/edit/:id" element={
               <ProtectedRoute>
                 <EquipmentRegister />
+              </ProtectedRoute>
+            } />
+            <Route path="/equipment/external-requests" element={
+              <ProtectedRoute>
+                <ExternalEquipmentRequestsList />
               </ProtectedRoute>
             } />
             
