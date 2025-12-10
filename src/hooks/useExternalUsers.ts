@@ -120,11 +120,19 @@ export function useCreateExternalUserAdmin() {
 
   return useMutation({
     mutationFn: async (data: { full_name: string; email: string; cpf: string; phone?: string }) => {
-      // Admin creating user without auth binding
+      // Generate a placeholder UUID for external users created by admin
+      // This uses a combination of timestamp and random values for uniqueness
+      const placeholderUserId = crypto.randomUUID ? crypto.randomUUID() : 
+        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      
       const { data: externalUser, error } = await supabase
         .from('external_users')
         .insert({
-          user_id: crypto.randomUUID(), // Placeholder until user signs up
+          user_id: placeholderUserId,
           full_name: data.full_name,
           email: data.email,
           cpf: data.cpf.replace(/\D/g, ''),
