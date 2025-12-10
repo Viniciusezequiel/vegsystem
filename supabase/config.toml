@@ -2,3 +2,6 @@ project_id = "ugzrewnbpljswwboctfh"
 
 [functions.setup-first-admin]
 verify_jwt = false
+
+[functions.create-external-reservation]
+verify_jwt = false
