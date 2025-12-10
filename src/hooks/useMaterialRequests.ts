@@ -21,6 +21,8 @@ export interface MaterialRequest {
   admin_notes?: string;
   approved_by?: string;
   approved_at?: string;
+  assigned_to?: string;
+  assigned_to_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -86,6 +88,8 @@ export function useCreateMaterialRequest() {
       description?: string;
       items: MaterialRequestItem[];
       priority: 'low' | 'normal' | 'high' | 'urgent';
+      assigned_to?: string;
+      assigned_to_name?: string;
     }) => {
       if (!user?.id || !profile?.full_name) {
         throw new Error('Usuário não autenticado');
@@ -100,6 +104,8 @@ export function useCreateMaterialRequest() {
           description: data.description,
           items: data.items as unknown as any,
           priority: data.priority,
+          assigned_to: data.assigned_to,
+          assigned_to_name: data.assigned_to_name,
         });
       
       if (error) throw error;
@@ -135,6 +141,8 @@ export function useUpdateMaterialRequest() {
       id: string; 
       status?: string;
       admin_notes?: string;
+      assigned_to?: string;
+      assigned_to_name?: string;
     }) => {
       const updateData: Record<string, unknown> = { ...data };
       
