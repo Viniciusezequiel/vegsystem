@@ -88,26 +88,51 @@ export function useCreateExternalEquipmentRequest() {
       requested_date: string;
       expected_return_date: string;
     }) => {
-      const { error } = await supabase
-        .from('external_equipment_requests')
-        .insert({
-          ...data,
-          requester_email: data.requester_email.toLowerCase(),
-        });
+      // Call the edge function with rate limiting and validation
+      const { data: result, error } = await supabase.functions.invoke('create-external-equipment-request', {
+        body: {
+          equipment_id: data.equipment_id,
+          equipment_name: data.equipment_name,
+          quantity_requested: data.quantity_requested,
+          requester_name: data.requester_name,
+          requester_email: data.requester_email,
+          requester_phone: data.requester_phone,
+          requester_organization: data.requester_organization,
+          purpose: data.purpose,
+          requested_date: data.requested_date,
+          expected_return_date: data.expected_return_date,
+        },
+      });
       
-      if (error) throw error;
+      if (error) {
+        throw new Error(error.message || 'Failed to create request');
+      }
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create request');
+      }
+      
+      return result.request;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['external-equipment-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['external-equipment-requests-by-email'] });
       toast({
         title: 'Solicitação enviada',
         description: 'Sua solicitação foi enviada e será analisada pela equipe.',
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      let errorMessage = error.message;
+      
+      // Handle rate limiting error
+      if (errorMessage.includes('Too many requests')) {
+        errorMessage = 'Você fez muitas solicitações. Por favor, aguarde um minuto e tente novamente.';
+      }
+      
       toast({
         title: 'Erro',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     },
