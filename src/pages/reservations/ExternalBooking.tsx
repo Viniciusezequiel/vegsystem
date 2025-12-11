@@ -232,6 +232,7 @@ export default function ExternalBooking() {
         start_datetime,
         end_datetime,
         attendees_count: Number(searchData.attendees_count),
+        is_external: true, // Apply 15 min buffer for external reservations
       },
       {
         onSuccess: (rooms) => {
