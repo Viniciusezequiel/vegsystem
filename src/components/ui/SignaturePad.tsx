@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { Canvas as FabricCanvas } from 'fabric';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Canvas as FabricCanvas, PencilBrush } from 'fabric';
 import { Button } from './button';
-import { Eraser, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 
 interface SignaturePadProps {
   onSignatureChange: (signature: string | null) => void;
@@ -16,11 +16,25 @@ export const SignaturePad = ({
 }: SignaturePadProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
+  const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
+
+  const handleClear = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    fabricCanvasRef.current.clear();
+    fabricCanvasRef.current.backgroundColor = '#ffffff';
+    fabricCanvasRef.current.renderAll();
+    setIsEmpty(true);
+    onSignatureChange(null);
+  }, [onSignatureChange]);
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
+    
+    // Prevent double initialization
+    if (fabricCanvasRef.current) {
+      return;
+    }
 
     // Get container width for responsive sizing
     const containerWidth = containerRef.current.offsetWidth;
@@ -34,9 +48,11 @@ export const SignaturePad = ({
       isDrawingMode: true,
     });
 
-    // Configure drawing brush for signature
-    canvas.freeDrawingBrush.color = '#1a1a2e';
-    canvas.freeDrawingBrush.width = 2;
+    // Create and configure drawing brush for signature
+    const brush = new PencilBrush(canvas);
+    brush.color = '#1a1a2e';
+    brush.width = 2;
+    canvas.freeDrawingBrush = brush;
 
     // Listen for drawing events
     canvas.on('path:created', () => {
@@ -45,21 +61,15 @@ export const SignaturePad = ({
       onSignatureChange(dataUrl);
     });
 
-    setFabricCanvas(canvas);
+    fabricCanvasRef.current = canvas;
 
     return () => {
-      canvas.dispose();
+      if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.dispose();
+        fabricCanvasRef.current = null;
+      }
     };
   }, [width, height, onSignatureChange]);
-
-  const handleClear = () => {
-    if (!fabricCanvas) return;
-    fabricCanvas.clear();
-    fabricCanvas.backgroundColor = '#ffffff';
-    fabricCanvas.renderAll();
-    setIsEmpty(true);
-    onSignatureChange(null);
-  };
 
   return (
     <div className="space-y-2">
