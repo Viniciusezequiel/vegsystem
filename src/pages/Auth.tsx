@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, Mail, Sparkles } from 'lucide-react';
 import { z } from 'zod';
-import batmanLogo from '@/assets/batman-logo.png';
+import vegSystemLogo from '@/assets/veg-system-logo.png';
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
@@ -110,8 +110,8 @@ export default function Auth() {
             <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
             <div className="w-28 h-28 relative flex items-center justify-center">
               <img 
-                src={batmanLogo} 
-                alt="Logo" 
+                src={vegSystemLogo} 
+                alt="VEG System Logo" 
                 className="w-full h-full object-contain filter drop-shadow-2xl"
                 style={{ filter: 'drop-shadow(0 0 20px hsl(265 85% 65% / 0.5))' }}
               />
@@ -119,7 +119,7 @@ export default function Auth() {
           </div>
           
           <CardTitle className="text-3xl font-bold gradient-text">
-            Vinicius Corp
+            VEG System
           </CardTitle>
           <CardDescription className="text-muted-foreground flex items-center justify-center gap-2 mt-2">
             <Sparkles className="w-4 h-4 text-primary" />
@@ -212,7 +212,7 @@ export default function Auth() {
           <div className="mt-8 pt-4 border-t border-border/20 text-center">
             <p className="text-xs text-muted-foreground/60">
               Criado e Desenvolvido por{' '}
-              <span className="font-medium gradient-text">Vinicius Ezequiel</span>
+              <span className="font-medium gradient-text">VEG System</span>
             </p>
           </div>
         </CardContent>
