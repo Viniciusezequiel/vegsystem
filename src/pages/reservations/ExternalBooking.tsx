@@ -19,7 +19,9 @@ import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, 
 import { z } from 'zod';
 import { format, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import batmanLogo from '@/assets/batman-logo.png';
+import vegSystemLogo from '@/assets/veg-system-logo.png';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
 
 const searchSchema = z.object({
   attendees_count: z.number().min(1, 'Mínimo 1 participante'),
@@ -405,8 +407,9 @@ export default function ExternalBooking() {
       <div className="relative z-10 container max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          {/* Logout button */}
-          <div className="flex justify-end mb-4">
+          {/* Top bar with theme toggle and logout */}
+          <div className="flex justify-between items-center mb-4">
+            <ThemeToggle collapsed />
             <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
               <LogOut className="w-4 h-4" />
               Sair
@@ -416,10 +419,10 @@ export default function ExternalBooking() {
           <div className="flex justify-center mb-4">
             <div className="relative">
               <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
-              <img src={batmanLogo} alt="Logo" className="w-20 h-20 relative" style={{ filter: 'drop-shadow(0 0 15px hsl(265 85% 65% / 0.5))' }} />
+              <img src={vegSystemLogo} alt="VEG System Logo" className="w-20 h-20 relative" style={{ filter: 'drop-shadow(0 0 15px hsl(265 85% 65% / 0.5))' }} />
             </div>
           </div>
-          <h1 className="text-3xl font-bold gradient-text mb-2">Portal de Solicitações</h1>
+          <h1 className="text-3xl font-bold gradient-text mb-2">VEG System</h1>
           <p className="text-muted-foreground flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
             Olá, {externalUserProfile?.full_name || currentUser?.full_name || currentUser?.email || 'Usuário'}
@@ -501,11 +504,10 @@ export default function ExternalBooking() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Data *</Label>
-                            <Input
-                              type="date"
+                            <DatePickerInput
                               value={searchData.start_date}
-                              onChange={(e) => setSearchData({ ...searchData, start_date: e.target.value })}
-                              min={format(new Date(), 'yyyy-MM-dd')}
+                              onChange={(value) => setSearchData({ ...searchData, start_date: value })}
+                              placeholder="Selecionar data"
                               className={searchErrors.start_date ? 'border-destructive' : ''}
                             />
                             {searchErrors.start_date && <p className="text-xs text-destructive mt-1">{searchErrors.start_date}</p>}
@@ -844,21 +846,19 @@ export default function ExternalBooking() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Data de Retirada *</Label>
-                        <Input
-                          type="date"
+                        <DatePickerInput
                           value={equipmentFormData.requested_date}
-                          onChange={(e) => setEquipmentFormData({ ...equipmentFormData, requested_date: e.target.value })}
-                          min={format(new Date(), 'yyyy-MM-dd')}
+                          onChange={(value) => setEquipmentFormData({ ...equipmentFormData, requested_date: value })}
+                          placeholder="Selecionar data"
                           className={equipmentErrors.requested_date ? 'border-destructive' : ''}
                         />
                       </div>
                       <div>
                         <Label>Data de Devolução *</Label>
-                        <Input
-                          type="date"
+                        <DatePickerInput
                           value={equipmentFormData.expected_return_date}
-                          onChange={(e) => setEquipmentFormData({ ...equipmentFormData, expected_return_date: e.target.value })}
-                          min={equipmentFormData.requested_date || format(new Date(), 'yyyy-MM-dd')}
+                          onChange={(value) => setEquipmentFormData({ ...equipmentFormData, expected_return_date: value })}
+                          placeholder="Selecionar data"
                           className={equipmentErrors.expected_return_date ? 'border-destructive' : ''}
                         />
                         {equipmentErrors.expected_return_date && (
@@ -971,7 +971,7 @@ export default function ExternalBooking() {
         <div className="mt-8 text-center">
           <p className="text-xs text-muted-foreground/60">
             Criado e Desenvolvido por{' '}
-            <span className="font-medium gradient-text">Vinicius Ezequiel</span>
+            <span className="font-medium gradient-text">VEG System</span>
           </p>
         </div>
       </div>
