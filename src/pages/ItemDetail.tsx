@@ -351,6 +351,23 @@ export default function ItemDetail() {
                   </div>
                 )}
               </div>
+              
+              {/* Owner Signature */}
+              {item.owner_signature && (
+                <div className="mt-6 pt-4 border-t border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <PenLine className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-medium text-muted-foreground">Assinatura do Proprietário</p>
+                  </div>
+                  <div className="bg-white rounded-lg border border-border p-2 inline-block">
+                    <img 
+                      src={item.owner_signature} 
+                      alt="Assinatura do proprietário" 
+                      className="max-w-[300px] max-h-[150px] object-contain"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
