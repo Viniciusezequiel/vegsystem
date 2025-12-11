@@ -196,12 +196,14 @@ export function useCreateReservation() {
       notes?: string;
       external_user_id?: string;
     }) => {
-      // Check for conflicts first
+      // Check for conflicts first - pass all parameters to avoid function overload ambiguity
       const { data: hasConflict, error: conflictError } = await supabase
         .rpc('check_reservation_conflict', {
           p_room_id: data.room_id,
           p_start_datetime: data.start_datetime,
           p_end_datetime: data.end_datetime,
+          p_exclude_reservation_id: null,
+          p_is_external: data.is_external ?? false,
         });
 
       if (conflictError) throw conflictError;
