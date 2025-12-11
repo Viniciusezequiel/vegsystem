@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { 
   Upload, 
   FileSpreadsheet, 
@@ -45,12 +46,24 @@ import {
   RefreshCw,
   StopCircle,
   Pin,
-  Calendar
+  Calendar,
+  Repeat
 } from 'lucide-react';
 import { useReservationRooms } from '@/hooks/useReservations';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { format, parse, isValid } from 'date-fns';
+import { format, parse, isValid, addWeeks, getDay, isBefore, startOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+const WEEKDAYS = [
+  { value: 0, label: 'Domingo' },
+  { value: 1, label: 'Segunda-feira' },
+  { value: 2, label: 'Terça-feira' },
+  { value: 3, label: 'Quarta-feira' },
+  { value: 4, label: 'Quinta-feira' },
+  { value: 5, label: 'Sexta-feira' },
+  { value: 6, label: 'Sábado' },
+];
 
 interface ParsedReservation {
   row: number;
@@ -64,10 +77,12 @@ interface ParsedReservation {
   requesterEmail: string;
   attendeesCount: number;
   reservationType: 'fixed' | 'free' | 'regular';
+  weekday?: number; // 0-6 (Sunday-Saturday)
   status: 'valid' | 'error' | 'warning';
   errors: string[];
   processed?: boolean;
   success?: boolean;
+  createdCount?: number; // For fixed reservations, how many were created
 }
 
 interface ExcelImportDialogProps {
@@ -82,9 +97,11 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
   const [isImporting, setIsImporting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{ success: number; failed: number; cancelled: number }>({ success: 0, failed: 0, cancelled: 0 });
+  const [importResults, setImportResults] = useState<{ success: number; failed: number; cancelled: number; total: number }>({ success: 0, failed: 0, cancelled: 0, total: 0 });
   const [step, setStep] = useState<'upload' | 'preview' | 'results'>('upload');
   const [defaultReservationType, setDefaultReservationType] = useState<'fixed' | 'free' | 'regular'>('regular');
+  const [repeatEndDate, setRepeatEndDate] = useState<string>('');
+  const [repeatWeeks, setRepeatWeeks] = useState<number>(16); // Default 16 weeks (1 semester)
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cancelRef = useRef(false);
   const { toast } = useToast();
@@ -98,7 +115,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     setIsImporting(false);
     setIsCancelling(false);
     setImportProgress(0);
-    setImportResults({ success: 0, failed: 0, cancelled: 0 });
+    setImportResults({ success: 0, failed: 0, cancelled: 0, total: 0 });
     setStep('upload');
     cancelRef.current = false;
     if (fileInputRef.current) {
@@ -187,6 +204,26 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     return 'regular';
   };
 
+  const parseWeekday = (value: string): number | undefined => {
+    if (!value) return undefined;
+    const lower = String(value).toLowerCase().trim();
+    
+    // Try numeric
+    const num = parseInt(value);
+    if (!isNaN(num) && num >= 0 && num <= 6) return num;
+    
+    // Try day names
+    if (lower.includes('dom')) return 0;
+    if (lower.includes('seg')) return 1;
+    if (lower.includes('ter')) return 2;
+    if (lower.includes('qua')) return 3;
+    if (lower.includes('qui')) return 4;
+    if (lower.includes('sex')) return 5;
+    if (lower.includes('sab') || lower.includes('sáb')) return 6;
+    
+    return undefined;
+  };
+
   const findRoomByCode = (code: string): { id: string; name: string } | null => {
     if (!code || !rooms) return null;
     const normalizedCode = code.trim().toUpperCase();
@@ -233,6 +270,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
         requesterEmail: headers.findIndex((h: string) => h.includes('email') || h.includes('e-mail')),
         attendees: headers.findIndex((h: string) => h.includes('participantes') || h.includes('alunos') || h.includes('quantidade') || h.includes('pessoas')),
         type: headers.findIndex((h: string) => h.includes('tipo') || h.includes('type') || h.includes('modalidade')),
+        weekday: headers.findIndex((h: string) => h.includes('dia da semana') || h.includes('dia semana') || h.includes('weekday') || h.includes('repete')),
       };
 
       const missingColumns: string[] = [];
@@ -268,6 +306,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
         const requesterEmail = colMap.requesterEmail !== -1 ? String(row[colMap.requesterEmail] || '').trim() : '';
         const attendeesCount = colMap.attendees !== -1 ? parseInt(row[colMap.attendees]) || 30 : 30;
         const typeValue = colMap.type !== -1 ? String(row[colMap.type] || '').trim() : '';
+        const weekdayValue = colMap.weekday !== -1 ? String(row[colMap.weekday] || '').trim() : '';
 
         const parsedDate = parseDate(dateValue);
         if (!parsedDate) {
@@ -295,6 +334,14 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
           errors.push(`Email inválido: "${requesterEmail}"`);
         }
 
+        const reservationType = parseReservationType(typeValue);
+        
+        // Parse weekday from column or derive from date
+        let weekday = parseWeekday(weekdayValue);
+        if (weekday === undefined && parsedDate) {
+          weekday = getDay(new Date(parsedDate));
+        }
+
         parsed.push({
           row: i + 1,
           title,
@@ -306,7 +353,8 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
           requesterName,
           requesterEmail: requesterEmail || 'sem.email@exemplo.com',
           attendeesCount,
-          reservationType: parseReservationType(typeValue),
+          reservationType,
+          weekday,
           status: errors.length > 0 ? 'error' : 'valid',
           errors,
         });
@@ -333,8 +381,21 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     ));
   };
 
+  const updateWeekday = (row: number, weekday: number) => {
+    setParsedData(prev => prev.map(item => 
+      item.row === row ? { ...item, weekday } : item
+    ));
+  };
+
   const applyDefaultTypeToAll = () => {
     setParsedData(prev => prev.map(item => ({ ...item, reservationType: defaultReservationType })));
+  };
+
+  const getEndDate = (): Date => {
+    if (repeatEndDate) {
+      return new Date(repeatEndDate);
+    }
+    return addWeeks(new Date(), repeatWeeks);
   };
 
   const handleImport = async () => {
@@ -348,17 +409,29 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
       return;
     }
 
+    // Check if there are fixed reservations without end date
+    const hasFixed = validReservations.some(r => r.reservationType === 'fixed');
+    if (hasFixed && !repeatEndDate && repeatWeeks <= 0) {
+      toast({
+        title: 'Configuração necessária',
+        description: 'Defina o período de repetição para reservas fixas.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsImporting(true);
     setImportProgress(0);
     cancelRef.current = false;
     let success = 0;
     let failed = 0;
     let cancelled = 0;
+    let totalCreated = 0;
 
     const updatedData = [...parsedData];
+    const endDate = getEndDate();
 
     for (let i = 0; i < validReservations.length; i++) {
-      // Check for cancellation
       if (cancelRef.current) {
         cancelled = validReservations.length - i;
         break;
@@ -368,48 +441,120 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
       const dataIndex = parsedData.findIndex(r => r.row === reservation.row);
 
       try {
-        const startDatetime = `${reservation.date}T${reservation.startTime}:00`;
-        const endDatetime = `${reservation.date}T${reservation.endTime}:00`;
+        if (reservation.reservationType === 'fixed' && reservation.weekday !== undefined) {
+          // Create recurring reservations
+          let currentDate = new Date(reservation.date);
+          let createdCount = 0;
+          let hasError = false;
+          let errorMsg = '';
 
-        const { data: hasConflict } = await supabase.rpc('check_reservation_conflict', {
-          p_room_id: reservation.roomId,
-          p_start_datetime: startDatetime,
-          p_end_datetime: endDatetime,
-        });
+          while (isBefore(currentDate, endDate) && !cancelRef.current) {
+            const dateStr = format(currentDate, 'yyyy-MM-dd');
+            const startDatetime = `${dateStr}T${reservation.startTime}:00`;
+            const endDatetime = `${dateStr}T${reservation.endTime}:00`;
 
-        if (hasConflict) {
-          updatedData[dataIndex] = {
-            ...updatedData[dataIndex],
-            processed: true,
-            success: false,
-            status: 'error',
-            errors: [...updatedData[dataIndex].errors, 'Conflito de horário com outra reserva'],
-          };
-          failed++;
+            // Skip past dates
+            if (!isBefore(startOfDay(currentDate), startOfDay(new Date()))) {
+              const { data: hasConflict } = await supabase.rpc('check_reservation_conflict', {
+                p_room_id: reservation.roomId,
+                p_start_datetime: startDatetime,
+                p_end_datetime: endDatetime,
+              });
+
+              if (!hasConflict) {
+                const { error } = await supabase
+                  .from('reservations')
+                  .insert({
+                    title: reservation.title,
+                    room_id: reservation.roomId,
+                    start_datetime: startDatetime,
+                    end_datetime: endDatetime,
+                    requester_name: reservation.requesterName,
+                    requester_email: reservation.requesterEmail,
+                    attendees_count: reservation.attendeesCount,
+                    status: 'confirmed',
+                    is_external: false,
+                    is_fixed: true,
+                  });
+
+                if (error) {
+                  hasError = true;
+                  errorMsg = error.message;
+                } else {
+                  createdCount++;
+                  totalCreated++;
+                }
+              }
+            }
+
+            currentDate = addWeeks(currentDate, 1);
+          }
+
+          if (createdCount > 0) {
+            updatedData[dataIndex] = {
+              ...updatedData[dataIndex],
+              processed: true,
+              success: true,
+              createdCount,
+            };
+            success++;
+          } else {
+            updatedData[dataIndex] = {
+              ...updatedData[dataIndex],
+              processed: true,
+              success: false,
+              status: 'error',
+              errors: [...updatedData[dataIndex].errors, hasError ? errorMsg : 'Nenhuma data válida ou todas com conflito'],
+            };
+            failed++;
+          }
         } else {
-          const { error } = await supabase
-            .from('reservations')
-            .insert({
-              title: reservation.title,
-              room_id: reservation.roomId,
-              start_datetime: startDatetime,
-              end_datetime: endDatetime,
-              requester_name: reservation.requesterName,
-              requester_email: reservation.requesterEmail,
-              attendees_count: reservation.attendeesCount,
-              status: 'confirmed',
-              is_external: reservation.reservationType === 'free',
-              is_fixed: reservation.reservationType === 'fixed',
-            });
+          // Single reservation
+          const startDatetime = `${reservation.date}T${reservation.startTime}:00`;
+          const endDatetime = `${reservation.date}T${reservation.endTime}:00`;
 
-          if (error) throw error;
+          const { data: hasConflict } = await supabase.rpc('check_reservation_conflict', {
+            p_room_id: reservation.roomId,
+            p_start_datetime: startDatetime,
+            p_end_datetime: endDatetime,
+          });
 
-          updatedData[dataIndex] = {
-            ...updatedData[dataIndex],
-            processed: true,
-            success: true,
-          };
-          success++;
+          if (hasConflict) {
+            updatedData[dataIndex] = {
+              ...updatedData[dataIndex],
+              processed: true,
+              success: false,
+              status: 'error',
+              errors: [...updatedData[dataIndex].errors, 'Conflito de horário com outra reserva'],
+            };
+            failed++;
+          } else {
+            const { error } = await supabase
+              .from('reservations')
+              .insert({
+                title: reservation.title,
+                room_id: reservation.roomId,
+                start_datetime: startDatetime,
+                end_datetime: endDatetime,
+                requester_name: reservation.requesterName,
+                requester_email: reservation.requesterEmail,
+                attendees_count: reservation.attendeesCount,
+                status: 'confirmed',
+                is_external: reservation.reservationType === 'free',
+                is_fixed: false,
+              });
+
+            if (error) throw error;
+
+            updatedData[dataIndex] = {
+              ...updatedData[dataIndex],
+              processed: true,
+              success: true,
+              createdCount: 1,
+            };
+            success++;
+            totalCreated++;
+          }
         }
       } catch (error: any) {
         console.error('Error creating reservation:', error);
@@ -427,7 +572,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
       setParsedData([...updatedData]);
     }
 
-    setImportResults({ success, failed, cancelled });
+    setImportResults({ success, failed, cancelled, total: totalCreated });
     setIsImporting(false);
     setIsCancelling(false);
     setStep('results');
@@ -435,13 +580,13 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     if (cancelRef.current) {
       toast({
         title: 'Importação cancelada',
-        description: `${success} reservas criadas antes do cancelamento.`,
+        description: `${totalCreated} reservas criadas antes do cancelamento.`,
         variant: 'default',
       });
     } else {
       toast({
         title: 'Importação concluída',
-        description: `${success} reservas criadas, ${failed} erros.`,
+        description: `${totalCreated} reservas criadas no total.`,
         variant: success > 0 ? 'default' : 'destructive',
       });
     }
@@ -449,10 +594,12 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
 
   const downloadTemplate = () => {
     const templateData = [
-      ['Título/Disciplina', 'Sala', 'Data', 'Hora Início', 'Hora Fim', 'Professor', 'Email', 'Participantes', 'Tipo'],
-      ['Matemática I', 'SALA-101', '15/01/2025', '08:00', '10:00', 'Prof. João Silva', 'joao@email.com', 30, 'Fixa'],
-      ['Física II', 'SALA-102', '15/01/2025', '10:00', '12:00', 'Prof. Maria Santos', 'maria@email.com', 25, 'Regular'],
-      ['Reunião Externa', 'SALA-103', '16/01/2025', '14:00', '16:00', 'Visitante', 'visitante@email.com', 10, 'Livre'],
+      ['Título/Disciplina', 'Sala', 'Data', 'Hora Início', 'Hora Fim', 'Professor', 'Email', 'Participantes', 'Tipo', 'Dia da Semana'],
+      ['Matemática I', 'SALA-101', '13/01/2025', '08:00', '10:00', 'Prof. João Silva', 'joao@email.com', 30, 'Fixa', 'Segunda'],
+      ['Física II', 'SALA-102', '14/01/2025', '10:00', '12:00', 'Prof. Maria Santos', 'maria@email.com', 25, 'Fixa', 'Terça'],
+      ['Química Geral', 'SALA-103', '15/01/2025', '14:00', '16:00', 'Prof. Carlos Lima', 'carlos@email.com', 35, 'Fixa', 'Quarta'],
+      ['Reunião Externa', 'SALA-104', '16/01/2025', '09:00', '11:00', 'Visitante', 'visitante@email.com', 10, 'Livre', ''],
+      ['Workshop', 'SALA-105', '17/01/2025', '13:00', '17:00', 'Organizador', 'org@email.com', 50, 'Regular', ''],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -463,6 +610,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
 
   const validCount = parsedData.filter(r => r.status === 'valid').length;
   const errorCount = parsedData.filter(r => r.status === 'error').length;
+  const fixedCount = parsedData.filter(r => r.status === 'valid' && r.reservationType === 'fixed').length;
 
   const getTypeLabel = (type: 'fixed' | 'free' | 'regular') => {
     switch (type) {
@@ -472,17 +620,14 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     }
   };
 
-  const getTypeIcon = (type: 'fixed' | 'free' | 'regular') => {
-    switch (type) {
-      case 'fixed': return <Pin className="w-3 h-3" />;
-      case 'free': return <Calendar className="w-3 h-3" />;
-      default: return <Calendar className="w-3 h-3" />;
-    }
+  const getWeekdayLabel = (weekday?: number) => {
+    if (weekday === undefined) return '-';
+    return WEEKDAYS.find(w => w.value === weekday)?.label || '-';
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-primary" />
@@ -500,29 +645,60 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Formato do arquivo</AlertTitle>
                 <AlertDescription>
-                  Colunas obrigatórias: <strong>Título/Disciplina</strong>, <strong>Sala</strong>, <strong>Data</strong>, <strong>Hora Início</strong>. 
-                  Opcionais: Hora Fim, Professor, Email, Participantes, <strong>Tipo</strong> (Fixa/Livre/Regular).
+                  <p className="mb-2">Colunas obrigatórias: <strong>Título</strong>, <strong>Sala</strong>, <strong>Data</strong>, <strong>Hora Início</strong>.</p>
+                  <p>Opcionais: Hora Fim, Professor, Email, Participantes, <strong>Tipo</strong> (Fixa/Livre/Regular), <strong>Dia da Semana</strong> (para reservas fixas).</p>
                 </AlertDescription>
               </Alert>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <Label>Tipo padrão de reserva</Label>
+                  <Select value={defaultReservationType} onValueChange={(v: 'fixed' | 'free' | 'regular') => setDefaultReservationType(v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">
+                        <span className="flex items-center gap-2"><Pin className="w-4 h-4" /> Reserva Fixa (recorrente)</span>
+                      </SelectItem>
+                      <SelectItem value="free">
+                        <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Reserva Livre (externa/avulsa)</span>
+                      </SelectItem>
+                      <SelectItem value="regular">
+                        <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Reserva Regular</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <Repeat className="w-4 h-4" />
+                    Repetir reservas fixas por (semanas)
+                  </Label>
+                  <Select value={repeatWeeks.toString()} onValueChange={(v) => setRepeatWeeks(parseInt(v))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="4">4 semanas (1 mês)</SelectItem>
+                      <SelectItem value="8">8 semanas (2 meses)</SelectItem>
+                      <SelectItem value="12">12 semanas (3 meses)</SelectItem>
+                      <SelectItem value="16">16 semanas (1 semestre)</SelectItem>
+                      <SelectItem value="20">20 semanas (5 meses)</SelectItem>
+                      <SelectItem value="24">24 semanas (6 meses)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-3">
-                <Label>Tipo padrão de reserva (caso não especificado no arquivo)</Label>
-                <Select value={defaultReservationType} onValueChange={(v: 'fixed' | 'free' | 'regular') => setDefaultReservationType(v)}>
-                  <SelectTrigger className="w-full max-w-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed">
-                      <span className="flex items-center gap-2"><Pin className="w-4 h-4" /> Reserva Fixa (recorrente)</span>
-                    </SelectItem>
-                    <SelectItem value="free">
-                      <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Reserva Livre (externa/avulsa)</span>
-                    </SelectItem>
-                    <SelectItem value="regular">
-                      <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Reserva Regular</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Ou definir data final para repetição</Label>
+                <DatePickerInput
+                  value={repeatEndDate}
+                  onChange={setRepeatEndDate}
+                  placeholder="Selecione a data final (opcional)"
+                />
               </div>
 
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center">
@@ -566,6 +742,12 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                   <CheckCircle2 className="w-3 h-3" />
                   {validCount} válidas
                 </Badge>
+                {fixedCount > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Pin className="w-3 h-3" />
+                    {fixedCount} fixas (serão replicadas)
+                  </Badge>
+                )}
                 {errorCount > 0 && (
                   <Badge variant="destructive" className="gap-1">
                     <XCircle className="w-3 h-3" />
@@ -573,24 +755,25 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                   </Badge>
                 )}
                 <span className="text-sm text-muted-foreground">
-                  {parsedData.length} linhas encontradas
+                  {parsedData.length} linhas • Repetir por {repeatWeeks} semanas
                 </span>
-                <div className="ml-auto flex items-center gap-2">
-                  <Label className="text-sm">Aplicar tipo a todas:</Label>
-                  <Select value={defaultReservationType} onValueChange={(v: 'fixed' | 'free' | 'regular') => setDefaultReservationType(v)}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fixed">Fixa</SelectItem>
-                      <SelectItem value="free">Livre</SelectItem>
-                      <SelectItem value="regular">Regular</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button size="sm" variant="outline" onClick={applyDefaultTypeToAll}>
-                    Aplicar
-                  </Button>
-                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Label className="text-sm">Aplicar tipo a todas:</Label>
+                <Select value={defaultReservationType} onValueChange={(v: 'fixed' | 'free' | 'regular') => setDefaultReservationType(v)}>
+                  <SelectTrigger className="w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Fixa</SelectItem>
+                    <SelectItem value="free">Livre</SelectItem>
+                    <SelectItem value="regular">Regular</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" onClick={applyDefaultTypeToAll}>
+                  Aplicar
+                </Button>
               </div>
 
               {isImporting && (
@@ -604,7 +787,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                 </div>
               )}
 
-              <ScrollArea className="h-[350px] rounded-lg border">
+              <ScrollArea className="h-[320px] rounded-lg border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -615,6 +798,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                       <TableHead>Data</TableHead>
                       <TableHead>Horário</TableHead>
                       <TableHead>Tipo</TableHead>
+                      <TableHead>Dia da Semana</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -625,7 +809,8 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                           {item.processed ? (
                             item.success ? (
                               <Badge variant="default" className="gap-1">
-                                <CheckCircle2 className="w-3 h-3" />OK
+                                <CheckCircle2 className="w-3 h-3" />
+                                {item.createdCount && item.createdCount > 1 ? `${item.createdCount}x` : 'OK'}
                               </Badge>
                             ) : (
                               <Badge variant="destructive" className="gap-1">
@@ -642,7 +827,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="max-w-[150px] truncate" title={item.title}>
+                        <TableCell className="max-w-[120px] truncate" title={item.title}>
                           {item.title}
                         </TableCell>
                         <TableCell>{item.roomCode}</TableCell>
@@ -654,7 +839,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                               value={item.reservationType}
                               onValueChange={(v: 'fixed' | 'free' | 'regular') => updateReservationType(item.row, v)}
                             >
-                              <SelectTrigger className="w-24 h-8 text-xs">
+                              <SelectTrigger className="w-20 h-7 text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -665,9 +850,32 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                             </Select>
                           ) : (
                             <Badge variant="outline" className="gap-1">
-                              {getTypeIcon(item.reservationType)}
+                              {item.reservationType === 'fixed' ? <Pin className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
                               {getTypeLabel(item.reservationType)}
                             </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {!item.processed && item.status === 'valid' && item.reservationType === 'fixed' ? (
+                            <Select
+                              value={item.weekday?.toString() || ''}
+                              onValueChange={(v) => updateWeekday(item.row, parseInt(v))}
+                            >
+                              <SelectTrigger className="w-28 h-7 text-xs">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {WEEKDAYS.map(day => (
+                                  <SelectItem key={day.value} value={day.value.toString()}>
+                                    {day.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : item.reservationType === 'fixed' ? (
+                            <span className="text-sm">{getWeekdayLabel(item.weekday)}</span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -681,13 +889,16 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                   <XCircle className="h-4 w-4" />
                   <AlertTitle>Erros encontrados</AlertTitle>
                   <AlertDescription>
-                    <ScrollArea className="max-h-32">
+                    <ScrollArea className="max-h-24">
                       <ul className="text-xs space-y-1 mt-2">
-                        {parsedData.filter(r => r.errors.length > 0).map((r, i) => (
+                        {parsedData.filter(r => r.errors.length > 0).slice(0, 10).map((r, i) => (
                           <li key={i}>
                             <strong>Linha {r.row}:</strong> {r.errors.join('; ')}
                           </li>
                         ))}
+                        {parsedData.filter(r => r.errors.length > 0).length > 10 && (
+                          <li className="text-muted-foreground">...e mais {parsedData.filter(r => r.errors.length > 0).length - 10} erros</li>
+                        )}
                       </ul>
                     </ScrollArea>
                   </AlertDescription>
@@ -715,16 +926,20 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                   {importResults.cancelled > 0 ? 'Importação Cancelada' : 'Importação Concluída'}
                 </h3>
                 <p className="text-muted-foreground mt-1">
-                  {importResults.success > 0 
-                    ? `${importResults.success} reservas foram criadas com sucesso.`
+                  {importResults.total > 0 
+                    ? `${importResults.total} reservas foram criadas no total.`
                     : 'Nenhuma reserva foi criada.'}
                 </p>
               </div>
 
               <div className="flex justify-center gap-6">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-primary">{importResults.success}</div>
-                  <div className="text-sm text-muted-foreground">Sucesso</div>
+                  <div className="text-3xl font-bold text-primary">{importResults.total}</div>
+                  <div className="text-sm text-muted-foreground">Reservas criadas</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-500">{importResults.success}</div>
+                  <div className="text-sm text-muted-foreground">Linhas OK</div>
                 </div>
                 {importResults.failed > 0 && (
                   <div className="text-center">
@@ -779,7 +994,8 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
               ) : (
                 <Button onClick={handleImport} disabled={validCount === 0}>
                   <Upload className="w-4 h-4 mr-2" />
-                  Importar {validCount} reservas
+                  Importar {validCount} {validCount === 1 ? 'reserva' : 'reservas'}
+                  {fixedCount > 0 && ` (${fixedCount} fixas)`}
                 </Button>
               )}
             </>
