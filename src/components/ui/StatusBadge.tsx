@@ -19,6 +19,10 @@ const statusConfig: Record<ItemStatus, { label: string; className: string }> = {
     label: 'Entregue',
     className: 'status-delivered',
   },
+  expired: {
+    label: 'Expirado',
+    className: 'status-expired',
+  },
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
