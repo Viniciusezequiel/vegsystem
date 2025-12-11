@@ -6,12 +6,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Reservation, useUpdateReservation, useReservations } from '@/hooks/useReservations';
+import { Reservation, useUpdateReservation, useReservations, useFindAvailableRooms, ReservationRoom } from '@/hooks/useReservations';
 import { useReservationRooms } from '@/hooks/useReservations';
 import { useCreateRescheduling } from '@/hooks/useReschedulings';
 import { format, parseISO, isSameDay, getDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowRight, Calendar, MapPin, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowRight, Calendar, MapPin, AlertTriangle, Loader2, RefreshCw, CheckCircle2, Users } from 'lucide-react';
 
 interface RescheduleDialogProps {
   reservation: Reservation | null;
@@ -23,19 +23,37 @@ export function RescheduleDialog({ reservation, open, onOpenChange }: Reschedule
   const [newRoomId, setNewRoomId] = useState('');
   const [reason, setReason] = useState('');
   const [applyToRecurring, setApplyToRecurring] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState<ReservationRoom[]>([]);
   
   const { data: rooms = [] } = useReservationRooms();
   const { data: allReservations = [] } = useReservations();
   const updateReservation = useUpdateReservation();
   const createRescheduling = useCreateRescheduling();
+  const findAvailableRooms = useFindAvailableRooms();
 
   useEffect(() => {
-    if (reservation) {
+    if (reservation && open) {
       setNewRoomId('');
       setReason('');
       setApplyToRecurring(false);
+      
+      // Fetch available rooms for the reservation's date/time
+      findAvailableRooms.mutate(
+        {
+          start_datetime: reservation.start_datetime,
+          end_datetime: reservation.end_datetime,
+          attendees_count: reservation.attendees_count || 1,
+        },
+        {
+          onSuccess: (data) => {
+            // Filter out the current room
+            const filtered = data.filter(room => room.id !== reservation.room_id);
+            setAvailableRooms(filtered);
+          },
+        }
+      );
     }
-  }, [reservation]);
+  }, [reservation, open]);
 
   if (!reservation) return null;
 
@@ -67,8 +85,6 @@ export function RescheduleDialog({ reservation, open, onOpenChange }: Reschedule
 
   const recurringReservations = getRecurringReservations();
   const affectedCount = applyToRecurring ? recurringReservations.length + 1 : 1;
-
-  const availableRooms = rooms.filter(room => room.id !== reservation.room_id && room.is_active);
 
   const handleReschedule = async () => {
     if (!newRoomId) return;
@@ -145,19 +161,44 @@ export function RescheduleDialog({ reservation, open, onOpenChange }: Reschedule
 
           {/* New Room Selection */}
           <div className="space-y-2">
-            <Label>Novo Ambiente</Label>
-            <Select value={newRoomId} onValueChange={setNewRoomId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o novo ambiente" />
-              </SelectTrigger>
-              <SelectContent>
+            <Label>Novo Ambiente (disponíveis para este horário)</Label>
+            {findAvailableRooms.isPending ? (
+              <div className="flex items-center justify-center py-4 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Buscando salas disponíveis...
+              </div>
+            ) : availableRooms.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground bg-muted/30 rounded-lg">
+                Nenhuma sala disponível para este horário
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {availableRooms.map((room) => (
-                  <SelectItem key={room.id} value={room.id}>
-                    {room.name} ({room.code}) - {room.campus}
-                  </SelectItem>
+                  <div
+                    key={room.id}
+                    onClick={() => setNewRoomId(room.id)}
+                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                      newRoomId === room.id
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className={`w-4 h-4 ${newRoomId === room.id ? 'text-primary' : 'text-success'}`} />
+                      <div>
+                        <span className="font-medium text-foreground">{room.name}</span>
+                        <span className="text-xs text-primary font-mono ml-1">({room.code})</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Users className="w-3 h-3" />
+                      {room.capacity}
+                      <span className="ml-2">{room.campus}</span>
+                    </div>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
           </div>
 
           {/* Reason */}

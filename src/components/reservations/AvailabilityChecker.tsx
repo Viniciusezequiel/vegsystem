@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFindAvailableRooms, ReservationRoom } from '@/hooks/useReservations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
-import { Search, Users, MapPin, CheckCircle2 } from 'lucide-react';
+import { Search, Users, MapPin, CheckCircle2, ArrowRight } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
@@ -14,6 +15,7 @@ type CampusEnum = Database['public']['Enums']['campus_enum'];
 const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
 export function AvailabilityChecker() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -52,6 +54,12 @@ export function AvailabilityChecker() {
     setAttendees(1);
     setCampus('all');
     setAvailableRooms(null);
+  };
+
+  const handleSelectRoom = (room: ReservationRoom) => {
+    setOpen(false);
+    // Navigate to reservation form with pre-filled data
+    navigate(`/reservations/new?room=${room.id}&date=${date}&start=${startTime}&end=${endTime}&attendees=${attendees}`);
   };
 
   return (
@@ -144,7 +152,7 @@ export function AvailabilityChecker() {
                   {availableRooms.map((room) => (
                     <div
                       key={room.id}
-                      className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/30"
+                      className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/30 hover:border-primary/50 transition-colors"
                     >
                       <div>
                         <div className="flex items-center gap-2">
@@ -165,7 +173,17 @@ export function AvailabilityChecker() {
                           )}
                         </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">{room.campus}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{room.campus}</span>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSelectRoom(room)}
+                          className="gap-1"
+                        >
+                          Reservar
+                          <ArrowRight className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
