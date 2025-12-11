@@ -26,6 +26,13 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Upload, 
@@ -35,13 +42,15 @@ import {
   AlertTriangle, 
   Loader2,
   Download,
-  RefreshCw
+  RefreshCw,
+  StopCircle,
+  Pin,
+  Calendar
 } from 'lucide-react';
-import { useReservationRooms, useCreateReservation } from '@/hooks/useReservations';
+import { useReservationRooms } from '@/hooks/useReservations';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format, parse, isValid } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 interface ParsedReservation {
   row: number;
@@ -54,6 +63,7 @@ interface ParsedReservation {
   requesterName: string;
   requesterEmail: string;
   attendeesCount: number;
+  reservationType: 'fixed' | 'free' | 'regular';
   status: 'valid' | 'error' | 'warning';
   errors: string[];
   processed?: boolean;
@@ -70,10 +80,13 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
   const [parsedData, setParsedData] = useState<ParsedReservation[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
+  const [importResults, setImportResults] = useState<{ success: number; failed: number; cancelled: number }>({ success: 0, failed: 0, cancelled: 0 });
   const [step, setStep] = useState<'upload' | 'preview' | 'results'>('upload');
+  const [defaultReservationType, setDefaultReservationType] = useState<'fixed' | 'free' | 'regular'>('regular');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cancelRef = useRef(false);
   const { toast } = useToast();
 
   const { data: rooms } = useReservationRooms();
@@ -83,23 +96,38 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     setParsedData([]);
     setIsProcessing(false);
     setIsImporting(false);
+    setIsCancelling(false);
     setImportProgress(0);
-    setImportResults({ success: 0, failed: 0 });
+    setImportResults({ success: 0, failed: 0, cancelled: 0 });
     setStep('upload');
+    cancelRef.current = false;
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   const handleClose = () => {
+    if (isImporting) {
+      cancelRef.current = true;
+      setIsCancelling(true);
+      return;
+    }
     resetState();
     onOpenChange(false);
+  };
+
+  const handleCancelImport = () => {
+    cancelRef.current = true;
+    setIsCancelling(true);
+    toast({
+      title: 'Cancelando importação...',
+      description: 'A importação será interrompida após a reserva atual.',
+    });
   };
 
   const parseDate = (value: string | number): string | null => {
     if (!value) return null;
     
-    // Handle Excel date serial numbers
     if (typeof value === 'number') {
       const date = XLSX.SSF.parse_date_code(value);
       if (date) {
@@ -108,15 +136,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     }
     
     const strValue = String(value).trim();
-    
-    // Try various date formats
-    const formats = [
-      'dd/MM/yyyy',
-      'dd-MM-yyyy',
-      'yyyy-MM-dd',
-      'd/M/yyyy',
-      'd-M-yyyy',
-    ];
+    const formats = ['dd/MM/yyyy', 'dd-MM-yyyy', 'yyyy-MM-dd', 'd/M/yyyy', 'd-M-yyyy'];
     
     for (const fmt of formats) {
       const parsed = parse(strValue, fmt, new Date());
@@ -131,7 +151,6 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
   const parseTime = (value: string | number): string | null => {
     if (!value) return null;
     
-    // Handle Excel time as decimal
     if (typeof value === 'number') {
       const totalMinutes = Math.round(value * 24 * 60);
       const hours = Math.floor(totalMinutes / 60);
@@ -140,8 +159,6 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     }
     
     const strValue = String(value).trim();
-    
-    // Try HH:mm format
     const timeMatch = strValue.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
     if (timeMatch) {
       const hours = parseInt(timeMatch[1]);
@@ -151,7 +168,6 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
       }
     }
     
-    // Try "HHh" format (e.g., "14h")
     const hourMatch = strValue.match(/^(\d{1,2})h?$/i);
     if (hourMatch) {
       const hours = parseInt(hourMatch[1]);
@@ -161,6 +177,14 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     }
     
     return null;
+  };
+
+  const parseReservationType = (value: string): 'fixed' | 'free' | 'regular' => {
+    if (!value) return defaultReservationType;
+    const lower = String(value).toLowerCase().trim();
+    if (lower.includes('fix') || lower.includes('recorrente') || lower.includes('semanal')) return 'fixed';
+    if (lower.includes('livr') || lower.includes('extern') || lower.includes('avuls')) return 'free';
+    return 'regular';
   };
 
   const findRoomByCode = (code: string): { id: string; name: string } | null => {
@@ -197,10 +221,8 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
         return;
       }
 
-      // Get header row
       const headers = jsonData[0].map((h: any) => String(h).toLowerCase().trim());
       
-      // Map column indices
       const colMap = {
         title: headers.findIndex((h: string) => h.includes('titulo') || h.includes('título') || h.includes('aula') || h.includes('disciplina') || h.includes('evento')),
         room: headers.findIndex((h: string) => h.includes('sala') || h.includes('room') || h.includes('local')),
@@ -210,9 +232,9 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
         requesterName: headers.findIndex((h: string) => h.includes('professor') || h.includes('responsável') || h.includes('solicitante') || h.includes('nome')),
         requesterEmail: headers.findIndex((h: string) => h.includes('email') || h.includes('e-mail')),
         attendees: headers.findIndex((h: string) => h.includes('participantes') || h.includes('alunos') || h.includes('quantidade') || h.includes('pessoas')),
+        type: headers.findIndex((h: string) => h.includes('tipo') || h.includes('type') || h.includes('modalidade')),
       };
 
-      // Validate required columns
       const missingColumns: string[] = [];
       if (colMap.title === -1) missingColumns.push('Título/Disciplina');
       if (colMap.room === -1) missingColumns.push('Sala');
@@ -229,7 +251,6 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
         return;
       }
 
-      // Parse data rows
       const parsed: ParsedReservation[] = [];
       
       for (let i = 1; i < jsonData.length; i++) {
@@ -246,14 +267,13 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
         const requesterName = colMap.requesterName !== -1 ? String(row[colMap.requesterName] || 'Professor').trim() : 'Professor';
         const requesterEmail = colMap.requesterEmail !== -1 ? String(row[colMap.requesterEmail] || '').trim() : '';
         const attendeesCount = colMap.attendees !== -1 ? parseInt(row[colMap.attendees]) || 30 : 30;
+        const typeValue = colMap.type !== -1 ? String(row[colMap.type] || '').trim() : '';
 
-        // Validate and parse date
         const parsedDate = parseDate(dateValue);
         if (!parsedDate) {
           errors.push(`Data inválida: "${dateValue}"`);
         }
 
-        // Validate and parse times
         const startTime = parseTime(startTimeValue);
         if (!startTime) {
           errors.push(`Hora início inválida: "${startTimeValue}"`);
@@ -261,19 +281,16 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
 
         let endTime = endTimeValue ? parseTime(endTimeValue) : null;
         if (!endTime && startTime) {
-          // Default to 2 hours duration
           const [h, m] = startTime.split(':').map(Number);
           const endHour = h + 2;
           endTime = `${endHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         }
 
-        // Validate room
         const room = findRoomByCode(roomCode);
         if (!room) {
           errors.push(`Sala não encontrada: "${roomCode}"`);
         }
 
-        // Validate email format if provided
         if (requesterEmail && !requesterEmail.includes('@')) {
           errors.push(`Email inválido: "${requesterEmail}"`);
         }
@@ -289,6 +306,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
           requesterName,
           requesterEmail: requesterEmail || 'sem.email@exemplo.com',
           attendeesCount,
+          reservationType: parseReservationType(typeValue),
           status: errors.length > 0 ? 'error' : 'valid',
           errors,
         });
@@ -309,6 +327,16 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
     }
   };
 
+  const updateReservationType = (row: number, type: 'fixed' | 'free' | 'regular') => {
+    setParsedData(prev => prev.map(item => 
+      item.row === row ? { ...item, reservationType: type } : item
+    ));
+  };
+
+  const applyDefaultTypeToAll = () => {
+    setParsedData(prev => prev.map(item => ({ ...item, reservationType: defaultReservationType })));
+  };
+
   const handleImport = async () => {
     const validReservations = parsedData.filter(r => r.status === 'valid');
     if (validReservations.length === 0) {
@@ -322,12 +350,20 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
 
     setIsImporting(true);
     setImportProgress(0);
+    cancelRef.current = false;
     let success = 0;
     let failed = 0;
+    let cancelled = 0;
 
     const updatedData = [...parsedData];
 
     for (let i = 0; i < validReservations.length; i++) {
+      // Check for cancellation
+      if (cancelRef.current) {
+        cancelled = validReservations.length - i;
+        break;
+      }
+
       const reservation = validReservations[i];
       const dataIndex = parsedData.findIndex(r => r.row === reservation.row);
 
@@ -335,7 +371,6 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
         const startDatetime = `${reservation.date}T${reservation.startTime}:00`;
         const endDatetime = `${reservation.date}T${reservation.endTime}:00`;
 
-        // Check for conflicts
         const { data: hasConflict } = await supabase.rpc('check_reservation_conflict', {
           p_room_id: reservation.roomId,
           p_start_datetime: startDatetime,
@@ -352,7 +387,6 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
           };
           failed++;
         } else {
-          // Create reservation
           const { error } = await supabase
             .from('reservations')
             .insert({
@@ -364,8 +398,8 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
               requester_email: reservation.requesterEmail,
               attendees_count: reservation.attendeesCount,
               status: 'confirmed',
-              is_external: false,
-              is_fixed: false,
+              is_external: reservation.reservationType === 'free',
+              is_fixed: reservation.reservationType === 'fixed',
             });
 
           if (error) throw error;
@@ -390,25 +424,35 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
       }
 
       setImportProgress(Math.round(((i + 1) / validReservations.length) * 100));
-      setParsedData(updatedData);
+      setParsedData([...updatedData]);
     }
 
-    setImportResults({ success, failed });
+    setImportResults({ success, failed, cancelled });
     setIsImporting(false);
+    setIsCancelling(false);
     setStep('results');
 
-    toast({
-      title: 'Importação concluída',
-      description: `${success} reservas criadas, ${failed} erros.`,
-      variant: success > 0 ? 'default' : 'destructive',
-    });
+    if (cancelRef.current) {
+      toast({
+        title: 'Importação cancelada',
+        description: `${success} reservas criadas antes do cancelamento.`,
+        variant: 'default',
+      });
+    } else {
+      toast({
+        title: 'Importação concluída',
+        description: `${success} reservas criadas, ${failed} erros.`,
+        variant: success > 0 ? 'default' : 'destructive',
+      });
+    }
   };
 
   const downloadTemplate = () => {
     const templateData = [
-      ['Título/Disciplina', 'Sala', 'Data', 'Hora Início', 'Hora Fim', 'Professor', 'Email', 'Participantes'],
-      ['Matemática I', 'SALA-101', '15/01/2025', '08:00', '10:00', 'Prof. João Silva', 'joao@email.com', 30],
-      ['Física II', 'SALA-102', '15/01/2025', '10:00', '12:00', 'Prof. Maria Santos', 'maria@email.com', 25],
+      ['Título/Disciplina', 'Sala', 'Data', 'Hora Início', 'Hora Fim', 'Professor', 'Email', 'Participantes', 'Tipo'],
+      ['Matemática I', 'SALA-101', '15/01/2025', '08:00', '10:00', 'Prof. João Silva', 'joao@email.com', 30, 'Fixa'],
+      ['Física II', 'SALA-102', '15/01/2025', '10:00', '12:00', 'Prof. Maria Santos', 'maria@email.com', 25, 'Regular'],
+      ['Reunião Externa', 'SALA-103', '16/01/2025', '14:00', '16:00', 'Visitante', 'visitante@email.com', 10, 'Livre'],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -420,9 +464,25 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
   const validCount = parsedData.filter(r => r.status === 'valid').length;
   const errorCount = parsedData.filter(r => r.status === 'error').length;
 
+  const getTypeLabel = (type: 'fixed' | 'free' | 'regular') => {
+    switch (type) {
+      case 'fixed': return 'Fixa';
+      case 'free': return 'Livre';
+      default: return 'Regular';
+    }
+  };
+
+  const getTypeIcon = (type: 'fixed' | 'free' | 'regular') => {
+    switch (type) {
+      case 'fixed': return <Pin className="w-3 h-3" />;
+      case 'free': return <Calendar className="w-3 h-3" />;
+      default: return <Calendar className="w-3 h-3" />;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-primary" />
@@ -440,10 +500,30 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Formato do arquivo</AlertTitle>
                 <AlertDescription>
-                  O arquivo deve conter as colunas: <strong>Título/Disciplina</strong>, <strong>Sala</strong>, <strong>Data</strong>, <strong>Hora Início</strong>. 
-                  Opcionais: Hora Fim, Professor, Email, Participantes.
+                  Colunas obrigatórias: <strong>Título/Disciplina</strong>, <strong>Sala</strong>, <strong>Data</strong>, <strong>Hora Início</strong>. 
+                  Opcionais: Hora Fim, Professor, Email, Participantes, <strong>Tipo</strong> (Fixa/Livre/Regular).
                 </AlertDescription>
               </Alert>
+
+              <div className="space-y-3">
+                <Label>Tipo padrão de reserva (caso não especificado no arquivo)</Label>
+                <Select value={defaultReservationType} onValueChange={(v: 'fixed' | 'free' | 'regular') => setDefaultReservationType(v)}>
+                  <SelectTrigger className="w-full max-w-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">
+                      <span className="flex items-center gap-2"><Pin className="w-4 h-4" /> Reserva Fixa (recorrente)</span>
+                    </SelectItem>
+                    <SelectItem value="free">
+                      <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Reserva Livre (externa/avulsa)</span>
+                    </SelectItem>
+                    <SelectItem value="regular">
+                      <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Reserva Regular</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center">
                 <Input
@@ -481,7 +561,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
 
           {step === 'preview' && (
             <div className="space-y-4 py-4">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                 <Badge variant="default" className="gap-1">
                   <CheckCircle2 className="w-3 h-3" />
                   {validCount} válidas
@@ -492,23 +572,39 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                     {errorCount} com erros
                   </Badge>
                 )}
-                <span className="text-sm text-muted-foreground ml-auto">
+                <span className="text-sm text-muted-foreground">
                   {parsedData.length} linhas encontradas
                 </span>
+                <div className="ml-auto flex items-center gap-2">
+                  <Label className="text-sm">Aplicar tipo a todas:</Label>
+                  <Select value={defaultReservationType} onValueChange={(v: 'fixed' | 'free' | 'regular') => setDefaultReservationType(v)}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">Fixa</SelectItem>
+                      <SelectItem value="free">Livre</SelectItem>
+                      <SelectItem value="regular">Regular</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" onClick={applyDefaultTypeToAll}>
+                    Aplicar
+                  </Button>
+                </div>
               </div>
 
               {isImporting && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm">Importando reservas...</span>
+                    <span className="text-sm">{isCancelling ? 'Cancelando...' : 'Importando reservas...'}</span>
                     <span className="text-sm text-muted-foreground ml-auto">{importProgress}%</span>
                   </div>
                   <Progress value={importProgress} />
                 </div>
               )}
 
-              <ScrollArea className="h-[400px] rounded-lg border">
+              <ScrollArea className="h-[350px] rounded-lg border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -518,7 +614,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                       <TableHead>Sala</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Horário</TableHead>
-                      <TableHead>Professor</TableHead>
+                      <TableHead>Tipo</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -529,24 +625,20 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                           {item.processed ? (
                             item.success ? (
                               <Badge variant="default" className="gap-1">
-                                <CheckCircle2 className="w-3 h-3" />
-                                OK
+                                <CheckCircle2 className="w-3 h-3" />OK
                               </Badge>
                             ) : (
                               <Badge variant="destructive" className="gap-1">
-                                <XCircle className="w-3 h-3" />
-                                Falhou
+                                <XCircle className="w-3 h-3" />Falhou
                               </Badge>
                             )
                           ) : item.status === 'valid' ? (
                             <Badge variant="secondary" className="gap-1">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Válida
+                              <CheckCircle2 className="w-3 h-3" />Válida
                             </Badge>
                           ) : (
                             <Badge variant="destructive" className="gap-1">
-                              <XCircle className="w-3 h-3" />
-                              Erro
+                              <XCircle className="w-3 h-3" />Erro
                             </Badge>
                           )}
                         </TableCell>
@@ -556,8 +648,27 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                         <TableCell>{item.roomCode}</TableCell>
                         <TableCell>{item.date ? format(new Date(item.date), 'dd/MM/yyyy') : '-'}</TableCell>
                         <TableCell>{item.startTime} - {item.endTime}</TableCell>
-                        <TableCell className="max-w-[120px] truncate" title={item.requesterName}>
-                          {item.requesterName}
+                        <TableCell>
+                          {!item.processed && item.status === 'valid' ? (
+                            <Select
+                              value={item.reservationType}
+                              onValueChange={(v: 'fixed' | 'free' | 'regular') => updateReservationType(item.row, v)}
+                            >
+                              <SelectTrigger className="w-24 h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="fixed">Fixa</SelectItem>
+                                <SelectItem value="free">Livre</SelectItem>
+                                <SelectItem value="regular">Regular</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge variant="outline" className="gap-1">
+                              {getTypeIcon(item.reservationType)}
+                              {getTypeLabel(item.reservationType)}
+                            </Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -588,7 +699,9 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
           {step === 'results' && (
             <div className="space-y-6 py-4 text-center">
               <div className="w-20 h-20 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
-                {importResults.failed === 0 ? (
+                {importResults.cancelled > 0 ? (
+                  <StopCircle className="w-10 h-10 text-yellow-500" />
+                ) : importResults.failed === 0 ? (
                   <CheckCircle2 className="w-10 h-10 text-primary" />
                 ) : importResults.success > 0 ? (
                   <AlertTriangle className="w-10 h-10 text-yellow-500" />
@@ -598,7 +711,9 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-foreground">Importação Concluída</h3>
+                <h3 className="text-xl font-bold text-foreground">
+                  {importResults.cancelled > 0 ? 'Importação Cancelada' : 'Importação Concluída'}
+                </h3>
                 <p className="text-muted-foreground mt-1">
                   {importResults.success > 0 
                     ? `${importResults.success} reservas foram criadas com sucesso.`
@@ -606,7 +721,7 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                 </p>
               </div>
 
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-6">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-primary">{importResults.success}</div>
                   <div className="text-sm text-muted-foreground">Sucesso</div>
@@ -615,6 +730,12 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                   <div className="text-center">
                     <div className="text-3xl font-bold text-destructive">{importResults.failed}</div>
                     <div className="text-sm text-muted-foreground">Falhas</div>
+                  </div>
+                )}
+                {importResults.cancelled > 0 && (
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-yellow-500">{importResults.cancelled}</div>
+                    <div className="text-sm text-muted-foreground">Canceladas</div>
                   </div>
                 )}
               </div>
@@ -650,22 +771,17 @@ export function ExcelImportDialog({ open, onOpenChange }: ExcelImportDialogProps
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Recomeçar
               </Button>
-              <Button 
-                onClick={handleImport} 
-                disabled={validCount === 0 || isImporting}
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Importando...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Importar {validCount} reservas
-                  </>
-                )}
-              </Button>
+              {isImporting ? (
+                <Button variant="destructive" onClick={handleCancelImport} disabled={isCancelling}>
+                  <StopCircle className="w-4 h-4 mr-2" />
+                  {isCancelling ? 'Cancelando...' : 'Cancelar Importação'}
+                </Button>
+              ) : (
+                <Button onClick={handleImport} disabled={validCount === 0}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Importar {validCount} reservas
+                </Button>
+              )}
             </>
           )}
           {step === 'results' && (
