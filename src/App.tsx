@@ -17,6 +17,7 @@ import History from "./pages/History";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
+import DashboardStats from "./pages/DashboardStats";
 import NotFound from "./pages/NotFound";
 
 // Equipment Module
@@ -73,7 +74,7 @@ const App = () => (
             {/* Protected Routes */}
             <Route path="/" element={
               <ProtectedRoute>
-                <Home />
+                <DashboardStats />
               </ProtectedRoute>
             } />
             
