@@ -823,12 +823,16 @@ export default function ExternalBooking() {
                     </div>
 
                     <div>
-                      <Label>Organização</Label>
-                      <Input
+                      <Label>Tipo de Usuário</Label>
+                      <select
                         value={equipmentFormData.requester_organization}
                         onChange={(e) => setEquipmentFormData({ ...equipmentFormData, requester_organization: e.target.value })}
-                        placeholder="Nome da empresa/instituição"
-                      />
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="professor">Professor</option>
+                        <option value="funcionario">Funcionário</option>
+                      </select>
                     </div>
 
                     <div>

@@ -16,9 +16,9 @@ import {
   Search,
   User,
   Calendar,
-  Building,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  UserCircle
 } from 'lucide-react';
 import { 
   useExternalEquipmentRequests, 
@@ -304,9 +304,9 @@ export default function ExternalEquipmentRequestsList() {
 
                 {selectedRequest.requester_organization && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Building className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Organização:</span>
-                    <span className="font-medium">{selectedRequest.requester_organization}</span>
+                    <UserCircle className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Tipo:</span>
+                    <span className="font-medium capitalize">{selectedRequest.requester_organization === 'professor' ? 'Professor' : selectedRequest.requester_organization === 'funcionario' ? 'Funcionário' : selectedRequest.requester_organization}</span>
                   </div>
                 )}
 
