@@ -997,33 +997,63 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      check_reservation_conflict: {
-        Args: {
-          p_end_datetime: string
-          p_exclude_reservation_id?: string
-          p_room_id: string
-          p_start_datetime: string
-        }
-        Returns: boolean
-      }
+      check_reservation_conflict:
+        | {
+            Args: {
+              p_end_datetime: string
+              p_exclude_reservation_id?: string
+              p_room_id: string
+              p_start_datetime: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_end_datetime: string
+              p_exclude_reservation_id?: string
+              p_is_external?: boolean
+              p_room_id: string
+              p_start_datetime: string
+            }
+            Returns: boolean
+          }
       expire_old_lost_items: { Args: never; Returns: undefined }
-      find_available_rooms: {
-        Args: {
-          p_attendees_count?: number
-          p_campus?: Database["public"]["Enums"]["campus_enum"]
-          p_end_datetime: string
-          p_start_datetime: string
-        }
-        Returns: {
-          campus: Database["public"]["Enums"]["campus_enum"]
-          capacity: number
-          code: string
-          description: string
-          id: string
-          location: string
-          name: string
-        }[]
-      }
+      find_available_rooms:
+        | {
+            Args: {
+              p_attendees_count?: number
+              p_campus?: Database["public"]["Enums"]["campus_enum"]
+              p_end_datetime: string
+              p_start_datetime: string
+            }
+            Returns: {
+              campus: Database["public"]["Enums"]["campus_enum"]
+              capacity: number
+              code: string
+              description: string
+              id: string
+              location: string
+              name: string
+            }[]
+          }
+        | {
+            Args: {
+              p_attendees_count?: number
+              p_campus?: Database["public"]["Enums"]["campus_enum"]
+              p_end_datetime: string
+              p_is_external?: boolean
+              p_start_datetime: string
+            }
+            Returns: {
+              campus: Database["public"]["Enums"]["campus_enum"]
+              capacity: number
+              code: string
+              description: string
+              id: string
+              location: string
+              name: string
+            }[]
+          }
       get_linked_rooms: { Args: { p_room_id: string }; Returns: string[] }
       has_role: {
         Args: {

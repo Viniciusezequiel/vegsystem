@@ -349,12 +349,14 @@ export function useFindAvailableRooms() {
       end_datetime: string;
       attendees_count: number;
       campus?: Database['public']['Enums']['campus_enum'];
+      is_external?: boolean;
     }) => {
       const { data, error } = await supabase.rpc('find_available_rooms', {
         p_start_datetime: params.start_datetime,
         p_end_datetime: params.end_datetime,
         p_attendees_count: params.attendees_count,
         p_campus: params.campus ?? null,
+        p_is_external: params.is_external ?? false,
       });
 
       if (error) throw error;

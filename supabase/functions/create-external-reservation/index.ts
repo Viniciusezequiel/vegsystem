@@ -126,12 +126,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check for conflicts
+    // Check for conflicts (with 15 min buffer for external reservations)
     const { data: hasConflict, error: conflictError } = await supabase
       .rpc('check_reservation_conflict', {
         p_room_id: body.room_id,
         p_start_datetime: body.start_datetime,
         p_end_datetime: body.end_datetime,
+        p_is_external: true,
       });
 
     if (conflictError) {
