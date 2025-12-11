@@ -12,7 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Camera, CheckCircle, Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Camera, CheckCircle, Loader2, Copy, Check } from 'lucide-react';
 import { useCreateLostItem, useLostItems } from '@/hooks/useLostItems';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -50,6 +57,9 @@ export default function RegisterItem() {
   const [sealNumber, setSealNumber] = useState('');
   const [deliveredBy, setDeliveredBy] = useState('');
   const [contact, setContact] = useState('');
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [createdCode, setCreatedCode] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -86,6 +96,10 @@ export default function RegisterItem() {
       image_url: imagePreview || undefined,
     }, {
       onSuccess: () => {
+        // Show success dialog with code
+        setCreatedCode(newCode);
+        setSuccessDialogOpen(true);
+        
         // Reset form
         setImagePreview(null);
         setCampus('');
@@ -98,13 +112,19 @@ export default function RegisterItem() {
         setSealNumber('');
         setDeliveredBy('');
         setContact('');
-        
-        // Navigate to list after 2 seconds
-        setTimeout(() => {
-          navigate('/lost-found');
-        }, 2000);
       }
     });
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(createdCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCloseSuccessDialog = () => {
+    setSuccessDialogOpen(false);
+    navigate('/lost-found');
   };
 
   return (
@@ -306,6 +326,41 @@ export default function RegisterItem() {
           </Button>
         </div>
       </form>
+
+      {/* Success Dialog with Code */}
+      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <DialogContent className="text-center">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-center gap-2 text-success">
+              <CheckCircle className="w-6 h-6" />
+              Item Registrado com Sucesso!
+            </DialogTitle>
+            <DialogDescription>
+              O item foi cadastrado no sistema com o seguinte código:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="inline-flex items-center gap-3 bg-primary/10 rounded-lg px-6 py-4">
+              <span className="text-3xl font-mono font-bold text-primary">{createdCode}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleCopyCode}
+                className="h-8 w-8"
+              >
+                {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mt-3">
+              Guarde este código para localizar o item
+            </p>
+          </div>
+          <Button onClick={handleCloseSuccessDialog} className="w-full">
+            Ver Lista de Itens
+          </Button>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

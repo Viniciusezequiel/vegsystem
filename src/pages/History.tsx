@@ -1,8 +1,8 @@
 import { MainLayout } from '@/components/layout/MainLayout';
-import { mockLogs } from '@/data/mockData';
+import { useLostItemLogs } from '@/hooks/useLostItemLogs';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Package, UserPlus, PackageCheck, Search } from 'lucide-react';
+import { Package, UserPlus, PackageCheck, Search, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 
@@ -22,8 +22,9 @@ const getActionColor = (action: string) => {
 
 export default function History() {
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: logs = [], isLoading } = useLostItemLogs();
 
-  const filteredLogs = mockLogs.filter(log => 
+  const filteredLogs = logs.filter(log => 
     log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
     log.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     log.itemCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -51,42 +52,52 @@ export default function History() {
       </div>
 
       {/* Timeline */}
-      <div className="relative">
-        <div className="absolute left-6 top-0 bottom-0 w-px bg-border" />
-        
-        <div className="space-y-6">
-          {filteredLogs.map((log, index) => (
-            <div 
-              key={log.id} 
-              className="relative flex gap-6 animate-fade-in"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center z-10 ${getActionColor(log.action)}`}>
-                {getActionIcon(log.action)}
-              </div>
-              <div className="flex-1 bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-medium text-foreground">{log.action}</h3>
-                    {log.itemCode && (
-                      <p className="text-sm font-mono text-primary mt-0.5">{log.itemCode}</p>
-                    )}
-                    {log.details && (
-                      <p className="text-sm text-muted-foreground mt-2">{log.details}</p>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {format(new Date(log.timestamp), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground mt-3">
-                  Por: <span className="font-medium text-foreground">{log.userName}</span>
-                </p>
-              </div>
-            </div>
-          ))}
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </div>
+      ) : filteredLogs.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          Nenhuma atividade encontrada
+        </div>
+      ) : (
+        <div className="relative">
+          <div className="absolute left-6 top-0 bottom-0 w-px bg-border" />
+          
+          <div className="space-y-6">
+            {filteredLogs.map((log, index) => (
+              <div 
+                key={log.id} 
+                className="relative flex gap-6 animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center z-10 ${getActionColor(log.action)}`}>
+                  {getActionIcon(log.action)}
+                </div>
+                <div className="flex-1 bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-medium text-foreground">{log.action}</h3>
+                      {log.itemCode && (
+                        <p className="text-sm font-mono text-primary mt-0.5">{log.itemCode}</p>
+                      )}
+                      {log.details && (
+                        <p className="text-sm text-muted-foreground mt-2">{log.details}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {format(new Date(log.timestamp), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    Por: <span className="font-medium text-foreground">{log.userName}</span>
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 }
