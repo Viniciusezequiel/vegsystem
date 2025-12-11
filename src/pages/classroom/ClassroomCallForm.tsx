@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Bell, CheckCircle, Loader2, Navigation, Clock } from 'lucide-react';
+import { Bell, CheckCircle, Loader2, Navigation, Clock, Settings, X } from 'lucide-react';
 import { useCreateClassroomCall } from '@/hooks/useClassroomCalls';
 
 interface CallStatus {
@@ -14,12 +15,47 @@ interface CallStatus {
   accepted_at?: string;
 }
 
+const ROOM_NAME_STORAGE_KEY = 'classroom_call_room_name';
+
 export default function ClassroomCallForm() {
+  const [searchParams] = useSearchParams();
   const createCall = useCreateClassroomCall();
   const [roomName, setRoomName] = useState('');
   const [reason, setReason] = useState('');
   const [submittedCallId, setSubmittedCallId] = useState<string | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus | null>(null);
+  const [isRoomLocked, setIsRoomLocked] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Initialize room name from URL param or localStorage
+  useEffect(() => {
+    const urlRoom = searchParams.get('sala') || searchParams.get('room');
+    const savedRoom = localStorage.getItem(ROOM_NAME_STORAGE_KEY);
+    
+    if (urlRoom) {
+      setRoomName(urlRoom);
+      setIsRoomLocked(true);
+      localStorage.setItem(ROOM_NAME_STORAGE_KEY, urlRoom);
+    } else if (savedRoom) {
+      setRoomName(savedRoom);
+      setIsRoomLocked(true);
+    }
+  }, [searchParams]);
+
+  const handleSaveRoom = () => {
+    if (roomName.trim()) {
+      localStorage.setItem(ROOM_NAME_STORAGE_KEY, roomName.trim());
+      setIsRoomLocked(true);
+      setShowSettings(false);
+    }
+  };
+
+  const handleClearRoom = () => {
+    localStorage.removeItem(ROOM_NAME_STORAGE_KEY);
+    setIsRoomLocked(false);
+    setRoomName('');
+    setShowSettings(false);
+  };
 
   // Subscribe to real-time updates for the submitted call
   useEffect(() => {
@@ -77,8 +113,8 @@ export default function ClassroomCallForm() {
   const handleNewCall = () => {
     setSubmittedCallId(null);
     setCallStatus(null);
-    setRoomName('');
     setReason('');
+    // Keep room name if locked
   };
 
   if (submittedCallId && callStatus) {
@@ -164,7 +200,16 @@ export default function ClassroomCallForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-4"
+            onClick={() => setShowSettings(!showSettings)}
+            title="Configurar sala"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
           <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
             <Bell className="h-8 w-8 text-primary" />
           </div>
@@ -174,51 +219,104 @@ export default function ClassroomCallForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="room">Sala *</Label>
-              <Input
-                id="room"
-                placeholder="Ex: Sala 101, Laboratório 3..."
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
-                required
-                maxLength={100}
-              />
+          {showSettings ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg space-y-3">
+                <h3 className="font-medium text-sm">Configurar Sala Fixa</h3>
+                <p className="text-xs text-muted-foreground">
+                  Configure o nome da sala para não precisar digitar novamente. 
+                  Você também pode acessar via URL: <code className="bg-background px-1 rounded">/classroom-calls?sala=Nome</code>
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="config-room">Nome da Sala</Label>
+                  <Input
+                    id="config-room"
+                    placeholder="Ex: Sala 101, Laboratório 3..."
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    maxLength={100}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSaveRoom} disabled={!roomName.trim()} className="flex-1">
+                    Salvar
+                  </Button>
+                  {isRoomLocked && (
+                    <Button onClick={handleClearRoom} variant="outline">
+                      <X className="h-4 w-4 mr-1" />
+                      Limpar
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Button variant="ghost" className="w-full" onClick={() => setShowSettings(false)}>
+                Voltar
+              </Button>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="reason">Motivo do Chamado *</Label>
-              <Textarea
-                id="reason"
-                placeholder="Descreva brevemente o motivo do chamado..."
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                required
-                maxLength={500}
-                rows={4}
-              />
-            </div>
-            
-            <Button 
-              type="submit" 
-              className="w-full" 
-              size="lg"
-              disabled={createCall.isPending || !roomName.trim() || !reason.trim()}
-            >
-              {createCall.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                <>
-                  <Bell className="mr-2 h-4 w-4" />
-                  Enviar Chamado
-                </>
-              )}
-            </Button>
-          </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="room">Sala *</Label>
+                {isRoomLocked ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 p-3 bg-muted rounded-md font-medium">
+                      {roomName}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowSettings(true)}
+                      title="Alterar sala"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Input
+                    id="room"
+                    placeholder="Ex: Sala 101, Laboratório 3..."
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    required
+                    maxLength={100}
+                  />
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="reason">Motivo do Chamado *</Label>
+                <Textarea
+                  id="reason"
+                  placeholder="Descreva brevemente o motivo do chamado..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  required
+                  maxLength={500}
+                  rows={4}
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
+                size="lg"
+                disabled={createCall.isPending || !roomName.trim() || !reason.trim()}
+              >
+                {createCall.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Bell className="mr-2 h-4 w-4" />
+                    Enviar Chamado
+                  </>
+                )}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
