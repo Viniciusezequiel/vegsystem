@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, Mail, User, Phone, Sparkles, ArrowLeft, CreditCard } from 'lucide-react';
 import { z } from 'zod';
-import batmanLogo from '@/assets/batman-logo.png';
+import vegSystemLogo from '@/assets/veg-system-logo.png';
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
@@ -272,8 +272,8 @@ export default function ExternalAuth() {
             <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
             <div className="w-24 h-24 relative flex items-center justify-center">
               <img 
-                src={batmanLogo} 
-                alt="Logo" 
+                src={vegSystemLogo} 
+                alt="VEG System Logo" 
                 className="w-full h-full object-contain"
                 style={{ filter: 'drop-shadow(0 0 20px hsl(265 85% 65% / 0.5))' }}
               />
@@ -281,11 +281,11 @@ export default function ExternalAuth() {
           </div>
           
           <CardTitle className="text-2xl font-bold gradient-text">
-            Portal de Solicitações
+            VEG System
           </CardTitle>
           <CardDescription className="text-muted-foreground flex items-center justify-center gap-2 mt-2">
             <Sparkles className="w-4 h-4 text-primary" />
-            Acesso para clientes externos
+            Portal de Solicitações Externas
             <Sparkles className="w-4 h-4 text-primary" />
           </CardDescription>
         </CardHeader>
@@ -515,7 +515,7 @@ export default function ExternalAuth() {
           <div className="mt-6 pt-4 border-t border-border/20 text-center">
             <p className="text-xs text-muted-foreground/60">
               Criado e Desenvolvido por{' '}
-              <span className="font-medium gradient-text">Vinicius Ezequiel</span>
+              <span className="font-medium gradient-text">VEG System</span>
             </p>
           </div>
         </CardContent>
