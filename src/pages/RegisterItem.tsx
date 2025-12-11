@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,23 +12,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Camera, CheckCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { mockItems, generateUniqueCode } from '@/data/mockData';
+import { Camera, CheckCircle, Loader2 } from 'lucide-react';
+import { useCreateLostItem, useLostItems } from '@/hooks/useLostItems';
+import type { Database } from '@/integrations/supabase/types';
 
-const campusOptions = [
-  'Campus Central',
-  'Campus Norte',
-  'Campus Sul',
-  'Campus Leste',
-  'Campus Oeste',
+type CampusEnum = Database['public']['Enums']['campus_enum'];
+
+const campusOptions: CampusEnum[] = [
+  'Campus I',
+  'Campus II',
+  'Campus IV',
+  'Campus HUCM Adm',
 ];
 
+// Generate a unique 6-digit code
+const generateUniqueCode = (existingCodes: string[]): string => {
+  let code: string;
+  do {
+    code = Math.floor(100000 + Math.random() * 900000).toString();
+  } while (existingCodes.includes(code));
+  return code;
+};
+
 export default function RegisterItem() {
-  const { toast } = useToast();
+  const navigate = useNavigate();
+  const createLostItem = useCreateLostItem();
+  const { data: existingItems } = useLostItems();
+  
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [campus, setCampus] = useState('');
+  const [campus, setCampus] = useState<CampusEnum | ''>('');
+  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
+  const [foundDate, setFoundDate] = useState('');
+  const [receivedDate, setReceivedDate] = useState('');
+  const [shelf, setShelf] = useState('');
+  const [box, setBox] = useState('');
+  const [sealNumber, setSealNumber] = useState('');
+  const [deliveredBy, setDeliveredBy] = useState('');
+  const [contact, setContact] = useState('');
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,24 +64,47 @@ export default function RegisterItem() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     
+    if (!campus) return;
+
     // Generate unique 6-digit code
-    const existingCodes = mockItems.map(item => item.code);
+    const existingCodes = existingItems?.map(item => item.code) || [];
     const newCode = generateUniqueCode(existingCodes);
     
-    // Simulate submission
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Item registrado com sucesso!",
-      description: `O código do item é ${newCode}`,
+    createLostItem.mutate({
+      code: newCode,
+      description,
+      campus: campus as CampusEnum,
+      found_location: location,
+      found_date: foundDate,
+      received_date: receivedDate,
+      shelf: shelf || undefined,
+      box: box || undefined,
+      seal_number: sealNumber || undefined,
+      delivered_by_name: deliveredBy,
+      delivered_by_contact: contact || undefined,
+      image_url: imagePreview || undefined,
+    }, {
+      onSuccess: () => {
+        // Reset form
+        setImagePreview(null);
+        setCampus('');
+        setDescription('');
+        setLocation('');
+        setFoundDate('');
+        setReceivedDate('');
+        setShelf('');
+        setBox('');
+        setSealNumber('');
+        setDeliveredBy('');
+        setContact('');
+        
+        // Navigate to list after 2 seconds
+        setTimeout(() => {
+          navigate('/lost-found');
+        }, 2000);
+      }
     });
-    
-    setIsSubmitting(false);
-    setImagePreview(null);
-    setCampus('');
-    (e.target as HTMLFormElement).reset();
   };
 
   return (
@@ -119,12 +164,14 @@ export default function RegisterItem() {
                     placeholder="Ex: Carteira de couro marrom com documentos"
                     className="mt-1.5 resize-none"
                     rows={3}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     required
                   />
                 </div>
                 <div>
                   <Label htmlFor="campus">Campus *</Label>
-                  <Select value={campus} onValueChange={setCampus} required>
+                  <Select value={campus} onValueChange={(v) => setCampus(v as CampusEnum)} required>
                     <SelectTrigger className="mt-1.5">
                       <SelectValue placeholder="Selecione o campus" />
                     </SelectTrigger>
@@ -143,6 +190,8 @@ export default function RegisterItem() {
                     id="location"
                     placeholder="Ex: Refeitório - Mesa 12"
                     className="mt-1.5"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
                     required
                   />
                 </div>
@@ -153,6 +202,8 @@ export default function RegisterItem() {
                       id="foundDate"
                       type="date"
                       className="mt-1.5"
+                      value={foundDate}
+                      onChange={(e) => setFoundDate(e.target.value)}
                       required
                     />
                   </div>
@@ -162,6 +213,8 @@ export default function RegisterItem() {
                       id="receivedDate"
                       type="date"
                       className="mt-1.5"
+                      value={receivedDate}
+                      onChange={(e) => setReceivedDate(e.target.value)}
                       required
                     />
                   </div>
@@ -173,30 +226,33 @@ export default function RegisterItem() {
               <h3 className="font-medium text-foreground mb-4">Armazenamento</h3>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="shelf">Prateleira *</Label>
+                  <Label htmlFor="shelf">Prateleira</Label>
                   <Input
                     id="shelf"
                     placeholder="Ex: A1"
                     className="mt-1.5"
-                    required
+                    value={shelf}
+                    onChange={(e) => setShelf(e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="box">Caixa *</Label>
+                  <Label htmlFor="box">Caixa</Label>
                   <Input
                     id="box"
                     placeholder="Ex: Caixa 01"
                     className="mt-1.5"
-                    required
+                    value={box}
+                    onChange={(e) => setBox(e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="sealNumber">Nº do Lacre *</Label>
+                  <Label htmlFor="sealNumber">Nº do Lacre</Label>
                   <Input
                     id="sealNumber"
                     placeholder="Ex: LC-001234"
                     className="mt-1.5"
-                    required
+                    value={sealNumber}
+                    onChange={(e) => setSealNumber(e.target.value)}
                   />
                 </div>
               </div>
@@ -211,44 +267,34 @@ export default function RegisterItem() {
                     id="deliveredBy"
                     placeholder="Nome de quem encontrou/está entregando"
                     className="mt-1.5"
+                    value={deliveredBy}
+                    onChange={(e) => setDeliveredBy(e.target.value)}
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="contact">Contato (telefone ou email) *</Label>
+                  <Label htmlFor="contact">Contato (telefone ou email)</Label>
                   <Input
                     id="contact"
                     placeholder="(11) 99999-9999"
                     className="mt-1.5"
-                    required
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
                   />
                 </div>
-              </div>
-            </div>
-
-            <div className="form-section animate-fade-in" style={{ animationDelay: '250ms' }}>
-              <h3 className="font-medium text-foreground mb-4">Responsável pelo Recebimento</h3>
-              <div>
-                <Label htmlFor="receivedBy">Nome do responsável *</Label>
-                <Input
-                  id="receivedBy"
-                  placeholder="Nome do colaborador que está recebendo"
-                  className="mt-1.5"
-                  required
-                />
               </div>
             </div>
           </div>
         </div>
 
         <div className="mt-8 flex justify-end gap-4">
-          <Button type="button" variant="outline">
+          <Button type="button" variant="outline" onClick={() => navigate('/lost-found')}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
+          <Button type="submit" disabled={createLostItem.isPending}>
+            {createLostItem.isPending ? (
               <>
-                <span className="animate-spin mr-2">⏳</span>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Registrando...
               </>
             ) : (
