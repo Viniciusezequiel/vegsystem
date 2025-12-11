@@ -52,8 +52,9 @@ import {
 const statusConfig = {
   pending: { label: 'Pendente', icon: Clock, variant: 'secondary' as const, color: 'text-amber-500' },
   approved: { label: 'Aprovada', icon: CheckCircle, variant: 'default' as const, color: 'text-green-500' },
+  awaiting_pickup: { label: 'Aguardando Retirada', icon: Package, variant: 'default' as const, color: 'text-purple-500' },
   rejected: { label: 'Rejeitada', icon: XCircle, variant: 'destructive' as const, color: 'text-red-500' },
-  loaned: { label: 'Emprestado', icon: Truck, variant: 'outline' as const, color: 'text-blue-500' },
+  loaned: { label: 'Retirado', icon: Truck, variant: 'outline' as const, color: 'text-blue-500' },
   returned: { label: 'Devolvido', icon: CheckCircle, variant: 'outline' as const, color: 'text-slate-500' },
 };
 
@@ -74,16 +75,25 @@ export default function ExternalEquipmentRequestsList() {
   ) || [];
 
   const pendingCount = requests?.filter(r => r.status === 'pending').length || 0;
-  const approvedCount = requests?.filter(r => r.status === 'approved').length || 0;
+  const awaitingPickupCount = requests?.filter(r => r.status === 'awaiting_pickup').length || 0;
   const loanedCount = requests?.filter(r => r.status === 'loaned').length || 0;
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleStatusChange = async (
+    id: string, 
+    newStatus: string, 
+    options?: { 
+      updateEquipmentQuantity?: boolean; 
+      equipmentId?: string; 
+      quantityChange?: number;
+    }
+  ) => {
     await updateRequest.mutateAsync({
       id,
       status: newStatus,
       admin_notes: adminNotes || undefined,
       processed_by: user?.id,
       processed_at: new Date().toISOString(),
+      ...options,
     });
     setSelectedRequest(null);
     setAdminNotes('');
@@ -168,12 +178,12 @@ export default function ExternalEquipmentRequestsList() {
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500/10">
-                <CheckCircle className="w-5 h-5 text-green-500" />
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <Package className="w-5 h-5 text-purple-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{approvedCount}</p>
-                <p className="text-xs text-muted-foreground">Aprovadas</p>
+                <p className="text-2xl font-bold">{awaitingPickupCount}</p>
+                <p className="text-xs text-muted-foreground">Aguardando</p>
               </div>
             </div>
           </CardContent>
@@ -224,12 +234,15 @@ export default function ExternalEquipmentRequestsList() {
             <Clock className="w-3 h-3" />
             Pendentes
           </TabsTrigger>
-          <TabsTrigger value="approved">Aprovadas</TabsTrigger>
-          <TabsTrigger value="loaned">Emprestados</TabsTrigger>
+          <TabsTrigger value="awaiting_pickup" className="gap-1">
+            <Package className="w-3 h-3" />
+            Aguardando
+          </TabsTrigger>
+          <TabsTrigger value="loaned">Retirados</TabsTrigger>
           <TabsTrigger value="all">Todas</TabsTrigger>
         </TabsList>
 
-        {['pending', 'approved', 'loaned', 'all'].map(tab => (
+        {['pending', 'awaiting_pickup', 'loaned', 'all'].map(tab => (
           <TabsContent key={tab} value={tab} className="mt-6">
             {isLoading ? (
               <p className="text-muted-foreground">Carregando...</p>
@@ -361,7 +374,11 @@ export default function ExternalEquipmentRequestsList() {
                       Rejeitar
                     </Button>
                     <Button 
-                      onClick={() => handleStatusChange(selectedRequest.id, 'approved')}
+                      onClick={() => handleStatusChange(selectedRequest.id, 'awaiting_pickup', {
+                        updateEquipmentQuantity: true,
+                        equipmentId: selectedRequest.equipment_id || undefined,
+                        quantityChange: -selectedRequest.quantity_requested,
+                      })}
                       disabled={updateRequest.isPending}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
@@ -370,23 +387,27 @@ export default function ExternalEquipmentRequestsList() {
                   </>
                 )}
                 
-                {selectedRequest.status === 'approved' && (
+                {selectedRequest.status === 'awaiting_pickup' && (
                   <Button 
                     onClick={() => handleStatusChange(selectedRequest.id, 'loaned')}
                     disabled={updateRequest.isPending}
                   >
                     <Truck className="w-4 h-4 mr-2" />
-                    Marcar como Emprestado
+                    Registrar Retirada
                   </Button>
                 )}
                 
                 {selectedRequest.status === 'loaned' && (
                   <Button 
-                    onClick={() => handleStatusChange(selectedRequest.id, 'returned')}
+                    onClick={() => handleStatusChange(selectedRequest.id, 'returned', {
+                      updateEquipmentQuantity: true,
+                      equipmentId: selectedRequest.equipment_id || undefined,
+                      quantityChange: selectedRequest.quantity_requested,
+                    })}
                     disabled={updateRequest.isPending}
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    Marcar como Devolvido
+                    Registrar Devolução
                   </Button>
                 )}
               </DialogFooter>

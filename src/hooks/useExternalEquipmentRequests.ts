@@ -14,7 +14,7 @@ export interface ExternalEquipmentRequest {
   purpose: string;
   requested_date: string;
   expected_return_date: string;
-  status: 'pending' | 'approved' | 'rejected' | 'loaned' | 'returned';
+  status: 'pending' | 'approved' | 'awaiting_pickup' | 'rejected' | 'loaned' | 'returned';
   admin_notes: string | null;
   processed_by: string | null;
   processed_at: string | null;
@@ -146,6 +146,9 @@ export function useUpdateExternalEquipmentRequest() {
   return useMutation({
     mutationFn: async ({ 
       id, 
+      updateEquipmentQuantity,
+      equipmentId,
+      quantityChange,
       ...data 
     }: { 
       id: string; 
@@ -153,16 +156,43 @@ export function useUpdateExternalEquipmentRequest() {
       admin_notes?: string;
       processed_by?: string;
       processed_at?: string;
+      updateEquipmentQuantity?: boolean;
+      equipmentId?: string;
+      quantityChange?: number;
     }) => {
+      // Update the request
       const { error } = await supabase
         .from('external_equipment_requests')
         .update(data)
         .eq('id', id);
       
       if (error) throw error;
+
+      // If we need to update equipment quantity
+      if (updateEquipmentQuantity && equipmentId && quantityChange !== undefined) {
+        // Get current equipment
+        const { data: equipment, error: eqError } = await supabase
+          .from('equipment')
+          .select('available_quantity')
+          .eq('id', equipmentId)
+          .single();
+        
+        if (eqError) throw eqError;
+        
+        const newQuantity = equipment.available_quantity + quantityChange;
+        
+        // Update equipment available quantity
+        const { error: updateError } = await supabase
+          .from('equipment')
+          .update({ available_quantity: Math.max(0, newQuantity) })
+          .eq('id', equipmentId);
+        
+        if (updateError) throw updateError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['external-equipment-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
       toast({
         title: 'Solicitação atualizada',
         description: 'O status foi atualizado com sucesso.',
