@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.create-external-reservation]
 verify_jwt = false
+
+[functions.create-external-equipment-request]
+verify_jwt = false
