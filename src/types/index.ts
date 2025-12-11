@@ -1,4 +1,4 @@
-export type ItemStatus = 'available' | 'pending' | 'delivered';
+export type ItemStatus = 'available' | 'pending' | 'delivered' | 'expired';
 
 export type UserRole = 'admin' | 'collaborator' | 'viewer';
 
