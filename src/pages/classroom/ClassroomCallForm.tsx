@@ -54,23 +54,24 @@ export default function ClassroomCallForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Create call and get ID
-    const { data, error } = await supabase
-      .from('classroom_calls')
-      .insert({
-        room_name: roomName,
-        reason: reason,
-      })
-      .select('id, status')
-      .single();
+    try {
+      // Use edge function to create call (allows unauthenticated access)
+      const { data, error } = await supabase.functions.invoke('create-classroom-call', {
+        body: {
+          room_name: roomName,
+          reason: reason,
+        },
+      });
 
-    if (error) {
-      createCall.mutate({ room_name: roomName, reason }); // Use mutation for error handling
-      return;
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Erro ao criar chamado');
+      }
+
+      setSubmittedCallId(data.data.id);
+      setCallStatus({ status: data.data.status as 'pending' });
+    } catch (error: any) {
+      createCall.mutate({ room_name: roomName, reason }); // Use mutation for error handling/toast
     }
-
-    setSubmittedCallId(data.id);
-    setCallStatus({ status: data.status as 'pending' });
   };
 
   const handleNewCall = () => {
