@@ -211,7 +211,7 @@ export default function Auth() {
           {/* Created By Footer */}
           <div className="mt-8 pt-4 border-t border-border/20 text-center">
             <p className="text-xs text-muted-foreground/60">
-              Criado por{' '}
+              Criado e Desenvolvido por{' '}
               <span className="font-medium gradient-text">Vinicius Ezequiel</span>
             </p>
           </div>
