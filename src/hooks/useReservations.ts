@@ -218,9 +218,11 @@ export function useCreateReservation() {
         .eq('id', data.room_id)
         .single();
 
-      // Determine status: if room requires manual confirmation or is external, set to pending
+      // Determine status: 
+      // - External reservations always need approval (pending)
+      // - Internal reservations by collaborators are auto-confirmed (unless room requires manual confirmation)
       const requiresManualConfirmation = roomData?.auto_confirm === false;
-      const initialStatus = (data.is_external || requiresManualConfirmation) ? 'pending' : 'confirmed';
+      const initialStatus = data.is_external ? 'pending' : (requiresManualConfirmation ? 'pending' : 'confirmed');
 
       const { data: reservation, error } = await supabase
         .from('reservations')

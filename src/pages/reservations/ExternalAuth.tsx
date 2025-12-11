@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, Mail, User, Phone, Sparkles, ArrowLeft, CreditCard } from 'lucide-react';
 import { z } from 'zod';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
@@ -261,6 +262,11 @@ export default function ExternalAuth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden p-4">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle collapsed />
+      </div>
+      
       {/* Animated Background */}
       <div className="floating-orb w-96 h-96 bg-primary/40 -top-48 -left-48 animate-float" />
       <div className="floating-orb w-80 h-80 bg-accent/30 -bottom-40 -right-40 animate-float" style={{ animationDelay: '2s' }} />

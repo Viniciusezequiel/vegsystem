@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -183,7 +184,11 @@ export default function LockerLoanForm() {
                       <FormItem>
                         <FormLabel>Data Prevista de Devolução *</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <DatePickerInput
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Selecionar data"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
