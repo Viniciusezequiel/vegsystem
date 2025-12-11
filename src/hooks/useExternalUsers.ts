@@ -55,19 +55,29 @@ export function useSearchExternalUsers(searchTerm: string) {
     queryFn: async () => {
       if (!searchTerm || searchTerm.length < 3) return [];
       
+      // Clean the term for CPF search (only digits)
       const cleanedTerm = searchTerm.replace(/\D/g, '');
       
-      // Build query that searches all relevant fields
+      // Build the OR conditions - search name and email with original term, CPF with digits only
+      let orConditions = `full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`;
+      
+      // If there are digits in the search term, also search by CPF
+      if (cleanedTerm.length > 0) {
+        orConditions += `,cpf.ilike.%${cleanedTerm}%`;
+      }
+      
       const { data, error } = await supabase
         .from('external_users')
         .select('*')
-        .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,cpf.ilike.%${cleanedTerm}%`)
+        .or(orConditions)
+        .order('full_name')
         .limit(10);
       
       if (error) throw error;
       return data as ExternalUser[];
     },
     enabled: searchTerm.length >= 3,
+    staleTime: 0, // Always fetch fresh data
   });
 }
 

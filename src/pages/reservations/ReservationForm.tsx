@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useReservationRooms, useCreateReservation } from '@/hooks/useReservations';
 import { ExternalUser } from '@/hooks/useExternalUsers';
@@ -33,6 +33,7 @@ const reservationSchema = z.object({
 
 export default function ReservationForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { profile } = useAuth();
   const { data: rooms, isLoading: roomsLoading } = useReservationRooms();
   const createReservation = useCreateReservation();
@@ -40,18 +41,25 @@ export default function ReservationForm() {
   const [isExternalReservation, setIsExternalReservation] = useState(false);
   const [selectedExternalUser, setSelectedExternalUser] = useState<ExternalUser | { full_name: string; email: string; cpf: string; phone?: string } | null>(null);
 
+  // Get pre-filled values from URL params
+  const prefilledRoom = searchParams.get('room') || '';
+  const prefilledDate = searchParams.get('date') || '';
+  const prefilledStart = searchParams.get('start') || '';
+  const prefilledEnd = searchParams.get('end') || '';
+  const prefilledAttendees = searchParams.get('attendees');
+
   const [formData, setFormData] = useState({
-    room_id: '',
+    room_id: prefilledRoom,
     title: '',
     requester_name: profile?.full_name || '',
     requester_email: '',
     requester_phone: '',
     requester_cpf: '',
-    attendees_count: 1,
-    start_date: '',
-    start_time: '',
-    end_date: '',
-    end_time: '',
+    attendees_count: prefilledAttendees ? parseInt(prefilledAttendees) : 1,
+    start_date: prefilledDate,
+    start_time: prefilledStart,
+    end_date: prefilledDate,
+    end_time: prefilledEnd,
     description: '',
     notes: '',
   });
@@ -223,30 +231,6 @@ export default function ReservationForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="end_date">Data de Término *</Label>
-                  <Input
-                    id="end_date"
-                    type="date"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className={errors.end_date ? 'border-destructive' : ''}
-                  />
-                  {errors.end_date && <p className="text-xs text-destructive mt-1">{errors.end_date}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="end_time">Horário de Término *</Label>
-                  <Input
-                    id="end_time"
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    className={errors.end_time ? 'border-destructive' : ''}
-                  />
-                  {errors.end_time && <p className="text-xs text-destructive mt-1">{errors.end_time}</p>}
-                </div>
-              </div>
 
               <div>
                 <Label htmlFor="attendees_count">Número de Participantes *</Label>
