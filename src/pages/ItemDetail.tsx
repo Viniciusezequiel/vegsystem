@@ -36,7 +36,8 @@ import {
   Tag,
   CalendarCheck,
   Pencil,
-  Loader2
+  Loader2,
+  PenLine
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -44,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLostItem, useUpdateLostItem, useDeliverLostItem } from '@/hooks/useLostItems';
 import { useAuth } from '@/contexts/AuthContext';
 import { Constants } from '@/integrations/supabase/types';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 
 const campusOptions = Constants.public.Enums.campus_enum;
 
@@ -62,6 +64,7 @@ export default function ItemDetail() {
     owner_name: '',
     owner_email: '',
     owner_phone: '',
+    owner_signature: null as string | null,
   });
   const [editData, setEditData] = useState({
     description: '',
@@ -120,6 +123,15 @@ export default function ItemDetail() {
   const handleDeliverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!item) return;
+    
+    if (!deliveryData.owner_signature) {
+      toast({
+        title: 'Assinatura obrigatória',
+        description: 'É necessário coletar a assinatura do proprietário.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     deliverItem.mutate(
       {
@@ -129,7 +141,7 @@ export default function ItemDetail() {
       {
         onSuccess: () => {
           setIsDeliverDialogOpen(false);
-          setDeliveryData({ owner_name: '', owner_email: '', owner_phone: '' });
+          setDeliveryData({ owner_name: '', owner_email: '', owner_phone: '', owner_signature: null });
         },
       }
     );
@@ -401,6 +413,18 @@ export default function ItemDetail() {
                         value={profile?.full_name || ''}
                         readOnly
                         className="mt-1.5 bg-muted"
+                      />
+                    </div>
+                    <div>
+                      <Label className="flex items-center gap-2">
+                        <PenLine className="w-4 h-4" />
+                        Assinatura do Proprietário *
+                      </Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        O proprietário deve assinar abaixo para confirmar o recebimento do item.
+                      </p>
+                      <SignaturePad 
+                        onSignatureChange={(signature) => setDeliveryData({ ...deliveryData, owner_signature: signature })}
                       />
                     </div>
                     <div className="flex justify-end gap-3 pt-4">

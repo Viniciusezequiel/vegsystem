@@ -3,7 +3,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Search, Package, MapPin, Calendar, Loader2 } from 'lucide-react';
+import { Search, Package, MapPin, Calendar, Loader2, Building2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
@@ -124,6 +124,10 @@ export default function ItemsList() {
                       <StatusBadge status={item.status} />
                     </div>
                     <div className="mt-3 space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Building2 className="w-4 h-4" />
+                        <span className="truncate font-medium text-primary">{item.campus}</span>
+                      </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <MapPin className="w-4 h-4" />
                         <span className="truncate">{item.found_location}</span>

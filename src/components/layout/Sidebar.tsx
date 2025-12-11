@@ -13,7 +13,6 @@ import {
   Lock,
   ChevronDown,
   Loader2,
-  Sparkles,
   CalendarDays,
   Calendar,
   List,
@@ -35,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import vegSystemLogo from '@/assets/veg-system-logo.png';
 
 interface SidebarContextType {
   collapsed: boolean;
@@ -230,16 +230,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       )}>
         {/* Logo */}
         <div className={cn('p-4 border-b border-sidebar-border/50', collapsed && 'p-3')}>
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
             <div className={cn(
-              'rounded-xl gradient-primary flex items-center justify-center shadow-glow shrink-0',
+              'rounded-xl overflow-hidden flex items-center justify-center shrink-0 border border-sidebar-border/30',
               collapsed ? 'w-10 h-10' : 'w-11 h-11'
             )}>
-              <Sparkles className={cn('text-primary-foreground', collapsed ? 'w-5 h-5' : 'w-6 h-6')} />
+              <img src={vegSystemLogo} alt="VEG System" className="w-full h-full object-cover" />
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <h1 className="font-bold text-sidebar-foreground text-sm leading-tight">Setor Recursos</h1>
+                <h1 className="font-bold text-sidebar-foreground text-sm leading-tight">VEG System</h1>
                 <p className="text-xs text-sidebar-foreground/50">Sistema Integrado</p>
               </div>
             )}
