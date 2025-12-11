@@ -91,6 +91,9 @@ export default function ReservationForm() {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });
       setErrors(fieldErrors);
+      // Scroll to first error
+      const firstErrorField = document.querySelector('.border-destructive');
+      firstErrorField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -362,6 +365,12 @@ export default function ReservationForm() {
               </div>
             </div>
           </div>
+
+          {Object.keys(errors).length > 0 && (
+            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+              Por favor, corrija os campos destacados antes de continuar.
+            </div>
+          )}
 
           <div className="flex gap-4">
             <Button
