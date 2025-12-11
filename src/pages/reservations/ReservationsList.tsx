@@ -7,13 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Plus, Calendar, Clock, Users, Eye, Check, X, Pin, ExternalLink, UserCheck } from 'lucide-react';
+import { Search, Plus, Calendar, Clock, Users, Eye, Check, X, Pin, ExternalLink, UserCheck, FileSpreadsheet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { ReservationDetailsDialog } from '@/components/reservations/ReservationDetailsDialog';
 import { ExternalUsersTab } from '@/components/reservations/ExternalUsersTab';
+import { ExcelImportDialog } from '@/components/reservations/ExcelImportDialog';
 import { Constants } from '@/integrations/supabase/types';
 
 const statusConfig = {
@@ -32,6 +33,7 @@ export default function ReservationsList() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   
   const { data: rooms } = useReservationRooms();
   
@@ -142,7 +144,7 @@ export default function ReservationsList() {
           </div>
           <p className="page-subtitle">Gerencie todas as reservas de ambientes</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <PdfExportButton
             data={formatDataForPdf(filteredReservations)}
             columns={pdfColumns}
@@ -150,6 +152,10 @@ export default function ReservationsList() {
             title="Relatório de Reservas"
             filename="reservas"
           />
+          <Button onClick={() => setIsImportOpen(true)} variant="outline" className="gap-2">
+            <FileSpreadsheet className="w-4 h-4" />
+            Importar Excel
+          </Button>
           <Button onClick={() => navigate('/reservations/calendar')} variant="outline" className="gap-2">
             <Calendar className="w-4 h-4" />
             Calendário
@@ -359,6 +365,9 @@ export default function ReservationsList() {
           <ExternalUsersTab />
         </TabsContent>
       </Tabs>
+
+      {/* Excel Import Dialog */}
+      <ExcelImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
     </MainLayout>
   );
 }
