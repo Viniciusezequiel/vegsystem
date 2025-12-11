@@ -329,8 +329,10 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          sector: string | null
           updated_at: string
           user_id: string
+          user_type: string | null
         }
         Insert: {
           cpf: string
@@ -339,8 +341,10 @@ export type Database = {
           full_name: string
           id?: string
           phone?: string | null
+          sector?: string | null
           updated_at?: string
           user_id: string
+          user_type?: string | null
         }
         Update: {
           cpf?: string
@@ -349,8 +353,10 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          sector?: string | null
           updated_at?: string
           user_id?: string
+          user_type?: string | null
         }
         Relationships: []
       }

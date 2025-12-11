@@ -21,7 +21,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Search, Users, Mail, Phone, CreditCard, Calendar, Edit, Trash2, Eye, Loader2 } from 'lucide-react';
+import { Search, Users, Mail, Phone, CreditCard, Calendar, Edit, Trash2, Eye, Loader2, Briefcase, Building2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -43,7 +50,7 @@ export function ExternalUsersTab() {
   const [selectedUser, setSelectedUser] = useState<ExternalUser | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
-  const [editData, setEditData] = useState({ full_name: '', phone: '', cpf: '' });
+  const [editData, setEditData] = useState({ full_name: '', phone: '', cpf: '', user_type: 'professor' as 'professor' | 'colaborador', sector: '' });
 
   // Filter users
   const filteredUsers = externalUsers?.filter(user => {
@@ -61,6 +68,8 @@ export function ExternalUsersTab() {
       full_name: user.full_name,
       phone: user.phone || '',
       cpf: formatCPF(user.cpf),
+      user_type: user.user_type || 'professor',
+      sector: user.sector || '',
     });
     setIsEditOpen(true);
   };
@@ -72,6 +81,8 @@ export function ExternalUsersTab() {
       full_name: editData.full_name,
       phone: editData.phone || undefined,
       cpf: editData.cpf.replace(/\D/g, ''),
+      user_type: editData.user_type,
+      sector: editData.user_type === 'colaborador' ? editData.sector : undefined,
     }, {
       onSuccess: () => setIsEditOpen(false),
     });
@@ -122,6 +133,7 @@ export function ExternalUsersTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>CPF</TableHead>
                 <TableHead>Telefone</TableHead>
@@ -133,6 +145,15 @@ export function ExternalUsersTab() {
               {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.full_name}</TableCell>
+                  <TableCell>
+                    <Badge variant={user.user_type === 'professor' ? 'secondary' : 'outline'} className="gap-1">
+                      {user.user_type === 'professor' ? (
+                        <><Briefcase className="w-3 h-3" />Professor</>
+                      ) : (
+                        <><Building2 className="w-3 h-3" />{user.sector || 'Colaborador'}</>
+                      )}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell className="font-mono text-sm">{formatCPF(user.cpf)}</TableCell>
                   <TableCell>{user.phone || '-'}</TableCell>
@@ -205,6 +226,31 @@ export function ExternalUsersTab() {
                 onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
               />
             </div>
+            <div>
+              <Label>Tipo de Usuário</Label>
+              <Select
+                value={editData.user_type}
+                onValueChange={(value: 'professor' | 'colaborador') => setEditData({ ...editData, user_type: value, sector: value === 'professor' ? '' : editData.sector })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professor">Professor</SelectItem>
+                  <SelectItem value="colaborador">Colaborador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {editData.user_type === 'colaborador' && (
+              <div>
+                <Label>Setor</Label>
+                <Input
+                  value={editData.sector}
+                  onChange={(e) => setEditData({ ...editData, sector: e.target.value })}
+                  placeholder="Nome do setor"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancelar</Button>

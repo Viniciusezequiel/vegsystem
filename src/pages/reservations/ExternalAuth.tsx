@@ -514,7 +514,7 @@ export default function ExternalAuth() {
 
           <div className="mt-6 pt-4 border-t border-border/20 text-center">
             <p className="text-xs text-muted-foreground/60">
-              Criado por{' '}
+              Criado e Desenvolvido por{' '}
               <span className="font-medium gradient-text">Vinicius Ezequiel</span>
             </p>
           </div>

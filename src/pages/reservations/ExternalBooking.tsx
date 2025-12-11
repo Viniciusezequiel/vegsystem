@@ -969,7 +969,7 @@ export default function ExternalBooking() {
 
         <div className="mt-8 text-center">
           <p className="text-xs text-muted-foreground/60">
-            Criado por{' '}
+            Criado e Desenvolvido por{' '}
             <span className="font-medium gradient-text">Vinicius Ezequiel</span>
           </p>
         </div>

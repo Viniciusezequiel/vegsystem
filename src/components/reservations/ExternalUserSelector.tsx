@@ -24,7 +24,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Search, UserPlus, CreditCard, Mail, Phone, User, Loader2, Check } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Search, UserPlus, CreditCard, Mail, Phone, User, Loader2, Check, Briefcase, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // CPF mask function
@@ -51,6 +58,8 @@ export function ExternalUserSelector({ onSelect, selectedUser, className }: Exte
     email: '',
     cpf: '',
     phone: '',
+    user_type: 'professor' as 'professor' | 'colaborador',
+    sector: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -82,7 +91,7 @@ export function ExternalUserSelector({ onSelect, selectedUser, className }: Exte
       onSuccess: (user) => {
         onSelect(user);
         setCreateOpen(false);
-        setNewUserData({ full_name: '', email: '', cpf: '', phone: '' });
+        setNewUserData({ full_name: '', email: '', cpf: '', phone: '', user_type: 'professor', sector: '' });
       },
     });
   };
@@ -98,7 +107,7 @@ export function ExternalUserSelector({ onSelect, selectedUser, className }: Exte
       phone: newUserData.phone || undefined,
     });
     setCreateOpen(false);
-    setNewUserData({ full_name: '', email: '', cpf: '', phone: '' });
+    setNewUserData({ full_name: '', email: '', cpf: '', phone: '', user_type: 'professor', sector: '' });
   };
 
   return (
@@ -266,6 +275,38 @@ export function ExternalUserSelector({ onSelect, selectedUser, className }: Exte
                 />
               </div>
             </div>
+
+            <div>
+              <Label>Tipo de Usuário *</Label>
+              <Select
+                value={newUserData.user_type}
+                onValueChange={(value: 'professor' | 'colaborador') => setNewUserData({ ...newUserData, user_type: value, sector: value === 'professor' ? '' : newUserData.sector })}
+              >
+                <SelectTrigger className="w-full">
+                  <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professor">Professor</SelectItem>
+                  <SelectItem value="colaborador">Colaborador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {newUserData.user_type === 'colaborador' && (
+              <div>
+                <Label>Setor *</Label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    value={newUserData.sector}
+                    onChange={(e) => setNewUserData({ ...newUserData, sector: e.target.value })}
+                    placeholder="Nome do setor"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">

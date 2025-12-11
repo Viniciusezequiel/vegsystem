@@ -115,7 +115,7 @@ export default function Home() {
             Visão geral do sistema de gestão
           </p>
           <p className="text-xs text-muted-foreground/60 mt-1">
-            Criado por Vinicius Ezequiel
+            Criado e Desenvolvido por Vinicius Ezequiel
           </p>
         </div>
 

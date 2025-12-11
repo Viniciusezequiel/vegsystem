@@ -9,6 +9,8 @@ export interface ExternalUser {
   email: string;
   cpf: string;
   phone?: string;
+  user_type?: 'professor' | 'colaborador';
+  sector?: string;
   created_at: string;
   updated_at: string;
 }
@@ -54,17 +56,14 @@ export function useSearchExternalUsers(searchTerm: string) {
       if (!searchTerm || searchTerm.length < 3) return [];
       
       const cleanedTerm = searchTerm.replace(/\D/g, '');
-      const isCpfSearch = cleanedTerm.length >= 3;
-
-      let query = supabase.from('external_users').select('*');
-
-      if (isCpfSearch && cleanedTerm.length >= 3) {
-        query = query.ilike('cpf', `%${cleanedTerm}%`);
-      } else {
-        query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
-      }
-
-      const { data, error } = await query.limit(10);
+      
+      // Build query that searches all relevant fields
+      const { data, error } = await supabase
+        .from('external_users')
+        .select('*')
+        .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,cpf.ilike.%${cleanedTerm}%`)
+        .limit(10);
+      
       if (error) throw error;
       return data as ExternalUser[];
     },
@@ -77,7 +76,7 @@ export function useCreateExternalUser() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: { full_name: string; email: string; cpf: string; phone?: string }) => {
+    mutationFn: async (data: { full_name: string; email: string; cpf: string; phone?: string; user_type?: 'professor' | 'colaborador'; sector?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
@@ -89,6 +88,8 @@ export function useCreateExternalUser() {
           email: data.email,
           cpf: data.cpf,
           phone: data.phone,
+          user_type: data.user_type || 'professor',
+          sector: data.sector,
         })
         .select()
         .single();
@@ -119,7 +120,7 @@ export function useCreateExternalUserAdmin() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: { full_name: string; email: string; cpf: string; phone?: string }) => {
+    mutationFn: async (data: { full_name: string; email: string; cpf: string; phone?: string; user_type?: 'professor' | 'colaborador'; sector?: string }) => {
       // Generate a placeholder UUID for external users created by admin
       // This uses a combination of timestamp and random values for uniqueness
       const placeholderUserId = crypto.randomUUID ? crypto.randomUUID() : 
@@ -137,6 +138,8 @@ export function useCreateExternalUserAdmin() {
           email: data.email,
           cpf: data.cpf.replace(/\D/g, ''),
           phone: data.phone,
+          user_type: data.user_type || 'professor',
+          sector: data.sector,
         })
         .select()
         .single();
@@ -166,7 +169,7 @@ export function useUpdateExternalUser() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: { id: string; full_name?: string; phone?: string; cpf?: string }) => {
+    mutationFn: async (data: { id: string; full_name?: string; phone?: string; cpf?: string; user_type?: 'professor' | 'colaborador'; sector?: string }) => {
       const { id, ...updateData } = data;
       const { error } = await supabase
         .from('external_users')
