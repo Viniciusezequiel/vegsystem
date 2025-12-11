@@ -137,7 +137,7 @@ export function ExternalUserSelector({ onSelect, selectedUser, className }: Exte
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0" align="start">
-            <Command>
+            <Command shouldFilter={false}>
               <CommandInput
                 placeholder="Digite CPF, nome ou email..."
                 value={searchTerm}
@@ -153,7 +153,7 @@ export function ExternalUserSelector({ onSelect, selectedUser, className }: Exte
                     {searchResults.map((user) => (
                       <CommandItem
                         key={user.id}
-                        value={user.id}
+                        value={`${user.full_name}-${user.id}`}
                         onSelect={() => handleSelect(user)}
                         className="cursor-pointer"
                       >
