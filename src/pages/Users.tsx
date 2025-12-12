@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3 } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUsersList, useUpdateUserProfile, useToggleUserActive, useDeleteUser, UserProfile, AppRole } from '@/hooks/useUsers';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
@@ -48,6 +48,10 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ElementType; colo
 export default function Users() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserProfile | null>(null);
+  const [newPasswordValue, setNewPasswordValue] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -169,6 +173,34 @@ export default function Users() {
 
   const handleToggleActive = (user: UserProfile) => {
     toggleActive.mutate({ id: user.id, is_active: !user.is_active });
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPasswordUser || !newPasswordValue) return;
+
+    setIsResettingPassword(true);
+    try {
+      const response = await supabase.functions.invoke('reset-password', {
+        body: {
+          user_id: resetPasswordUser.user_id,
+          new_password: newPasswordValue,
+        },
+      });
+
+      if (response.error || response.data?.error) {
+        throw new Error(response.error?.message || response.data?.error);
+      }
+
+      toast.success('Senha redefinida com sucesso!');
+      setIsResetPasswordDialogOpen(false);
+      setResetPasswordUser(null);
+      setNewPasswordValue('');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao redefinir senha');
+    } finally {
+      setIsResettingPassword(false);
+    }
   };
 
   if (isLoading) {
@@ -403,8 +435,20 @@ export default function Users() {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleEditUser(user)}
+                          title="Editar"
                         >
                           <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setResetPasswordUser(user);
+                            setIsResetPasswordDialogOpen(true);
+                          }}
+                          title="Redefinir Senha"
+                        >
+                          <KeyRound className="w-4 h-4" />
                         </Button>
                         {user.user_id !== currentUser?.id && (
                           <AlertDialog>
@@ -505,6 +549,46 @@ export default function Users() {
               <Button type="submit" disabled={updateProfile.isPending}>
                 {updateProfile.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 {updateProfile.isPending ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Redefinir Senha</DialogTitle>
+            <DialogDescription>
+              Defina uma nova senha para <strong>{resetPasswordUser?.full_name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleResetPassword} className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="new-password">Nova Senha *</Label>
+              <Input 
+                id="new-password" 
+                type="password"
+                placeholder="Mínimo 6 caracteres" 
+                className="mt-1.5" 
+                value={newPasswordValue}
+                onChange={(e) => setNewPasswordValue(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => {
+                setIsResetPasswordDialogOpen(false);
+                setResetPasswordUser(null);
+                setNewPasswordValue('');
+              }}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isResettingPassword}>
+                {isResettingPassword ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {isResettingPassword ? 'Redefinindo...' : 'Redefinir Senha'}
               </Button>
             </div>
           </form>

@@ -50,6 +50,9 @@ export default function Auth() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [accessMode, setAccessMode] = useState<AccessMode>('external');
   const [externalTab, setExternalTab] = useState<'login' | 'signup'>('login');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   
   // Signup state
   const [signupData, setSignupData] = useState({
@@ -93,6 +96,39 @@ export default function Auth() {
     
     checkUserType();
   }, [user, authLoading, navigate]);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) {
+      toast({
+        title: 'Email obrigatório',
+        description: 'Informe o email para redefinir a senha.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setForgotLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+    setForgotLoading(false);
+
+    if (error) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Email enviado',
+        description: 'Verifique sua caixa de entrada para redefinir a senha.',
+      });
+      setShowForgotPassword(false);
+      setForgotEmail('');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -386,21 +422,29 @@ export default function Auth() {
                 )}
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  'Entrar'
-                )}
-              </Button>
-            </form>
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Entrando...
+                      </>
+                    ) : (
+                      'Entrar'
+                    )}
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="w-full text-sm text-primary hover:underline mt-2"
+                  >
+                    Esqueci minha senha
+                  </button>
+                </form>
           ) : (
             // External Login/Signup Tabs
             <Tabs value={externalTab} onValueChange={(v) => setExternalTab(v as 'login' | 'signup')}>
@@ -588,6 +632,39 @@ export default function Auth() {
                 </form>
               </TabsContent>
             </Tabs>
+          )}
+
+          {/* Forgot Password Dialog */}
+          {showForgotPassword && (
+            <div className="mt-6 p-4 border border-border rounded-xl bg-secondary/30">
+              <h3 className="font-medium mb-3">Redefinir Senha</h3>
+              <form onSubmit={handleForgotPassword} className="space-y-3">
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="seu.email@empresa.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="mt-1.5 bg-secondary/50"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={forgotLoading} className="flex-1">
+                    {forgotLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Enviar
+                  </Button>
+                </div>
+              </form>
+            </div>
           )}
 
           <div className="mt-8 text-center space-y-4">

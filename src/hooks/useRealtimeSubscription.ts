@@ -1,0 +1,99 @@
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+type TableName = 
+  | 'reservations'
+  | 'reservation_rooms'
+  | 'reservation_reschedulings'
+  | 'equipment'
+  | 'equipment_loans'
+  | 'external_equipment_requests'
+  | 'lockers'
+  | 'locker_loans'
+  | 'lost_items'
+  | 'material_requests'
+  | 'classroom_calls'
+  | 'profiles'
+  | 'external_users';
+
+const tableToQueryKeyMap: Record<TableName, string[]> = {
+  reservations: ['reservations', 'reservation-logs'],
+  reservation_rooms: ['reservation-rooms'],
+  reservation_reschedulings: ['reschedulings'],
+  equipment: ['equipment'],
+  equipment_loans: ['equipment-loans'],
+  external_equipment_requests: ['external-equipment-requests'],
+  lockers: ['lockers'],
+  locker_loans: ['locker-loans'],
+  lost_items: ['lost-items', 'lost-item'],
+  material_requests: ['material-requests'],
+  classroom_calls: ['classroom-calls'],
+  profiles: ['profiles', 'users'],
+  external_users: ['external-users'],
+};
+
+export function useRealtimeSubscription(tables: TableName[] = []) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (tables.length === 0) return;
+
+    const channels: RealtimeChannel[] = [];
+
+    tables.forEach((table) => {
+      const channel = supabase
+        .channel(`realtime-${table}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table,
+          },
+          (payload) => {
+            console.log(`Realtime update on ${table}:`, payload.eventType);
+            
+            // Invalidate all related queries
+            const queryKeys = tableToQueryKeyMap[table] || [table];
+            queryKeys.forEach((key) => {
+              queryClient.invalidateQueries({ queryKey: [key] });
+            });
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`Subscribed to realtime updates for ${table}`);
+          }
+        });
+
+      channels.push(channel);
+    });
+
+    return () => {
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [tables.join(','), queryClient]);
+}
+
+// Hook for subscribing to all main tables
+export function useGlobalRealtimeSubscription() {
+  const allTables: TableName[] = [
+    'reservations',
+    'reservation_rooms',
+    'reservation_reschedulings',
+    'equipment',
+    'equipment_loans',
+    'external_equipment_requests',
+    'lockers',
+    'locker_loans',
+    'lost_items',
+    'material_requests',
+    'classroom_calls',
+  ];
+
+  useRealtimeSubscription(allTables);
+}
