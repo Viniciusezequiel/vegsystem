@@ -27,6 +27,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ArrowLeft, Package, Check, ChevronsUpDown, Search, Plus, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -303,10 +310,22 @@ export default function EquipmentLoanForm() {
                     name="borrower_sector"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Setor *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: TI, Administrativo" {...field} />
-                        </FormControl>
+                        <FormLabel>Curso *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o curso" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Medicina">Medicina</SelectItem>
+                            <SelectItem value="Fisioterapia">Fisioterapia</SelectItem>
+                            <SelectItem value="Odontologia">Odontologia</SelectItem>
+                            <SelectItem value="Enfermagem">Enfermagem</SelectItem>
+                            <SelectItem value="Fonoaudiologia">Fonoaudiologia</SelectItem>
+                            <SelectItem value="Psicologia">Psicologia</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}

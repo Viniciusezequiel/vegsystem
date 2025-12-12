@@ -2,7 +2,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -31,8 +30,7 @@ const loanSchema = z.object({
   borrower_name: z.string().min(1, 'Nome é obrigatório'),
   borrower_phone: z.string().min(1, 'Telefone é obrigatório'),
   borrower_email: z.string().email('Email inválido').min(1, 'Email é obrigatório'),
-  borrower_sector: z.string().optional(),
-  expected_return_date: z.string().min(1, 'Data de devolução é obrigatória'),
+  borrower_sector: z.string().min(1, 'Selecione o curso'),
   notes: z.string().optional(),
 });
 
@@ -54,19 +52,23 @@ export default function LockerLoanForm() {
       borrower_phone: '',
       borrower_email: '',
       borrower_sector: '',
-      expected_return_date: '',
       notes: '',
     },
   });
 
   const onSubmit = async (data: LoanFormData) => {
+    // Calculate expected return date as 6 months from now
+    const expectedReturnDate = new Date();
+    expectedReturnDate.setMonth(expectedReturnDate.getMonth() + 6);
+    const formattedDate = expectedReturnDate.toISOString().split('T')[0];
+
     await createLoan.mutateAsync({
       locker_id: data.locker_id,
       borrower_name: data.borrower_name,
       borrower_phone: data.borrower_phone,
       borrower_email: data.borrower_email,
       borrower_sector: data.borrower_sector || undefined,
-      expected_return_date: data.expected_return_date,
+      expected_return_date: formattedDate,
       notes: data.notes || undefined,
     });
     navigate('/lockers/loans');
@@ -168,28 +170,22 @@ export default function LockerLoanForm() {
                     name="borrower_sector"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Setor</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Administrativo" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="expected_return_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data Prevista de Devolução *</FormLabel>
-                        <FormControl>
-                          <DatePickerInput
-                            value={field.value}
-                            onChange={field.onChange}
-                            placeholder="Selecionar data"
-                          />
-                        </FormControl>
+                        <FormLabel>Curso *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o curso" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Medicina">Medicina</SelectItem>
+                            <SelectItem value="Fisioterapia">Fisioterapia</SelectItem>
+                            <SelectItem value="Odontologia">Odontologia</SelectItem>
+                            <SelectItem value="Enfermagem">Enfermagem</SelectItem>
+                            <SelectItem value="Fonoaudiologia">Fonoaudiologia</SelectItem>
+                            <SelectItem value="Psicologia">Psicologia</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
