@@ -63,9 +63,35 @@ export default function Auth() {
   const [signupErrors, setSignupErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (user && !authLoading) {
-      navigate('/', { replace: true });
-    }
+    const checkUserType = async () => {
+      if (user && !authLoading) {
+        // Check if user is internal (has profile) or external
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (profile) {
+          // Internal user - redirect to admin dashboard
+          navigate('/', { replace: true });
+        } else {
+          // Check if external user
+          const { data: externalUser } = await supabase
+            .from('external_users')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (externalUser) {
+            // External user - redirect to booking
+            navigate('/booking', { replace: true });
+          }
+        }
+      }
+    };
+    
+    checkUserType();
   }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
