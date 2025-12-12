@@ -17,7 +17,13 @@ export const SignaturePad = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fabricCanvasRef = useRef<FabricCanvas | null>(null);
+  const onSignatureChangeRef = useRef(onSignatureChange);
   const [isEmpty, setIsEmpty] = useState(true);
+
+  // Keep ref in sync with prop
+  useEffect(() => {
+    onSignatureChangeRef.current = onSignatureChange;
+  }, [onSignatureChange]);
 
   const handleClear = useCallback(() => {
     if (!fabricCanvasRef.current) return;
@@ -25,8 +31,8 @@ export const SignaturePad = ({
     fabricCanvasRef.current.backgroundColor = '#ffffff';
     fabricCanvasRef.current.renderAll();
     setIsEmpty(true);
-    onSignatureChange(null);
-  }, [onSignatureChange]);
+    onSignatureChangeRef.current(null);
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -58,7 +64,7 @@ export const SignaturePad = ({
     canvas.on('path:created', () => {
       setIsEmpty(false);
       const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 });
-      onSignatureChange(dataUrl);
+      onSignatureChangeRef.current(dataUrl);
     });
 
     fabricCanvasRef.current = canvas;
@@ -69,7 +75,7 @@ export const SignaturePad = ({
         fabricCanvasRef.current = null;
       }
     };
-  }, [width, height, onSignatureChange]);
+  }, [width, height]);
 
   return (
     <div className="space-y-2">

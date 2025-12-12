@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -50,12 +51,11 @@ import type { Database } from '@/integrations/supabase/types';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
-const statusFilters: { value: ItemStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'Todos' },
+const statusFilters: { value: ItemStatus | 'all'; label: string; restrictedRoles?: string[] }[] = [
+  { value: 'all', label: 'Todos', restrictedRoles: ['admin', 'analista'] },
   { value: 'available', label: 'Disponíveis' },
-  { value: 'pending', label: 'Pendentes' },
   { value: 'delivered', label: 'Entregues' },
-  { value: 'expired', label: 'Expirados' },
+  { value: 'expired', label: 'Expirados', restrictedRoles: ['admin', 'analista'] },
 ];
 
 const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
@@ -63,11 +63,18 @@ const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Camp
 export default function ItemsList() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { role } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'all'>('available');
   const [campusFilter, setCampusFilter] = useState<CampusEnum | 'all'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  
+  // Filter status options based on user role
+  const availableStatusFilters = statusFilters.filter(filter => {
+    if (!filter.restrictedRoles) return true;
+    return filter.restrictedRoles.includes(role || '');
+  });
   
   // Selection state
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -386,7 +393,7 @@ export default function ItemsList() {
 
         {/* Status Filter */}
         <div className="flex flex-wrap gap-2">
-          {statusFilters.map((filter) => (
+          {availableStatusFilters.map((filter) => (
             <Button
               key={filter.value}
               variant={statusFilter === filter.value ? 'default' : 'outline'}
