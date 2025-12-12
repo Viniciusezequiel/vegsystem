@@ -62,7 +62,6 @@ export default function ItemDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deliveryData, setDeliveryData] = useState({
     owner_name: '',
-    owner_email: '',
     owner_phone: '',
     owner_signature: null as string | null,
   });
@@ -138,12 +137,15 @@ export default function ItemDetail() {
     deliverItem.mutate(
       {
         id: item.id,
-        ...deliveryData,
+        owner_name: deliveryData.owner_name,
+        owner_email: '',
+        owner_phone: deliveryData.owner_phone,
+        owner_signature: deliveryData.owner_signature || undefined,
       },
       {
         onSuccess: () => {
           setIsDeliverDialogOpen(false);
-          setDeliveryData({ owner_name: '', owner_email: '', owner_phone: '', owner_signature: null });
+          setDeliveryData({ owner_name: '', owner_phone: '', owner_signature: null });
         },
       }
     );
@@ -337,10 +339,6 @@ export default function ItemDetail() {
                   <p className="font-medium">{item.owner_name}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{item.owner_email}</p>
-                </div>
-                <div>
                   <p className="text-sm text-muted-foreground">Telefone</p>
                   <p className="font-medium">{item.owner_phone}</p>
                 </div>
@@ -399,18 +397,6 @@ export default function ItemDetail() {
                         className="mt-1.5"
                         value={deliveryData.owner_name}
                         onChange={(e) => setDeliveryData({ ...deliveryData, owner_name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="ownerEmail">Email *</Label>
-                      <Input
-                        id="ownerEmail"
-                        type="email"
-                        placeholder="email@exemplo.com"
-                        className="mt-1.5"
-                        value={deliveryData.owner_email}
-                        onChange={(e) => setDeliveryData({ ...deliveryData, owner_email: e.target.value })}
                         required
                       />
                     </div>
