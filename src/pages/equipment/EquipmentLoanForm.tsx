@@ -222,8 +222,8 @@ export default function EquipmentLoanForm() {
                   Adicionar Equipamento
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
-                <Command>
+              <PopoverContent className="w-[400px] p-0" align="start" sideOffset={4}>
+                <Command shouldFilter={false}>
                   <div className="flex items-center border-b px-3">
                     <Search className="h-4 w-4 shrink-0 opacity-50" />
                     <CommandInput 
@@ -233,24 +233,36 @@ export default function EquipmentLoanForm() {
                       className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
-                  <CommandList>
-                    <CommandEmpty>Nenhum equipamento encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {filteredEquipment.map((equip) => (
-                        <CommandItem
-                          key={equip.id}
-                          value={equip.id}
-                          onSelect={() => handleAddEquipment(equip)}
-                        >
-                          <div className="flex flex-col flex-1">
-                            <span>{equip.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              Patrimônio: {equip.patrimony_code} | Disponível: {equip.available_quantity}
-                            </span>
+                  <CommandList className="max-h-[300px] overflow-y-auto">
+                    {filteredEquipment.length === 0 ? (
+                      <CommandEmpty>Nenhum equipamento encontrado.</CommandEmpty>
+                    ) : (
+                      <CommandGroup heading={`${filteredEquipment.length} equipamento(s) disponível(is)`}>
+                        {filteredEquipment.slice(0, 50).map((equip) => (
+                          <CommandItem
+                            key={equip.id}
+                            value={equip.id}
+                            onSelect={() => handleAddEquipment(equip)}
+                            className="cursor-pointer hover:bg-accent"
+                          >
+                            <div className="flex flex-col flex-1 gap-0.5">
+                              <span className="font-medium">{equip.name}</span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>Patrimônio: {equip.patrimony_code}</span>
+                                <span className="text-primary font-medium">
+                                  {equip.available_quantity} disponível(is)
+                                </span>
+                              </div>
+                            </div>
+                          </CommandItem>
+                        ))}
+                        {filteredEquipment.length > 50 && (
+                          <div className="text-xs text-muted-foreground text-center py-2 border-t">
+                            Mostrando 50 de {filteredEquipment.length}. Refine sua busca.
                           </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
+                        )}
+                      </CommandGroup>
+                    )}
                   </CommandList>
                 </Command>
               </PopoverContent>
