@@ -31,8 +31,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
 import { useUsersList, useUpdateUserProfile, useToggleUserActive, useDeleteUser, UserProfile, AppRole } from '@/hooks/useUsers';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { supabase } from '@/integrations/supabase/client';
@@ -354,6 +355,15 @@ export default function Users() {
       </div>
 
       {/* Permission Levels Info */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+        <h2 className="text-lg font-semibold">Níveis de Permissão</h2>
+        <Link to="/permissions">
+          <Button variant="outline" className="gap-2">
+            <Settings2 className="w-4 h-4" />
+            Gerenciar Permissões
+          </Button>
+        </Link>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {Object.entries(roleLabels).map(([key, config]) => {
           const Icon = config.icon;
@@ -364,9 +374,9 @@ export default function Users() {
                 <h3 className="font-medium">{config.label}</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                {key === 'admin' && 'Acesso total ao sistema, incluindo gerenciar usuários e configurações'}
-                {key === 'analista' && 'Pode editar, criar e apagar registros, sem acesso a funções administrativas'}
-                {key === 'assistente' && 'Apenas criar e visualizar, edição permitida somente para reservas'}
+                {key === 'admin' && 'Acesso total ao sistema, incluindo gerenciar usuários, permissões e configurações'}
+                {key === 'analista' && 'Acesso configurável por módulo - pode criar, editar e aprovar, sem acesso a exclusão'}
+                {key === 'assistente' && 'Acesso limitado configurável - principalmente visualização e criação básica'}
               </p>
             </div>
           );
