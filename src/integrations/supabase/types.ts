@@ -752,6 +752,7 @@ export type Database = {
           id: string
           is_active: boolean
           location: string | null
+          max_advance_days: number | null
           name: string
           updated_at: string
         }
@@ -765,6 +766,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           location?: string | null
+          max_advance_days?: number | null
           name: string
           updated_at?: string
         }
@@ -778,6 +780,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           location?: string | null
+          max_advance_days?: number | null
           name?: string
           updated_at?: string
         }

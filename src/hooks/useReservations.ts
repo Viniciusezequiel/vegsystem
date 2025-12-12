@@ -15,6 +15,7 @@ export interface ReservationRoom {
   campus: CampusEnum;
   is_active: boolean;
   auto_confirm: boolean;
+  max_advance_days: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -211,12 +212,23 @@ export function useCreateReservation() {
         throw new Error('Já existe uma reserva para este horário nesta sala.');
       }
 
-      // Fetch room to check auto_confirm setting
+      // Fetch room to check auto_confirm and max_advance_days settings
       const { data: roomData } = await supabase
         .from('reservation_rooms')
-        .select('auto_confirm')
+        .select('auto_confirm, max_advance_days')
         .eq('id', data.room_id)
         .single();
+
+      // Check max advance days if configured
+      if (roomData?.max_advance_days !== null && roomData?.max_advance_days !== undefined) {
+        const startDate = new Date(data.start_datetime);
+        const now = new Date();
+        const diffDays = Math.ceil((startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > roomData.max_advance_days) {
+          throw new Error(`Este ambiente só pode ser reservado com até ${roomData.max_advance_days} dias de antecedência.`);
+        }
+      }
 
       // Determine status: 
       // - External reservations always need approval (pending)

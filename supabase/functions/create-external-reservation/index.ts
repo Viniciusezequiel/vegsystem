@@ -147,10 +147,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch room to check auto_confirm setting
+    // Fetch room to check auto_confirm and max_advance_days settings
     const { data: roomData, error: roomError } = await supabase
       .from('reservation_rooms')
-      .select('auto_confirm, name')
+      .select('auto_confirm, name, max_advance_days')
       .eq('id', body.room_id)
       .single();
 
@@ -160,6 +160,22 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Room not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Check max advance days if configured
+    if (roomData.max_advance_days !== null) {
+      const startDate = new Date(body.start_datetime);
+      const now = new Date();
+      const diffDays = Math.ceil((startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays > roomData.max_advance_days) {
+        return new Response(
+          JSON.stringify({ 
+            error: `Este ambiente só pode ser reservado com até ${roomData.max_advance_days} dias de antecedência.` 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // External reservations always start as pending
