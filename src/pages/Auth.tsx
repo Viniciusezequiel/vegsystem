@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mail, Sparkles, Users, Building2 } from 'lucide-react';
+import { Loader2, Lock, Mail, Sparkles, Users, Building2, User, Phone, CreditCard } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
@@ -16,7 +17,28 @@ const loginSchema = z.object({
   password: z.string().min(6, { message: 'Senha deve ter no mínimo 6 caracteres' }),
 });
 
+const signupSchema = z.object({
+  full_name: z.string().min(3, { message: 'Nome deve ter no mínimo 3 caracteres' }),
+  email: z.string().trim().email({ message: 'Email inválido' }),
+  cpf: z.string().min(11, { message: 'CPF deve ter 11 dígitos' }).max(14, { message: 'CPF inválido' }),
+  phone: z.string().min(8, { message: 'Telefone deve ter no mínimo 8 caracteres' }),
+  password: z.string().min(6, { message: 'Senha deve ter no mínimo 6 caracteres' }),
+  confirmPassword: z.string().min(6, { message: 'Confirmação de senha obrigatória' }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'As senhas não coincidem',
+  path: ['confirmPassword'],
+});
+
 type AccessMode = 'admin' | 'external';
+
+// CPF mask function
+const formatCPF = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -27,10 +49,21 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [accessMode, setAccessMode] = useState<AccessMode>('external');
+  const [externalTab, setExternalTab] = useState<'login' | 'signup'>('login');
+  
+  // Signup state
+  const [signupData, setSignupData] = useState({
+    full_name: '',
+    email: '',
+    cpf: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [signupErrors, setSignupErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user && !authLoading) {
-      // Check if user is internal or external and redirect accordingly
       navigate('/', { replace: true });
     }
   }, [user, authLoading, navigate]);
@@ -53,7 +86,6 @@ export default function Auth() {
     setIsLoading(true);
 
     if (accessMode === 'admin') {
-      // Internal login
       const { error } = await signIn(email, password);
 
       if (error) {
@@ -79,7 +111,6 @@ export default function Auth() {
         navigate('/', { replace: true });
       }
     } else {
-      // External login - check if user exists in external_users
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -96,7 +127,6 @@ export default function Auth() {
           variant: 'destructive',
         });
       } else if (data.user) {
-        // Check if this user is an external user
         const { data: externalUser } = await supabase
           .from('external_users')
           .select('id')
@@ -110,7 +140,6 @@ export default function Auth() {
           });
           navigate('/booking', { replace: true });
         } else {
-          // Not an external user, log out
           await supabase.auth.signOut();
           toast({
             title: 'Acesso negado',
@@ -120,6 +149,88 @@ export default function Auth() {
         }
       }
     }
+
+    setIsLoading(false);
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSignupErrors({});
+
+    const result = signupSchema.safeParse(signupData);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      });
+      setSignupErrors(fieldErrors);
+      return;
+    }
+
+    setIsLoading(true);
+
+    const redirectUrl = `${window.location.origin}/booking`;
+    const cpfDigits = signupData.cpf.replace(/\D/g, '');
+
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: signupData.email,
+      password: signupData.password,
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: {
+          full_name: signupData.full_name,
+          phone: signupData.phone,
+          cpf: cpfDigits,
+          is_external: true,
+        },
+      },
+    });
+
+    if (authError) {
+      let message = 'Erro ao criar conta.';
+      if (authError.message.includes('already registered')) {
+        message = 'Este email já está cadastrado.';
+      }
+      toast({
+        title: 'Falha no cadastro',
+        description: message,
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (authData.user) {
+      const { error: profileError } = await supabase
+        .from('external_users')
+        .insert({
+          user_id: authData.user.id,
+          full_name: signupData.full_name,
+          email: signupData.email,
+          cpf: cpfDigits,
+          phone: signupData.phone,
+        });
+
+      if (profileError) {
+        console.error('Error creating external user profile:', profileError);
+      }
+    }
+
+    toast({
+      title: 'Cadastro realizado!',
+      description: 'Você já pode fazer login.',
+    });
+    setExternalTab('login');
+    setEmail(signupData.email);
+    setPassword('');
+    setSignupData({
+      full_name: '',
+      email: '',
+      cpf: '',
+      phone: '',
+      password: '',
+      confirmPassword: '',
+    });
 
     setIsLoading(false);
   };
@@ -206,77 +317,251 @@ export default function Auth() {
         </CardHeader>
         
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground font-medium">Email</Label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu.email@empresa.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.email ? 'border-destructive' : ''}`}
-                  disabled={isLoading}
-                  autoComplete="email"
-                />
+          {accessMode === 'admin' ? (
+            // Admin Login Form
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-foreground font-medium">Email</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu.email@empresa.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.email ? 'border-destructive' : ''}`}
+                    disabled={isLoading}
+                    autoComplete="email"
+                  />
+                </div>
+                {errors.email && (
+                  <p className="text-xs text-destructive animate-fade-in">{errors.email}</p>
+                )}
               </div>
-              {errors.email && (
-                <p className="text-xs text-destructive animate-fade-in">{errors.email}</p>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground font-medium">Senha</Label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.password ? 'border-destructive' : ''}`}
-                  disabled={isLoading}
-                  autoComplete="current-password"
-                />
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-foreground font-medium">Senha</Label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.password ? 'border-destructive' : ''}`}
+                    disabled={isLoading}
+                    autoComplete="current-password"
+                  />
+                </div>
+                {errors.password && (
+                  <p className="text-xs text-destructive animate-fade-in">{errors.password}</p>
+                )}
               </div>
-              {errors.password && (
-                <p className="text-xs text-destructive animate-fade-in">{errors.password}</p>
-              )}
-            </div>
 
-            <Button 
-              type="submit" 
-              className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Entrando...
-                </>
-              ) : (
-                'Entrar'
-              )}
-            </Button>
-          </form>
-
-          {/* External user signup link */}
-          {accessMode === 'external' && (
-            <div className="mt-4 text-center">
-              <p className="text-sm text-muted-foreground mb-2">
-                Não tem cadastro?
-              </p>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate('/booking-auth')}
+              <Button 
+                type="submit" 
+                className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
+                disabled={isLoading}
               >
-                Criar conta para reservas
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  'Entrar'
+                )}
               </Button>
-            </div>
+            </form>
+          ) : (
+            // External Login/Signup Tabs
+            <Tabs value={externalTab} onValueChange={(v) => setExternalTab(v as 'login' | 'signup')}>
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="signup">Cadastro</TabsTrigger>
+              </TabsList>
+
+              {/* External Login Tab */}
+              <TabsContent value="login">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="ext-email" className="text-foreground font-medium">Email</Label>
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input
+                        id="ext-email"
+                        type="email"
+                        placeholder="seu.email@empresa.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.email ? 'border-destructive' : ''}`}
+                        disabled={isLoading}
+                        autoComplete="email"
+                      />
+                    </div>
+                    {errors.email && (
+                      <p className="text-xs text-destructive animate-fade-in">{errors.email}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ext-password" className="text-foreground font-medium">Senha</Label>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input
+                        id="ext-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.password ? 'border-destructive' : ''}`}
+                        disabled={isLoading}
+                        autoComplete="current-password"
+                      />
+                    </div>
+                    {errors.password && (
+                      <p className="text-xs text-destructive animate-fade-in">{errors.password}</p>
+                    )}
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Entrando...
+                      </>
+                    ) : (
+                      'Entrar'
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              {/* External Signup Tab */}
+              <TabsContent value="signup">
+                <form onSubmit={handleSignup} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Nome completo</Label>
+                    <div className="relative group">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input
+                        type="text"
+                        placeholder="Seu nome completo"
+                        value={signupData.full_name}
+                        onChange={(e) => setSignupData({ ...signupData, full_name: e.target.value })}
+                        className={`pl-11 h-11 bg-secondary/50 ${signupErrors.full_name ? 'border-destructive' : ''}`}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    {signupErrors.full_name && <p className="text-xs text-destructive">{signupErrors.full_name}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>CPF</Label>
+                    <div className="relative group">
+                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input
+                        type="text"
+                        placeholder="000.000.000-00"
+                        value={signupData.cpf}
+                        onChange={(e) => setSignupData({ ...signupData, cpf: formatCPF(e.target.value) })}
+                        className={`pl-11 h-11 bg-secondary/50 ${signupErrors.cpf ? 'border-destructive' : ''}`}
+                        disabled={isLoading}
+                        maxLength={14}
+                      />
+                    </div>
+                    {signupErrors.cpf && <p className="text-xs text-destructive">{signupErrors.cpf}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input
+                        type="email"
+                        placeholder="seu.email@empresa.com"
+                        value={signupData.email}
+                        onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
+                        className={`pl-11 h-11 bg-secondary/50 ${signupErrors.email ? 'border-destructive' : ''}`}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    {signupErrors.email && <p className="text-xs text-destructive">{signupErrors.email}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Telefone</Label>
+                    <div className="relative group">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input
+                        type="tel"
+                        placeholder="(00) 00000-0000"
+                        value={signupData.phone}
+                        onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
+                        className={`pl-11 h-11 bg-secondary/50 ${signupErrors.phone ? 'border-destructive' : ''}`}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    {signupErrors.phone && <p className="text-xs text-destructive">{signupErrors.phone}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Senha</Label>
+                      <div className="relative group">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          value={signupData.password}
+                          onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
+                          className={`pl-11 h-11 bg-secondary/50 ${signupErrors.password ? 'border-destructive' : ''}`}
+                          disabled={isLoading}
+                        />
+                      </div>
+                      {signupErrors.password && <p className="text-xs text-destructive">{signupErrors.password}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Confirmar</Label>
+                      <div className="relative group">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          value={signupData.confirmPassword}
+                          onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
+                          className={`pl-11 h-11 bg-secondary/50 ${signupErrors.confirmPassword ? 'border-destructive' : ''}`}
+                          disabled={isLoading}
+                        />
+                      </div>
+                      {signupErrors.confirmPassword && <p className="text-xs text-destructive">{signupErrors.confirmPassword}</p>}
+                    </div>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Cadastrando...
+                      </>
+                    ) : (
+                      'Criar Conta'
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
           )}
 
           <div className="mt-8 text-center space-y-4">
