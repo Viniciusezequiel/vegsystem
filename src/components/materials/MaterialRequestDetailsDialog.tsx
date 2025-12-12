@@ -75,7 +75,7 @@ export function MaterialRequestDetailsDialog({ request, open, onClose, canManage
   const StatusIcon = status.icon;
 
   // Filter only active collaborators and admins
-  const collaborators = users.filter(u => u.is_active && (u.role === 'admin' || u.role === 'collaborator'));
+  const collaborators = users.filter(u => u.is_active && (u.role === 'admin' || u.role === 'analista'));
 
   const handleStatusChange = async (newStatus: string) => {
     await updateRequest.mutateAsync({

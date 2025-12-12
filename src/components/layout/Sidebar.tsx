@@ -199,8 +199,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const getRoleLabel = (role: string | null) => {
     switch (role) {
       case 'admin': return 'Administrador';
-      case 'collaborator': return 'Colaborador';
-      case 'viewer': return 'Visualizador';
+      case 'analista': return 'Analista';
+      case 'assistente': return 'Assistente';
       default: return 'Usuário';
     }
   };

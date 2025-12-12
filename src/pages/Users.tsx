@@ -31,20 +31,18 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2 } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUsersList, useUpdateUserProfile, useToggleUserActive, useDeleteUser, UserProfile } from '@/hooks/useUsers';
+import { useUsersList, useUpdateUserProfile, useToggleUserActive, useDeleteUser, UserProfile, AppRole } from '@/hooks/useUsers';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
-type UserRole = 'admin' | 'collaborator' | 'viewer';
-
-const roleLabels: Record<UserRole, { label: string; icon: React.ElementType; color: string }> = {
+const roleLabels: Record<AppRole, { label: string; icon: React.ElementType; color: string }> = {
   admin: { label: 'Administrador', icon: Shield, color: 'text-destructive' },
-  collaborator: { label: 'Colaborador', icon: Edit2, color: 'text-primary' },
-  viewer: { label: 'Visualizador', icon: Eye, color: 'text-muted-foreground' },
+  analista: { label: 'Analista', icon: BarChart3, color: 'text-primary' },
+  assistente: { label: 'Assistente', icon: Eye, color: 'text-muted-foreground' },
 };
 
 export default function Users() {
@@ -59,13 +57,13 @@ export default function Users() {
   const [newName, setNewName] = useState('');
   const [newPosition, setNewPosition] = useState('');
   const [newDepartment, setNewDepartment] = useState('');
-  const [newRole, setNewRole] = useState<UserRole>('viewer');
+  const [newRole, setNewRole] = useState<AppRole>('assistente');
 
   // Form states for edit user
   const [editName, setEditName] = useState('');
   const [editPosition, setEditPosition] = useState('');
   const [editDepartment, setEditDepartment] = useState('');
-  const [editRole, setEditRole] = useState<UserRole>('viewer');
+  const [editRole, setEditRole] = useState<AppRole>('assistente');
 
   const { data: users, isLoading } = useUsersList();
   const updateProfile = useUpdateUserProfile();
@@ -142,7 +140,7 @@ export default function Users() {
     setNewName('');
     setNewPosition('');
     setNewDepartment('');
-    setNewRole('viewer');
+    setNewRole('assistente');
   };
 
   const handleEditUser = (user: UserProfile) => {
@@ -150,7 +148,7 @@ export default function Users() {
     setEditName(user.full_name);
     setEditPosition(user.position);
     setEditDepartment(user.department);
-    setEditRole(user.role || 'viewer');
+    setEditRole(user.role || 'assistente');
     setIsEditDialogOpen(true);
   };
 
@@ -198,7 +196,7 @@ export default function Users() {
               { header: 'Nome', accessor: 'full_name' },
               { header: 'Cargo', accessor: (row) => row.position || '-' },
               { header: 'Setor', accessor: (row) => row.department || '-' },
-              { header: 'Permissão', accessor: (row) => roleLabels[row.role as UserRole]?.label || 'Visualizador' },
+              { header: 'Permissão', accessor: (row) => roleLabels[row.role as AppRole]?.label || 'Assistente' },
               { header: 'Status', accessor: (row) => row.is_active ? 'Ativo' : 'Inativo' },
             ]}
             data={users || []}
@@ -208,8 +206,8 @@ export default function Users() {
                 key: 'role',
                 options: [
                   { label: 'Administrador', value: 'admin' },
-                  { label: 'Colaborador', value: 'collaborator' },
-                  { label: 'Visualizador', value: 'viewer' },
+                  { label: 'Analista', value: 'analista' },
+                  { label: 'Assistente', value: 'assistente' },
                 ],
               },
               {
@@ -297,14 +295,14 @@ export default function Users() {
               </div>
               <div>
                 <Label htmlFor="role">Nível de Permissão *</Label>
-                <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
+                <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
                   <SelectTrigger className="mt-1.5">
                     <SelectValue placeholder="Selecione o nível" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Administrador - Acesso total</SelectItem>
-                    <SelectItem value="collaborator">Colaborador - Cadastrar e dar baixa</SelectItem>
-                    <SelectItem value="viewer">Visualizador - Apenas consultar</SelectItem>
+                    <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
+                    <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -334,9 +332,9 @@ export default function Users() {
                 <h3 className="font-medium">{config.label}</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                {key === 'admin' && 'Acesso total ao sistema, incluindo gerenciar usuários'}
-                {key === 'collaborator' && 'Pode registrar itens e dar baixa nas entregas'}
-                {key === 'viewer' && 'Apenas visualiza e busca itens cadastrados'}
+                {key === 'admin' && 'Acesso total ao sistema, incluindo gerenciar usuários e configurações'}
+                {key === 'analista' && 'Pode editar, criar e apagar registros, sem acesso a funções administrativas'}
+                {key === 'assistente' && 'Apenas criar e visualizar, edição permitida somente para reservas'}
               </p>
             </div>
           );
@@ -358,7 +356,7 @@ export default function Users() {
             </thead>
             <tbody className="divide-y divide-border">
               {users?.map((user, index) => {
-                const roleConfig = roleLabels[user.role || 'viewer'];
+                const roleConfig = roleLabels[user.role || 'assistente'];
                 const RoleIcon = roleConfig.icon;
                 
                 return (
@@ -427,9 +425,8 @@ export default function Users() {
                                 <AlertDialogAction
                                   onClick={() => deleteUser.mutate(user.user_id)}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  disabled={deleteUser.isPending}
                                 >
-                                  {deleteUser.isPending ? 'Excluindo...' : 'Excluir'}
+                                  Excluir
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -445,13 +442,13 @@ export default function Users() {
         </div>
       </div>
 
-      {/* Edit Dialog */}
+      {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Editar Usuário</DialogTitle>
             <DialogDescription>
-              Atualize as informações do usuário.
+              Altere as informações do usuário.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateUser} className="space-y-4 mt-4">
@@ -460,7 +457,7 @@ export default function Users() {
               <Input 
                 id="edit-name" 
                 placeholder="Nome do usuário" 
-                className="mt-1.5"
+                className="mt-1.5" 
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 required
@@ -490,26 +487,16 @@ export default function Users() {
             </div>
             <div>
               <Label htmlFor="edit-role">Nível de Permissão *</Label>
-              <Select value={editRole} onValueChange={(v) => setEditRole(v as UserRole)}>
+              <Select value={editRole} onValueChange={(v) => setEditRole(v as AppRole)}>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Selecione o nível" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Administrador - Acesso total</SelectItem>
-                  <SelectItem value="collaborator">Colaborador - Cadastrar e dar baixa</SelectItem>
-                  <SelectItem value="viewer">Visualizador - Apenas consultar</SelectItem>
+                  <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
+                  <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-              <div>
-                <Label>Status do usuário</Label>
-                <p className="text-xs text-muted-foreground">Usuários inativos não podem acessar o sistema</p>
-              </div>
-              <Switch
-                checked={editingUser?.is_active}
-                onCheckedChange={() => editingUser && handleToggleActive(editingUser)}
-              />
             </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
@@ -517,7 +504,7 @@ export default function Users() {
               </Button>
               <Button type="submit" disabled={updateProfile.isPending}>
                 {updateProfile.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {updateProfile.isPending ? 'Salvando...' : 'Salvar'}
+                {updateProfile.isPending ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </div>
           </form>
