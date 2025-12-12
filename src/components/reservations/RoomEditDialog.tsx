@@ -49,6 +49,7 @@ export function RoomEditDialog({
     campus: 'Campus I' as CampusEnum,
     is_active: true,
     auto_confirm: true,
+    max_advance_days: null as number | null,
   });
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export function RoomEditDialog({
         campus: room.campus as CampusEnum,
         is_active: room.is_active,
         auto_confirm: (room as any).auto_confirm ?? true,
+        max_advance_days: (room as any).max_advance_days ?? null,
       });
     }
   }, [room]);
@@ -162,6 +164,19 @@ export function RoomEditDialog({
               rows={3}
               className="mt-1.5"
             />
+          </div>
+          <div>
+            <Label htmlFor="max_advance_days">Antecedência Máxima (dias)</Label>
+            <Input
+              id="max_advance_days"
+              type="number"
+              min={1}
+              value={formData.max_advance_days || ''}
+              onChange={(e) => setFormData({ ...formData, max_advance_days: e.target.value ? parseInt(e.target.value) : null })}
+              placeholder="Sem limite"
+              className="mt-1.5"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Deixe vazio para sem limite</p>
           </div>
           <div className="flex items-center justify-between">
             <div>
