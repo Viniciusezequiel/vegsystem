@@ -35,6 +35,9 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
   return useQuery({
     queryKey: ['lost-items', filters],
     queryFn: async () => {
+      // First, call the function to update expired items
+      await supabase.rpc('expire_old_lost_items');
+
       let query = supabase
         .from('lost_items')
         .select('*')
