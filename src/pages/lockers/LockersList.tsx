@@ -62,6 +62,9 @@ const statusLabels = {
 
 export default function LockersList() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [campusFilter, setCampusFilter] = useState<string>('all');
+  const [floorFilter, setFloorFilter] = useState<string>('all');
+  const [sideFilter, setSideFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLocker, setEditingLocker] = useState<Locker | null>(null);
@@ -83,18 +86,55 @@ export default function LockersList() {
     },
   });
 
+  // Extract unique floors and sides from lockers
+  const { uniqueFloors, uniqueSides } = useMemo(() => {
+    if (!lockers) return { uniqueFloors: [], uniqueSides: [] };
+    const floors = new Set<string>();
+    const sides = new Set<string>();
+    lockers.forEach(locker => {
+      const parts = locker.location.split(' - ');
+      if (parts.length >= 1 && parts[0]) floors.add(parts[0]);
+      if (parts.length >= 2 && parts[1]) sides.add(parts[1]);
+    });
+    return {
+      uniqueFloors: Array.from(floors).sort(),
+      uniqueSides: Array.from(sides).sort(),
+    };
+  }, [lockers]);
+
   const filteredLockers = useMemo(() => {
     if (!lockers) return [];
-    if (!searchTerm.trim()) return lockers;
     
-    const search = searchTerm.toLowerCase();
-    return lockers.filter(locker => 
-      locker.code.toLowerCase().includes(search) ||
-      locker.location.toLowerCase().includes(search) ||
-      locker.campus.toLowerCase().includes(search) ||
-      (locker.description?.toLowerCase().includes(search))
-    );
-  }, [lockers, searchTerm]);
+    return lockers.filter(locker => {
+      // Campus filter
+      if (campusFilter !== 'all' && locker.campus !== campusFilter) return false;
+      
+      // Floor filter (first part of location)
+      if (floorFilter !== 'all') {
+        const parts = locker.location.split(' - ');
+        if (!parts[0]?.includes(floorFilter)) return false;
+      }
+      
+      // Side filter (second part of location)
+      if (sideFilter !== 'all') {
+        const parts = locker.location.split(' - ');
+        if (!parts[1]?.includes(sideFilter)) return false;
+      }
+      
+      // Search term
+      if (searchTerm.trim()) {
+        const search = searchTerm.toLowerCase();
+        return (
+          locker.code.toLowerCase().includes(search) ||
+          locker.location.toLowerCase().includes(search) ||
+          locker.campus.toLowerCase().includes(search) ||
+          (locker.description?.toLowerCase().includes(search))
+        );
+      }
+      
+      return true;
+    });
+  }, [lockers, searchTerm, campusFilter, floorFilter, sideFilter]);
 
   const onSubmit = async (data: LockerFormData) => {
     if (editingLocker) {
@@ -331,14 +371,50 @@ export default function LockersList() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por código, localização, campus..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <Select value={campusFilter} onValueChange={setCampusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Campus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Campus</SelectItem>
+                    <SelectItem value="Campus I">Campus I</SelectItem>
+                    <SelectItem value="Campus II">Campus II</SelectItem>
+                    <SelectItem value="Campus IV">Campus IV</SelectItem>
+                    <SelectItem value="Campus HUCM Adm">Campus HUCM Adm</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={floorFilter} onValueChange={setFloorFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Andar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Andares</SelectItem>
+                    {uniqueFloors.map(floor => (
+                      <SelectItem key={floor} value={floor}>{floor}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={sideFilter} onValueChange={setSideFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Parte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as Partes</SelectItem>
+                    {uniqueSides.map(side => (
+                      <SelectItem key={side} value={side}>{side}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
               </div>
             </div>
           </CardHeader>
