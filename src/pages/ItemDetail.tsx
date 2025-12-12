@@ -79,7 +79,9 @@ export default function ItemDetail() {
     delivered_by_contact: '',
   });
 
-  const canEdit = role === 'admin' || role === 'analista';
+  // Admin e analista podem editar, mas itens entregues/expirados só admin e analista podem editar
+  const isDeliveredOrExpired = item?.status === 'delivered' || item?.status === 'expired';
+  const canEdit = (role === 'admin' || role === 'analista') && (!isDeliveredOrExpired || role === 'admin' || role === 'analista');
 
   const handleOpenEditDialog = () => {
     if (item) {
