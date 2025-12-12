@@ -272,7 +272,7 @@ export default function Auth() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => navigate('/external-auth')}
+                onClick={() => navigate('/booking-auth')}
               >
                 Criar conta para reservas
               </Button>
