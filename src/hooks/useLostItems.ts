@@ -170,16 +170,21 @@ export function useDeliverLostItem() {
       owner_email: string;
       owner_phone: string;
       owner_signature?: string;
+      destination?: 'owner' | 'donation' | 'disposal';
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
+
+      const destinationText = data.destination === 'donation' ? 'Doação' : 
+                              data.destination === 'disposal' ? 'Descarte' : '';
 
       const { data: item, error } = await supabase
         .from('lost_items')
         .update({
           status: 'delivered',
-          owner_name: data.owner_name,
-          owner_email: data.owner_email,
-          owner_phone: data.owner_phone,
+          owner_name: data.destination === 'donation' ? 'DOAÇÃO' : 
+                      data.destination === 'disposal' ? 'DESCARTE' : data.owner_name,
+          owner_email: data.owner_email || null,
+          owner_phone: data.owner_phone || null,
           owner_signature: data.owner_signature,
           delivered_at: new Date().toISOString(),
           delivered_by_team_member: user?.id,
@@ -202,6 +207,103 @@ export function useDeliverLostItem() {
     onError: (error: Error) => {
       toast({
         title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useBulkDeliverLostItems() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (data: {
+      ids: string[];
+      destination: 'donation' | 'disposal';
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const destinationName = data.destination === 'donation' ? 'DOAÇÃO' : 'DESCARTE';
+
+      const { error } = await supabase
+        .from('lost_items')
+        .update({
+          status: 'delivered',
+          owner_name: destinationName,
+          owner_email: null,
+          owner_phone: null,
+          delivered_at: new Date().toISOString(),
+          delivered_by_team_member: user?.id,
+        })
+        .in('id', data.ids);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      const action = variables.destination === 'donation' ? 'doação' : 'descarte';
+      toast({
+        title: 'Itens atualizados',
+        description: `${variables.ids.length} item(ns) designado(s) para ${action}.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useBulkCreateLostItems() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (items: Array<{
+      code: string;
+      description: string;
+      campus: CampusEnum;
+      found_location: string;
+      found_date: string;
+      received_date: string;
+      shelf?: string;
+      box?: string;
+      seal_number?: string;
+      delivered_by_name: string;
+      delivered_by_contact?: string;
+      status?: string;
+    }>) => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const itemsWithUser = items.map(item => ({
+        ...item,
+        registered_by: user?.id,
+        status: item.status || 'available',
+      }));
+
+      const { data, error } = await supabase
+        .from('lost_items')
+        .insert(itemsWithUser)
+        .select();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      toast({
+        title: 'Importação concluída',
+        description: `${data.length} item(ns) importado(s) com sucesso.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro na importação',
         description: error.message,
         variant: 'destructive',
       });
