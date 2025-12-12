@@ -131,14 +131,14 @@ export const mockUsers: User[] = [
     id: '2',
     name: 'Carlos Lima',
     email: 'carlos@empresa.com',
-    role: 'collaborator',
+    role: 'analista',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
   },
   {
     id: '3',
     name: 'Ana Costa',
     email: 'ana@empresa.com',
-    role: 'viewer',
+    role: 'assistente',
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
   },
 ];

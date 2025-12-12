@@ -46,7 +46,7 @@ export default function MaterialRequestsList() {
   const { data: allRequests, isLoading: loadingAll } = useMaterialRequests();
   const { data: myRequests, isLoading: loadingMy } = useMyMaterialRequests();
   
-  const canManage = isAdmin || role === 'collaborator';
+  const canManage = isAdmin || role === 'analista';
   const requests = canManage ? allRequests : myRequests;
   const isLoading = canManage ? loadingAll : loadingMy;
 

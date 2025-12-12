@@ -11,7 +11,7 @@ interface CreateUserRequest {
   full_name: string;
   position: string;
   department: string;
-  role: 'admin' | 'collaborator' | 'viewer';
+  role: 'admin' | 'analista' | 'assistente';
 }
 
 Deno.serve(async (req) => {
@@ -128,24 +128,21 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        user: {
-          id: newUser.user.id,
+      JSON.stringify({ 
+        success: true, 
+        user: { 
+          id: newUser.user.id, 
           email: newUser.user.email,
           full_name,
-          position,
-          department,
-          role,
-        }
+          role 
+        } 
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error: any) {
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: error?.message || 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

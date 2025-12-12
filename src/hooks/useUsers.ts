@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export type AppRole = 'admin' | 'analista' | 'assistente';
+
 export type UserProfile = {
   id: string;
   user_id: string;
@@ -12,7 +14,7 @@ export type UserProfile = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  role?: 'admin' | 'collaborator' | 'viewer';
+  role?: AppRole;
 };
 
 export function useUsersList() {
@@ -37,7 +39,7 @@ export function useUsersList() {
         const userRole = roles.find(r => r.user_id === profile.user_id);
         return {
           ...profile,
-          role: userRole?.role || 'viewer',
+          role: userRole?.role || 'assistente',
         };
       });
 

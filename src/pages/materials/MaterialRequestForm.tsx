@@ -63,7 +63,7 @@ export default function MaterialRequestForm() {
   };
 
   // Filter only active collaborators and admins
-  const collaborators = users.filter(u => u.is_active && (u.role === 'admin' || u.role === 'collaborator'));
+  const collaborators = users.filter(u => u.is_active && (u.role === 'admin' || u.role === 'analista'));
 
   return (
     <MainLayout>

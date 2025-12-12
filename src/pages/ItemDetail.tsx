@@ -79,7 +79,7 @@ export default function ItemDetail() {
     delivered_by_contact: '',
   });
 
-  const canEdit = role === 'admin' || role === 'collaborator';
+  const canEdit = role === 'admin' || role === 'analista';
 
   const handleOpenEditDialog = () => {
     if (item) {

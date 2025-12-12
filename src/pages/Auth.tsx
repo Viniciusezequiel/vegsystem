@@ -6,14 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mail, Sparkles } from 'lucide-react';
+import { Loader2, Lock, Mail, Sparkles, Users, Building2 } from 'lucide-react';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
   password: z.string().min(6, { message: 'Senha deve ter no mínimo 6 caracteres' }),
 });
+
+type AccessMode = 'admin' | 'external';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -23,9 +26,11 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [accessMode, setAccessMode] = useState<AccessMode>('admin');
 
   useEffect(() => {
     if (user && !authLoading) {
+      // Check if user is internal or external and redirect accordingly
       navigate('/', { replace: true });
     }
   }, [user, authLoading, navigate]);
@@ -47,29 +52,73 @@ export default function Auth() {
 
     setIsLoading(true);
 
-    const { error } = await signIn(email, password);
+    if (accessMode === 'admin') {
+      // Internal login
+      const { error } = await signIn(email, password);
 
-    if (error) {
-      let message = 'Erro ao fazer login. Verifique suas credenciais.';
-      if (error.message.includes('Invalid login credentials')) {
-        message = 'Email ou senha incorretos.';
-      } else if (error.message.includes('Email not confirmed')) {
-        message = 'Email não confirmado. Contate o administrador.';
-      } else if (error.message.includes('User not found')) {
-        message = 'Usuário não encontrado.';
+      if (error) {
+        let message = 'Erro ao fazer login. Verifique suas credenciais.';
+        if (error.message.includes('Invalid login credentials')) {
+          message = 'Email ou senha incorretos.';
+        } else if (error.message.includes('Email not confirmed')) {
+          message = 'Email não confirmado. Contate o administrador.';
+        } else if (error.message.includes('User not found')) {
+          message = 'Usuário não encontrado.';
+        }
+
+        toast({
+          title: 'Falha no login',
+          description: message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Login realizado',
+          description: 'Bem-vindo ao sistema!',
+        });
+        navigate('/', { replace: true });
       }
-
-      toast({
-        title: 'Falha no login',
-        description: message,
-        variant: 'destructive',
-      });
     } else {
-      toast({
-        title: 'Login realizado',
-        description: 'Bem-vindo ao sistema!',
+      // External login - check if user exists in external_users
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      navigate('/', { replace: true });
+
+      if (error) {
+        let message = 'Erro ao fazer login. Verifique suas credenciais.';
+        if (error.message.includes('Invalid login credentials')) {
+          message = 'Email ou senha incorretos.';
+        }
+        toast({
+          title: 'Falha no login',
+          description: message,
+          variant: 'destructive',
+        });
+      } else if (data.user) {
+        // Check if this user is an external user
+        const { data: externalUser } = await supabase
+          .from('external_users')
+          .select('id')
+          .eq('user_id', data.user.id)
+          .single();
+
+        if (externalUser) {
+          toast({
+            title: 'Login realizado',
+            description: 'Bem-vindo! Redirecionando para reservas...',
+          });
+          navigate('/booking', { replace: true });
+        } else {
+          // Not an external user, log out
+          await supabase.auth.signOut();
+          toast({
+            title: 'Acesso negado',
+            description: 'Este acesso é apenas para usuários externos. Use o Painel ADM.',
+            variant: 'destructive',
+          });
+        }
+      }
     }
 
     setIsLoading(false);
@@ -105,6 +154,34 @@ export default function Auth() {
       
       <Card className="w-full max-w-md relative z-10 glass-morphism border-primary/20 shadow-glow animate-fade-in">
         <CardHeader className="text-center pb-4">
+          {/* Access Mode Switch */}
+          <div className="flex items-center justify-center mb-6 p-1 bg-secondary/50 rounded-xl border border-border/30">
+            <button
+              type="button"
+              onClick={() => setAccessMode('admin')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all duration-300 ${
+                accessMode === 'admin'
+                  ? 'bg-primary text-primary-foreground shadow-lg'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              Painel ADM
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccessMode('external')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all duration-300 ${
+                accessMode === 'external'
+                  ? 'bg-primary text-primary-foreground shadow-lg'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Externo
+            </button>
+          </div>
+
           {/* Logo with Glow Effect */}
           <div className="mx-auto mb-6 relative">
             <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
@@ -123,7 +200,7 @@ export default function Auth() {
           </CardTitle>
           <CardDescription className="text-muted-foreground flex items-center justify-center gap-2 mt-2">
             <Sparkles className="w-4 h-4 text-primary" />
-            Sistema Integrado de Gestão
+            {accessMode === 'admin' ? 'Painel Administrativo' : 'Acesso Externo - Reservas'}
             <Sparkles className="w-4 h-4 text-primary" />
           </CardDescription>
         </CardHeader>
@@ -186,13 +263,31 @@ export default function Auth() {
             </Button>
           </form>
 
+          {/* External user signup link */}
+          {accessMode === 'external' && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-muted-foreground mb-2">
+                Não tem cadastro?
+              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/external-auth')}
+              >
+                Criar conta para reservas
+              </Button>
+            </div>
+          )}
+
           <div className="mt-8 text-center space-y-4">
             <p className="text-xs text-muted-foreground">
-              Acesso restrito a usuários autorizados.
+              {accessMode === 'admin' 
+                ? 'Acesso restrito a usuários autorizados do sistema.'
+                : 'Acesse para solicitar reservas de salas.'}
             </p>
             <div className="border-t border-border/30 pt-4">
               <p className="text-xs text-muted-foreground mb-3">
-                Não tem cadastro?
+                Precisa de ajuda?
               </p>
               <a
                 href="https://wa.me/5531992931686"

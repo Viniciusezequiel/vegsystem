@@ -1,6 +1,6 @@
 export type ItemStatus = 'available' | 'pending' | 'delivered' | 'expired';
 
-export type UserRole = 'admin' | 'collaborator' | 'viewer';
+export type UserRole = 'admin' | 'analista' | 'assistente';
 
 export interface LostItem {
   id: string;
