@@ -347,8 +347,8 @@ export default function ExternalBooking() {
       return;
     }
 
-    if (new Date(equipmentFormData.expected_return_date) <= new Date(equipmentFormData.requested_date)) {
-      setEquipmentErrors({ expected_return_date: 'A data de devolução deve ser após a data de retirada' });
+    if (new Date(equipmentFormData.expected_return_date) < new Date(equipmentFormData.requested_date)) {
+      setEquipmentErrors({ expected_return_date: 'A data de devolução deve ser igual ou posterior à data de retirada' });
       return;
     }
 

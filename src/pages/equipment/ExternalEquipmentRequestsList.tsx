@@ -104,6 +104,29 @@ export default function ExternalEquipmentRequestsList() {
     setSelectedRequest(null);
   };
 
+  const handleQuickApprove = async (e: React.MouseEvent, request: ExternalEquipmentRequest) => {
+    e.stopPropagation();
+    await updateRequest.mutateAsync({
+      id: request.id,
+      status: 'awaiting_pickup',
+      processed_by: user?.id,
+      processed_at: new Date().toISOString(),
+      updateEquipmentQuantity: !!request.equipment_id,
+      equipmentId: request.equipment_id || undefined,
+      quantityChange: request.equipment_id ? -request.quantity_requested : undefined,
+    });
+  };
+
+  const handleQuickReject = async (e: React.MouseEvent, request: ExternalEquipmentRequest) => {
+    e.stopPropagation();
+    await updateRequest.mutateAsync({
+      id: request.id,
+      status: 'rejected',
+      processed_by: user?.id,
+      processed_at: new Date().toISOString(),
+    });
+  };
+
   const RequestCard = ({ request }: { request: ExternalEquipmentRequest }) => {
     const status = statusConfig[request.status];
     const StatusIcon = status.icon;
@@ -140,9 +163,33 @@ export default function ExternalEquipmentRequestsList() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
             <Calendar className="w-3 h-3" />
             <span>
-              {format(parseISO(request.requested_date), "dd/MM", { locale: ptBR })} - {format(parseISO(request.expected_return_date), "dd/MM", { locale: ptBR })}
+              {format(parseISO(request.requested_date), "dd/MM/yyyy", { locale: ptBR })} - {format(parseISO(request.expected_return_date), "dd/MM/yyyy", { locale: ptBR })}
             </span>
           </div>
+
+          {request.status === 'pending' && (
+            <div className="flex gap-2 mt-3 pt-3 border-t">
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="flex-1 text-xs"
+                onClick={(e) => handleQuickReject(e, request)}
+                disabled={updateRequest.isPending}
+              >
+                <XCircle className="w-3 h-3 mr-1" />
+                Rejeitar
+              </Button>
+              <Button 
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={(e) => handleQuickApprove(e, request)}
+                disabled={updateRequest.isPending}
+              >
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Aprovar
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -375,9 +422,9 @@ export default function ExternalEquipmentRequestsList() {
                     </Button>
                     <Button 
                       onClick={() => handleStatusChange(selectedRequest.id, 'awaiting_pickup', {
-                        updateEquipmentQuantity: true,
+                        updateEquipmentQuantity: !!selectedRequest.equipment_id,
                         equipmentId: selectedRequest.equipment_id || undefined,
-                        quantityChange: -selectedRequest.quantity_requested,
+                        quantityChange: selectedRequest.equipment_id ? -selectedRequest.quantity_requested : undefined,
                       })}
                       disabled={updateRequest.isPending}
                     >
@@ -400,9 +447,9 @@ export default function ExternalEquipmentRequestsList() {
                 {selectedRequest.status === 'loaned' && (
                   <Button 
                     onClick={() => handleStatusChange(selectedRequest.id, 'returned', {
-                      updateEquipmentQuantity: true,
+                      updateEquipmentQuantity: !!selectedRequest.equipment_id,
                       equipmentId: selectedRequest.equipment_id || undefined,
-                      quantityChange: selectedRequest.quantity_requested,
+                      quantityChange: selectedRequest.equipment_id ? selectedRequest.quantity_requested : undefined,
                     })}
                     disabled={updateRequest.isPending}
                   >
