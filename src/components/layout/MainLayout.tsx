@@ -2,12 +2,16 @@ import { ReactNode, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { OnlineUsersIndicator } from './OnlineUsersIndicator';
 import { cn } from '@/lib/utils';
+import { useGlobalRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  // Enable global realtime subscriptions
+  useGlobalRealtimeSubscription();
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const stored = localStorage.getItem('sidebar-collapsed');
     return stored === 'true';
