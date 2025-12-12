@@ -15,13 +15,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus } from 'lucide-react';
+import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus, Eye } from 'lucide-react';
 import { z } from 'zod';
 import { format, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
+import { ExternalReservationDetailsDialog } from '@/components/reservations/ExternalReservationDetailsDialog';
 
 const searchSchema = z.object({
   attendees_count: z.number().min(1, 'Mínimo 1 participante'),
@@ -157,7 +158,8 @@ export default function ExternalBooking() {
   const [searchErrors, setSearchErrors] = useState<Record<string, string>>({});
   const [bookingErrors, setBookingErrors] = useState<Record<string, string>>({});
   const [equipmentErrors, setEquipmentErrors] = useState<Record<string, string>>({});
-
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [searchData, setSearchData] = useState({
     attendees_count: 10,
     start_date: '',
@@ -922,16 +924,28 @@ export default function ExternalBooking() {
                     <div className="space-y-2">
                       {myReservations.map((r) => (
                         <div key={r.id} className="p-3 rounded-lg border bg-card">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium">{r.title}</p>
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{r.title}</p>
                               <p className="text-sm text-muted-foreground">
                                 {r.reservation_rooms?.name} • {formatDateTime(r.start_datetime)}
                               </p>
                             </div>
-                            <Badge variant={statusLabels[r.status]?.variant || 'default'}>
-                              {statusLabels[r.status]?.label || r.status}
-                            </Badge>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Badge variant={statusLabels[r.status]?.variant || 'default'}>
+                                {statusLabels[r.status]?.label || r.status}
+                              </Badge>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedReservation(r);
+                                  setDetailsDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -979,6 +993,13 @@ export default function ExternalBooking() {
           </p>
         </div>
       </div>
+
+      {/* Reservation Details Dialog */}
+      <ExternalReservationDetailsDialog
+        reservation={selectedReservation}
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+      />
     </div>
   );
 }
