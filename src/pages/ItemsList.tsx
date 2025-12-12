@@ -17,7 +17,8 @@ import {
   Trash2, 
   Upload,
   X,
-  CheckSquare
+  CheckSquare,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ItemStatus } from '@/types';
@@ -196,6 +197,99 @@ export default function ItemsList() {
     });
   };
 
+  // Helper function to parse dates in various formats (DD/MM/YYYY or YYYY-MM-DD)
+  const parseDate = (dateValue: any): string => {
+    if (!dateValue) return new Date().toISOString().split('T')[0];
+    
+    // If it's already a valid ISO date string
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+      return dateValue.split('T')[0];
+    }
+    
+    // If it's in DD/MM/YYYY format
+    if (typeof dateValue === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateValue)) {
+      const [day, month, year] = dateValue.split('/');
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    // If it's an Excel serial date number
+    if (typeof dateValue === 'number') {
+      const excelEpoch = new Date(1899, 11, 30);
+      const date = new Date(excelEpoch.getTime() + dateValue * 24 * 60 * 60 * 1000);
+      return date.toISOString().split('T')[0];
+    }
+    
+    return new Date().toISOString().split('T')[0];
+  };
+
+  const downloadTemplate = () => {
+    // Create workbook with example data
+    const templateData = [
+      {
+        descricao: 'Carteira preta de couro',
+        campus: 'Campus I',
+        local: 'Biblioteca Central',
+        data_encontrado: format(new Date(), 'dd/MM/yyyy'),
+        data_recebido: format(new Date(), 'dd/MM/yyyy'),
+        prateleira: 'A1',
+        caixa: 'C01',
+        lacre: 'L001',
+        entregue_por: 'João Silva',
+        contato: '(11) 99999-9999'
+      },
+      {
+        descricao: 'Celular Samsung preto',
+        campus: 'Campus II',
+        local: 'Cantina',
+        data_encontrado: format(new Date(), 'dd/MM/yyyy'),
+        data_recebido: format(new Date(), 'dd/MM/yyyy'),
+        prateleira: 'B2',
+        caixa: 'C02',
+        lacre: '',
+        entregue_por: 'Maria Santos',
+        contato: ''
+      },
+      {
+        descricao: 'Óculos de grau',
+        campus: 'Campus IV',
+        local: 'Sala 101',
+        data_encontrado: format(new Date(), 'dd/MM/yyyy'),
+        data_recebido: format(new Date(), 'dd/MM/yyyy'),
+        prateleira: '',
+        caixa: '',
+        lacre: '',
+        entregue_por: 'Pedro Oliveira',
+        contato: 'pedro@email.com'
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 30 }, // descricao
+      { wch: 15 }, // campus
+      { wch: 20 }, // local
+      { wch: 15 }, // data_encontrado
+      { wch: 15 }, // data_recebido
+      { wch: 12 }, // prateleira
+      { wch: 10 }, // caixa
+      { wch: 10 }, // lacre
+      { wch: 20 }, // entregue_por
+      { wch: 18 }, // contato
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modelo');
+    
+    XLSX.writeFile(workbook, 'modelo-achados-perdidos.xlsx');
+    
+    toast({
+      title: 'Modelo baixado',
+      description: 'O arquivo modelo foi baixado com sucesso. Preencha e importe.',
+    });
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -214,8 +308,8 @@ export default function ItemsList() {
         description: row.descricao || row.Descricao || row.DESCRICAO || row.description || '',
         campus: (row.campus || row.Campus || row.CAMPUS || 'Campus I') as CampusEnum,
         found_location: row.local || row.Local || row.LOCAL || row.found_location || 'Não informado',
-        found_date: row.data_encontrado || row.found_date || new Date().toISOString().split('T')[0],
-        received_date: row.data_recebido || row.received_date || new Date().toISOString().split('T')[0],
+        found_date: parseDate(row.data_encontrado || row.found_date),
+        received_date: parseDate(row.data_recebido || row.received_date),
         shelf: row.prateleira || row.shelf || null,
         box: row.caixa || row.box || null,
         seal_number: row.lacre || row.seal_number || null,
@@ -315,6 +409,11 @@ export default function ItemsList() {
             Exportar PDF
           </Button>
           
+          <Button variant="outline" size="sm" onClick={downloadTemplate}>
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Baixar Modelo
+          </Button>
+
           <label>
             <Button variant="outline" size="sm" asChild>
               <span>
