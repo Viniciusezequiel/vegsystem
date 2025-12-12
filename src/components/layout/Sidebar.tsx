@@ -23,6 +23,7 @@ import {
   ShoppingCart,
   RefreshCw,
   Bell,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
@@ -144,6 +145,7 @@ const moduleGroups: NavGroup[] = [
 const bottomNav: NavItem[] = [
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
   { name: 'Usuários', href: '/users', icon: Users, adminOnly: true },
+  { name: 'Permissões', href: '/permissions', icon: Shield, adminOnly: true },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 

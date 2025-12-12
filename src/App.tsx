@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import DashboardStats from "./pages/DashboardStats";
 import NotFound from "./pages/NotFound";
+import Permissions from "./pages/Permissions";
 
 // Equipment Module
 import EquipmentList from "./pages/equipment/EquipmentList";
@@ -264,6 +265,11 @@ const App = () => (
             <Route path="/users" element={
               <ProtectedRoute requireAdmin>
                 <Users />
+              </ProtectedRoute>
+            } />
+            <Route path="/permissions" element={
+              <ProtectedRoute requireAdmin>
+                <Permissions />
               </ProtectedRoute>
             } />
             <Route path="/settings" element={
