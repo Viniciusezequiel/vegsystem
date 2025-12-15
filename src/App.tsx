@@ -20,6 +20,7 @@ import Reports from "./pages/Reports";
 import DashboardStats from "./pages/DashboardStats";
 import NotFound from "./pages/NotFound";
 import Permissions from "./pages/Permissions";
+import ActivityHistory from "./pages/ActivityHistory";
 
 // Equipment Module
 import EquipmentList from "./pages/equipment/EquipmentList";
@@ -280,6 +281,11 @@ const App = () => (
             <Route path="/reports" element={
               <ProtectedRoute>
                 <Reports />
+              </ProtectedRoute>
+            } />
+            <Route path="/activity-history" element={
+              <ProtectedRoute>
+                <ActivityHistory />
               </ProtectedRoute>
             } />
             
