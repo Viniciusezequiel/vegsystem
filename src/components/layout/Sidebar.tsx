@@ -24,9 +24,11 @@ import {
   RefreshCw,
   Bell,
   Shield,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -51,6 +53,7 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   adminOnly?: boolean;
+  hasBadge?: boolean;
 }
 
 interface NavGroup {
@@ -129,7 +132,9 @@ const moduleGroups: NavGroup[] = [
     basePath: '/materials',
     gradient: 'from-rose-500 to-pink-500',
     items: [
-      { name: 'Solicitações', href: '/materials', icon: ShoppingCart },
+      { name: 'Minhas Solicitações', href: '/materials/my-requests', icon: FileText },
+      { name: 'Nova Solicitação', href: '/materials/new', icon: PackagePlus },
+      { name: 'Gestão de Solicitações', href: '/materials', icon: ShoppingCart, adminOnly: true },
     ],
   },
   {
@@ -148,7 +153,7 @@ const moduleGroups: NavGroup[] = [
     gradient: 'from-teal-500 to-cyan-500',
     items: [
       { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck, adminOnly: true },
-      { name: 'Minhas Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck },
+      { name: 'Minhas Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck, hasBadge: true },
       { name: 'Dashboard', href: '/tasks/dashboard', icon: BarChart3, adminOnly: true },
     ],
   },
@@ -176,6 +181,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { data: pendingCallsCount } = usePendingCallsCount();
+  const { pendingTasksCount } = useTaskNotifications();
 
   // Close mobile menu on navigation
   const handleNavClick = () => {
@@ -394,6 +400,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                     .filter(item => !item.adminOnly || isAdmin)
                     .map((item) => {
                     const isActive = location.pathname === item.href;
+                    const showBadge = item.hasBadge && pendingTasksCount > 0;
                     return (
                       <RouterNavLink
                         key={item.href}
@@ -404,8 +411,20 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                           isActive && 'sidebar-link-active'
                         )}
                       >
-                        <item.icon className="w-4 h-4" />
+                        <div className="relative">
+                          <item.icon className="w-4 h-4" />
+                          {showBadge && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary text-primary-foreground text-[8px] font-bold rounded-full flex items-center justify-center">
+                              {pendingTasksCount > 9 ? '9+' : pendingTasksCount}
+                            </span>
+                          )}
+                        </div>
                         <span className="truncate">{item.name}</span>
+                        {showBadge && (
+                          <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            {pendingTasksCount}
+                          </span>
+                        )}
                       </RouterNavLink>
                     );
                   })}

@@ -52,6 +52,7 @@ import ReschedulingsList from "./pages/reservations/ReschedulingsList";
 // Materials Module
 import MaterialRequestsList from "./pages/materials/MaterialRequestsList";
 import MaterialRequestForm from "./pages/materials/MaterialRequestForm";
+import MyMaterialRequests from "./pages/materials/MyMaterialRequests";
 
 // Classroom Calls Module
 import ClassroomCallForm from "./pages/classroom/ClassroomCallForm";
@@ -234,6 +235,11 @@ const App = () => (
             <Route path="/materials/new" element={
               <ProtectedRoute>
                 <MaterialRequestForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/materials/my-requests" element={
+              <ProtectedRoute>
+                <MyMaterialRequests />
               </ProtectedRoute>
             } />
             
