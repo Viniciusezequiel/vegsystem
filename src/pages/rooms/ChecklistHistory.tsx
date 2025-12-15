@@ -185,25 +185,50 @@ export default function ChecklistHistory() {
                       {category}
                     </h4>
                     <div className="space-y-3">
-                      {categoryAnswers?.map((answer) => (
-                        <div key={answer.id} className="flex items-start justify-between gap-4 pb-2 border-b">
-                          <span className="text-sm">{answer.question?.question}</span>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant={answer.answer ? 'default' : 'destructive'}>
-                              {answer.answer ? (
-                                <><Check className="h-3 w-3 mr-1" /> Sim</>
-                              ) : (
-                                <><X className="h-3 w-3 mr-1" /> Não</>
-                              )}
-                            </Badge>
-                            {answer.notes && (
-                              <span className="text-xs text-muted-foreground text-right">
-                                {answer.notes}
-                              </span>
+                      {categoryAnswers?.map((answer) => {
+                        // Parse notes to extract Motivo and Tratativa
+                        const parseNotes = (notes: string | null) => {
+                          if (!notes) return null;
+                          const motivoMatch = notes.match(/Motivo:\s*([^|]+)/);
+                          const tratativaMatch = notes.match(/Tratativa:\s*(.+)/);
+                          return {
+                            motivo: motivoMatch ? motivoMatch[1].trim() : null,
+                            tratativa: tratativaMatch ? tratativaMatch[1].trim() : null,
+                          };
+                        };
+                        const parsedNotes = parseNotes(answer.notes);
+                        
+                        return (
+                          <div key={answer.id} className="flex flex-col gap-2 pb-3 border-b">
+                            <div className="flex items-start justify-between gap-4">
+                              <span className="text-sm">{answer.question?.question}</span>
+                              <Badge variant={answer.answer ? 'default' : 'destructive'}>
+                                {answer.answer ? (
+                                  <><Check className="h-3 w-3 mr-1" /> Verificado</>
+                                ) : (
+                                  <><X className="h-3 w-3 mr-1" /> Pendente</>
+                                )}
+                              </Badge>
+                            </div>
+                            {!answer.answer && parsedNotes && (
+                              <div className="ml-0 space-y-1 bg-destructive/10 p-2 rounded-md">
+                                {parsedNotes.motivo && (
+                                  <div className="text-xs">
+                                    <span className="font-medium text-destructive">Motivo: </span>
+                                    <span className="text-muted-foreground">{parsedNotes.motivo}</span>
+                                  </div>
+                                )}
+                                {parsedNotes.tratativa && (
+                                  <div className="text-xs">
+                                    <span className="font-medium text-primary">Tratativa: </span>
+                                    <span className="text-muted-foreground">{parsedNotes.tratativa}</span>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

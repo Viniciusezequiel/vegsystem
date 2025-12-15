@@ -26,6 +26,7 @@ const MODULES: Module[] = [
   'users',
   'settings',
   'classroomCalls',
+  'tasks',
 ];
 
 const ACTIONS: Action[] = ['view', 'create', 'edit', 'delete', 'approve'];
