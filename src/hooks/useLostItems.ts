@@ -267,20 +267,23 @@ export function useBulkCreateLostItems() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (items: Array<{
-      code: string;
-      description: string;
-      campus: CampusEnum;
-      found_location: string;
-      found_date: string;
-      received_date: string;
-      shelf?: string;
-      box?: string;
-      seal_number?: string;
-      delivered_by_name: string;
-      delivered_by_contact?: string;
-      status?: string;
-    }>) => {
+    mutationFn: async ({ items, replaceExisting = false }: {
+      items: Array<{
+        code: string;
+        description: string;
+        campus: CampusEnum;
+        found_location: string;
+        found_date: string;
+        received_date: string;
+        shelf?: string;
+        box?: string;
+        seal_number?: string;
+        delivered_by_name: string;
+        delivered_by_contact?: string;
+        status?: string;
+      }>;
+      replaceExisting?: boolean;
+    }) => {
       const { data: { user } } = await supabase.auth.getUser();
 
       const itemsWithUser = items.map(item => ({
@@ -289,13 +292,28 @@ export function useBulkCreateLostItems() {
         status: item.status || 'available',
       }));
 
-      const { data, error } = await supabase
-        .from('lost_items')
-        .insert(itemsWithUser)
-        .select();
+      if (replaceExisting) {
+        // Use upsert to replace existing items
+        const { data, error } = await supabase
+          .from('lost_items')
+          .upsert(itemsWithUser, { 
+            onConflict: 'code',
+            ignoreDuplicates: false 
+          })
+          .select();
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      } else {
+        // Regular insert (will fail on duplicates)
+        const { data, error } = await supabase
+          .from('lost_items')
+          .insert(itemsWithUser)
+          .select();
+
+        if (error) throw error;
+        return data;
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });

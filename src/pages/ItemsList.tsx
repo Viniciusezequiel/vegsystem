@@ -83,6 +83,7 @@ export default function ItemsList() {
   const [importDialog, setImportDialog] = useState(false);
   const [importData, setImportData] = useState<any[]>([]);
   const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [replaceExisting, setReplaceExisting] = useState(false);
 
   const { data: items, isLoading } = useLostItems({
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -373,10 +374,11 @@ export default function ItemsList() {
   const handleImport = async () => {
     if (importData.length === 0) return;
 
-    await bulkCreate.mutateAsync(importData);
+    await bulkCreate.mutateAsync({ items: importData, replaceExisting });
     setImportDialog(false);
     setImportData([]);
     setImportPreview([]);
+    setReplaceExisting(false);
   };
 
   return (
@@ -689,6 +691,17 @@ export default function ItemsList() {
                 )}
               </tbody>
             </table>
+          </div>
+          
+          <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+            <Checkbox 
+              id="replaceExisting" 
+              checked={replaceExisting}
+              onCheckedChange={(checked) => setReplaceExisting(checked === true)}
+            />
+            <Label htmlFor="replaceExisting" className="text-sm cursor-pointer">
+              Substituir itens existentes com mesmo código (duplicados serão atualizados)
+            </Label>
           </div>
           
           <p className="text-xs text-muted-foreground">
