@@ -167,14 +167,14 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             <div className="space-y-2">
               <Label htmlFor="assigned_to">Responsável</Label>
               <Select
-                value={formData.assigned_to}
-                onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                value={formData.assigned_to || '_none'}
+                onValueChange={(value) => setFormData({ ...formData, assigned_to: value === '_none' ? '' : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Não atribuído</SelectItem>
+                  <SelectItem value="_none">Não atribuído</SelectItem>
                   {users?.filter(u => u.is_active).map((user) => (
                     <SelectItem key={user.user_id} value={user.user_id}>
                       {user.full_name}
