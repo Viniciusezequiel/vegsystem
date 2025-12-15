@@ -1015,6 +1015,7 @@ export type Database = {
           building: string
           campus: Database["public"]["Enums"]["campus_enum"]
           capacity: number | null
+          checklist_items: Json | null
           created_at: string
           description: string | null
           floor: string | null
@@ -1026,6 +1027,7 @@ export type Database = {
           building: string
           campus: Database["public"]["Enums"]["campus_enum"]
           capacity?: number | null
+          checklist_items?: Json | null
           created_at?: string
           description?: string | null
           floor?: string | null
@@ -1037,6 +1039,7 @@ export type Database = {
           building?: string
           campus?: Database["public"]["Enums"]["campus_enum"]
           capacity?: number | null
+          checklist_items?: Json | null
           created_at?: string
           description?: string | null
           floor?: string | null

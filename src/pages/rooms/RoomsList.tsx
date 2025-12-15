@@ -45,10 +45,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Plus, Building, ClipboardCheck, ArrowRight, Trash2 } from 'lucide-react';
-import { useRoomsList, useCreateRoom, useDeleteRoom } from '@/hooks/useRooms';
+import { Plus, Building, ClipboardCheck, ArrowRight, Trash2, Pencil } from 'lucide-react';
+import { useRoomsList, useCreateRoom, useDeleteRoom, Room } from '@/hooks/useRooms';
 import { useAuth } from '@/contexts/AuthContext';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
+import { RoomEditDialog } from '@/components/rooms/RoomEditDialog';
+import { Badge } from '@/components/ui/badge';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -65,6 +67,7 @@ type RoomFormData = z.infer<typeof roomSchema>;
 
 export default function RoomsList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const { data: rooms, isLoading } = useRoomsList();
   const createRoom = useCreateRoom();
   const deleteRoom = useDeleteRoom();
@@ -263,17 +266,28 @@ export default function RoomsList() {
                   <TableBody>
                     {rooms?.map((room) => (
                       <TableRow key={room.id}>
-                        <TableCell className="font-medium">{room.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col gap-1">
+                            <span>{room.name}</span>
+                            {room.checklist_items && room.checklist_items.length > 0 && (
+                              <Badge variant="secondary" className="text-xs w-fit">
+                                {room.checklist_items.length} item(s) específico(s)
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{room.campus}</TableCell>
                         <TableCell>{room.floor || '-'}</TableCell>
                         <TableCell>{room.capacity || '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button asChild variant="outline" size="sm">
-                              <Link to={`/rooms/checklist/new?room=${room.id}`}>
-                                <ClipboardCheck className="h-4 w-4 mr-1" />
-                                Checklist
-                              </Link>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setEditingRoom(room)}
+                            >
+                              <Pencil className="h-4 w-4 mr-1" />
+                              Editar
                             </Button>
                             {isAdmin && (
                               <AlertDialog>
@@ -309,6 +323,12 @@ export default function RoomsList() {
             )}
           </CardContent>
         </Card>
+
+        <RoomEditDialog
+          room={editingRoom}
+          open={!!editingRoom}
+          onOpenChange={(open) => !open && setEditingRoom(null)}
+        />
       </div>
     </MainLayout>
   );

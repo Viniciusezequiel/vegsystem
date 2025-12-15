@@ -51,8 +51,9 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
         query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
       }
 
-      // Fetch all items - remove the default 1000 limit
-      const { data, error } = await query.range(0, 9999);
+      // Fetch all items - remove the default 1000 limit by using pagination
+      // Supabase has a max of ~1000 rows per request, so we need multiple requests for large datasets
+      const { data, error, count } = await query.range(0, 49999);
 
       if (error) throw error;
       return data as LostItem[];

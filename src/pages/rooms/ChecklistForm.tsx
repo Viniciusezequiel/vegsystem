@@ -121,8 +121,8 @@ export default function ChecklistForm() {
   const handleSubmit = async () => {
     if (!canProceedStep2 || !allFieldsAnswered || !allPendingHaveReason) return;
 
-    // Create answers array from fields
-    const answersArray = fields.map(field => ({
+    // Create answers array from fields (filter out room-specific items that start with 'room_item_')
+    const answersArray: { question_id: string; answer: boolean; notes?: string }[] = fields.map(field => ({
       question_id: field.id,
       answer: field.status === 'verificado',
       notes: field.status === 'pendente' 
@@ -130,21 +130,17 @@ export default function ChecklistForm() {
         : undefined,
     }));
 
-    // Add furniture count as a special field
-    if (furnitureCount) {
-      answersArray.unshift({
-        question_id: 'mob_quantidade_valor',
-        answer: true,
-        notes: `Quantidade: ${furnitureCount}`,
-      });
-    }
+    // Add furniture count as observation
+    const fullObservations = furnitureCount 
+      ? `Quantidade de mobiliário: ${furnitureCount}${observations ? `\n${observations}` : ''}`
+      : observations;
 
     // Create checklist for each selected room
     for (const roomId of selectedRooms) {
       await createChecklist.mutateAsync({
         room_id: roomId,
         shift,
-        observations: observations || undefined,
+        observations: fullObservations || undefined,
         answers: answersArray,
       });
     }
@@ -156,6 +152,30 @@ export default function ChecklistForm() {
     if (currentStep === 'campus-turno' && canProceedStep1) {
       setCurrentStep('rooms');
     } else if (currentStep === 'rooms' && canProceedStep2) {
+      // When going to form, add room-specific items
+      const selectedRoomObjects = filteredRooms.filter(r => selectedRooms.includes(r.id));
+      const allRoomItems = selectedRoomObjects.flatMap(room => 
+        (room.checklist_items || []).map(item => ({
+          ...item,
+          id: `room_item_${room.id}_${item.id}`,
+          label: `[${room.name}] ${item.label}`,
+          status: null as ChecklistFieldStatus | null,
+          pendingReason: '',
+          treatment: '',
+        }))
+      );
+      
+      // Add room-specific items to the fields
+      setFields(prev => [
+        ...CHECKLIST_FIELDS.map(f => ({
+          ...f,
+          status: null as ChecklistFieldStatus | null,
+          pendingReason: '',
+          treatment: '',
+        })),
+        ...allRoomItems,
+      ]);
+      
       setCurrentStep('form');
     }
   };
