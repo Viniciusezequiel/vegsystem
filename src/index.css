@@ -249,11 +249,11 @@
   }
 
   .page-header {
-    @apply mb-8;
+    @apply mb-6 lg:mb-8;
   }
 
   .page-title {
-    @apply text-3xl font-bold tracking-tight;
+    @apply text-2xl lg:text-3xl font-bold tracking-tight;
     background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -261,7 +261,20 @@
   }
 
   .page-subtitle {
-    @apply text-muted-foreground mt-2 text-lg;
+    @apply text-muted-foreground mt-1 lg:mt-2 text-base lg:text-lg;
+  }
+
+  /* Mobile-first responsive utilities */
+  .mobile-scroll-container {
+    @apply overflow-x-auto -mx-4 px-4 lg:mx-0 lg:px-0;
+  }
+
+  .mobile-card-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+  }
+
+  .mobile-stack {
+    @apply flex flex-col sm:flex-row gap-2 sm:gap-4;
   }
 
   .btn-gradient {

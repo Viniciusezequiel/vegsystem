@@ -186,7 +186,7 @@ export default function ReservationForm() {
                 {errors.title && <p className="text-xs text-destructive mt-1">{errors.title}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="start_date">Data de Início *</Label>
                   <DatePickerInput
@@ -210,7 +210,7 @@ export default function ReservationForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="end_date">Data de Término *</Label>
                   <DatePickerInput
@@ -262,10 +262,10 @@ export default function ReservationForm() {
           </div>
 
           <div className="glass-card rounded-2xl p-6 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-foreground">Dados do Solicitante</h2>
               <div className="flex items-center gap-2">
-                <Label htmlFor="is_external" className="text-sm">Reserva para usuário externo</Label>
+                <Label htmlFor="is_external" className="text-sm">Usuário externo</Label>
                 <Switch
                   id="is_external"
                   checked={isExternalReservation}
@@ -313,7 +313,7 @@ export default function ReservationForm() {
                 {errors.requester_name && <p className="text-xs text-destructive mt-1">{errors.requester_name}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="requester_email">Email *</Label>
                   <Input

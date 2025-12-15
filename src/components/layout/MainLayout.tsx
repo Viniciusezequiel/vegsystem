@@ -1,8 +1,11 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { OnlineUsersIndicator } from './OnlineUsersIndicator';
 import { cn } from '@/lib/utils';
 import { useGlobalRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import { Menu, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -11,18 +14,41 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   // Enable global realtime subscriptions
   useGlobalRealtimeSubscription();
+  const isMobile = useIsMobile();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const stored = localStorage.getItem('sidebar-collapsed');
     return stored === 'true';
   });
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu when switching to desktop
+  useEffect(() => {
+    if (!isMobile && mobileMenuOpen) {
+      setMobileMenuOpen(false);
+    }
+  }, [isMobile, mobileMenuOpen]);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, []);
+
   const handleToggleSidebar = () => {
-    setSidebarCollapsed(prev => {
-      const newValue = !prev;
-      localStorage.setItem('sidebar-collapsed', String(newValue));
-      return newValue;
-    });
+    if (isMobile) {
+      setMobileMenuOpen(prev => !prev);
+    } else {
+      setSidebarCollapsed(prev => {
+        const newValue = !prev;
+        localStorage.setItem('sidebar-collapsed', String(newValue));
+        return newValue;
+      });
+    }
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -33,23 +59,61 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="floating-orb w-[400px] h-[400px] bg-accent/10 bottom-0 left-1/4" />
         <div className="absolute inset-0 mesh-gradient opacity-30" />
       </div>
+
+      {/* Mobile Overlay */}
+      {isMobile && mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
       
-      <Sidebar collapsed={sidebarCollapsed} onToggle={handleToggleSidebar} />
+      {/* Sidebar - hidden on mobile unless menu is open */}
+      <div className={cn(
+        'lg:block',
+        isMobile && !mobileMenuOpen && 'hidden',
+        isMobile && mobileMenuOpen && 'block'
+      )}>
+        <Sidebar 
+          collapsed={isMobile ? false : sidebarCollapsed} 
+          onToggle={handleToggleSidebar}
+          isMobile={isMobile}
+          onCloseMobile={closeMobileMenu}
+        />
+      </div>
       
       <main className={cn(
         'min-h-screen relative z-10 transition-all duration-300',
-        sidebarCollapsed ? 'ml-16' : 'ml-64'
+        !isMobile && (sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'),
+        'ml-0'
       )}>
-        {/* Top Bar with Online Users */}
+        {/* Top Bar */}
         <div className={cn(
-          'fixed top-0 right-0 z-20 px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 transition-all duration-300',
-          sidebarCollapsed ? 'left-16' : 'left-64'
+          'fixed top-0 right-0 z-20 px-4 lg:px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 transition-all duration-300 left-0',
+          !isMobile && (sidebarCollapsed ? 'lg:left-16' : 'lg:left-64')
         )}>
-          <div className="flex justify-end max-w-[1600px] mx-auto">
+          <div className="flex items-center justify-between max-w-[1600px] mx-auto">
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={handleToggleSidebar}
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
+
+            {/* Spacer for desktop */}
+            <div className="hidden lg:block" />
+
             <OnlineUsersIndicator />
           </div>
         </div>
-        <div className="p-8 pt-20 max-w-[1600px] mx-auto">
+        <div className="p-4 lg:p-8 pt-20 max-w-[1600px] mx-auto">
           {children}
         </div>
       </main>

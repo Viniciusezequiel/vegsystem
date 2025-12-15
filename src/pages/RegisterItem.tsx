@@ -240,7 +240,7 @@ export default function RegisterItem() {
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="foundDate">Data encontrado *</Label>
                     <Input
@@ -269,7 +269,7 @@ export default function RegisterItem() {
 
             <div className="form-section animate-fade-in" style={{ animationDelay: '150ms' }}>
               <h3 className="font-medium text-foreground mb-4">Armazenamento</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="shelf">Prateleira</Label>
                   <Input
@@ -332,7 +332,7 @@ export default function RegisterItem() {
           </div>
         </div>
 
-        <div className="mt-8 flex justify-end gap-4">
+        <div className="mt-8 flex flex-col sm:flex-row justify-end gap-4">
           <Button type="button" variant="outline" onClick={() => navigate('/lost-found')}>
             Cancelar
           </Button>
