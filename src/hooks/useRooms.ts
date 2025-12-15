@@ -2,6 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export type RoomChecklistItem = {
+  id: string;
+  label: string;
+};
+
 export type Room = {
   id: string;
   name: string;
@@ -10,6 +15,7 @@ export type Room = {
   floor: string | null;
   capacity: number | null;
   description: string | null;
+  checklist_items: RoomChecklistItem[];
   created_at: string;
   updated_at: string;
 };
@@ -78,10 +84,13 @@ export function useCreateRoom() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (room: Omit<Room, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (room: Omit<Room, 'id' | 'created_at' | 'updated_at' | 'checklist_items'> & { checklist_items?: RoomChecklistItem[] }) => {
       const { data, error } = await supabase
         .from('rooms')
-        .insert(room)
+        .insert({
+          ...room,
+          checklist_items: room.checklist_items || [],
+        })
         .select()
         .single();
       if (error) throw error;
@@ -101,10 +110,10 @@ export function useUpdateRoom() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...room }: Partial<Room> & { id: string }) => {
+    mutationFn: async ({ id, ...room }: Partial<Omit<Room, 'checklist_items'>> & { id: string; checklist_items?: RoomChecklistItem[] }) => {
       const { data, error } = await supabase
         .from('rooms')
-        .update(room)
+        .update(room as Record<string, unknown>)
         .eq('id', id)
         .select()
         .single();
