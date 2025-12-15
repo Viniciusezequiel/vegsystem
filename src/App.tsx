@@ -57,6 +57,9 @@ import MaterialRequestForm from "./pages/materials/MaterialRequestForm";
 import ClassroomCallForm from "./pages/classroom/ClassroomCallForm";
 import ClassroomCallsList from "./pages/classroom/ClassroomCallsList";
 
+// Tasks Module
+import TasksList from "./pages/tasks/TasksList";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -237,6 +240,13 @@ const App = () => (
             <Route path="/classroom-calls" element={
               <ProtectedRoute>
                 <ClassroomCallsList />
+              </ProtectedRoute>
+            } />
+            
+            {/* Tasks Module */}
+            <Route path="/tasks" element={
+              <ProtectedRoute>
+                <TasksList />
               </ProtectedRoute>
             } />
             

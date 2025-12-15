@@ -7,8 +7,8 @@ export interface Task {
   id: string;
   title: string;
   description: string | null;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'on_hold';
+  priority: string;
+  status: string;
   category: string | null;
   due_date: string | null;
   created_by: string | null;
@@ -50,7 +50,7 @@ export interface TaskHistory {
 export interface CreateTaskData {
   title: string;
   description?: string;
-  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  priority?: string;
   category?: string;
   due_date?: string;
   assigned_to?: string;
@@ -61,7 +61,7 @@ export interface CreateTaskData {
 }
 
 export interface UpdateTaskData extends Partial<CreateTaskData> {
-  status?: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'on_hold';
+  status?: string;
   actual_hours?: number;
   started_at?: string;
   completed_at?: string;
@@ -78,7 +78,7 @@ export function useTasks(filters?: {
     queryKey: ['tasks', filters],
     queryFn: async () => {
       let query = supabase
-        .from('tasks')
+        .from('tasks' as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -105,7 +105,7 @@ export function useTasks(filters?: {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as Task[];
+      return (data || []) as unknown as Task[];
     },
   });
 }
@@ -119,14 +119,14 @@ export function useMyTasks() {
       if (!user) return [];
 
       const { data, error } = await supabase
-        .from('tasks')
+        .from('tasks' as any)
         .select('*')
         .eq('assigned_to', user.id)
         .not('status', 'in', '("completed","cancelled")')
         .order('due_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
-      return data as Task[];
+      return (data || []) as unknown as Task[];
     },
     enabled: !!user,
   });
@@ -137,13 +137,13 @@ export function useTask(id: string) {
     queryKey: ['task', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('tasks')
+        .from('tasks' as any)
         .select('*')
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as Task;
+      return data as unknown as Task;
     },
     enabled: !!id,
   });
@@ -154,13 +154,13 @@ export function useTaskComments(taskId: string) {
     queryKey: ['task-comments', taskId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('task_comments')
+        .from('task_comments' as any)
         .select('*')
         .eq('task_id', taskId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as TaskComment[];
+      return (data || []) as unknown as TaskComment[];
     },
     enabled: !!taskId,
   });
@@ -171,13 +171,13 @@ export function useTaskHistory(taskId: string) {
     queryKey: ['task-history', taskId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('task_history')
+        .from('task_history' as any)
         .select('*')
         .eq('task_id', taskId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as TaskHistory[];
+      return (data || []) as unknown as TaskHistory[];
     },
     enabled: !!taskId,
   });
@@ -190,7 +190,7 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: async (data: CreateTaskData) => {
       const { data: task, error } = await supabase
-        .from('tasks')
+        .from('tasks' as any)
         .insert({
           ...data,
           created_by: user?.id,
@@ -201,26 +201,28 @@ export function useCreateTask() {
 
       if (error) throw error;
 
+      const taskData = task as unknown as Task;
+
       // Log activity
       await supabase.from('activity_logs').insert({
         user_id: user?.id,
         user_name: profile?.full_name || user?.email || 'Sistema',
         module: 'tasks',
         action: 'create',
-        entity_id: task.id,
-        entity_description: task.title,
+        entity_id: taskData.id,
+        entity_description: taskData.title,
         details: data.assigned_to_name ? `Designada para ${data.assigned_to_name}` : 'Sem designação',
       });
 
       // Log task history
-      await supabase.from('task_history').insert({
-        task_id: task.id,
+      await supabase.from('task_history' as any).insert({
+        task_id: taskData.id,
         user_id: user?.id,
         user_name: profile?.full_name || user?.email || 'Sistema',
         action: 'Criou a demanda',
       });
 
-      return task;
+      return taskData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -240,7 +242,6 @@ export function useUpdateTask() {
 
   return useMutation({
     mutationFn: async ({ id, data, oldTask }: { id: string; data: UpdateTaskData; oldTask?: Task }) => {
-      // Handle status transitions
       const updateData: any = { ...data };
       
       if (data.status === 'in_progress' && oldTask?.status === 'pending') {
@@ -252,7 +253,7 @@ export function useUpdateTask() {
       }
 
       const { data: task, error } = await supabase
-        .from('tasks')
+        .from('tasks' as any)
         .update(updateData)
         .eq('id', id)
         .select()
@@ -260,7 +261,8 @@ export function useUpdateTask() {
 
       if (error) throw error;
 
-      // Log activity
+      const taskData = task as unknown as Task;
+
       const changes: string[] = [];
       if (data.status && data.status !== oldTask?.status) {
         changes.push(`Status: ${getStatusLabel(data.status)}`);
@@ -274,15 +276,14 @@ export function useUpdateTask() {
         user_name: profile?.full_name || user?.email || 'Sistema',
         module: 'tasks',
         action: 'update',
-        entity_id: task.id,
-        entity_description: task.title,
+        entity_id: taskData.id,
+        entity_description: taskData.title,
         details: changes.length > 0 ? changes.join(', ') : 'Dados atualizados',
       });
 
-      // Log task history for status changes
       if (data.status && data.status !== oldTask?.status) {
-        await supabase.from('task_history').insert({
-          task_id: task.id,
+        await supabase.from('task_history' as any).insert({
+          task_id: taskData.id,
           user_id: user?.id,
           user_name: profile?.full_name || user?.email || 'Sistema',
           action: 'Alterou status',
@@ -292,7 +293,7 @@ export function useUpdateTask() {
         });
       }
 
-      return task;
+      return taskData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -315,13 +316,12 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
       const { error } = await supabase
-        .from('tasks')
+        .from('tasks' as any)
         .delete()
         .eq('id', id);
 
       if (error) throw error;
 
-      // Log activity
       await supabase.from('activity_logs').insert({
         user_id: user?.id,
         user_name: profile?.full_name || user?.email || 'Sistema',
@@ -351,7 +351,7 @@ export function useAddTaskComment() {
   return useMutation({
     mutationFn: async ({ taskId, content }: { taskId: string; content: string }) => {
       const { data, error } = await supabase
-        .from('task_comments')
+        .from('task_comments' as any)
         .insert({
           task_id: taskId,
           user_id: user?.id,
@@ -363,8 +363,7 @@ export function useAddTaskComment() {
 
       if (error) throw error;
 
-      // Log history
-      await supabase.from('task_history').insert({
+      await supabase.from('task_history' as any).insert({
         task_id: taskId,
         user_id: user?.id,
         user_name: profile?.full_name || user?.email || 'Sistema',
@@ -384,7 +383,6 @@ export function useAddTaskComment() {
   });
 }
 
-// Helper functions
 export function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     pending: 'Pendente',
