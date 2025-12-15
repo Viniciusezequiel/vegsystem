@@ -2,50 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import type { Tables } from '@/integrations/supabase/types';
 
-export interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  priority: string;
-  status: string;
-  category: string | null;
-  due_date: string | null;
-  created_by: string | null;
-  assigned_to: string | null;
-  created_by_name: string;
-  assigned_to_name: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  estimated_hours: number | null;
-  actual_hours: number | null;
-  tags: string[] | null;
-  attachments: any[];
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TaskComment {
-  id: string;
-  task_id: string;
-  user_id: string | null;
-  user_name: string;
-  content: string;
-  created_at: string;
-}
-
-export interface TaskHistory {
-  id: string;
-  task_id: string;
-  user_id: string | null;
-  user_name: string;
-  action: string;
-  field_changed: string | null;
-  old_value: string | null;
-  new_value: string | null;
-  created_at: string;
-}
+export type Task = Tables<'tasks'>;
+export type TaskComment = Tables<'task_comments'>;
+export type TaskHistory = Tables<'task_history'>;
 
 export interface CreateTaskData {
   title: string;
@@ -78,7 +39,7 @@ export function useTasks(filters?: {
     queryKey: ['tasks', filters],
     queryFn: async () => {
       let query = supabase
-        .from('tasks' as any)
+        .from('tasks')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -105,7 +66,7 @@ export function useTasks(filters?: {
       const { data, error } = await query;
 
       if (error) throw error;
-      return (data || []) as unknown as Task[];
+      return (data || []) as Task[];
     },
   });
 }
@@ -119,14 +80,14 @@ export function useMyTasks() {
       if (!user) return [];
 
       const { data, error } = await supabase
-        .from('tasks' as any)
+        .from('tasks')
         .select('*')
         .eq('assigned_to', user.id)
         .not('status', 'in', '("completed","cancelled")')
         .order('due_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
-      return (data || []) as unknown as Task[];
+      return (data || []) as Task[];
     },
     enabled: !!user,
   });
@@ -137,13 +98,13 @@ export function useTask(id: string) {
     queryKey: ['task', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('tasks' as any)
+        .from('tasks')
         .select('*')
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as unknown as Task;
+      return data as Task;
     },
     enabled: !!id,
   });
@@ -154,13 +115,13 @@ export function useTaskComments(taskId: string) {
     queryKey: ['task-comments', taskId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('task_comments' as any)
+        .from('task_comments')
         .select('*')
         .eq('task_id', taskId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return (data || []) as unknown as TaskComment[];
+      return (data || []) as TaskComment[];
     },
     enabled: !!taskId,
   });
@@ -171,13 +132,13 @@ export function useTaskHistory(taskId: string) {
     queryKey: ['task-history', taskId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('task_history' as any)
+        .from('task_history')
         .select('*')
         .eq('task_id', taskId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as unknown as TaskHistory[];
+      return (data || []) as TaskHistory[];
     },
     enabled: !!taskId,
   });
@@ -190,10 +151,19 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: async (data: CreateTaskData) => {
       const { data: task, error } = await supabase
-        .from('tasks' as any)
+        .from('tasks')
         .insert({
-          ...data,
-          created_by: user?.id,
+          title: data.title,
+          description: data.description || null,
+          priority: data.priority || 'normal',
+          category: data.category || null,
+          due_date: data.due_date || null,
+          assigned_to: data.assigned_to || null,
+          assigned_to_name: data.assigned_to_name || null,
+          estimated_hours: data.estimated_hours || null,
+          tags: data.tags || null,
+          notes: data.notes || null,
+          created_by: user?.id || null,
           created_by_name: profile?.full_name || user?.email || 'Sistema',
         })
         .select()
@@ -201,7 +171,7 @@ export function useCreateTask() {
 
       if (error) throw error;
 
-      const taskData = task as unknown as Task;
+      const taskData = task as Task;
 
       // Log activity
       await supabase.from('activity_logs').insert({
@@ -215,7 +185,7 @@ export function useCreateTask() {
       });
 
       // Log task history
-      await supabase.from('task_history' as any).insert({
+      await supabase.from('task_history').insert({
         task_id: taskData.id,
         user_id: user?.id,
         user_name: profile?.full_name || user?.email || 'Sistema',
@@ -242,7 +212,7 @@ export function useUpdateTask() {
 
   return useMutation({
     mutationFn: async ({ id, data, oldTask }: { id: string; data: UpdateTaskData; oldTask?: Task }) => {
-      const updateData: any = { ...data };
+      const updateData: Record<string, unknown> = { ...data };
       
       if (data.status === 'in_progress' && oldTask?.status === 'pending') {
         updateData.started_at = new Date().toISOString();
@@ -253,7 +223,7 @@ export function useUpdateTask() {
       }
 
       const { data: task, error } = await supabase
-        .from('tasks' as any)
+        .from('tasks')
         .update(updateData)
         .eq('id', id)
         .select()
@@ -261,7 +231,7 @@ export function useUpdateTask() {
 
       if (error) throw error;
 
-      const taskData = task as unknown as Task;
+      const taskData = task as Task;
 
       const changes: string[] = [];
       if (data.status && data.status !== oldTask?.status) {
@@ -282,13 +252,13 @@ export function useUpdateTask() {
       });
 
       if (data.status && data.status !== oldTask?.status) {
-        await supabase.from('task_history' as any).insert({
+        await supabase.from('task_history').insert({
           task_id: taskData.id,
           user_id: user?.id,
           user_name: profile?.full_name || user?.email || 'Sistema',
           action: 'Alterou status',
           field_changed: 'status',
-          old_value: oldTask?.status,
+          old_value: oldTask?.status || null,
           new_value: data.status,
         });
       }
@@ -316,7 +286,7 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
       const { error } = await supabase
-        .from('tasks' as any)
+        .from('tasks')
         .delete()
         .eq('id', id);
 
@@ -351,10 +321,10 @@ export function useAddTaskComment() {
   return useMutation({
     mutationFn: async ({ taskId, content }: { taskId: string; content: string }) => {
       const { data, error } = await supabase
-        .from('task_comments' as any)
+        .from('task_comments')
         .insert({
           task_id: taskId,
-          user_id: user?.id,
+          user_id: user?.id || null,
           user_name: profile?.full_name || user?.email || 'Sistema',
           content,
         })
@@ -363,9 +333,9 @@ export function useAddTaskComment() {
 
       if (error) throw error;
 
-      await supabase.from('task_history' as any).insert({
+      await supabase.from('task_history').insert({
         task_id: taskId,
-        user_id: user?.id,
+        user_id: user?.id || null,
         user_name: profile?.full_name || user?.email || 'Sistema',
         action: 'Adicionou comentário',
       });
