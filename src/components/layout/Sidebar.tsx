@@ -141,6 +141,15 @@ const moduleGroups: NavGroup[] = [
       { name: 'Chamados', href: '/classroom-calls', icon: Bell },
     ],
   },
+  {
+    name: 'Demandas',
+    icon: ClipboardCheck,
+    basePath: '/tasks',
+    gradient: 'from-teal-500 to-cyan-500',
+    items: [
+      { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck },
+    ],
+  },
 ];
 
 const bottomNav: NavItem[] = [

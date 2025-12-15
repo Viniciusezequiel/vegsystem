@@ -12,10 +12,12 @@ import { Label } from '@/components/ui/label';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { Trash2, AlertTriangle, Loader2, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ClearDeliveredItemsDialogProps {
   open: boolean;
@@ -28,14 +30,15 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [confirmStep, setConfirmStep] = useState(false);
-  const [itemsCount, setItemsCount] = useState<number | null>(null);
+  const [itemsToDelete, setItemsToDelete] = useState<any[]>([]);
 
-  const countItems = useMutation({
+  const countAndFetchItems = useMutation({
     mutationFn: async () => {
       let query = supabase
         .from('lost_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'delivered');
+        .select('*')
+        .eq('status', 'delivered')
+        .order('delivered_at', { ascending: false });
 
       if (dateFrom) {
         query = query.gte('delivered_at', `${dateFrom}T00:00:00`);
@@ -44,12 +47,12 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         query = query.lte('delivered_at', `${dateTo}T23:59:59`);
       }
 
-      const { count, error } = await query;
+      const { data, error } = await query;
       if (error) throw error;
-      return count || 0;
+      return data || [];
     },
-    onSuccess: (count) => {
-      setItemsCount(count);
+    onSuccess: (items) => {
+      setItemsToDelete(items);
       setConfirmStep(true);
     },
     onError: (error: Error) => {
@@ -61,9 +64,58 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
     },
   });
 
+  const generatePdf = () => {
+    if (itemsToDelete.length === 0) return;
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(18);
+    doc.text('Relatório de Itens Entregues', 14, 22);
+    
+    // Date range info
+    doc.setFontSize(10);
+    const dateRangeText = dateFrom && dateTo 
+      ? `Período: ${format(new Date(dateFrom), 'dd/MM/yyyy')} até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
+      : dateFrom 
+      ? `A partir de: ${format(new Date(dateFrom), 'dd/MM/yyyy')}`
+      : dateTo 
+      ? `Até: ${format(new Date(dateTo), 'dd/MM/yyyy')}`
+      : 'Todos os itens entregues';
+    doc.text(dateRangeText, 14, 30);
+    doc.text(`Total de itens: ${itemsToDelete.length}`, 14, 36);
+    doc.text(`Data de geração: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 42);
+
+    // Table
+    const tableData = itemsToDelete.map(item => [
+      item.code || '-',
+      item.description?.substring(0, 40) + (item.description?.length > 40 ? '...' : '') || '-',
+      item.found_location || '-',
+      item.owner_name || '-',
+      item.owner_phone || item.owner_email || '-',
+      item.delivered_at ? format(new Date(item.delivered_at), 'dd/MM/yyyy', { locale: ptBR }) : '-',
+    ]);
+
+    autoTable(doc, {
+      head: [['Código', 'Descrição', 'Local Achado', 'Dono', 'Contato', 'Entrega']],
+      body: tableData,
+      startY: 50,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    // Save
+    const fileName = `itens-entregues-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
+    doc.save(fileName);
+
+    toast({
+      title: 'PDF gerado',
+      description: `Arquivo ${fileName} baixado com sucesso.`,
+    });
+  };
+
   const deleteItems = useMutation({
     mutationFn: async () => {
-      // Get user info for activity log
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase
         .from('profiles')
@@ -86,7 +138,6 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
       const { error } = await query;
       if (error) throw error;
 
-      // Log activity
       const dateRangeText = dateFrom && dateTo 
         ? `de ${format(new Date(dateFrom), 'dd/MM/yyyy')} até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
         : dateFrom 
@@ -102,10 +153,10 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         action: 'delete',
         entity_id: null,
         entity_description: 'Limpeza em lote',
-        details: `Excluiu ${itemsCount} itens entregues (${dateRangeText})`,
+        details: `Excluiu ${itemsToDelete.length} itens entregues (${dateRangeText})`,
       });
 
-      return itemsCount;
+      return itemsToDelete.length;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
@@ -129,12 +180,12 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
     setDateFrom('');
     setDateTo('');
     setConfirmStep(false);
-    setItemsCount(null);
+    setItemsToDelete([]);
     onOpenChange(false);
   };
 
   const handleContinue = () => {
-    countItems.mutate();
+    countAndFetchItems.mutate();
   };
 
   const handleConfirmDelete = () => {
@@ -151,7 +202,7 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
           </DialogTitle>
           <DialogDescription>
             {confirmStep 
-              ? 'Confirme a exclusão dos itens entregues.'
+              ? 'Exporte o PDF antes de excluir os itens.'
               : 'Selecione o período para excluir os itens já entregues do sistema.'}
           </DialogDescription>
         </DialogHeader>
@@ -181,18 +232,28 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
             </div>
           </div>
         ) : (
-          <div className="py-6">
+          <div className="py-4 space-y-4">
             <div className="flex items-center gap-3 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
               <AlertTriangle className="w-10 h-10 text-destructive shrink-0" />
               <div>
                 <p className="font-semibold text-destructive">
-                  {itemsCount} item(ns) será(ão) excluído(s)
+                  {itemsToDelete.length} item(ns) será(ão) excluído(s)
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Esta ação não pode ser desfeita. Todos os dados dos itens, incluindo imagens, serão removidos permanentemente.
+                  Exporte o PDF com os dados antes de excluir. Esta ação não pode ser desfeita.
                 </p>
               </div>
             </div>
+
+            <Button 
+              variant="outline" 
+              className="w-full gap-2"
+              onClick={generatePdf}
+              disabled={itemsToDelete.length === 0}
+            >
+              <FileDown className="w-4 h-4" />
+              Exportar PDF ({itemsToDelete.length} itens)
+            </Button>
           </div>
         )}
 
@@ -204,12 +265,12 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
             <Button 
               variant="destructive" 
               onClick={handleContinue}
-              disabled={countItems.isPending}
+              disabled={countAndFetchItems.isPending}
             >
-              {countItems.isPending ? (
+              {countAndFetchItems.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Contando...
+                  Carregando...
                 </>
               ) : (
                 'Continuar'
@@ -219,14 +280,14 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
             <Button 
               variant="destructive" 
               onClick={handleConfirmDelete}
-              disabled={deleteItems.isPending || itemsCount === 0}
+              disabled={deleteItems.isPending || itemsToDelete.length === 0}
             >
               {deleteItems.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Excluindo...
                 </>
-              ) : itemsCount === 0 ? (
+              ) : itemsToDelete.length === 0 ? (
                 'Nenhum item encontrado'
               ) : (
                 `Confirmar Exclusão`

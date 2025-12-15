@@ -32,7 +32,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    priority: 'normal' as const,
+    priority: 'normal',
     category: '',
     due_date: '',
     assigned_to: '',
@@ -138,7 +138,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
               <Label htmlFor="priority">Prioridade</Label>
               <Select
                 value={formData.priority}
-                onValueChange={(value: any) => setFormData({ ...formData, priority: value })}
+                onValueChange={(value) => setFormData({ ...formData, priority: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
