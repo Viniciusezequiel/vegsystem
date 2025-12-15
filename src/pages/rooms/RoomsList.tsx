@@ -56,7 +56,6 @@ import { z } from 'zod';
 const roomSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   campus: z.enum(['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm']),
-  building: z.string().min(1, 'Prédio é obrigatório'),
   floor: z.string().optional(),
   capacity: z.coerce.number().optional(),
   description: z.string().optional(),
@@ -76,7 +75,6 @@ export default function RoomsList() {
     defaultValues: {
       name: '',
       campus: 'Campus I',
-      building: '',
       floor: '',
       capacity: undefined,
       description: '',
@@ -87,7 +85,7 @@ export default function RoomsList() {
     await createRoom.mutateAsync({
       name: data.name,
       campus: data.campus,
-      building: data.building,
+      building: data.name, // Use room name as building for backwards compatibility
       floor: data.floor || null,
       capacity: data.capacity || null,
       description: data.description || null,
@@ -115,7 +113,6 @@ export default function RoomsList() {
               columns={[
                 { header: 'Nome', accessor: 'name' },
                 { header: 'Campus', accessor: 'campus' },
-                { header: 'Prédio', accessor: 'building' },
                 { header: 'Andar', accessor: (row) => row.floor || '-' },
                 { header: 'Capacidade', accessor: (row) => row.capacity ? String(row.capacity) : '-' },
               ]}
@@ -194,19 +191,6 @@ export default function RoomsList() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="building"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Prédio *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ex: Bloco A" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -271,7 +255,6 @@ export default function RoomsList() {
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>Campus</TableHead>
-                      <TableHead>Prédio</TableHead>
                       <TableHead>Andar</TableHead>
                       <TableHead>Capacidade</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -282,7 +265,6 @@ export default function RoomsList() {
                       <TableRow key={room.id}>
                         <TableCell className="font-medium">{room.name}</TableCell>
                         <TableCell>{room.campus}</TableCell>
-                        <TableCell>{room.building}</TableCell>
                         <TableCell>{room.floor || '-'}</TableCell>
                         <TableCell>{room.capacity || '-'}</TableCell>
                         <TableCell className="text-right">
