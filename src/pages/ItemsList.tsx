@@ -22,6 +22,7 @@ import {
   ImageIcon
 } from 'lucide-react';
 import { BulkImageUploadDialog } from '@/components/items/BulkImageUploadDialog';
+import { ClearDeliveredItemsDialog } from '@/components/items/ClearDeliveredItemsDialog';
 import { useNavigate } from 'react-router-dom';
 import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
@@ -87,6 +88,7 @@ export default function ItemsList() {
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [bulkImageDialog, setBulkImageDialog] = useState(false);
+  const [clearDeliveredDialog, setClearDeliveredDialog] = useState(false);
 
   const { data: items, isLoading } = useLostItems({
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -483,6 +485,13 @@ export default function ItemsList() {
             Upload Imagens
           </Button>
 
+          {role === 'admin' && (
+            <Button variant="outline" size="sm" onClick={() => setClearDeliveredDialog(true)} className="text-destructive hover:text-destructive">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Limpar Entregues
+            </Button>
+          )}
+
           {statusFilter === 'expired' && expiredItems.length > 0 && (
             <>
               {isSelectionMode ? (
@@ -731,6 +740,11 @@ export default function ItemsList() {
       <BulkImageUploadDialog 
         open={bulkImageDialog} 
         onOpenChange={setBulkImageDialog} 
+      />
+
+      <ClearDeliveredItemsDialog
+        open={clearDeliveredDialog}
+        onOpenChange={setClearDeliveredDialog}
       />
     </MainLayout>
   );

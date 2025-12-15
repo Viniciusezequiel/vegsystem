@@ -94,8 +94,9 @@ const moduleGroups: NavGroup[] = [
     basePath: '/rooms',
     gradient: 'from-green-500 to-emerald-500',
     items: [
-      { name: 'Salas', href: '/rooms', icon: ClipboardCheck },
+      { name: 'Novo Checklist', href: '/rooms/checklist/new', icon: ClipboardCheck },
       { name: 'Checklists', href: '/rooms/checklists', icon: Search },
+      { name: 'Gestão de Salas', href: '/rooms', icon: ClipboardCheck, adminOnly: true },
     ],
   },
   {
@@ -367,7 +368,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   )} />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pl-5 space-y-1 pt-1 animate-accordion-down">
-                  {group.items.map((item) => {
+                  {group.items
+                    .filter(item => !item.adminOnly || isAdmin)
+                    .map((item) => {
                     const isActive = location.pathname === item.href;
                     return (
                       <RouterNavLink

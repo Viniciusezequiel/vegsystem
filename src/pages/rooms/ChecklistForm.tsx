@@ -116,7 +116,7 @@ export default function ChecklistForm() {
                   <SelectContent>
                     {rooms?.map((room) => (
                       <SelectItem key={room.id} value={room.id}>
-                        {room.name} - {room.campus} - {room.building}
+                        {room.name} - {room.campus}
                       </SelectItem>
                     ))}
                   </SelectContent>
