@@ -154,15 +154,24 @@ const bottomNav: NavItem[] = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  isMobile?: boolean;
+  onCloseMobile?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, role, signOut, isAdmin } = useAuth();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { data: pendingCallsCount } = usePendingCallsCount();
+
+  // Close mobile menu on navigation
+  const handleNavClick = () => {
+    if (isMobile && onCloseMobile) {
+      onCloseMobile();
+    }
+  };
   
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const currentGroup = moduleGroups.find(group => 
@@ -276,6 +285,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <RouterNavLink
                 key={item.name}
                 to={item.href}
+                onClick={handleNavClick}
                 className={cn(
                   'sidebar-link',
                   isActive && 'sidebar-link-active',
@@ -315,6 +325,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   <TooltipTrigger asChild>
                     <RouterNavLink
                       to={group.items[0].href}
+                      onClick={handleNavClick}
                       className={cn(
                         'sidebar-link justify-center px-2',
                         isGroupActive && 'sidebar-link-active'
@@ -376,6 +387,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       <RouterNavLink
                         key={item.href}
                         to={item.href}
+                        onClick={handleNavClick}
                         className={cn(
                           'sidebar-link text-sm py-2',
                           isActive && 'sidebar-link-active'
@@ -409,6 +421,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <RouterNavLink
                 key={item.name}
                 to={item.href}
+                onClick={handleNavClick}
                 className={cn(
                   'sidebar-link',
                   isActive && 'sidebar-link-active',
