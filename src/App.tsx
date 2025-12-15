@@ -59,6 +59,8 @@ import ClassroomCallsList from "./pages/classroom/ClassroomCallsList";
 
 // Tasks Module
 import TasksList from "./pages/tasks/TasksList";
+import MyTasks from "./pages/tasks/MyTasks";
+import TasksDashboard from "./pages/tasks/TasksDashboard";
 
 const queryClient = new QueryClient();
 
@@ -247,6 +249,16 @@ const App = () => (
             <Route path="/tasks" element={
               <ProtectedRoute>
                 <TasksList />
+              </ProtectedRoute>
+            } />
+            <Route path="/tasks/my-tasks" element={
+              <ProtectedRoute>
+                <MyTasks />
+              </ProtectedRoute>
+            } />
+            <Route path="/tasks/dashboard" element={
+              <ProtectedRoute>
+                <TasksDashboard />
               </ProtectedRoute>
             } />
             
