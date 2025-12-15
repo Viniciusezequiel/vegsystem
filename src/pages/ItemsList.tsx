@@ -18,8 +18,10 @@ import {
   Upload,
   X,
   CheckSquare,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ImageIcon
 } from 'lucide-react';
+import { BulkImageUploadDialog } from '@/components/items/BulkImageUploadDialog';
 import { useNavigate } from 'react-router-dom';
 import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
@@ -84,6 +86,7 @@ export default function ItemsList() {
   const [importData, setImportData] = useState<any[]>([]);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [replaceExisting, setReplaceExisting] = useState(false);
+  const [bulkImageDialog, setBulkImageDialog] = useState(false);
 
   const { data: items, isLoading } = useLostItems({
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -475,6 +478,11 @@ export default function ItemsList() {
             </Button>
           </label>
 
+          <Button variant="outline" size="sm" onClick={() => setBulkImageDialog(true)}>
+            <ImageIcon className="w-4 h-4 mr-2" />
+            Upload Imagens
+          </Button>
+
           {statusFilter === 'expired' && expiredItems.length > 0 && (
             <>
               {isSelectionMode ? (
@@ -719,6 +727,11 @@ export default function ItemsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BulkImageUploadDialog 
+        open={bulkImageDialog} 
+        onOpenChange={setBulkImageDialog} 
+      />
     </MainLayout>
   );
 }
