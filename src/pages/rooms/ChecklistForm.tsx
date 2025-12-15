@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -14,201 +13,470 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, ClipboardCheck, Check, X } from 'lucide-react';
-import { useRoomsList, useChecklistQuestions, useCreateChecklist } from '@/hooks/useRooms';
+import { ArrowLeft, ArrowRight, ClipboardCheck, Building2, Clock, MapPin } from 'lucide-react';
+import { useRoomsList, useCreateChecklist } from '@/hooks/useRooms';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Constants } from '@/integrations/supabase/types';
 
-type AnswerState = {
-  [questionId: string]: {
-    answer: boolean | null;
-    notes: string;
-  };
+type ChecklistFieldStatus = 'verificado' | 'pendente';
+
+type ChecklistField = {
+  id: string;
+  label: string;
+  status: ChecklistFieldStatus | null;
+  pendingReason: string;
+  treatment: string;
 };
+
+type Step = 'campus-turno' | 'rooms' | 'form';
+
+const CHECKLIST_FIELDS: Omit<ChecklistField, 'status' | 'pendingReason' | 'treatment'>[] = [
+  { id: 'mob_quantidade', label: 'Quantidade de Mobiliário' },
+  { id: 'mob_carteira_obeso', label: 'Carteira de Obeso Disponível' },
+  { id: 'mob_mesa_pne', label: 'Mesa PNE' },
+  { id: 'mob_professor', label: 'Mob Professor' },
+  { id: 'projetor', label: 'Projetor' },
+  { id: 'microfone', label: 'Microfone' },
+  { id: 'rack_completo', label: 'Rack Completo' },
+  { id: 'ar_condicionado', label: 'Ar Condicionado' },
+  { id: 'lampadas_forros', label: 'Lâmpadas e Forros' },
+  { id: 'quadro_lousa', label: 'Quadro/Lousa' },
+  { id: 'relogio', label: 'Relógio' },
+  { id: 'cortinas', label: 'Cortinas' },
+  { id: 'kit_docente', label: 'Kit Docente' },
+  { id: 'infraestrutura', label: 'Infraestrutura' },
+  { id: 'limpeza', label: 'Limpeza' },
+];
 
 export default function ChecklistForm() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const preselectedRoom = searchParams.get('room') || '';
   
-  const [selectedRoom, setSelectedRoom] = useState(preselectedRoom);
+  // Step state
+  const [currentStep, setCurrentStep] = useState<Step>('campus-turno');
+  
+  // Step 1: Campus and Shift
+  const [selectedCampus, setSelectedCampus] = useState('');
   const [shift, setShift] = useState('');
+  
+  // Step 2: Room selection
+  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
+  
+  // Step 3: Form fields
+  const [fields, setFields] = useState<ChecklistField[]>(
+    CHECKLIST_FIELDS.map(f => ({
+      ...f,
+      status: null,
+      pendingReason: '',
+      treatment: '',
+    }))
+  );
+  const [furnitureCount, setFurnitureCount] = useState('');
   const [observations, setObservations] = useState('');
-  const [answers, setAnswers] = useState<AnswerState>({});
 
   const { data: rooms } = useRoomsList();
-  const { data: questions, isLoading: loadingQuestions } = useChecklistQuestions();
   const createChecklist = useCreateChecklist();
 
-  const groupedQuestions = questions?.reduce((acc, q) => {
-    const category = q.category || 'Geral';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(q);
-    return acc;
-  }, {} as Record<string, typeof questions>);
+  // Filter rooms by selected campus
+  const filteredRooms = useMemo(() => {
+    if (!selectedCampus || !rooms) return [];
+    return rooms.filter(room => room.campus === selectedCampus);
+  }, [rooms, selectedCampus]);
 
-  const handleAnswerChange = (questionId: string, value: boolean) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        answer: value,
-        notes: prev[questionId]?.notes || '',
-      },
-    }));
+  const canProceedStep1 = selectedCampus && shift;
+  const canProceedStep2 = selectedRooms.length > 0;
+  const allFieldsAnswered = fields.every(f => f.status !== null);
+  const allPendingHaveReason = fields.every(f => 
+    f.status !== 'pendente' || (f.status === 'pendente' && f.pendingReason.trim())
+  );
+
+  const handleFieldStatusChange = (fieldId: string, status: ChecklistFieldStatus) => {
+    setFields(prev => prev.map(f => 
+      f.id === fieldId 
+        ? { ...f, status, pendingReason: status === 'verificado' ? '' : f.pendingReason, treatment: status === 'verificado' ? '' : f.treatment }
+        : f
+    ));
   };
 
-  const handleNotesChange = (questionId: string, notes: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        notes,
-      },
-    }));
+  const handleFieldReasonChange = (fieldId: string, reason: string) => {
+    setFields(prev => prev.map(f => 
+      f.id === fieldId ? { ...f, pendingReason: reason } : f
+    ));
   };
 
-  const allQuestionsAnswered = questions?.every(q => answers[q.id]?.answer !== null && answers[q.id]?.answer !== undefined);
+  const handleFieldTreatmentChange = (fieldId: string, treatment: string) => {
+    setFields(prev => prev.map(f => 
+      f.id === fieldId ? { ...f, treatment: treatment } : f
+    ));
+  };
+
+  const toggleRoomSelection = (roomId: string) => {
+    setSelectedRooms(prev => 
+      prev.includes(roomId) 
+        ? prev.filter(id => id !== roomId)
+        : [...prev, roomId]
+    );
+  };
 
   const handleSubmit = async () => {
-    if (!selectedRoom || !shift || !allQuestionsAnswered) return;
+    if (!canProceedStep2 || !allFieldsAnswered || !allPendingHaveReason) return;
 
-    const answersArray = Object.entries(answers).map(([questionId, data]) => ({
-      question_id: questionId,
-      answer: data.answer!,
-      notes: data.notes || undefined,
+    // Create answers array from fields
+    const answersArray = fields.map(field => ({
+      question_id: field.id,
+      answer: field.status === 'verificado',
+      notes: field.status === 'pendente' 
+        ? `Motivo: ${field.pendingReason}${field.treatment ? ` | Tratativa: ${field.treatment}` : ''}`
+        : undefined,
     }));
 
-    await createChecklist.mutateAsync({
-      room_id: selectedRoom,
-      shift,
-      observations: observations || undefined,
-      answers: answersArray,
-    });
+    // Add furniture count as a special field
+    if (furnitureCount) {
+      answersArray.unshift({
+        question_id: 'mob_quantidade_valor',
+        answer: true,
+        notes: `Quantidade: ${furnitureCount}`,
+      });
+    }
+
+    // Create checklist for each selected room
+    for (const roomId of selectedRooms) {
+      await createChecklist.mutateAsync({
+        room_id: roomId,
+        shift,
+        observations: observations || undefined,
+        answers: answersArray,
+      });
+    }
 
     navigate('/rooms/checklists');
+  };
+
+  const goToNextStep = () => {
+    if (currentStep === 'campus-turno' && canProceedStep1) {
+      setCurrentStep('rooms');
+    } else if (currentStep === 'rooms' && canProceedStep2) {
+      setCurrentStep('form');
+    }
+  };
+
+  const goToPreviousStep = () => {
+    if (currentStep === 'rooms') {
+      setCurrentStep('campus-turno');
+    } else if (currentStep === 'form') {
+      setCurrentStep('rooms');
+    }
+  };
+
+  const getStepIndicator = () => {
+    const steps = [
+      { key: 'campus-turno', label: 'Campus e Turno', number: 1 },
+      { key: 'rooms', label: 'Salas', number: 2 },
+      { key: 'form', label: 'Checklist', number: 3 },
+    ];
+
+    return (
+      <div className="flex items-center justify-center gap-2 mb-6">
+        {steps.map((step, index) => (
+          <div key={step.key} className="flex items-center">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+              currentStep === step.key 
+                ? 'bg-primary text-primary-foreground' 
+                : steps.findIndex(s => s.key === currentStep) > index
+                  ? 'bg-green-600 text-white'
+                  : 'bg-muted text-muted-foreground'
+            }`}>
+              {step.number}
+            </div>
+            <span className={`ml-2 text-sm hidden sm:inline ${
+              currentStep === step.key ? 'text-foreground font-medium' : 'text-muted-foreground'
+            }`}>
+              {step.label}
+            </span>
+            {index < steps.length - 1 && (
+              <ArrowRight className="w-4 h-4 mx-3 text-muted-foreground" />
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
     <MainLayout>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/rooms')}>
+          <Button variant="ghost" size="icon" onClick={() => {
+            if (currentStep === 'campus-turno') {
+              navigate('/rooms');
+            } else {
+              goToPreviousStep();
+            }
+          }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Novo Checklist de Sala</h1>
-            <p className="text-muted-foreground">Preencha o checklist da sala</p>
+            <p className="text-muted-foreground">
+              {currentStep === 'campus-turno' && 'Selecione o campus e turno'}
+              {currentStep === 'rooms' && 'Selecione as salas para verificar'}
+              {currentStep === 'form' && 'Preencha o checklist'}
+            </p>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações Gerais</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Sala *</Label>
-                <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a sala" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rooms?.map((room) => (
-                      <SelectItem key={room.id} value={room.id}>
-                        {room.name} - {room.campus}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Turno *</Label>
-                <Select value={shift} onValueChange={setShift}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o turno" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Manhã">Manhã</SelectItem>
-                    <SelectItem value="Tarde">Tarde</SelectItem>
-                    <SelectItem value="Noite">Noite</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {getStepIndicator()}
 
-        {loadingQuestions ? (
+        {/* Step 1: Campus and Shift */}
+        {currentStep === 'campus-turno' && (
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Carregando perguntas...
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Campus e Turno
+              </CardTitle>
+              <CardDescription>
+                Selecione o campus e o turno para filtrar as salas disponíveis
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Campus *</Label>
+                  <Select value={selectedCampus} onValueChange={setSelectedCampus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o campus" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Constants.public.Enums.campus_enum.map((campus) => (
+                        <SelectItem key={campus} value={campus}>
+                          {campus}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Turno *
+                  </Label>
+                  <Select value={shift} onValueChange={setShift}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o turno" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Manhã">Manhã</SelectItem>
+                      <SelectItem value="Tarde">Tarde</SelectItem>
+                      <SelectItem value="Noite">Noite</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <Button onClick={goToNextStep} disabled={!canProceedStep1}>
+                  Próximo
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
-        ) : (
-          <>
-            {Object.entries(groupedQuestions || {}).map(([category, categoryQuestions]) => (
-              <Card key={category}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ClipboardCheck className="h-5 w-5" />
-                    {category}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {categoryQuestions?.map((question) => {
-                    const answerState = answers[question.id];
-                    const isAnswered = answerState?.answer !== null && answerState?.answer !== undefined;
-                    
-                    return (
-                      <div key={question.id} className="space-y-3 pb-4 border-b last:border-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <p className="text-sm font-medium">{question.question}</p>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={answerState?.answer === true ? 'default' : 'outline'}
-                              className={answerState?.answer === true ? 'bg-green-600 hover:bg-green-700' : ''}
-                              onClick={() => handleAnswerChange(question.id, true)}
-                            >
-                              <Check className="h-4 w-4 mr-1" />
-                              Sim
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={answerState?.answer === false ? 'default' : 'outline'}
-                              className={answerState?.answer === false ? 'bg-red-600 hover:bg-red-700' : ''}
-                              onClick={() => handleAnswerChange(question.id, false)}
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Não
-                            </Button>
-                          </div>
-                        </div>
-                        {answerState?.answer === false && (
-                          <Input
-                            placeholder="Observação (motivo do 'Não')..."
-                            value={answerState.notes}
-                            onChange={(e) => handleNotesChange(question.id, e.target.value)}
-                            className="mt-2"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            ))}
+        )}
 
+        {/* Step 2: Room Selection */}
+        {currentStep === 'rooms' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Selecionar Salas
+              </CardTitle>
+              <CardDescription>
+                Selecione as salas do {selectedCampus} que deseja verificar no turno da {shift}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {filteredRooms.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhuma sala cadastrada para o campus {selectedCampus}
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredRooms.map((room) => (
+                    <div
+                      key={room.id}
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        selectedRooms.includes(room.id)
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => toggleRoomSelection(room.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedRooms.includes(room.id)}
+                          onCheckedChange={() => toggleRoomSelection(room.id)}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{room.name}</p>
+                          {room.floor && (
+                            <p className="text-sm text-muted-foreground">Andar: {room.floor}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedRooms.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-4 border-t">
+                  <span className="text-sm text-muted-foreground">Selecionadas:</span>
+                  {selectedRooms.map(roomId => {
+                    const room = filteredRooms.find(r => r.id === roomId);
+                    return room ? (
+                      <Badge key={roomId} variant="secondary">
+                        {room.name}
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              )}
+
+              <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={goToPreviousStep}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+                <Button onClick={goToNextStep} disabled={!canProceedStep2}>
+                  Próximo
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Checklist Form */}
+        {currentStep === 'form' && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5" />
+                  Checklist - {shift}
+                </CardTitle>
+                <CardDescription>
+                  Verificando {selectedRooms.length} sala(s) no {selectedCampus}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {selectedRooms.map(roomId => {
+                    const room = filteredRooms.find(r => r.id === roomId);
+                    return room ? (
+                      <Badge key={roomId} variant="outline">
+                        {room.name}
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Furniture Count */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Mobiliário</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Label>Quantidade de Mobiliário</Label>
+                  <Input
+                    type="number"
+                    placeholder="Ex: 40"
+                    value={furnitureCount}
+                    onChange={(e) => setFurnitureCount(e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Checklist Fields */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Itens de Verificação</CardTitle>
+                <CardDescription>
+                  Selecione o status de cada item. Campos pendentes devem ter o motivo preenchido.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {fields.map((field) => (
+                  <div key={field.id} className="space-y-3 pb-4 border-b last:border-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <Label className="font-medium">{field.label}</Label>
+                      <Select
+                        value={field.status || ''}
+                        onValueChange={(value) => handleFieldStatusChange(field.id, value as ChecklistFieldStatus)}
+                      >
+                        <SelectTrigger className="w-full sm:w-[180px]">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="verificado">
+                            <span className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-green-500" />
+                              Verificado
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="pendente">
+                            <span className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                              Pendente
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {field.status === 'pendente' && (
+                      <div className="pl-0 sm:pl-4 space-y-3">
+                        <div className="space-y-2">
+                          <Label className="text-sm text-muted-foreground">
+                            Por que está pendente? *
+                          </Label>
+                          <Input
+                            placeholder="Descreva o motivo da pendência..."
+                            value={field.pendingReason}
+                            onChange={(e) => handleFieldReasonChange(field.id, e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm text-muted-foreground">
+                            Tratativa (opcional)
+                          </Label>
+                          <Input
+                            placeholder="Qual foi ou será a tratativa..."
+                            value={field.treatment}
+                            onChange={(e) => handleFieldTreatmentChange(field.id, e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* General Observations */}
             <Card>
               <CardHeader>
                 <CardTitle>Observações Gerais</CardTitle>
               </CardHeader>
               <CardContent>
                 <Textarea
-                  placeholder="Adicione observações gerais sobre a sala..."
+                  placeholder="Adicione observações gerais sobre as salas verificadas..."
                   rows={4}
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
@@ -216,13 +484,14 @@ export default function ChecklistForm() {
               </CardContent>
             </Card>
 
-            <div className="flex justify-end gap-4">
-              <Button variant="outline" onClick={() => navigate('/rooms')}>
-                Cancelar
+            <div className="flex justify-between gap-4">
+              <Button variant="outline" onClick={goToPreviousStep}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!selectedRoom || !shift || !allQuestionsAnswered || createChecklist.isPending}
+                disabled={!allFieldsAnswered || !allPendingHaveReason || createChecklist.isPending}
               >
                 {createChecklist.isPending ? 'Salvando...' : 'Salvar Checklist'}
               </Button>
