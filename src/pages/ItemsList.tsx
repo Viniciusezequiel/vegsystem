@@ -233,6 +233,7 @@ export default function ItemsList() {
     // Create workbook with example data
     const templateData = [
       {
+        codigo_item: '123456',
         descricao: 'Carteira preta de couro',
         campus: 'Campus I',
         local: 'Biblioteca Central',
@@ -242,9 +243,11 @@ export default function ItemsList() {
         caixa: 'C01',
         lacre: 'L001',
         entregue_por: 'João Silva',
-        contato: '(11) 99999-9999'
+        contato: '(11) 99999-9999',
+        situacao_item: 'Disponível'
       },
       {
+        codigo_item: '234567',
         descricao: 'Celular Samsung preto',
         campus: 'Campus II',
         local: 'Cantina',
@@ -254,9 +257,11 @@ export default function ItemsList() {
         caixa: 'C02',
         lacre: '',
         entregue_por: 'Maria Santos',
-        contato: ''
+        contato: '',
+        situacao_item: 'Disponível'
       },
       {
+        codigo_item: '345678',
         descricao: 'Óculos de grau',
         campus: 'Campus IV',
         local: 'Sala 101',
@@ -266,7 +271,8 @@ export default function ItemsList() {
         caixa: '',
         lacre: '',
         entregue_por: 'Pedro Oliveira',
-        contato: 'pedro@email.com'
+        contato: 'pedro@email.com',
+        situacao_item: 'Disponível'
       }
     ];
 
@@ -274,6 +280,7 @@ export default function ItemsList() {
     
     // Set column widths
     worksheet['!cols'] = [
+      { wch: 12 }, // codigo_item
       { wch: 30 }, // descricao
       { wch: 15 }, // campus
       { wch: 20 }, // local
@@ -284,6 +291,7 @@ export default function ItemsList() {
       { wch: 10 }, // lacre
       { wch: 20 }, // entregue_por
       { wch: 18 }, // contato
+      { wch: 12 }, // situacao_item
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -295,6 +303,35 @@ export default function ItemsList() {
       title: 'Modelo baixado',
       description: 'O arquivo modelo foi baixado com sucesso. Preencha e importe.',
     });
+  };
+
+  // Map status from spreadsheet to system status
+  const mapStatus = (status: string): string => {
+    if (!status) return 'available';
+    const normalized = status.toLowerCase().trim();
+    if (normalized === 'baixado' || normalized === 'entregue' || normalized === 'delivered') {
+      return 'delivered';
+    }
+    if (normalized === 'expirado' || normalized === 'expired') {
+      return 'expired';
+    }
+    return 'available';
+  };
+
+  // Map campus from spreadsheet to valid enum
+  const mapCampus = (campus: string): CampusEnum => {
+    if (!campus) return 'Campus I';
+    const normalized = campus.toLowerCase().trim();
+    if (normalized.includes('campus 2') || normalized.includes('campus ii') || normalized === 'campus ii') {
+      return 'Campus II';
+    }
+    if (normalized.includes('campus 4') || normalized.includes('campus iv') || normalized === 'campus iv') {
+      return 'Campus IV';
+    }
+    if (normalized.includes('hucm') || normalized.includes('adm')) {
+      return 'Campus HUCM Adm';
+    }
+    return 'Campus I';
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -309,11 +346,11 @@ export default function ItemsList() {
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       
-      // Map columns to expected format
+      // Map columns to expected format - now including codigo_item
       const mappedData = jsonData.map((row: any) => ({
-        code: row.codigo || row.Codigo || row.CODIGO || row.code || `AP-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+        code: row.codigo_item || row.codigo || row.Codigo || row.CODIGO || row.code || `AP-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
         description: row.descricao || row.Descricao || row.DESCRICAO || row.description || '',
-        campus: (row.campus || row.Campus || row.CAMPUS || 'Campus I') as CampusEnum,
+        campus: mapCampus(row.campus || row.Campus || row.CAMPUS || 'Campus I'),
         found_location: row.local || row.Local || row.LOCAL || row.found_location || 'Não informado',
         found_date: parseDate(row.data_encontrado || row.found_date),
         received_date: parseDate(row.data_recebido || row.received_date),
@@ -322,7 +359,7 @@ export default function ItemsList() {
         seal_number: row.lacre || row.seal_number || null,
         delivered_by_name: row.entregue_por || row.delivered_by_name || 'Importação',
         delivered_by_contact: row.contato || row.delivered_by_contact || null,
-        status: row.status || 'available',
+        status: mapStatus(row.situacao_item || row.status),
       }));
 
       setImportData(mappedData);

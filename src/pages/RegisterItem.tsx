@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Camera, CheckCircle, Loader2, Copy, Check } from 'lucide-react';
+import { Camera, CheckCircle, Loader2, Copy, Check, Image as ImageIcon } from 'lucide-react';
 import { useCreateLostItem, useLostItems } from '@/hooks/useLostItems';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -157,17 +157,42 @@ export default function RegisterItem() {
                   </button>
                 </div>
               ) : (
-                <label className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted/30">
-                  <Camera className="w-12 h-12 text-muted-foreground mb-3" />
-                  <span className="text-sm text-muted-foreground">Clique para adicionar foto</span>
-                  <span className="text-xs text-muted-foreground/60 mt-1">JPG, PNG até 5MB</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                </label>
+                <div className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors bg-muted/30 flex flex-col items-center justify-center gap-4">
+                  <Camera className="w-12 h-12 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground text-center px-4">Escolha uma opção para adicionar foto</span>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <label className="cursor-pointer">
+                      <Button type="button" variant="outline" size="sm" asChild>
+                        <span>
+                          <Camera className="w-4 h-4 mr-2" />
+                          Abrir Câmera
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleImageChange}
+                            className="hidden"
+                          />
+                        </span>
+                      </Button>
+                    </label>
+                    <label className="cursor-pointer">
+                      <Button type="button" variant="outline" size="sm" asChild>
+                        <span>
+                          <ImageIcon className="w-4 h-4 mr-2" />
+                          Galeria
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="hidden"
+                          />
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+                  <span className="text-xs text-muted-foreground/60">JPG, PNG até 5MB</span>
+                </div>
               )}
             </div>
           </div>

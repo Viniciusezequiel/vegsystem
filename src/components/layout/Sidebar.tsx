@@ -144,6 +144,7 @@ const moduleGroups: NavGroup[] = [
 
 const bottomNav: NavItem[] = [
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
+  { name: 'Histórico de Atividades', href: '/activity-history', icon: History },
   { name: 'Usuários', href: '/users', icon: Users, adminOnly: true },
   { name: 'Permissões', href: '/permissions', icon: Shield, adminOnly: true },
   { name: 'Configurações', href: '/settings', icon: Settings },

@@ -13,9 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye } from 'lucide-react';
 import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, LockerLoan } from '@/hooks/useLockers';
 import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
+import { LockerLoanDetailsDialog } from '@/components/lockers/LockerLoanDetailsDialog';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,6 +30,7 @@ const statusLabels = {
 export default function LockerLoans() {
   const [activeTab, setActiveTab] = useState('active');
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<LockerLoan | null>(null);
   
   const { data: activeLoans } = useLockerLoans('active');
@@ -41,6 +43,11 @@ export default function LockerLoans() {
     setReturnDialogOpen(true);
   };
 
+  const handleOpenDetails = (loan: LockerLoan) => {
+    setSelectedLoan(loan);
+    setDetailsDialogOpen(true);
+  };
+
   const handleReturn = (data: LockerReturnData) => {
     if (!selectedLoan) return;
     
@@ -50,6 +57,11 @@ export default function LockerLoans() {
         setSelectedLoan(null);
       },
     });
+  };
+
+  const handleReturnFromDetails = () => {
+    setDetailsDialogOpen(false);
+    setReturnDialogOpen(true);
   };
 
   const formatDate = (date: string) => {
@@ -89,7 +101,11 @@ export default function LockerLoans() {
               const StatusIcon = overdue ? AlertTriangle : statusLabels[loan.status].icon;
               
               return (
-                <TableRow key={loan.id} className={overdue ? 'bg-destructive/10' : ''}>
+                <TableRow 
+                  key={loan.id} 
+                  className={`${overdue ? 'bg-destructive/10' : ''} cursor-pointer hover:bg-muted/50`}
+                  onClick={() => handleOpenDetails(loan)}
+                >
                   <TableCell className="font-medium">
                     <div className="min-w-0">
                       <span className="block">{loan.locker?.code || 'N/A'}</span>
@@ -114,6 +130,7 @@ export default function LockerLoans() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-primary hover:underline text-sm"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Phone className="h-3 w-3" />
                         {loan.borrower_phone}
@@ -122,6 +139,7 @@ export default function LockerLoans() {
                         <a 
                           href={`mailto:${loan.borrower_email}`}
                           className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Mail className="h-3 w-3" />
                           {loan.borrower_email}
@@ -143,13 +161,42 @@ export default function LockerLoans() {
                   </TableCell>
                   {showReturnButton && (
                     <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetails(loan);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenReturn(loan);
+                          }}
+                        >
+                          <span className="hidden sm:inline">Devolver</span>
+                          <span className="sm:hidden">Dev.</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
+                  {!showReturnButton && (
+                    <TableCell className="text-right">
                       <Button 
-                        variant="outline" 
+                        variant="ghost" 
                         size="sm"
-                        onClick={() => handleOpenReturn(loan)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDetails(loan);
+                        }}
                       >
-                        <span className="hidden sm:inline">Registrar Devolução</span>
-                        <span className="sm:hidden">Devolver</span>
+                        <Eye className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   )}
@@ -259,6 +306,15 @@ export default function LockerLoans() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Details Dialog */}
+      <LockerLoanDetailsDialog
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        loan={selectedLoan}
+        onReturn={handleReturnFromDetails}
+        showReturnButton={selectedLoan?.status === 'active'}
+      />
 
       {/* Return Dialog */}
       {selectedLoan && (

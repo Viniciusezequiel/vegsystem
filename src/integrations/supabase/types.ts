@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: string | null
+          entity_description: string | null
+          entity_id: string | null
+          id: string
+          ip_address: string | null
+          module: string
+          user_id: string | null
+          user_name: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: string | null
+          entity_description?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          module: string
+          user_id?: string | null
+          user_name: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: string | null
+          entity_description?: string | null
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          module?: string
+          user_id?: string | null
+          user_name?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           created_at: string
