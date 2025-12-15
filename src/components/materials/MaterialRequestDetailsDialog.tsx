@@ -80,6 +80,7 @@ export function MaterialRequestDetailsDialog({ request, open, onClose, canManage
   const handleStatusChange = async (newStatus: string) => {
     await updateRequest.mutateAsync({
       id: request.id,
+      title: request.title,
       status: newStatus,
       admin_notes: adminNotes,
     });
@@ -90,6 +91,7 @@ export function MaterialRequestDetailsDialog({ request, open, onClose, canManage
     const selectedUser = users.find(u => u.user_id === assignedTo);
     await updateRequest.mutateAsync({
       id: request.id,
+      title: request.title,
       assigned_to: assignedTo || undefined,
       assigned_to_name: selectedUser?.full_name,
     });
@@ -97,7 +99,7 @@ export function MaterialRequestDetailsDialog({ request, open, onClose, canManage
   };
 
   const handleDelete = async () => {
-    await deleteRequest.mutateAsync(request.id);
+    await deleteRequest.mutateAsync({ id: request.id, title: request.title });
     onClose();
   };
 

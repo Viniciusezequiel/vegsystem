@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLogActivity } from '@/hooks/useActivityLogs';
 
 export interface MaterialRequestItem {
   name: string;
@@ -81,6 +82,7 @@ export function useCreateMaterialRequest() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const logActivity = useLogActivity();
   
   return useMutation({
     mutationFn: async (data: {
@@ -95,7 +97,7 @@ export function useCreateMaterialRequest() {
         throw new Error('Usuário não autenticado');
       }
       
-      const { error } = await supabase
+      const { data: result, error } = await supabase
         .from('material_requests')
         .insert({
           requester_id: user.id,
@@ -106,13 +108,26 @@ export function useCreateMaterialRequest() {
           priority: data.priority,
           assigned_to: data.assigned_to,
           assigned_to_name: data.assigned_to_name,
-        });
+        })
+        .select()
+        .single();
       
       if (error) throw error;
+      return { ...result, title: data.title };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['material-requests'] });
       queryClient.invalidateQueries({ queryKey: ['my-material-requests'] });
+      
+      // Log activity
+      logActivity.mutate({
+        module: 'materials',
+        action: 'create',
+        entityId: data.id,
+        entityDescription: data.title,
+        details: `Solicitação de material criada: ${data.title}`,
+      });
+      
       toast({
         title: 'Solicitação criada',
         description: 'Sua solicitação foi enviada para análise.',
@@ -132,13 +147,16 @@ export function useUpdateMaterialRequest() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
+  const logActivity = useLogActivity();
   
   return useMutation({
     mutationFn: async ({ 
       id, 
+      title,
       ...data 
     }: { 
       id: string; 
+      title?: string;
       status?: string;
       admin_notes?: string;
       assigned_to?: string;
@@ -157,10 +175,30 @@ export function useUpdateMaterialRequest() {
         .eq('id', id);
       
       if (error) throw error;
+      return { id, status: data.status, title };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['material-requests'] });
       queryClient.invalidateQueries({ queryKey: ['my-material-requests'] });
+      
+      // Log activity based on status change
+      const actionMap: Record<string, 'approve' | 'reject' | 'deliver' | 'update'> = {
+        approved: 'approve',
+        rejected: 'reject',
+        delivered: 'deliver',
+      };
+      const action = data.status ? actionMap[data.status] || 'update' : 'update';
+      
+      logActivity.mutate({
+        module: 'materials',
+        action,
+        entityId: data.id,
+        entityDescription: data.title || 'Solicitação de material',
+        details: data.status 
+          ? `Status alterado para: ${data.status === 'approved' ? 'Aprovado' : data.status === 'rejected' ? 'Rejeitado' : data.status === 'delivered' ? 'Entregue' : data.status}`
+          : 'Solicitação atualizada',
+      });
+      
       toast({
         title: 'Solicitação atualizada',
         description: 'O status foi atualizado com sucesso.',
@@ -179,19 +217,31 @@ export function useUpdateMaterialRequest() {
 export function useDeleteMaterialRequest() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const logActivity = useLogActivity();
   
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, title }: { id: string; title?: string }) => {
       const { error } = await supabase
         .from('material_requests')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
+      return { id, title };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['material-requests'] });
       queryClient.invalidateQueries({ queryKey: ['my-material-requests'] });
+      
+      // Log activity
+      logActivity.mutate({
+        module: 'materials',
+        action: 'delete',
+        entityId: data.id,
+        entityDescription: data.title || 'Solicitação de material',
+        details: `Solicitação de material excluída`,
+      });
+      
       toast({
         title: 'Solicitação excluída',
         description: 'A solicitação foi removida do sistema.',
