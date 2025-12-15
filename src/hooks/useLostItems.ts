@@ -40,7 +40,7 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
 
       let query = supabase
         .from('lost_items')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false });
 
       if (filters?.status && filters.status !== 'all') {
@@ -51,7 +51,8 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
         query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
       }
 
-      const { data, error } = await query;
+      // Fetch all items - remove the default 1000 limit
+      const { data, error } = await query.range(0, 9999);
 
       if (error) throw error;
       return data as LostItem[];
@@ -98,6 +99,11 @@ export function useCreateLostItem() {
       delivered_by_contact?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user?.id || '')
+        .maybeSingle();
 
       const { data: item, error } = await supabase
         .from('lost_items')
@@ -109,10 +115,23 @@ export function useCreateLostItem() {
         .single();
 
       if (error) throw error;
+
+      // Log activity
+      await supabase.from('activity_logs').insert({
+        user_id: user?.id || null,
+        user_name: profile?.full_name || user?.email || 'Sistema',
+        module: 'lost-items',
+        action: 'create',
+        entity_id: item.id,
+        entity_description: `Item ${data.code}`,
+        details: `Cadastrou item "${data.description}" encontrado em ${data.found_location}`,
+      });
+
       return item;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       toast({
         title: 'Item cadastrado',
         description: 'O item foi cadastrado com sucesso.',
@@ -134,6 +153,21 @@ export function useUpdateLostItem() {
 
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<LostItem> & { id: string }) => {
+      // Get current user info for activity log
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user?.id || '')
+        .maybeSingle();
+
+      // First fetch the existing item to compare changes
+      const { data: existingItem } = await supabase
+        .from('lost_items')
+        .select('*')
+        .eq('id', id)
+        .single();
+
       const { data: item, error } = await supabase
         .from('lost_items')
         .update(data)
@@ -142,11 +176,41 @@ export function useUpdateLostItem() {
         .single();
 
       if (error) throw error;
+
+      // Build details of what changed
+      const changedFields: string[] = [];
+      if (existingItem) {
+        if (data.description && data.description !== existingItem.description) changedFields.push('descrição');
+        if (data.campus && data.campus !== existingItem.campus) changedFields.push('campus');
+        if (data.found_location && data.found_location !== existingItem.found_location) changedFields.push('local encontrado');
+        if (data.found_date && data.found_date !== existingItem.found_date) changedFields.push('data encontrado');
+        if (data.received_date && data.received_date !== existingItem.received_date) changedFields.push('data recebido');
+        if (data.shelf !== undefined && data.shelf !== existingItem.shelf) changedFields.push('prateleira');
+        if (data.box !== undefined && data.box !== existingItem.box) changedFields.push('caixa');
+        if (data.seal_number !== undefined && data.seal_number !== existingItem.seal_number) changedFields.push('lacre');
+        if (data.delivered_by_name && data.delivered_by_name !== existingItem.delivered_by_name) changedFields.push('quem entregou');
+        if (data.delivered_by_contact !== undefined && data.delivered_by_contact !== existingItem.delivered_by_contact) changedFields.push('contato entregou');
+      }
+
+      // Log activity
+      await supabase.from('activity_logs').insert({
+        user_id: user?.id || null,
+        user_name: profile?.full_name || user?.email || 'Sistema',
+        module: 'lost-items',
+        action: 'update',
+        entity_id: id,
+        entity_description: `Item ${existingItem?.code || ''}`,
+        details: changedFields.length > 0 
+          ? `Campos alterados: ${changedFields.join(', ')}`
+          : 'Item atualizado',
+      });
+
       return item;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
       queryClient.invalidateQueries({ queryKey: ['lost-item'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       toast({
         title: 'Item atualizado',
         description: 'O item foi atualizado com sucesso.',
@@ -176,6 +240,18 @@ export function useDeliverLostItem() {
       destination?: 'owner' | 'donation' | 'disposal';
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user?.id || '')
+        .maybeSingle();
+
+      // Get existing item for logging
+      const { data: existingItem } = await supabase
+        .from('lost_items')
+        .select('code, description')
+        .eq('id', data.id)
+        .single();
 
       const destinationText = data.destination === 'donation' ? 'Doação' : 
                               data.destination === 'disposal' ? 'Descarte' : '';
@@ -197,11 +273,30 @@ export function useDeliverLostItem() {
         .single();
 
       if (error) throw error;
+
+      // Log activity
+      const actionDetails = data.destination === 'donation' 
+        ? 'Encaminhou para doação'
+        : data.destination === 'disposal'
+        ? 'Encaminhou para descarte'
+        : `Entregou ao proprietário: ${data.owner_name}`;
+
+      await supabase.from('activity_logs').insert({
+        user_id: user?.id || null,
+        user_name: profile?.full_name || user?.email || 'Sistema',
+        module: 'lost-items',
+        action: 'deliver',
+        entity_id: data.id,
+        entity_description: `Item ${existingItem?.code || ''}`,
+        details: actionDetails,
+      });
+
       return item;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
       queryClient.invalidateQueries({ queryKey: ['lost-item'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       toast({
         title: 'Item entregue',
         description: 'A entrega foi registrada com sucesso.',
