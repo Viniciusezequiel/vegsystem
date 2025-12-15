@@ -147,7 +147,9 @@ const moduleGroups: NavGroup[] = [
     basePath: '/tasks',
     gradient: 'from-teal-500 to-cyan-500',
     items: [
-      { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck },
+      { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck, adminOnly: true },
+      { name: 'Minhas Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck },
+      { name: 'Dashboard', href: '/tasks/dashboard', icon: BarChart3, adminOnly: true },
     ],
   },
 ];

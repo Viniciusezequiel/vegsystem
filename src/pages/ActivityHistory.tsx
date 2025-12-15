@@ -43,6 +43,7 @@ const moduleOptions = [
   { value: 'equipment', label: 'Equipamentos', icon: Box },
   { value: 'lockers', label: 'Escaninhos', icon: Box },
   { value: 'materials', label: 'Materiais', icon: FileText },
+  { value: 'tasks', label: 'Demandas', icon: FileText },
   { value: 'users', label: 'Usuários', icon: User },
   { value: 'rooms', label: 'Salas', icon: Building2 },
 ];

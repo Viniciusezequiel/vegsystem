@@ -23,6 +23,7 @@ export type ActivityModule =
   | 'materials'
   | 'users'
   | 'rooms'
+  | 'tasks'
   | 'settings';
 
 export type ActivityAction = 
@@ -141,6 +142,7 @@ export function getModuleLabel(module: string): string {
     'materials': 'Materiais',
     'users': 'Usuários',
     'rooms': 'Salas',
+    'tasks': 'Demandas',
     'settings': 'Configurações',
   };
   return labels[module] || module;
