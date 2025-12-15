@@ -267,7 +267,10 @@ export function useBulkCreateLostItems() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ items, replaceExisting = false }: {
+    mutationFn: async ({
+      items,
+      replaceExisting = false,
+    }: {
       items: Array<{
         code: string;
         description: string;
@@ -286,40 +289,59 @@ export function useBulkCreateLostItems() {
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const itemsWithUser = items.map(item => ({
+      // Fix: "ON CONFLICT DO UPDATE ... cannot affect row a second time"
+      // Happens when the *same file* contains repeated codes in the same batch.
+      const dedupe = new Map<string, (typeof items)[number]>();
+      for (const item of items) {
+        const code = String(item.code ?? '').trim();
+        if (!code) continue;
+        dedupe.set(code, { ...item, code }); // keep last occurrence
+      }
+      const dedupedItems = Array.from(dedupe.values());
+      const duplicateCount = items.length - dedupedItems.length;
+
+      const itemsWithUser = dedupedItems.map(item => ({
         ...item,
         registered_by: user?.id,
         status: item.status || 'available',
       }));
 
       if (replaceExisting) {
-        // Use upsert to replace existing items
         const { data, error } = await supabase
           .from('lost_items')
-          .upsert(itemsWithUser, { 
+          .upsert(itemsWithUser, {
             onConflict: 'code',
-            ignoreDuplicates: false 
+            ignoreDuplicates: false,
           })
           .select();
 
         if (error) throw error;
-        return data;
-      } else {
-        // Regular insert (will fail on duplicates)
-        const { data, error } = await supabase
-          .from('lost_items')
-          .insert(itemsWithUser)
-          .select();
-
-        if (error) throw error;
-        return data;
+        return { data: (data ?? []) as LostItem[], duplicateCount };
       }
+
+      const { data, error } = await supabase
+        .from('lost_items')
+        .insert(itemsWithUser)
+        .select();
+
+      if (error) {
+        // Friendly message for duplicate key in DB when user didn't choose replace
+        if ((error as any)?.code === '23505') {
+          throw new Error('Já existem itens com esse código no sistema. Marque “Substituir itens existentes com mesmo código” para atualizar os duplicados.');
+        }
+        throw error;
+      }
+
+      return { data: (data ?? []) as LostItem[], duplicateCount };
     },
-    onSuccess: (data) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      const extra = result.duplicateCount > 0
+        ? ` (${result.duplicateCount} duplicado(s) no arquivo foram mesclados pelo código)`
+        : '';
       toast({
         title: 'Importação concluída',
-        description: `${data.length} item(ns) importado(s) com sucesso.`,
+        description: `${result.data.length} item(ns) importado(s) com sucesso.${extra}`,
       });
     },
     onError: (error: Error) => {
