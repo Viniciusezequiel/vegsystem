@@ -16,7 +16,10 @@ type TableName =
   | 'material_requests'
   | 'classroom_calls'
   | 'profiles'
-  | 'external_users';
+  | 'external_users'
+  | 'tasks'
+  | 'user_roles'
+  | 'role_permissions';
 
 const tableToQueryKeyMap: Record<TableName, string[]> = {
   reservations: ['reservations', 'reservation-logs'],
@@ -32,6 +35,9 @@ const tableToQueryKeyMap: Record<TableName, string[]> = {
   classroom_calls: ['classroom-calls'],
   profiles: ['profiles', 'users'],
   external_users: ['external-users'],
+  tasks: ['tasks', 'my-tasks', 'task'],
+  user_roles: ['users', 'user-permissions'],
+  role_permissions: ['role-permissions', 'user-permissions'],
 };
 
 export function useRealtimeSubscription(tables: TableName[] = []) {
@@ -93,6 +99,11 @@ export function useGlobalRealtimeSubscription() {
     'lost_items',
     'material_requests',
     'classroom_calls',
+    'profiles',
+    'external_users',
+    'tasks',
+    'user_roles',
+    'role_permissions',
   ];
 
   useRealtimeSubscription(allTables);
