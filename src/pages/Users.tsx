@@ -240,6 +240,7 @@ export default function Users() {
                 key: 'role',
                 options: [
                   { label: 'Administrador', value: 'admin' },
+                  { label: 'Supervisor', value: 'supervisor' },
                   { label: 'Analista', value: 'analista' },
                   { label: 'Assistente', value: 'assistente' },
                 ],
@@ -366,7 +367,7 @@ export default function Users() {
           </Button>
         </Link>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {Object.entries(roleLabels).map(([key, config]) => {
           const Icon = config.icon;
           return (
@@ -377,6 +378,7 @@ export default function Users() {
               </div>
               <p className="text-sm text-muted-foreground">
                 {key === 'admin' && 'Acesso total ao sistema, incluindo gerenciar usuários, permissões e configurações'}
+                {key === 'supervisor' && 'Supervisiona equipes e processos - pode aprovar e gerenciar conforme permissões'}
                 {key === 'analista' && 'Acesso configurável por módulo - pode criar, editar e aprovar, sem acesso a exclusão'}
                 {key === 'assistente' && 'Acesso limitado configurável - principalmente visualização e criação básica'}
               </p>
