@@ -113,12 +113,10 @@ export default function TasksList() {
             </h1>
             <p className="page-subtitle">Gerencie e acompanhe todas as demandas da equipe</p>
           </div>
-          {canCreate('tasks') && (
-            <Button onClick={() => setFormOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Nova Demanda
-            </Button>
-          )}
+          <Button onClick={() => setFormOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Nova Demanda
+          </Button>
         </div>
       </div>
 

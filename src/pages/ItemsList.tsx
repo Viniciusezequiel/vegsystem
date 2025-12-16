@@ -55,10 +55,10 @@ import type { Database } from '@/integrations/supabase/types';
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
 const statusFilters: { value: ItemStatus | 'all'; label: string; restrictedRoles?: string[] }[] = [
-  { value: 'all', label: 'Todos', restrictedRoles: ['admin', 'analista'] },
+  { value: 'all', label: 'Todos', restrictedRoles: ['admin', 'analista', 'supervisor'] },
   { value: 'available', label: 'Disponíveis' },
   { value: 'delivered', label: 'Entregues' },
-  { value: 'expired', label: 'Expirados', restrictedRoles: ['admin', 'analista'] },
+  { value: 'expired', label: 'Expirados', restrictedRoles: ['admin', 'analista', 'supervisor'] },
 ];
 
 const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
@@ -70,6 +70,7 @@ export default function ItemsList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ItemStatus | 'all'>('available');
   const [campusFilter, setCampusFilter] = useState<CampusEnum | 'all'>('all');
+  const [destinationFilter, setDestinationFilter] = useState<'all' | 'donation' | 'disposal'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   
@@ -108,6 +109,16 @@ export default function ItemsList() {
         return false;
       }
 
+      // Destination filter (for delivered items - donation or disposal)
+      if (destinationFilter !== 'all' && statusFilter === 'all') {
+        if (destinationFilter === 'donation' && item.owner_name !== 'DOAÇÃO') {
+          return false;
+        }
+        if (destinationFilter === 'disposal' && item.owner_name !== 'DESCARTE') {
+          return false;
+        }
+      }
+
       // Date range filter
       if (dateFrom || dateTo) {
         const receivedDate = new Date(item.received_date);
@@ -121,7 +132,7 @@ export default function ItemsList() {
 
       return true;
     });
-  }, [items, campusFilter, dateFrom, dateTo]);
+  }, [items, campusFilter, destinationFilter, statusFilter, dateFrom, dateTo]);
 
   // Get expired items for bulk actions
   const expiredItems = useMemo(() => {
@@ -453,7 +464,38 @@ export default function ItemsList() {
           ))}
         </div>
 
-        {/* Action Buttons */}
+        {/* Destination Filter (for "Todos" status) */}
+        {statusFilter === 'all' && (
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-sm text-muted-foreground">Destino:</span>
+            <Button
+              variant={destinationFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDestinationFilter('all')}
+            >
+              Todos
+            </Button>
+            <Button
+              variant={destinationFilter === 'donation' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDestinationFilter('donation')}
+              className="gap-1"
+            >
+              <Gift className="w-4 h-4" />
+              Doação
+            </Button>
+            <Button
+              variant={destinationFilter === 'disposal' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDestinationFilter('disposal')}
+              className="gap-1"
+            >
+              <Trash2 className="w-4 h-4" />
+              Descarte
+            </Button>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={exportToPDF} disabled={filteredItems.length === 0}>
             <FileDown className="w-4 h-4 mr-2" />

@@ -38,9 +38,10 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
       // First, call the function to update expired items
       await supabase.rpc('expire_old_lost_items');
 
+      // Build the base query
       let query = supabase
         .from('lost_items')
-        .select('*', { count: 'exact' })
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (filters?.status && filters.status !== 'all') {
@@ -51,12 +52,28 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
         query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
       }
 
-      // Fetch all items - remove the default 1000 limit by using pagination
-      // Supabase has a max of ~1000 rows per request, so we need multiple requests for large datasets
-      const { data, error, count } = await query.range(0, 49999);
+      // Fetch all items by setting a high limit (Supabase max is 1000 per request)
+      // Use pagination to get all records
+      const allItems: LostItem[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data as LostItem[];
+      while (hasMore) {
+        const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allItems.push(...(data as LostItem[]));
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return allItems;
     },
   });
 }
