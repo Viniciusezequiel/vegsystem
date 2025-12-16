@@ -1294,7 +1294,7 @@ export type Database = {
       is_internal_user: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "analista" | "assistente"
+      app_role: "admin" | "analista" | "assistente" | "supervisor"
       campus_enum: "Campus I" | "Campus II" | "Campus IV" | "Campus HUCM Adm"
       equipment_status: "available" | "borrowed" | "maintenance"
       loan_status: "active" | "returned" | "overdue"
@@ -1426,7 +1426,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "analista", "assistente"],
+      app_role: ["admin", "analista", "assistente", "supervisor"],
       campus_enum: ["Campus I", "Campus II", "Campus IV", "Campus HUCM Adm"],
       equipment_status: ["available", "borrowed", "maintenance"],
       loan_status: ["active", "returned", "overdue"],
