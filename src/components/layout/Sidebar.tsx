@@ -163,9 +163,7 @@ const moduleGroups: NavGroup[] = [
     gradient: 'from-teal-500 to-cyan-500',
     module: 'tasks',
     items: [
-      // Deve ser acessível para usuários internos (não apenas admin),
-      // já que qualquer usuário autenticado pode criar demandas.
-      { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck },
+      { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck, adminOnly: true },
       { name: 'Minhas Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck, hasBadge: true },
       { name: 'Dashboard', href: '/tasks/dashboard', icon: BarChart3, adminOnly: true },
     ],
