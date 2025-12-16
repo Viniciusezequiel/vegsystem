@@ -21,6 +21,7 @@ import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Loader2, Save } from 'lucide-react';
 import { useCreateTask, useUpdateTask, Task } from '@/hooks/useTasks';
 import { useUsersList } from '@/hooks/useUsers';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ interface TaskFormDialogProps {
 }
 
 export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDialogProps) {
+  const { isAdmin } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -45,6 +47,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
   const updateMutation = useUpdateTask();
 
   const isEditing = !!task;
+  // Only admin can change the assignee when editing
+  const canChangeAssignee = !isEditing || isAdmin;
 
   useEffect(() => {
     if (task) {
@@ -169,8 +173,9 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
               <Select
                 value={formData.assigned_to || '_none'}
                 onValueChange={(value) => setFormData({ ...formData, assigned_to: value === '_none' ? '' : value })}
+                disabled={!canChangeAssignee}
               >
-                <SelectTrigger>
+                <SelectTrigger className={!canChangeAssignee ? 'opacity-60' : ''}>
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -182,6 +187,11 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
                   ))}
                 </SelectContent>
               </Select>
+              {!canChangeAssignee && (
+                <p className="text-xs text-muted-foreground">
+                  Apenas administradores podem alterar o responsável
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

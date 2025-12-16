@@ -32,7 +32,8 @@ import {
   FileText,
   Building2
 } from 'lucide-react';
-import { useActivityLogs, getActionLabel, getModuleLabel } from '@/hooks/useActivityLogs';
+import { useActivityLogs, getActionLabel, getModuleLabel, ActivityLog } from '@/hooks/useActivityLogs';
+import { ActivityDetailDialog } from '@/components/activity/ActivityDetailDialog';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -61,6 +62,7 @@ const actionVariants: Record<string, 'default' | 'secondary' | 'destructive' | '
 };
 
 export default function ActivityHistory() {
+  const [selectedActivity, setSelectedActivity] = useState<ActivityLog | null>(null);
   const [moduleFilter, setModuleFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -190,7 +192,11 @@ export default function ActivityHistory() {
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
-                    <TableRow key={log.id}>
+                    <TableRow 
+                      key={log.id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setSelectedActivity(log)}
+                    >
                       <TableCell className="whitespace-nowrap text-sm">
                         {formatDateTime(log.created_at)}
                       </TableCell>
@@ -222,6 +228,12 @@ export default function ActivityHistory() {
           )}
         </CardContent>
       </Card>
+
+      <ActivityDetailDialog
+        open={!!selectedActivity}
+        onOpenChange={(open) => !open && setSelectedActivity(null)}
+        activity={selectedActivity}
+      />
     </MainLayout>
   );
 }
