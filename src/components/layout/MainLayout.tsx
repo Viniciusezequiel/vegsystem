@@ -113,7 +113,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             <OnlineUsersIndicator />
           </div>
         </div>
-        <div className="p-4 lg:p-8 pt-20 max-w-[1600px] mx-auto">
+        <div className="p-4 lg:p-8 pt-24 max-w-[1600px] mx-auto">
           {children}
         </div>
       </main>
