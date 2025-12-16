@@ -23,6 +23,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  isSupervisor: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -126,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signOut,
     isAdmin: role === 'admin',
+    isSupervisor: role === 'supervisor',
   };
 
   return (

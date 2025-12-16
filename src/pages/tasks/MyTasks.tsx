@@ -36,6 +36,7 @@ import {
   MessageSquare,
   Send,
   AlertCircle,
+  Plus,
 } from 'lucide-react';
 import { useMyTasks, useUpdateTask, useTaskComments, useAddTaskComment, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -43,11 +44,13 @@ import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import TaskFormDialog from '@/components/tasks/TaskFormDialog';
 
 export default function MyTasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [comment, setComment] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
 
   const { data: tasks, isLoading } = useMyTasks();
   const updateMutation = useUpdateTask();
@@ -88,11 +91,19 @@ export default function MyTasks() {
   return (
     <MainLayout>
       <div className="page-header">
-        <h1 className="page-title flex items-center gap-2">
-          <ClipboardCheck className="w-6 h-6" />
-          Minhas Demandas
-        </h1>
-        <p className="page-subtitle">Acompanhe e atualize suas demandas atribuídas</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="page-title flex items-center gap-2">
+              <ClipboardCheck className="w-6 h-6" />
+              Minhas Demandas
+            </h1>
+            <p className="page-subtitle">Acompanhe e atualize suas demandas atribuídas</p>
+          </div>
+          <Button onClick={() => setFormOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Nova Demanda
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -416,6 +427,12 @@ export default function MyTasks() {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      <TaskFormDialog 
+        open={formOpen} 
+        onOpenChange={setFormOpen}
+        task={null}
+      />
     </MainLayout>
   );
 }

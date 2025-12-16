@@ -55,6 +55,7 @@ import {
 } from 'lucide-react';
 import { useTasks, useDeleteTask, useUpdateTask, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
 import { useUserPermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import TaskFormDialog from '@/components/tasks/TaskFormDialog';
@@ -75,9 +76,13 @@ export default function TasksList() {
     search: search || undefined,
   });
 
+  const { isAdmin, isSupervisor } = useAuth();
   const { canCreate, canEdit, canDelete } = useUserPermissions();
   const deleteMutation = useDeleteTask();
   const updateMutation = useUpdateTask();
+
+  // Only admin and supervisor can perform actions in this view
+  const canPerformActions = isAdmin || isSupervisor;
 
   const handleStatusChange = (task: Task, newStatus: string) => {
     updateMutation.mutate({
@@ -111,12 +116,8 @@ export default function TasksList() {
               <ClipboardList className="w-6 h-6" />
               Gestão de Demandas
             </h1>
-            <p className="page-subtitle">Gerencie e acompanhe todas as demandas da equipe</p>
+            <p className="page-subtitle">Acompanhe todas as demandas da equipe</p>
           </div>
-          <Button onClick={() => setFormOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Nova Demanda
-          </Button>
         </div>
       </div>
 
@@ -271,44 +272,48 @@ export default function TasksList() {
                               <Eye className="w-4 h-4 mr-2" />
                               Ver Detalhes
                             </DropdownMenuItem>
-                            {canEdit('tasks') && (
+                            {canPerformActions && canEdit('tasks') && (
                               <DropdownMenuItem onClick={() => setEditTask(task)}>
                                 <Edit className="w-4 h-4 mr-2" />
                                 Editar
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuSeparator />
-                            {task.status === 'pending' && (
-                              <DropdownMenuItem onClick={() => handleStatusChange(task, 'in_progress')}>
-                                <PlayCircle className="w-4 h-4 mr-2 text-blue-500" />
-                                Iniciar
-                              </DropdownMenuItem>
-                            )}
-                            {task.status === 'in_progress' && (
+                            {canPerformActions && (
                               <>
-                                <DropdownMenuItem onClick={() => handleStatusChange(task, 'completed')}>
-                                  <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                  Concluir
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleStatusChange(task, 'on_hold')}>
-                                  <PauseCircle className="w-4 h-4 mr-2 text-orange-500" />
-                                  Pausar
-                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {task.status === 'pending' && (
+                                  <DropdownMenuItem onClick={() => handleStatusChange(task, 'in_progress')}>
+                                    <PlayCircle className="w-4 h-4 mr-2 text-blue-500" />
+                                    Iniciar
+                                  </DropdownMenuItem>
+                                )}
+                                {task.status === 'in_progress' && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleStatusChange(task, 'completed')}>
+                                      <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                                      Concluir
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleStatusChange(task, 'on_hold')}>
+                                      <PauseCircle className="w-4 h-4 mr-2 text-orange-500" />
+                                      Pausar
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {task.status === 'on_hold' && (
+                                  <DropdownMenuItem onClick={() => handleStatusChange(task, 'in_progress')}>
+                                    <PlayCircle className="w-4 h-4 mr-2 text-blue-500" />
+                                    Retomar
+                                  </DropdownMenuItem>
+                                )}
+                                {!['completed', 'cancelled'].includes(task.status) && (
+                                  <DropdownMenuItem onClick={() => handleStatusChange(task, 'cancelled')}>
+                                    <XCircle className="w-4 h-4 mr-2 text-destructive" />
+                                    Cancelar
+                                  </DropdownMenuItem>
+                                )}
                               </>
                             )}
-                            {task.status === 'on_hold' && (
-                              <DropdownMenuItem onClick={() => handleStatusChange(task, 'in_progress')}>
-                                <PlayCircle className="w-4 h-4 mr-2 text-blue-500" />
-                                Retomar
-                              </DropdownMenuItem>
-                            )}
-                            {!['completed', 'cancelled'].includes(task.status) && (
-                              <DropdownMenuItem onClick={() => handleStatusChange(task, 'cancelled')}>
-                                <XCircle className="w-4 h-4 mr-2 text-destructive" />
-                                Cancelar
-                              </DropdownMenuItem>
-                            )}
-                            {canDelete('tasks') && (
+                            {canPerformActions && canDelete('tasks') && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
