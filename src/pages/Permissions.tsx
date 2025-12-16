@@ -30,7 +30,7 @@ const MODULES: Module[] = [
 ];
 
 const ACTIONS: Action[] = ['view', 'create', 'edit', 'delete', 'approve'];
-const ROLES: AppRole[] = ['admin', 'analista', 'assistente'];
+const ROLES: AppRole[] = ['admin', 'supervisor', 'analista', 'assistente'];
 
 export default function Permissions() {
   const { data: permissions, isLoading } = useRolePermissions();
@@ -42,6 +42,7 @@ export default function Permissions() {
     
     const grouped: Record<AppRole, Record<string, Record<string, { id: string; allowed: boolean }>>> = {
       admin: {},
+      supervisor: {},
       analista: {},
       assistente: {},
     };
@@ -110,6 +111,7 @@ export default function Permissions() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
                       {role === 'admin' && <ShieldCheck className="h-5 w-5 text-green-500" />}
+                      {role === 'supervisor' && <Shield className="h-5 w-5 text-purple-500" />}
                       {role === 'analista' && <Shield className="h-5 w-5 text-blue-500" />}
                       {role === 'assistente' && <ShieldX className="h-5 w-5 text-orange-500" />}
                       {ROLE_LABELS[role]}
@@ -127,6 +129,7 @@ export default function Permissions() {
                     <div 
                       className={`h-full transition-all ${
                         role === 'admin' ? 'bg-green-500' : 
+                        role === 'supervisor' ? 'bg-purple-500' :
                         role === 'analista' ? 'bg-blue-500' : 'bg-orange-500'
                       }`}
                       style={{ width: `${percentage}%` }}

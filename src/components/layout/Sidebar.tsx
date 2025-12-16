@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions, type Module } from '@/hooks/usePermissions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState, createContext, useContext } from 'react';
@@ -54,6 +55,7 @@ interface NavItem {
   icon: React.ElementType;
   adminOnly?: boolean;
   hasBadge?: boolean;
+  module?: Module;
 }
 
 interface NavGroup {
@@ -62,6 +64,7 @@ interface NavGroup {
   items: NavItem[];
   basePath: string;
   gradient?: string;
+  module?: Module; // Maps to permission module
 }
 
 const mainNav: NavItem[] = [
@@ -74,6 +77,7 @@ const moduleGroups: NavGroup[] = [
     icon: Package,
     basePath: '/lost-found',
     gradient: 'from-purple-500 to-pink-500',
+    module: 'lostAndFound',
     items: [
       { name: 'Registrar Item', href: '/lost-found/register', icon: PackagePlus },
       { name: 'Buscar Itens', href: '/lost-found/items', icon: Search },
@@ -85,6 +89,7 @@ const moduleGroups: NavGroup[] = [
     icon: Monitor,
     basePath: '/equipment',
     gradient: 'from-cyan-500 to-blue-500',
+    module: 'equipment',
     items: [
       { name: 'Inventário', href: '/equipment', icon: Monitor },
       { name: 'Empréstimos', href: '/equipment/loans', icon: PackagePlus },
@@ -96,6 +101,7 @@ const moduleGroups: NavGroup[] = [
     icon: ClipboardCheck,
     basePath: '/rooms',
     gradient: 'from-green-500 to-emerald-500',
+    module: 'rooms',
     items: [
       { name: 'Novo Checklist', href: '/rooms/checklist/new', icon: ClipboardCheck },
       { name: 'Checklists', href: '/rooms/checklists', icon: Search },
@@ -107,6 +113,7 @@ const moduleGroups: NavGroup[] = [
     icon: Lock,
     basePath: '/lockers',
     gradient: 'from-orange-500 to-amber-500',
+    module: 'lockers',
     items: [
       { name: 'Escaninhos', href: '/lockers', icon: Lock },
       { name: 'Alocações', href: '/lockers/loans', icon: Users },
@@ -117,6 +124,7 @@ const moduleGroups: NavGroup[] = [
     icon: CalendarDays,
     basePath: '/reservations',
     gradient: 'from-indigo-500 to-violet-500',
+    module: 'reservations',
     items: [
       { name: 'Ambientes', href: '/reservations', icon: CalendarDays },
       { name: 'Reservas', href: '/reservations/list', icon: List },
@@ -131,6 +139,7 @@ const moduleGroups: NavGroup[] = [
     icon: ShoppingCart,
     basePath: '/materials',
     gradient: 'from-rose-500 to-pink-500',
+    module: 'materials',
     items: [
       { name: 'Minhas Solicitações', href: '/materials/my-requests', icon: FileText },
       { name: 'Nova Solicitação', href: '/materials/new', icon: PackagePlus },
@@ -142,6 +151,7 @@ const moduleGroups: NavGroup[] = [
     icon: Bell,
     basePath: '/classroom-calls',
     gradient: 'from-red-500 to-orange-500',
+    module: 'classroomCalls',
     items: [
       { name: 'Chamados', href: '/classroom-calls', icon: Bell },
     ],
@@ -151,6 +161,7 @@ const moduleGroups: NavGroup[] = [
     icon: ClipboardCheck,
     basePath: '/tasks',
     gradient: 'from-teal-500 to-cyan-500',
+    module: 'tasks',
     items: [
       { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck, adminOnly: true },
       { name: 'Minhas Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck, hasBadge: true },
@@ -162,9 +173,9 @@ const moduleGroups: NavGroup[] = [
 const bottomNav: NavItem[] = [
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
   { name: 'Histórico de Atividades', href: '/activity-history', icon: History },
-  { name: 'Usuários', href: '/users', icon: Users, adminOnly: true },
+  { name: 'Usuários', href: '/users', icon: Users, adminOnly: true, module: 'users' },
   { name: 'Permissões', href: '/permissions', icon: Shield, adminOnly: true },
-  { name: 'Configurações', href: '/settings', icon: Settings },
+  { name: 'Configurações', href: '/settings', icon: Settings, module: 'settings' },
 ];
 
 interface SidebarProps {
@@ -178,10 +189,18 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, role, signOut, isAdmin } = useAuth();
+  const { canView } = useUserPermissions();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { data: pendingCallsCount } = usePendingCallsCount();
   const { pendingTasksCount } = useTaskNotifications();
+
+  // Filter module groups based on view permissions
+  const visibleModuleGroups = moduleGroups.filter(group => {
+    if (!group.module) return true; // No module restriction
+    if (isAdmin) return true; // Admin sees everything
+    return canView(group.module);
+  });
 
   // Close mobile menu on navigation
   const handleNavClick = () => {
@@ -229,6 +248,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   const getRoleLabel = (role: string | null) => {
     switch (role) {
       case 'admin': return 'Administrador';
+      case 'supervisor': return 'Supervisor';
       case 'analista': return 'Analista';
       case 'assistente': return 'Assistente';
       default: return 'Usuário';
@@ -332,7 +352,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
           {collapsed && <div className="h-4" />}
 
           {/* Module Groups */}
-          {moduleGroups.map((group) => {
+          {visibleModuleGroups.map((group) => {
             const isGroupActive = location.pathname.startsWith(group.basePath);
             const isOpen = openGroups.includes(group.basePath) && !collapsed;
 
@@ -445,7 +465,10 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
 
           {/* Bottom Nav */}
           {bottomNav.map((item) => {
+            // Check adminOnly flag first
             if (item.adminOnly && !isAdmin) return null;
+            // Check module permission if specified
+            if (item.module && !isAdmin && !canView(item.module)) return null;
             const isActive = location.pathname === item.href;
             const link = (
               <RouterNavLink
