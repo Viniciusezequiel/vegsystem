@@ -61,6 +61,7 @@ export function useRoomsList() {
       if (error) throw error;
       return data as Room[];
     },
+    staleTime: 3 * 60 * 1000, // 3 minutes - rooms rarely change
   });
 }
 

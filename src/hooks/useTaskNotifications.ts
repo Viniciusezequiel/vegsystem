@@ -1,9 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function useTaskNotifications() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: pendingTasksCount = 0 } = useQuery({
     queryKey: ['pending-tasks-count', user?.id],
@@ -20,8 +23,33 @@ export function useTaskNotifications() {
       return count || 0;
     },
     enabled: !!user?.id,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 60000, // 1 minute - realtime will handle updates
   });
+
+  // Use realtime subscription instead of polling
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('task-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `assigned_to=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['pending-tasks-count', user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
 
   return {
     pendingTasksCount,

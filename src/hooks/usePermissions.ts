@@ -72,6 +72,7 @@ export function useRolePermissions() {
       if (error) throw error;
       return data as RolePermission[];
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes - permissions rarely change
   });
 }
 
@@ -138,6 +139,7 @@ export function useUserPermissions() {
       return data as RolePermission[];
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes - user permissions rarely change during session
   });
 
   const hasPermission = (module: Module, action: Action): boolean => {
