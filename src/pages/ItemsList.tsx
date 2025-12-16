@@ -444,6 +444,26 @@ export default function ItemsList() {
               className="w-[130px]"
             />
           </div>
+
+          {/* Clear Filters Button */}
+          {(searchQuery || campusFilter !== 'all' || statusFilter !== 'available' || destinationFilter !== 'all' || dateFrom || dateTo) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery('');
+                setCampusFilter('all');
+                setStatusFilter('available');
+                setDestinationFilter('all');
+                setDateFrom('');
+                setDateTo('');
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Limpar Filtros
+            </Button>
+          )}
         </div>
 
         {/* Status Filter */}

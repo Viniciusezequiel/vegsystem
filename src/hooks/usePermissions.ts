@@ -13,7 +13,8 @@ export type Module =
   | 'users' 
   | 'settings' 
   | 'classroomCalls'
-  | 'tasks';
+  | 'tasks'
+  | 'activityHistory';
 
 export type Action = 'view' | 'create' | 'edit' | 'delete' | 'approve';
 
@@ -40,6 +41,7 @@ export const MODULE_LABELS: Record<Module, string> = {
   settings: 'Configurações',
   classroomCalls: 'Chamados de Sala',
   tasks: 'Demandas',
+  activityHistory: 'Histórico de Atividades',
 };
 
 export const ACTION_LABELS: Record<Action, string> = {
