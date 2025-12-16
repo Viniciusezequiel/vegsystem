@@ -31,7 +31,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2 } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History } from 'lucide-react';
+import { UserActivityDialog } from '@/components/users/UserActivityDialog';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useUsersList, useUpdateUserProfile, useToggleUserActive, useDeleteUser, UserProfile, AppRole } from '@/hooks/useUsers';
@@ -51,6 +52,8 @@ export default function Users() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
+  const [activityUser, setActivityUser] = useState<UserProfile | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<UserProfile | null>(null);
   const [newPasswordValue, setNewPasswordValue] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
@@ -448,6 +451,17 @@ export default function Users() {
                         <Button 
                           variant="ghost" 
                           size="sm"
+                          onClick={() => {
+                            setActivityUser(user);
+                            setIsActivityDialogOpen(true);
+                          }}
+                          title="Ver Atividades"
+                        >
+                          <History className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
                           onClick={() => handleEditUser(user)}
                           title="Editar"
                         >
@@ -609,6 +623,19 @@ export default function Users() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* User Activity Dialog */}
+      {activityUser && (
+        <UserActivityDialog
+          open={isActivityDialogOpen}
+          onOpenChange={(open) => {
+            setIsActivityDialogOpen(open);
+            if (!open) setActivityUser(null);
+          }}
+          userId={activityUser.user_id}
+          userName={activityUser.full_name}
+        />
+      )}
     </MainLayout>
   );
 }
