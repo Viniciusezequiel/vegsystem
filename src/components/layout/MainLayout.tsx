@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Sidebar } from './Sidebar';
 import { OnlineUsersIndicator } from './OnlineUsersIndicator';
 import { cn } from '@/lib/utils';
@@ -16,12 +16,36 @@ export function MainLayout({ children }: MainLayoutProps) {
   useGlobalRealtimeSubscription();
   const isMobile = useIsMobile();
 
+  const topBarRef = useRef<HTMLDivElement | null>(null);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const stored = localStorage.getItem('sidebar-collapsed');
     return stored === 'true';
   });
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = topBarRef.current;
+    if (!el) return;
+
+    const setTopbarHeightVar = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      document.documentElement.style.setProperty('--app-topbar-height', `${h}px`);
+    };
+
+    setTopbarHeightVar();
+
+    const ro = new ResizeObserver(() => setTopbarHeightVar());
+    ro.observe(el);
+    window.addEventListener('resize', setTopbarHeightVar);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', setTopbarHeightVar);
+    };
+  }, []);
+
 
   // Close mobile menu when switching to desktop
   useEffect(() => {
@@ -88,10 +112,13 @@ export function MainLayout({ children }: MainLayoutProps) {
         'ml-0'
       )}>
         {/* Top Bar */}
-        <div className={cn(
-          'fixed top-0 right-0 z-20 px-4 lg:px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 transition-all duration-300 left-0',
-          !isMobile && (sidebarCollapsed ? 'lg:left-16' : 'lg:left-64')
-        )}>
+        <div
+          ref={topBarRef}
+          className={cn(
+            'fixed top-0 right-0 z-20 px-4 lg:px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 transition-all duration-300 left-0',
+            !isMobile && (sidebarCollapsed ? 'lg:left-16' : 'lg:left-64')
+          )}
+        >
           <div className="flex items-center justify-between max-w-[1600px] mx-auto">
             {/* Mobile Menu Button */}
             <Button
@@ -113,7 +140,10 @@ export function MainLayout({ children }: MainLayoutProps) {
             <OnlineUsersIndicator />
           </div>
         </div>
-        <div className="p-4 lg:p-8 pt-24 max-w-[1600px] mx-auto">
+        <div
+          className="p-4 lg:p-8 max-w-[1600px] mx-auto"
+          style={{ paddingTop: 'calc(var(--app-topbar-height, 96px) + 1rem)' }}
+        >
           {children}
         </div>
       </main>
