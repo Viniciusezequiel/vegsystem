@@ -42,6 +42,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const roleLabels: Record<AppRole, { label: string; icon: React.ElementType; color: string }> = {
   admin: { label: 'Administrador', icon: Shield, color: 'text-destructive' },
+  supervisor: { label: 'Supervisor', icon: Shield, color: 'text-warning' },
   analista: { label: 'Analista', icon: BarChart3, color: 'text-primary' },
   assistente: { label: 'Assistente', icon: Eye, color: 'text-muted-foreground' },
 };
@@ -334,6 +335,7 @@ export default function Users() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Administrador - Acesso total</SelectItem>
+                    <SelectItem value="supervisor">Supervisor - Gerenciar e aprovar</SelectItem>
                     <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
                     <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
                   </SelectContent>
@@ -547,6 +549,7 @@ export default function Users() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Administrador - Acesso total</SelectItem>
+                  <SelectItem value="supervisor">Supervisor - Gerenciar e aprovar</SelectItem>
                   <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
                   <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
                 </SelectContent>

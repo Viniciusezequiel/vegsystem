@@ -62,8 +62,8 @@ export default function MaterialRequestForm() {
     navigate('/materials');
   };
 
-  // Filter only active collaborators and admins
-  const collaborators = users.filter(u => u.is_active && (u.role === 'admin' || u.role === 'analista'));
+  // Show all active users for assignment
+  const collaborators = users.filter(u => u.is_active);
 
   return (
     <MainLayout>

@@ -184,6 +184,7 @@ export default function LockerLoanForm() {
                             <SelectItem value="Enfermagem">Enfermagem</SelectItem>
                             <SelectItem value="Fonoaudiologia">Fonoaudiologia</SelectItem>
                             <SelectItem value="Psicologia">Psicologia</SelectItem>
+                            <SelectItem value="Funcionário">Funcionário</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
