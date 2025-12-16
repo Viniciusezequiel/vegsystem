@@ -126,20 +126,24 @@ export function useUserPermissions() {
   const { user, role } = useAuth();
 
   const { data: permissions, isLoading } = useQuery({
-    queryKey: ['user-permissions', user?.id],
+    queryKey: ['user-permissions', user?.id, role],
     queryFn: async () => {
       if (!user) return null;
-      
+
       const { data, error } = await supabase
         .from('role_permissions')
         .select('*')
         .eq('role', role || 'assistente');
-      
+
       if (error) throw error;
       return data as RolePermission[];
     },
     enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutes - user permissions rarely change during session
+    // Keep reasonably fresh so permission changes take effect quickly
+    // (especially after admins update permissions in /permissions)
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const hasPermission = (module: Module, action: Action): boolean => {
