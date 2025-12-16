@@ -20,6 +20,7 @@ export function useRoomCombinations() {
       if (error) throw error;
       return data as RoomCombination[];
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes - combinations rarely change
   });
 }
 

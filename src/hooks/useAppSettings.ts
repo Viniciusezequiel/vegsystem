@@ -37,6 +37,7 @@ export function useAppSettings() {
       if (error) throw error;
       return data as AppSetting[];
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes - settings rarely change
   });
 }
 
@@ -68,6 +69,7 @@ export function useExternalBookingSettings() {
         blocked_periods: value.blocked_periods || [],
       };
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 

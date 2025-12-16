@@ -97,6 +97,7 @@ export function usePendingCallsCount() {
       if (error) throw error;
       return count || 0;
     },
+    staleTime: 30000, // 30 seconds - realtime handles updates
   });
 }
 

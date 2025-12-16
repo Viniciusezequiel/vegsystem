@@ -45,6 +45,7 @@ export function useUsersList() {
 
       return usersWithRoles as UserProfile[];
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes - user list doesn't change frequently
   });
 }
 
