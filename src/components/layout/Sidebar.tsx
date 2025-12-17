@@ -92,6 +92,7 @@ const moduleGroups: NavGroup[] = [
     module: 'equipment',
     items: [
       { name: 'Inventário', href: '/equipment', icon: Monitor },
+      { name: 'Gestão de Patrimônios', href: '/equipment/inventory', icon: Package },
       { name: 'Empréstimos', href: '/equipment/loans', icon: PackagePlus },
       { name: 'Solicitações Ext.', href: '/equipment/external-requests', icon: Users },
     ],

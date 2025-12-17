@@ -200,9 +200,13 @@ export default function ExternalBooking() {
   // Fetch equipment requests by email
   const { data: myEquipmentRequests } = useExternalEquipmentRequestsByEmail(emailFilter);
 
-  // Available equipment for selection
+  // Available equipment for selection (only items allowed for external loan)
   const availableEquipment = useMemo(() => {
-    return equipment?.filter(e => e.available_quantity > 0 && e.status === 'available') || [];
+    return equipment?.filter(e => 
+      e.available_quantity > 0 && 
+      e.status === 'available' && 
+      (e as any).allow_external_loan !== false
+    ) || [];
   }, [equipment]);
 
   const handleSearch = async (e: React.FormEvent) => {
