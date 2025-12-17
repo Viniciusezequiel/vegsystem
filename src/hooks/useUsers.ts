@@ -8,6 +8,7 @@ export type UserProfile = {
   id: string;
   user_id: string;
   full_name: string;
+  email: string | null;
   position: string;
   department: string;
   avatar_url: string | null;

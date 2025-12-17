@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
       .insert({
         user_id: newUser.user.id,
         full_name,
+        email,
         position: position || '',
         department: department || '',
       });

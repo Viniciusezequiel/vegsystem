@@ -397,6 +397,8 @@ export default function Users() {
             <thead className="bg-muted/50">
               <tr>
                 <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground">Usuário</th>
+                <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Email</th>
+                <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Cargo</th>
                 <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Setor</th>
                 <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground">Permissão</th>
                 <th className="text-left px-4 sm:px-6 py-4 text-sm font-medium text-muted-foreground hidden sm:table-cell">Ativo</th>
@@ -427,9 +429,15 @@ export default function Users() {
                         </Avatar>
                         <div className="min-w-0">
                           <span className="font-medium block truncate">{user.full_name}</span>
-                          <span className="text-xs text-muted-foreground block sm:hidden">{user.position || '-'}</span>
+                          <span className="text-xs text-muted-foreground block md:hidden">{user.email || '-'}</span>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-muted-foreground hidden lg:table-cell">
+                      <span className="truncate block max-w-[200px]">{user.email || '-'}</span>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-muted-foreground hidden md:table-cell">
+                      {user.position || '-'}
                     </td>
                     <td className="px-4 sm:px-6 py-4 text-muted-foreground hidden md:table-cell">
                       {user.department || '-'}
