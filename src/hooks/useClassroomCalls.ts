@@ -138,7 +138,8 @@ export function useAcceptClassroomCall() {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      // Only accept if still pending
+      const { data, error } = await supabase
         .from('classroom_calls')
         .update({
           status: 'accepted',
@@ -146,13 +147,20 @@ export function useAcceptClassroomCall() {
           accepted_by_name: profile?.full_name,
           accepted_at: new Date().toISOString(),
         })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'pending')
+        .select()
+        .single();
       
       if (error) throw error;
+      if (!data) throw new Error('Chamado já foi aceito por outro colaborador');
+      return data;
     },
     onSuccess: () => {
+      // Force immediate refetch
       queryClient.invalidateQueries({ queryKey: ['classroom-calls'] });
       queryClient.invalidateQueries({ queryKey: ['pending-calls-count'] });
+      queryClient.refetchQueries({ queryKey: ['classroom-calls'] });
       toast({
         title: 'Chamado aceito',
         description: 'Você aceitou o chamado.',
