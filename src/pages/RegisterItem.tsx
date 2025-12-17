@@ -269,22 +269,22 @@ export default function RegisterItem() {
 
             <div className="form-section animate-fade-in" style={{ animationDelay: '150ms' }}>
               <h3 className="font-medium text-foreground mb-4">Armazenamento</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <Label htmlFor="shelf">Prateleira</Label>
+                  <Label htmlFor="shelf">Estante</Label>
                   <Input
                     id="shelf"
-                    placeholder="Ex: A1"
+                    placeholder="Ex: A"
                     className="mt-1.5"
                     value={shelf}
                     onChange={(e) => setShelf(e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="box">Caixa</Label>
+                  <Label htmlFor="box">Prateleira</Label>
                   <Input
                     id="box"
-                    placeholder="Ex: Caixa 01"
+                    placeholder="Ex: 01"
                     className="mt-1.5"
                     value={box}
                     onChange={(e) => setBox(e.target.value)}

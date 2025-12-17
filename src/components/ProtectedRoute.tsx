@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, isLoading, isAdmin, profile } = useAuth();
+  const { user, isLoading, isAdmin, profile, role } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -22,8 +22,28 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     );
   }
 
+  // User must be logged in
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  // SECURITY: User must have a role (be an internal user) to access protected routes
+  // This prevents external users from accessing admin panel
+  if (!role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center p-8 max-w-md">
+          <h1 className="text-2xl font-bold text-destructive mb-2">Acesso Não Autorizado</h1>
+          <p className="text-muted-foreground mb-4">
+            Você não tem permissão para acessar o painel administrativo.
+            Este acesso é restrito a colaboradores internos.
+          </p>
+          <a href="/auth" className="text-primary hover:underline">
+            Voltar para login
+          </a>
+        </div>
+      </div>
+    );
   }
 
   // Check if user profile is active
