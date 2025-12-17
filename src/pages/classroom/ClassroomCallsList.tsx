@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/usePermissions';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClassroomCallValidationDialog from '@/components/classroom/ClassroomCallValidationDialog';
 
@@ -23,12 +24,17 @@ const statusConfig = {
 
 export default function ClassroomCallsList() {
   const { isAdmin } = useAuth();
+  const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Permission checks for classroom calls
+  const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
+  const canDeleteCalls = isAdmin || canDelete('classroomCalls');
   
   const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab);
   const { data: pendingCount } = usePendingCallsCount();
@@ -329,7 +335,7 @@ export default function ClassroomCallsList() {
                             <TableCell>{call.accepted_by_name || '-'}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
-                                {call.status === 'pending' && (
+                                {call.status === 'pending' && canManageCalls && (
                                   <Button
                                     size="sm"
                                     onClick={() => handleOpenAcceptDialog(call.id)}
@@ -339,7 +345,7 @@ export default function ClassroomCallsList() {
                                     Aceitar
                                   </Button>
                                 )}
-                                {call.status === 'accepted' && (
+                                {call.status === 'accepted' && canManageCalls && (
                                   <Button
                                     size="sm"
                                     variant="secondary"
@@ -350,7 +356,7 @@ export default function ClassroomCallsList() {
                                     Resolver
                                   </Button>
                                 )}
-                                {isAdmin && (
+                                {canDeleteCalls && (
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                       <Button size="sm" variant="ghost" className="text-destructive">
