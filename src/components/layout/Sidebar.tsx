@@ -31,6 +31,8 @@ import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
 import { usePendingReservationsCount } from '@/hooks/useReservations';
+import { useExternalEquipmentNotifications, usePendingExternalEquipmentCount } from '@/hooks/useExternalEquipmentNotifications';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions, type Module } from '@/hooks/usePermissions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -94,7 +96,7 @@ const moduleGroups: NavGroup[] = [
     items: [
       { name: 'Patrimônios', href: '/equipment', icon: Package },
       { name: 'Empréstimos', href: '/equipment/loans', icon: PackagePlus },
-      { name: 'Solicitações Ext.', href: '/equipment/external-requests', icon: Users },
+      { name: 'Solicitações Ext.', href: '/equipment/external-requests', icon: Users, hasBadge: true },
     ],
   },
   {
@@ -197,6 +199,11 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   const { pendingTasksCount } = useTaskNotifications();
   const { pendingMaterialsCount } = useMaterialNotifications();
   const { data: pendingReservationsCount } = usePendingReservationsCount();
+  
+  // Equipment external requests notifications
+  useExternalEquipmentNotifications();
+  const pendingEquipmentConfig = usePendingExternalEquipmentCount();
+  const { data: pendingEquipmentCount } = useQuery(pendingEquipmentConfig);
 
   // Filter module groups based on view permissions
   const visibleModuleGroups = moduleGroups.filter(group => {
@@ -427,9 +434,10 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                     const badgeCount = item.hasBadge 
                       ? (group.basePath === '/materials' ? pendingMaterialsCount 
                         : group.basePath === '/reservations' ? pendingReservationsCount 
+                        : group.basePath === '/equipment' ? pendingEquipmentCount
                         : pendingTasksCount)
                       : 0;
-                    const showBadge = item.hasBadge && badgeCount > 0;
+                    const showBadge = item.hasBadge && badgeCount && badgeCount > 0;
                     return (
                       <RouterNavLink
                         key={item.href}

@@ -52,8 +52,9 @@ const statusLabels: Record<string, { label: string; variant: 'default' | 'second
   confirmed: { label: 'Confirmada', variant: 'secondary' },
   cancelled: { label: 'Cancelada', variant: 'destructive' },
   completed: { label: 'Concluída', variant: 'outline' },
-  approved: { label: 'Aprovada', variant: 'secondary' },
-  rejected: { label: 'Rejeitada', variant: 'destructive' },
+  approved: { label: 'Aprovado', variant: 'secondary' },
+  awaiting_pickup: { label: 'Aguardando Retirada', variant: 'default' },
+  rejected: { label: 'Rejeitado', variant: 'destructive' },
   loaned: { label: 'Emprestado', variant: 'outline' },
   returned: { label: 'Devolvido', variant: 'outline' },
 };
@@ -968,88 +969,135 @@ export default function ExternalBooking() {
 
           {/* My Reservations Tab */}
           <TabsContent value="myreservations">
-            <Card className="glass-morphism border-primary/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <List className="w-5 h-5" />
-                  Minhas Solicitações
-                </CardTitle>
-                <CardDescription>Visualize suas reservas e empréstimos</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Reservations */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Reservas de Salas
-                  </h4>
+            <div className="space-y-6">
+              {/* Room Reservations Section */}
+              <Card className="glass-morphism border-primary/20">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    Minhas Reservas de Salas
+                  </CardTitle>
+                  <CardDescription>Acompanhe o status das suas reservas</CardDescription>
+                </CardHeader>
+                <CardContent>
                   {myReservations.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhuma reserva encontrada.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {myReservations.map((r) => (
-                        <div key={r.id} className="p-3 rounded-lg border bg-card">
-                          <div className="flex justify-between items-start gap-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{r.title}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {r.reservation_rooms?.name} • {formatDateTime(r.start_datetime)}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <Badge variant={statusLabels[r.status]?.variant || 'default'}>
-                                {statusLabels[r.status]?.label || r.status}
-                              </Badge>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedReservation(r);
-                                  setDetailsDialogOpen(true);
-                                }}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="text-center py-8">
+                      <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground">Nenhuma reserva encontrada</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setMainTab('booking')}
+                        className="mt-4"
+                      >
+                        Fazer uma reserva
+                      </Button>
                     </div>
-                  )}
-                </div>
-
-                {/* Equipment Requests */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Package className="w-4 h-4" />
-                    Empréstimos de Equipamentos
-                  </h4>
-                  {!myEquipmentRequests || myEquipmentRequests.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhum empréstimo encontrado.</p>
                   ) : (
-                    <div className="space-y-2">
-                      {myEquipmentRequests.map((req) => (
-                        <div key={req.id} className="p-4 rounded-lg border bg-card">
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium">{req.equipment_name}</p>
-                              <div className="text-sm text-muted-foreground space-y-0.5">
-                                <p>Quantidade: {req.quantity_requested}</p>
-                                <p>Retirada: {format(parseISO(req.requested_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                                <p>Devolução: {format(parseISO(req.expected_return_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                    <div className="space-y-3">
+                      {myReservations.map((r) => (
+                        <div key={r.id} className="p-4 rounded-xl border bg-card/50 hover:bg-card/80 transition-colors">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={statusLabels[r.status]?.variant || 'default'} className="text-xs">
+                                  {statusLabels[r.status]?.label || r.status}
+                                </Badge>
+                              </div>
+                              <p className="font-semibold truncate">{r.title}</p>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1.5">
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  {r.reservation_rooms?.name}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  {formatDateTime(r.start_datetime)}
+                                </span>
                               </div>
                             </div>
-                            <Badge variant={statusLabels[req.status]?.variant || 'default'} className="self-start flex-shrink-0">
-                              {statusLabels[req.status]?.label || req.status}
-                            </Badge>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="self-start"
+                              onClick={() => {
+                                setSelectedReservation(r);
+                                setDetailsDialogOpen(true);
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-1.5" />
+                              Detalhes
+                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              {/* Equipment Requests Section */}
+              <Card className="glass-morphism border-primary/20">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Package className="w-5 h-5 text-primary" />
+                    Meus Empréstimos de Equipamentos
+                  </CardTitle>
+                  <CardDescription>Acompanhe suas solicitações de empréstimo</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {!myEquipmentRequests || myEquipmentRequests.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Package className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground">Nenhuma solicitação de empréstimo</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setMainTab('equipment')}
+                        className="mt-4"
+                      >
+                        Solicitar empréstimo
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {myEquipmentRequests.map((req) => (
+                        <div key={req.id} className="p-4 rounded-xl border bg-card/50 hover:bg-card/80 transition-colors">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={statusLabels[req.status]?.variant || 'default'} className="text-xs">
+                                  {statusLabels[req.status]?.label || req.status}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  Qtd: {req.quantity_requested}
+                                </span>
+                              </div>
+                              <p className="font-semibold">{req.equipment_name}</p>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1.5">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  Retirada: {format(parseISO(req.requested_date), 'dd/MM/yyyy', { locale: ptBR })}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  Devolução: {format(parseISO(req.expected_return_date), 'dd/MM/yyyy', { locale: ptBR })}
+                                </span>
+                              </div>
+                              {req.purpose && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                  {req.purpose}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
 
