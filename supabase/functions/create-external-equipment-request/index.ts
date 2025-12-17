@@ -81,8 +81,8 @@ function validateEquipmentRequestInput(data: any): { valid: boolean; errors: str
 
     if (isNaN(returnDate.getTime())) {
       errors.push('Invalid expected_return_date format');
-    } else if (returnDate <= requestedDate) {
-      errors.push('expected_return_date must be after requested_date');
+    } else if (returnDate < requestedDate) {
+      errors.push('expected_return_date must be on or after requested_date');
     }
   }
 
