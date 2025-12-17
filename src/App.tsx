@@ -28,6 +28,7 @@ import EquipmentRegister from "./pages/equipment/EquipmentRegister";
 import EquipmentLoans from "./pages/equipment/EquipmentLoans";
 import EquipmentLoanForm from "./pages/equipment/EquipmentLoanForm";
 import ExternalEquipmentRequestsList from "./pages/equipment/ExternalEquipmentRequestsList";
+import InventoryManagement from "./pages/equipment/InventoryManagement";
 
 // Lockers Module
 import LockersList from "./pages/lockers/LockersList";
@@ -141,6 +142,11 @@ const App = () => (
             <Route path="/equipment/external-requests" element={
               <ProtectedRoute>
                 <ExternalEquipmentRequestsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/equipment/inventory" element={
+              <ProtectedRoute>
+                <InventoryManagement />
               </ProtectedRoute>
             } />
             

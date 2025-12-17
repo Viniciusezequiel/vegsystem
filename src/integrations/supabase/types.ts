@@ -184,6 +184,7 @@ export type Database = {
       }
       equipment: {
         Row: {
+          allow_external_loan: boolean
           available_quantity: number
           campus: Database["public"]["Enums"]["campus_enum"]
           category: string | null
@@ -198,8 +199,12 @@ export type Database = {
           quantity: number
           status: Database["public"]["Enums"]["equipment_status"]
           updated_at: string
+          write_off_by: string | null
+          write_off_date: string | null
+          write_off_reason: string | null
         }
         Insert: {
+          allow_external_loan?: boolean
           available_quantity?: number
           campus: Database["public"]["Enums"]["campus_enum"]
           category?: string | null
@@ -214,8 +219,12 @@ export type Database = {
           quantity?: number
           status?: Database["public"]["Enums"]["equipment_status"]
           updated_at?: string
+          write_off_by?: string | null
+          write_off_date?: string | null
+          write_off_reason?: string | null
         }
         Update: {
+          allow_external_loan?: boolean
           available_quantity?: number
           campus?: Database["public"]["Enums"]["campus_enum"]
           category?: string | null
@@ -230,6 +239,9 @@ export type Database = {
           quantity?: number
           status?: Database["public"]["Enums"]["equipment_status"]
           updated_at?: string
+          write_off_by?: string | null
+          write_off_date?: string | null
+          write_off_reason?: string | null
         }
         Relationships: []
       }
@@ -398,6 +410,62 @@ export type Database = {
           user_type?: string | null
         }
         Relationships: []
+      }
+      inventory_movements: {
+        Row: {
+          created_at: string
+          equipment_id: string
+          from_campus: string | null
+          from_location: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          performed_by: string | null
+          performed_by_name: string
+          quantity: number
+          reason: string | null
+          to_campus: string | null
+          to_location: string | null
+        }
+        Insert: {
+          created_at?: string
+          equipment_id: string
+          from_campus?: string | null
+          from_location?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_by_name: string
+          quantity?: number
+          reason?: string | null
+          to_campus?: string | null
+          to_location?: string | null
+        }
+        Update: {
+          created_at?: string
+          equipment_id?: string
+          from_campus?: string | null
+          from_location?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_by_name?: string
+          quantity?: number
+          reason?: string | null
+          to_campus?: string | null
+          to_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       locker_loans: {
         Row: {
