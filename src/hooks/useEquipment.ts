@@ -26,8 +26,10 @@ export type EquipmentLoan = {
   borrower_name: string;
   borrower_sector: string;
   borrower_phone: string;
+  borrower_signature: string | null;
   expected_return_date: string;
   actual_return_date: string | null;
+  return_signature: string | null;
   status: 'active' | 'returned' | 'overdue';
   loaned_by: string | null;
   returned_by: string | null;

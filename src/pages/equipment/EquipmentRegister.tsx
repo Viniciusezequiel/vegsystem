@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,11 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft, Package, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateEquipment } from '@/hooks/useEquipment';
+import { useCreateEquipment, useUpdateEquipment, useEquipment } from '@/hooks/useEquipment';
 
 const equipmentSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -39,7 +40,12 @@ type EquipmentFormData = z.infer<typeof equipmentSchema>;
 
 export default function EquipmentRegister() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEditing = !!id;
+  
+  const { data: existingEquipment, isLoading: loadingEquipment } = useEquipment(id || '');
   const createEquipment = useCreateEquipment();
+  const updateEquipment = useUpdateEquipment();
 
   const form = useForm<EquipmentFormData>({
     resolver: zodResolver(equipmentSchema),
@@ -54,21 +60,61 @@ export default function EquipmentRegister() {
     },
   });
 
+  // Populate form when editing
+  useEffect(() => {
+    if (existingEquipment && isEditing) {
+      form.reset({
+        name: existingEquipment.name,
+        patrimony_code: existingEquipment.patrimony_code,
+        quantity: existingEquipment.quantity,
+        location: existingEquipment.location,
+        campus: existingEquipment.campus,
+        category: existingEquipment.category || '',
+        description: existingEquipment.description || '',
+      });
+    }
+  }, [existingEquipment, isEditing, form]);
+
   const onSubmit = async (data: EquipmentFormData) => {
-    await createEquipment.mutateAsync({
-      name: data.name,
-      patrimony_code: data.patrimony_code,
-      quantity: data.quantity,
-      location: data.location,
-      campus: data.campus,
-      available_quantity: data.quantity,
-      status: 'available',
-      image_url: null,
-      category: data.category || null,
-      description: data.description || null,
-    });
+    if (isEditing && id) {
+      await updateEquipment.mutateAsync({
+        id,
+        name: data.name,
+        patrimony_code: data.patrimony_code,
+        quantity: data.quantity,
+        location: data.location,
+        campus: data.campus,
+        category: data.category || null,
+        description: data.description || null,
+      });
+    } else {
+      await createEquipment.mutateAsync({
+        name: data.name,
+        patrimony_code: data.patrimony_code,
+        quantity: data.quantity,
+        location: data.location,
+        campus: data.campus,
+        available_quantity: data.quantity,
+        status: 'available',
+        image_url: null,
+        category: data.category || null,
+        description: data.description || null,
+      });
+    }
     navigate('/equipment');
   };
+
+  const isPending = createEquipment.isPending || updateEquipment.isPending;
+
+  if (isEditing && loadingEquipment) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -78,8 +124,12 @@ export default function EquipmentRegister() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Cadastrar Equipamento</h1>
-            <p className="text-muted-foreground">Adicione um novo item ao inventário</p>
+            <h1 className="text-2xl font-bold text-foreground">
+              {isEditing ? 'Editar Equipamento' : 'Cadastrar Equipamento'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isEditing ? 'Atualize as informações do equipamento' : 'Adicione um novo item ao inventário'}
+            </p>
           </div>
         </div>
 
@@ -129,9 +179,19 @@ export default function EquipmentRegister() {
                       <FormItem>
                         <FormLabel>Quantidade *</FormLabel>
                         <FormControl>
-                          <Input type="number" min={1} {...field} />
+                          <Input 
+                            type="number" 
+                            min={1} 
+                            {...field} 
+                            disabled={isEditing && existingEquipment?.quantity === 1}
+                          />
                         </FormControl>
                         <FormMessage />
+                        {isEditing && existingEquipment?.quantity === 1 && (
+                          <p className="text-xs text-muted-foreground">
+                            Item com patrimônio único não pode ter quantidade alterada
+                          </p>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -156,7 +216,7 @@ export default function EquipmentRegister() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Campus *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione o campus" />
@@ -215,8 +275,8 @@ export default function EquipmentRegister() {
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={createEquipment.isPending}>
-                    {createEquipment.isPending ? 'Salvando...' : 'Cadastrar Equipamento'}
+                  <Button type="submit" disabled={isPending}>
+                    {isPending ? 'Salvando...' : isEditing ? 'Salvar Alterações' : 'Cadastrar Equipamento'}
                   </Button>
                 </div>
               </form>
