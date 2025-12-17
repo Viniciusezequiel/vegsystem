@@ -608,12 +608,12 @@ export default function Auth() {
           )}
 
           {/* Contact info */}
-          <div className="mt-6 pt-4 border-t border-border/50 text-center">
+          <div className="mt-6 pt-4 border-t border-border/50 text-center space-y-2">
             <p className="text-xs text-muted-foreground">
-              Colaboradores internos: solicite acesso ao administrador
+              Precisa de ajuda? <a href="mailto:viniciusezequiel@outlook.com.br" className="text-primary hover:underline">viniciusezequiel@outlook.com.br</a>
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Dúvidas? Entre em contato com o suporte
+            <p className="text-xs text-muted-foreground/70">
+              Criado e desenvolvido por VEG System
             </p>
           </div>
         </CardContent>
