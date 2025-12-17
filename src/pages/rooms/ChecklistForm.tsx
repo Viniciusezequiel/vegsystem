@@ -72,9 +72,9 @@ export default function ChecklistForm() {
   const [selectedCampus, setSelectedCampus] = useState('');
   const [shift, setShift] = useState('');
   
-  // Step 2: Room selection
-  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
-  
+  // Step 2: Room selection (single room only)
+  const [selectedRoom, setSelectedRoom] = useState<string>('');
+  const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
   // Step 3: Form fields
   const [fields, setFields] = useState<ChecklistField[]>(
     CHECKLIST_FIELDS.map(f => ({
@@ -97,7 +97,7 @@ export default function ChecklistForm() {
   }, [rooms, selectedCampus]);
 
   const canProceedStep1 = selectedCampus && shift;
-  const canProceedStep2 = selectedRooms.length > 0;
+  const canProceedStep2 = selectedRoom !== '';
   const allFieldsAnswered = fields.every(f => f.status !== null);
   const allPendingHaveReason = fields.every(f => 
     f.status !== 'pendente' || (f.status === 'pendente' && f.pendingReason.trim())
@@ -123,12 +123,9 @@ export default function ChecklistForm() {
     ));
   };
 
-  const toggleRoomSelection = (roomId: string) => {
-    setSelectedRooms(prev => 
-      prev.includes(roomId) 
-        ? prev.filter(id => id !== roomId)
-        : [...prev, roomId]
-    );
+  const handleRoomSelection = (roomId: string) => {
+    setSelectedRoom(roomId);
+    setRoomDropdownOpen(false);
   };
 
   const handleSubmit = async () => {
@@ -148,15 +145,13 @@ export default function ChecklistForm() {
       ? `Quantidade de mobiliário: ${furnitureCount}${observations ? `\n${observations}` : ''}`
       : observations;
 
-    // Create checklist for each selected room
-    for (const roomId of selectedRooms) {
-      await createChecklist.mutateAsync({
-        room_id: roomId,
-        shift,
-        observations: fullObservations || undefined,
-        answers: answersArray,
-      });
-    }
+    // Create checklist for the selected room
+    await createChecklist.mutateAsync({
+      room_id: selectedRoom,
+      shift,
+      observations: fullObservations || undefined,
+      answers: answersArray,
+    });
 
     navigate('/rooms/checklists');
   };
@@ -166,17 +161,17 @@ export default function ChecklistForm() {
       setCurrentStep('rooms');
     } else if (currentStep === 'rooms' && canProceedStep2) {
       // When going to form, add room-specific items
-      const selectedRoomObjects = filteredRooms.filter(r => selectedRooms.includes(r.id));
-      const allRoomItems = selectedRoomObjects.flatMap(room => 
-        (room.checklist_items || []).map(item => ({
-          ...item,
-          id: `room_item_${room.id}_${item.id}`,
-          label: `[${room.name}] ${item.label}`,
-          status: null as ChecklistFieldStatus | null,
-          pendingReason: '',
-          treatment: '',
-        }))
-      );
+      const selectedRoomObj = filteredRooms.find(r => r.id === selectedRoom);
+      const allRoomItems = selectedRoomObj 
+        ? (selectedRoomObj.checklist_items || []).map(item => ({
+            ...item,
+            id: `room_item_${selectedRoomObj.id}_${item.id}`,
+            label: `[${selectedRoomObj.name}] ${item.label}`,
+            status: null as ChecklistFieldStatus | null,
+            pendingReason: '',
+            treatment: '',
+          }))
+        : [];
       
       // Add room-specific items to the fields
       setFields(prev => [
@@ -323,10 +318,10 @@ export default function ChecklistForm() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                Selecionar Salas
+                Selecionar Sala
               </CardTitle>
               <CardDescription>
-                Selecione as salas do {selectedCampus} que deseja verificar no turno da {shift}
+                Selecione a sala do {selectedCampus} que deseja verificar no turno da {shift}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -336,17 +331,17 @@ export default function ChecklistForm() {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  <Popover>
+                  <Popover open={roomDropdownOpen} onOpenChange={setRoomDropdownOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         role="combobox"
                         className="w-full justify-between h-auto min-h-[40px] py-2"
                       >
-                        <span className="text-muted-foreground">
-                          {selectedRooms.length === 0 
-                            ? "Selecione as salas..."
-                            : `${selectedRooms.length} sala(s) selecionada(s)`}
+                        <span className={selectedRoom ? "text-foreground" : "text-muted-foreground"}>
+                          {selectedRoom 
+                            ? filteredRooms.find(r => r.id === selectedRoom)?.name || "Selecione a sala..."
+                            : "Selecione a sala..."}
                         </span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
@@ -361,12 +356,12 @@ export default function ChecklistForm() {
                               <CommandItem
                                 key={room.id}
                                 value={room.name}
-                                onSelect={() => toggleRoomSelection(room.id)}
+                                onSelect={() => handleRoomSelection(room.id)}
                               >
                                 <Check
                                   className={cn(
                                     "mr-2 h-4 w-4",
-                                    selectedRooms.includes(room.id) ? "opacity-100" : "opacity-0"
+                                    selectedRoom === room.id ? "opacity-100" : "opacity-0"
                                   )}
                                 />
                                 <div className="flex-1">
@@ -387,23 +382,17 @@ export default function ChecklistForm() {
                 </div>
               )}
 
-              {selectedRooms.length > 0 && (
+              {selectedRoom && (
                 <div className="flex flex-wrap gap-2 pt-4 border-t">
-                  <span className="text-sm text-muted-foreground">Selecionadas:</span>
-                  {selectedRooms.map(roomId => {
-                    const room = filteredRooms.find(r => r.id === roomId);
-                    return room ? (
-                      <Badge 
-                        key={roomId} 
-                        variant="secondary"
-                        className="gap-1 cursor-pointer hover:bg-destructive/10"
-                        onClick={() => toggleRoomSelection(roomId)}
-                      >
-                        {room.name}
-                        <X className="h-3 w-3" />
-                      </Badge>
-                    ) : null;
-                  })}
+                  <span className="text-sm text-muted-foreground">Selecionada:</span>
+                  <Badge 
+                    variant="secondary"
+                    className="gap-1 cursor-pointer hover:bg-destructive/10"
+                    onClick={() => setSelectedRoom('')}
+                  >
+                    {filteredRooms.find(r => r.id === selectedRoom)?.name}
+                    <X className="h-3 w-3" />
+                  </Badge>
                 </div>
               )}
 
@@ -431,19 +420,16 @@ export default function ChecklistForm() {
                   Checklist - {shift}
                 </CardTitle>
                 <CardDescription>
-                  Verificando {selectedRooms.length} sala(s) no {selectedCampus}
+                  Verificando sala no {selectedCampus}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {selectedRooms.map(roomId => {
-                    const room = filteredRooms.find(r => r.id === roomId);
-                    return room ? (
-                      <Badge key={roomId} variant="outline">
-                        {room.name}
-                      </Badge>
-                    ) : null;
-                  })}
+                  {selectedRoom && (
+                    <Badge variant="outline">
+                      {filteredRooms.find(r => r.id === selectedRoom)?.name}
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>

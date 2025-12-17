@@ -148,7 +148,10 @@ export default function Auth() {
     setIsLoading(true);
 
     if (accessMode === 'admin') {
-      const { error } = await signIn(email, password);
+      const { error, data } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (error) {
         let message = 'Erro ao fazer login. Verifique suas credenciais.';
@@ -165,12 +168,29 @@ export default function Auth() {
           description: message,
           variant: 'destructive',
         });
-      } else {
-        toast({
-          title: 'Login realizado',
-          description: 'Bem-vindo ao sistema!',
-        });
-        navigate('/', { replace: true });
+      } else if (data.user) {
+        // SECURITY: Verify user has a role (is an internal user)
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+
+        if (!roleData) {
+          // User doesn't have a role - not authorized for admin panel
+          await supabase.auth.signOut();
+          toast({
+            title: 'Acesso negado',
+            description: 'Este email não está cadastrado no sistema administrativo. Contate o administrador.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Login realizado',
+            description: 'Bem-vindo ao sistema!',
+          });
+          navigate('/', { replace: true });
+        }
       }
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({
