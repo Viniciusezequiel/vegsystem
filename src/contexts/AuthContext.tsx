@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [roleChecked, setRoleChecked] = useState(false);
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -57,9 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (roleData) {
         setRole(roleData.role as AppRole);
+      } else {
+        setRole(null);
       }
+      
+      setRoleChecked(true);
     } catch (error) {
       console.error('Error fetching user data:', error);
+      setRoleChecked(true);
     }
   };
 
@@ -79,12 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
           setRole(null);
+          setRoleChecked(true);
           setIsLoading(false);
         }
 
         if (event === 'SIGNED_OUT') {
           setProfile(null);
           setRole(null);
+          setRoleChecked(false);
           setIsLoading(false);
         }
       }
@@ -97,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (session?.user) {
         await fetchUserData(session.user.id);
+      } else {
+        setRoleChecked(true);
       }
 
       setIsLoading(false);
@@ -124,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     profile,
     role,
-    isLoading,
+    isLoading: isLoading || (!!user && !roleChecked),
     signIn,
     signOut,
     isAdmin: role === 'admin',
