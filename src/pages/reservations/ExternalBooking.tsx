@@ -178,6 +178,7 @@ export default function ExternalBooking() {
 
   // Multi-select equipment state
   const [selectedEquipments, setSelectedEquipments] = useState<SelectedEquipment[]>([]);
+  const [selectedEquipmentCampus, setSelectedEquipmentCampus] = useState<string>('');
   const [equipmentFormData, setEquipmentFormData] = useState({
     requester_name: '',
     requester_email: '',
@@ -201,14 +202,26 @@ export default function ExternalBooking() {
   // Fetch equipment requests by email
   const { data: myEquipmentRequests } = useExternalEquipmentRequestsByEmail(emailFilter);
 
-  // Available equipment for selection (only items allowed for external loan)
+  // Get unique campuses from equipment
+  const equipmentCampuses = useMemo(() => {
+    const campuses = new Set<string>();
+    equipment?.forEach(e => {
+      if (e.campus && e.available_quantity > 0 && e.status === 'available' && (e as any).allow_external_loan !== false) {
+        campuses.add(e.campus);
+      }
+    });
+    return Array.from(campuses).sort();
+  }, [equipment]);
+
+  // Available equipment for selection (only items allowed for external loan, filtered by campus)
   const availableEquipment = useMemo(() => {
     return equipment?.filter(e => 
       e.available_quantity > 0 && 
       e.status === 'available' && 
-      (e as any).allow_external_loan !== false
+      (e as any).allow_external_loan !== false &&
+      (selectedEquipmentCampus === '' || e.campus === selectedEquipmentCampus)
     ) || [];
-  }, [equipment]);
+  }, [equipment, selectedEquipmentCampus]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,6 +338,10 @@ export default function ExternalBooking() {
     setEquipmentErrors({});
 
     // Validate
+    if (!selectedEquipmentCampus) {
+      setEquipmentErrors({ campus: 'Selecione o campus' });
+      return;
+    }
     if (selectedEquipments.length === 0) {
       setEquipmentErrors({ equipment: 'Selecione pelo menos um equipamento' });
       return;
@@ -726,6 +743,30 @@ export default function ExternalBooking() {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleEquipmentRequest} className="space-y-6">
+                    {/* Campus Selection */}
+                    <div>
+                      <Label>Campus *</Label>
+                      <Select value={selectedEquipmentCampus} onValueChange={(value) => {
+                        setSelectedEquipmentCampus(value);
+                        setSelectedEquipments([]); // Clear selections when campus changes
+                      }}>
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue placeholder="Selecione o campus" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {equipmentCampuses.map(campus => (
+                            <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {equipmentErrors.campus && <p className="text-xs text-destructive mt-1">{equipmentErrors.campus}</p>}
+                      {!equipmentErrors.campus && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Selecione o campus onde deseja retirar o equipamento
+                        </p>
+                      )}
+                    </div>
+
                     {/* Equipment Selection - Dropdown */}
                     <div className="space-y-4">
                       <Label>Selecione os equipamentos *</Label>
@@ -737,11 +778,14 @@ export default function ExternalBooking() {
                             type="button"
                             variant="outline"
                             className="w-full justify-between h-auto min-h-10 py-2"
+                            disabled={!selectedEquipmentCampus}
                           >
                             <span className="text-left truncate">
-                              {selectedEquipments.length > 0 
-                                ? `${selectedEquipments.length} equipamento(s) selecionado(s)` 
-                                : 'Selecione os equipamentos...'}
+                              {!selectedEquipmentCampus 
+                                ? 'Selecione o campus primeiro'
+                                : selectedEquipments.length > 0 
+                                  ? `${selectedEquipments.length} equipamento(s) selecionado(s)` 
+                                  : 'Selecione os equipamentos...'}
                             </span>
                             <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                           </Button>
