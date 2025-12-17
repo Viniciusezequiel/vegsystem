@@ -83,10 +83,11 @@ export function useExternalEquipmentRequestsByEmail(email: string) {
     queryFn: async () => {
       if (!email) return [];
       
+      // Use ilike for case-insensitive comparison
       const { data, error } = await supabase
         .from('external_equipment_requests')
         .select('*, equipment:equipment_id(id, name, patrimony_code, campus)')
-        .eq('requester_email', email.toLowerCase())
+        .ilike('requester_email', email)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
