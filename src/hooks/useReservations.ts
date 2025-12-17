@@ -410,12 +410,19 @@ export function useCancelExternalReservation() {
 
   return useMutation({
     mutationFn: async ({ id, requesterEmail }: { id: string; requesterEmail: string }) => {
+      // Get current user's email from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user?.email) {
+        throw new Error('Você precisa estar logado para cancelar uma reserva.');
+      }
+
       // Verify the reservation belongs to this user
       const { data: reservation, error: fetchError } = await supabase
         .from('reservations')
         .select('*')
         .eq('id', id)
-        .eq('requester_email', requesterEmail)
+        .eq('requester_email', user.email)
         .single();
 
       if (fetchError || !reservation) {
@@ -426,20 +433,29 @@ export function useCancelExternalReservation() {
         throw new Error('Esta reserva não pode ser cancelada.');
       }
 
+      // Update the reservation status to cancelled
       const { data, error } = await supabase
         .from('reservations')
         .update({ status: 'cancelled' })
         .eq('id', id)
+        .eq('requester_email', user.email)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error cancelling reservation:', error);
+        throw new Error('Erro ao cancelar reserva. Tente novamente.');
+      }
+
+      if (!data) {
+        throw new Error('Não foi possível cancelar a reserva. Verifique suas permissões.');
+      }
 
       // Log the cancellation
       await supabase.from('reservation_logs').insert({
         reservation_id: id,
         action: 'Reserva cancelada pelo usuário',
-        details: `Cancelada por ${requesterEmail}`,
+        details: `Cancelada por ${user.email}`,
         performer_name: reservation.requester_name,
       });
 
