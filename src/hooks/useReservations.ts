@@ -387,3 +387,79 @@ export function useFindAvailableRooms() {
     },
   });
 }
+
+export function usePendingReservationsCount() {
+  return useQuery({
+    queryKey: ['pending-reservations-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('reservations')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    staleTime: 30000,
+  });
+}
+
+export function useCancelExternalReservation() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, requesterEmail }: { id: string; requesterEmail: string }) => {
+      // Verify the reservation belongs to this user
+      const { data: reservation, error: fetchError } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('id', id)
+        .eq('requester_email', requesterEmail)
+        .single();
+
+      if (fetchError || !reservation) {
+        throw new Error('Reserva não encontrada ou você não tem permissão para cancelá-la.');
+      }
+
+      if (!['pending', 'confirmed'].includes(reservation.status)) {
+        throw new Error('Esta reserva não pode ser cancelada.');
+      }
+
+      const { data, error } = await supabase
+        .from('reservations')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log the cancellation
+      await supabase.from('reservation_logs').insert({
+        reservation_id: id,
+        action: 'Reserva cancelada pelo usuário',
+        details: `Cancelada por ${requesterEmail}`,
+        performer_name: reservation.requester_name,
+      });
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-reservations-count'] });
+      queryClient.invalidateQueries({ queryKey: ['reservation-logs'] });
+      toast({
+        title: 'Reserva cancelada',
+        description: 'Sua reserva foi cancelada com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
