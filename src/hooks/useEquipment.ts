@@ -249,27 +249,37 @@ export function useReturnEquipment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (loanId: string) => {
+    mutationFn: async (data: {
+      loanId: string;
+      returner_name?: string;
+      returner_phone?: string;
+      returner_sector?: string;
+      item_condition?: string;
+      notes?: string;
+      return_signature?: string;
+    }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
       // Get loan details
       const { data: loan, error: loanError } = await supabase
         .from('equipment_loans')
         .select('*, equipment(*)')
-        .eq('id', loanId)
+        .eq('id', data.loanId)
         .single();
       
       if (loanError) throw loanError;
 
-      // Update loan status
+      // Update loan status with return info
       const { error } = await supabase
         .from('equipment_loans')
         .update({ 
           status: 'returned',
           actual_return_date: new Date().toISOString().split('T')[0],
-          returned_by: user?.id
+          returned_by: user?.id,
+          return_signature: data.return_signature,
+          notes: data.notes ? `${loan.notes ? loan.notes + '\n' : ''}Devolução: ${data.notes}${data.item_condition ? ` (Condição: ${data.item_condition})` : ''}` : loan.notes
         })
-        .eq('id', loanId);
+        .eq('id', data.loanId);
       if (error) throw error;
 
       // Update equipment available quantity

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2 } from 'lucide-react';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 
 interface ReturnDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ export interface ReturnData {
   returner_sector: string;
   item_condition: 'good' | 'damaged' | 'missing_parts';
   notes?: string;
+  return_signature?: string;
 }
 
 export function ReturnDialog({
@@ -44,15 +46,20 @@ export function ReturnDialog({
   const [returnerSector, setReturnerSector] = useState('');
   const [itemCondition, setItemCondition] = useState<'good' | 'damaged' | 'missing_parts'>('good');
   const [notes, setNotes] = useState('');
+  const [signature, setSignature] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!signature) {
+      return;
+    }
     onConfirm({
       returner_name: returnerName,
       returner_phone: returnerPhone,
       returner_sector: returnerSector,
       item_condition: itemCondition,
       notes: notes || undefined,
+      return_signature: signature,
     });
   };
 
@@ -62,11 +69,12 @@ export function ReturnDialog({
     setReturnerSector('');
     setItemCondition('good');
     setNotes('');
+    setSignature(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Devolução</DialogTitle>
           <DialogDescription>
@@ -147,11 +155,24 @@ export function ReturnDialog({
               className="mt-1.5"
             />
           </div>
+          <div>
+            <Label>Assinatura de quem está devolvendo *</Label>
+            <div className="mt-1.5">
+              <SignaturePad
+                onSignatureChange={setSignature}
+                width={350}
+                height={150}
+              />
+            </div>
+            {!signature && (
+              <p className="text-sm text-destructive mt-1">Assinatura obrigatória</p>
+            )}
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || !signature}>
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Confirmar Devolução
             </Button>
