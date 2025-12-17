@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, Clock, Users, MapPin, FileText, AlertCircle, CheckCircle2, Loader2, CalendarDays } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, FileText, AlertCircle, CheckCircle2, Loader2, CalendarDays, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useFindAvailableRooms, Reservation, ReservationRoom } from '@/hooks/useReservations';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useFindAvailableRooms, useCancelExternalReservation, Reservation, ReservationRoom } from '@/hooks/useReservations';
 import { useCreateExternalReservation } from '@/hooks/useExternalReservation';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 
@@ -48,12 +59,14 @@ export function ExternalReservationDetailsDialog({
   
   const findRooms = useFindAvailableRooms();
   const createReservation = useCreateExternalReservation();
+  const cancelReservation = useCancelExternalReservation();
 
   if (!reservation) return null;
 
   const status = statusConfig[reservation.status] || { label: reservation.status, variant: 'default' as const, color: 'text-gray-500' };
   const isPast = new Date(reservation.end_datetime) < new Date();
   const canReschedule = !isPast && ['pending', 'confirmed', 'approved'].includes(reservation.status);
+  const canCancel = !isPast && ['pending', 'confirmed'].includes(reservation.status);
 
   const handleSearchRooms = () => {
     if (!rescheduleData.date || !rescheduleData.start_time || !rescheduleData.end_time) return;
@@ -220,6 +233,42 @@ export function ExternalReservationDetailsDialog({
               <Button variant="outline" onClick={handleClose} className="flex-1">
                 Fechar
               </Button>
+              {canCancel && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="flex-1">
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancelar Reserva</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja cancelar esta reserva? Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Voltar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          cancelReservation.mutate(
+                            { id: reservation.id, requesterEmail: reservation.requester_email },
+                            { onSuccess: () => handleClose() }
+                          );
+                        }}
+                        disabled={cancelReservation.isPending}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {cancelReservation.isPending ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : null}
+                        Confirmar Cancelamento
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
               {canReschedule && (
                 <Button onClick={() => setShowReschedule(true)} className="flex-1">
                   <CalendarDays className="w-4 h-4 mr-2" />

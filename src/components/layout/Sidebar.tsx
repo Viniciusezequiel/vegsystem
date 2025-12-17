@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
+import { usePendingReservationsCount } from '@/hooks/useReservations';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions, type Module } from '@/hooks/usePermissions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -131,7 +132,7 @@ const moduleGroups: NavGroup[] = [
       { name: 'Reservas', href: '/reservations/list', icon: List },
       { name: 'Calendário', href: '/reservations/calendar', icon: Calendar },
       { name: 'Remanejamentos', href: '/reservations/reschedulings', icon: RefreshCw },
-      { name: 'Aprovações', href: '/reservations/approvals', icon: CheckSquare },
+      { name: 'Aprovações', href: '/reservations/approvals', icon: CheckSquare, hasBadge: true },
       { name: 'Histórico', href: '/reservations/logs', icon: History },
     ],
   },
@@ -196,6 +197,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   const { data: pendingCallsCount } = usePendingCallsCount();
   const { pendingTasksCount } = useTaskNotifications();
   const { pendingMaterialsCount } = useMaterialNotifications();
+  const { data: pendingReservationsCount } = usePendingReservationsCount();
 
   // Filter module groups based on view permissions
   const visibleModuleGroups = moduleGroups.filter(group => {
@@ -424,7 +426,9 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                     const isActive = location.pathname === item.href;
                     // Determine which notification count to show based on module
                     const badgeCount = item.hasBadge 
-                      ? (group.basePath === '/materials' ? pendingMaterialsCount : pendingTasksCount)
+                      ? (group.basePath === '/materials' ? pendingMaterialsCount 
+                        : group.basePath === '/reservations' ? pendingReservationsCount 
+                        : pendingTasksCount)
                       : 0;
                     const showBadge = item.hasBadge && badgeCount > 0;
                     return (
