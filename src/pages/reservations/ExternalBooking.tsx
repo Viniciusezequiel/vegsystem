@@ -14,8 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus, Eye } from 'lucide-react';
+import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus, Eye, ChevronDown, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { z } from 'zod';
 import { format, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -725,72 +726,95 @@ export default function ExternalBooking() {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleEquipmentRequest} className="space-y-6">
-                    {/* Equipment Selection */}
+                    {/* Equipment Selection - Dropdown */}
                     <div className="space-y-4">
                       <Label>Selecione os equipamentos *</Label>
                       {equipmentErrors.equipment && <p className="text-xs text-destructive">{equipmentErrors.equipment}</p>}
                       
-                      <div className="grid gap-3 max-h-64 overflow-y-auto p-1">
-                        {availableEquipment.map(eq => {
-                          const isSelected = selectedEquipments.some(s => s.equipment_id === eq.id);
-                          const selectedItem = selectedEquipments.find(s => s.equipment_id === eq.id);
-                          
-                          return (
-                            <div
-                              key={eq.id}
-                              className={`p-4 rounded-lg border transition-all ${
-                                isSelected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={() => handleToggleEquipment(eq)}
-                                />
-                                <div className="flex-1">
-                                  <p className="font-medium">{eq.name}</p>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-between h-auto min-h-10 py-2"
+                          >
+                            <span className="text-left truncate">
+                              {selectedEquipments.length > 0 
+                                ? `${selectedEquipments.length} equipamento(s) selecionado(s)` 
+                                : 'Selecione os equipamentos...'}
+                            </span>
+                            <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-popover border" align="start">
+                          <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                            {availableEquipment.map(eq => {
+                              const isSelected = selectedEquipments.some(s => s.equipment_id === eq.id);
+                              
+                              return (
+                                <div
+                                  key={eq.id}
+                                  className={`p-3 rounded-md cursor-pointer transition-colors ${
+                                    isSelected ? 'bg-primary/20 text-primary' : 'hover:bg-muted'
+                                  }`}
+                                  onClick={() => handleToggleEquipment(eq)}
+                                >
+                                  <p className="font-medium text-sm">{eq.name}</p>
                                   <p className="text-xs text-muted-foreground">
                                     {eq.campus} • Disponível: {eq.available_quantity}
                                   </p>
                                 </div>
-                                
-                                {isSelected && selectedItem && (
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleQuantityChange(eq.id, -1)}
-                                      disabled={selectedItem.quantity <= 1}
-                                    >
-                                      <Minus className="w-4 h-4" />
-                                    </Button>
-                                    <span className="w-8 text-center font-medium">{selectedItem.quantity}</span>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleQuantityChange(eq.id, 1)}
-                                      disabled={selectedItem.quantity >= selectedItem.max_available}
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                )}
+                              );
+                            })}
+                            {availableEquipment.length === 0 && (
+                              <p className="text-sm text-muted-foreground p-3">Nenhum equipamento disponível</p>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {/* Selected Equipment with Quantity Controls */}
+                      {selectedEquipments.length > 0 && (
+                        <div className="space-y-2">
+                          {selectedEquipments.map(eq => (
+                            <div key={eq.equipment_id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                              <div className="flex-1 min-w-0 mr-3">
+                                <p className="font-medium text-sm truncate">{eq.equipment_name}</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => handleQuantityChange(eq.equipment_id, -1)}
+                                  disabled={eq.quantity <= 1}
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </Button>
+                                <span className="w-6 text-center text-sm font-medium">{eq.quantity}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => handleQuantityChange(eq.equipment_id, 1)}
+                                  disabled={eq.quantity >= eq.max_available}
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => setSelectedEquipments(prev => prev.filter(e => e.equipment_id !== eq.equipment_id))}
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-
-                      {selectedEquipments.length > 0 && (
-                        <div className="p-3 bg-primary/10 rounded-lg">
-                          <p className="text-sm font-medium">Selecionados: {selectedEquipments.length} equipamento(s)</p>
-                          <p className="text-xs text-muted-foreground">
-                            {selectedEquipments.map(s => `${s.equipment_name} (${s.quantity})`).join(', ')}
-                          </p>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -968,15 +992,17 @@ export default function ExternalBooking() {
                   ) : (
                     <div className="space-y-2">
                       {myEquipmentRequests.map((req) => (
-                        <div key={req.id} className="p-3 rounded-lg border bg-card">
-                          <div className="flex justify-between items-start">
-                            <div>
+                        <div key={req.id} className="p-4 rounded-lg border bg-card">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                            <div className="flex-1 min-w-0">
                               <p className="font-medium">{req.equipment_name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                Qtd: {req.quantity_requested} • {format(parseISO(req.requested_date), 'dd/MM/yyyy', { locale: ptBR })}
-                              </p>
+                              <div className="text-sm text-muted-foreground space-y-0.5">
+                                <p>Quantidade: {req.quantity_requested}</p>
+                                <p>Retirada: {format(parseISO(req.requested_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                                <p>Devolução: {format(parseISO(req.expected_return_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                              </div>
                             </div>
-                            <Badge variant={statusLabels[req.status]?.variant || 'default'}>
+                            <Badge variant={statusLabels[req.status]?.variant || 'default'} className="self-start flex-shrink-0">
                               {statusLabels[req.status]?.label || req.status}
                             </Badge>
                           </div>
