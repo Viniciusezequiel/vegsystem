@@ -12,6 +12,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Edit,
   Calendar,
   User,
@@ -20,9 +27,15 @@ import {
   History,
   Send,
   Loader2,
+  Users,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { Task, useTaskComments, useTaskHistory, useAddTaskComment, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
+import { useTaskTeamMembers, useAddTaskTeamMember, useRemoveTaskTeamMember } from '@/hooks/useTaskTeamMembers';
 import { useUserPermissions } from '@/hooks/usePermissions';
+import { useUsersList } from '@/hooks/useUsers';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -35,19 +48,55 @@ interface TaskDetailsDialogProps {
 
 export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: TaskDetailsDialogProps) {
   const [comment, setComment] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
   
   const { data: comments, isLoading: loadingComments } = useTaskComments(task?.id || '');
   const { data: history, isLoading: loadingHistory } = useTaskHistory(task?.id || '');
+  const { data: teamMembers, isLoading: loadingTeam } = useTaskTeamMembers(task?.id || '');
+  const { data: users } = useUsersList();
   const addCommentMutation = useAddTaskComment();
+  const addTeamMemberMutation = useAddTaskTeamMember();
+  const removeTeamMemberMutation = useRemoveTaskTeamMember();
   const { canEdit } = useUserPermissions();
+  const { isAdmin, isSupervisor } = useAuth();
 
   if (!task) return null;
+
+  const canManageTeam = isAdmin || isSupervisor;
 
   const handleAddComment = async () => {
     if (!comment.trim()) return;
     await addCommentMutation.mutateAsync({ taskId: task.id, content: comment });
     setComment('');
   };
+
+  const handleAddTeamMember = async () => {
+    if (!selectedUserId) return;
+    const selectedUser = users?.find(u => u.user_id === selectedUserId);
+    if (selectedUser) {
+      await addTeamMemberMutation.mutateAsync({
+        taskId: task.id,
+        userId: selectedUserId,
+        userName: selectedUser.full_name,
+      });
+      setSelectedUserId('');
+    }
+  };
+
+  const handleRemoveTeamMember = async (memberId: string, memberName: string) => {
+    await removeTeamMemberMutation.mutateAsync({
+      taskId: task.id,
+      memberId,
+      memberName,
+    });
+  };
+
+  // Filter out users who are already team members or the main assignee
+  const availableUsers = users?.filter(u => 
+    u.is_active && 
+    u.user_id !== task.assigned_to &&
+    !teamMembers?.some(m => m.user_id === u.user_id)
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -79,8 +128,17 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
 
         <div className="flex-1 overflow-hidden">
           <Tabs defaultValue="details" className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+            <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
               <TabsTrigger value="details">Detalhes</TabsTrigger>
+              <TabsTrigger value="team" className="gap-1">
+                <Users className="w-4 h-4" />
+                Equipe
+                {teamMembers && teamMembers.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 justify-center">
+                    {teamMembers.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="comments" className="gap-1">
                 <MessageSquare className="w-4 h-4" />
                 Comentários
@@ -197,6 +255,92 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
                     <div>
                       <h4 className="text-sm font-medium text-muted-foreground mb-1">Observações</h4>
                       <p className="text-sm whitespace-pre-wrap">{task.notes}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="team" className="flex-1 flex flex-col mt-4 overflow-hidden">
+              <div className="space-y-4">
+                {/* Main Assignee */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Responsável Principal</h4>
+                  {task.assigned_to_name ? (
+                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">{task.assigned_to_name}</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Não atribuído</p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Team Members */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Equipe Envolvida</h4>
+                  {loadingTeam ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : !teamMembers || teamMembers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum membro adicional na equipe</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {teamMembers.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                            <span>{member.user_name}</span>
+                          </div>
+                          {canManageTeam && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveTeamMember(member.id, member.user_name)}
+                              disabled={removeTeamMemberMutation.isPending}
+                            >
+                              <X className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add Team Member */}
+                {canManageTeam && availableUsers && availableUsers.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium text-muted-foreground">Adicionar Membro</h4>
+                      <div className="flex gap-2">
+                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Selecione um usuário..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableUsers.map((user) => (
+                              <SelectItem key={user.user_id} value={user.user_id}>
+                                {user.full_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={handleAddTeamMember}
+                          disabled={!selectedUserId || addTeamMemberMutation.isPending}
+                        >
+                          {addTeamMemberMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <UserPlus className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </>
                 )}
