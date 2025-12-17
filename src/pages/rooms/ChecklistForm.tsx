@@ -13,11 +13,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, ArrowRight, ClipboardCheck, Building2, Clock, MapPin } from 'lucide-react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { ArrowLeft, ArrowRight, ClipboardCheck, Building2, Clock, MapPin, Check, ChevronsUpDown, X } from 'lucide-react';
 import { useRoomsList, useCreateChecklist } from '@/hooks/useRooms';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Constants } from '@/integrations/supabase/types';
+import { cn } from '@/lib/utils';
 
 type ChecklistFieldStatus = 'verificado' | 'pendente';
 
@@ -322,31 +335,55 @@ export default function ChecklistForm() {
                   Nenhuma sala cadastrada para o campus {selectedCampus}
                 </p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filteredRooms.map((room) => (
-                    <div
-                      key={room.id}
-                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                        selectedRooms.includes(room.id)
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      onClick={() => toggleRoomSelection(room.id)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedRooms.includes(room.id)}
-                          onCheckedChange={() => toggleRoomSelection(room.id)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{room.name}</p>
-                          {room.floor && (
-                            <p className="text-sm text-muted-foreground">Andar: {room.floor}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between h-auto min-h-[40px] py-2"
+                      >
+                        <span className="text-muted-foreground">
+                          {selectedRooms.length === 0 
+                            ? "Selecione as salas..."
+                            : `${selectedRooms.length} sala(s) selecionada(s)`}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full min-w-[400px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar sala..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma sala encontrada.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredRooms.map((room) => (
+                              <CommandItem
+                                key={room.id}
+                                value={room.name}
+                                onSelect={() => toggleRoomSelection(room.id)}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedRooms.includes(room.id) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex-1">
+                                  <span className="font-medium">{room.name}</span>
+                                  {room.floor && (
+                                    <span className="ml-2 text-sm text-muted-foreground">
+                                      Andar: {room.floor}
+                                    </span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
 
@@ -356,8 +393,14 @@ export default function ChecklistForm() {
                   {selectedRooms.map(roomId => {
                     const room = filteredRooms.find(r => r.id === roomId);
                     return room ? (
-                      <Badge key={roomId} variant="secondary">
+                      <Badge 
+                        key={roomId} 
+                        variant="secondary"
+                        className="gap-1 cursor-pointer hover:bg-destructive/10"
+                        onClick={() => toggleRoomSelection(roomId)}
+                      >
                         {room.name}
+                        <X className="h-3 w-3" />
                       </Badge>
                     ) : null;
                   })}

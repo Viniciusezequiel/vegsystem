@@ -79,10 +79,11 @@ export function useMyTasks() {
     queryFn: async () => {
       if (!user) return [];
 
+      // Fetch tasks where user is assigned_to OR created_by
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('assigned_to', user.id)
+        .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
         .not('status', 'in', '("completed","cancelled")')
         .order('due_date', { ascending: true, nullsFirst: false });
 
