@@ -79,13 +79,28 @@ export function useMyTasks() {
     queryFn: async () => {
       if (!user) return [];
 
-      // Fetch tasks where user is assigned_to OR created_by
-      const { data, error } = await supabase
+      // First get task IDs where user is a team member
+      const { data: teamMemberships } = await supabase
+        .from('task_team_members')
+        .select('task_id')
+        .eq('user_id', user.id);
+
+      const teamTaskIds = teamMemberships?.map(m => m.task_id) || [];
+
+      // Fetch tasks where user is assigned_to, created_by, or a team member
+      let query = supabase
         .from('tasks')
         .select('*')
-        .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
         .not('status', 'in', '("completed","cancelled")')
         .order('due_date', { ascending: true, nullsFirst: false });
+
+      // Build OR condition
+      const conditions = [`assigned_to.eq.${user.id}`, `created_by.eq.${user.id}`];
+      if (teamTaskIds.length > 0) {
+        conditions.push(`id.in.(${teamTaskIds.join(',')})`);
+      }
+
+      const { data, error } = await query.or(conditions.join(','));
 
       if (error) throw error;
       return (data || []) as Task[];

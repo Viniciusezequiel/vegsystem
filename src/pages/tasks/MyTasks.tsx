@@ -97,7 +97,7 @@ export default function MyTasks() {
               <ClipboardCheck className="w-6 h-6" />
               Minhas Demandas
             </h1>
-            <p className="page-subtitle">Acompanhe e atualize suas demandas atribuídas</p>
+            <p className="page-subtitle">Acompanhe demandas atribuídas e da equipe</p>
           </div>
           <Button onClick={() => setFormOpen(true)} className="gap-2">
             <Plus className="w-4 h-4" />

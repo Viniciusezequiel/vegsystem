@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import ClassroomCallValidationDialog from '@/components/classroom/ClassroomCallValidationDialog';
 
 const statusConfig = {
   pending: { label: 'Pendente', variant: 'destructive' as const, icon: BellRing },
@@ -23,6 +25,9 @@ export default function ClassroomCallsList() {
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
+  const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab);
@@ -112,13 +117,42 @@ export default function ClassroomCallsList() {
     }
   }, [pendingCount, soundEnabled]);
 
-  const handleAccept = async (id: string) => {
-    await acceptCall.mutateAsync(id);
+  const handleOpenAcceptDialog = (id: string) => {
+    setSelectedCallId(id);
+    setDialogMode('accept');
+    setValidationDialogOpen(true);
+  };
+
+  const handleOpenResolveDialog = (id: string) => {
+    setSelectedCallId(id);
+    setDialogMode('resolve');
+    setValidationDialogOpen(true);
+  };
+
+  const handleValidationConfirm = async (data: { isValid?: boolean; validationReason?: string; treatment?: string }) => {
+    if (!selectedCallId) return;
+    
+    if (dialogMode === 'accept') {
+      await acceptCall.mutateAsync({ 
+        id: selectedCallId, 
+        isValid: data.isValid, 
+        validationReason: data.validationReason 
+      });
+    } else {
+      await resolveCall.mutateAsync({ 
+        id: selectedCallId, 
+        treatment: data.treatment 
+      });
+    }
+    
     // Stop sound when call is accepted
-    if (intervalRef.current) {
+    if (dialogMode === 'accept' && intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    
+    setValidationDialogOpen(false);
+    setSelectedCallId(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -128,6 +162,22 @@ export default function ClassroomCallsList() {
   const copyExternalLink = () => {
     const link = `${window.location.origin}/chamado-sala`;
     navigator.clipboard.writeText(link);
+  };
+
+  const getValidationBadge = (call: ClassroomCall) => {
+    if (call.is_valid === null || call.is_valid === undefined) return null;
+    
+    return call.is_valid ? (
+      <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30 gap-1">
+        <ThumbsUp className="h-3 w-3" />
+        Procede
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30 gap-1">
+        <ThumbsDown className="h-3 w-3" />
+        Não Procede
+      </Badge>
+    );
   };
 
   return (
@@ -220,6 +270,7 @@ export default function ClassroomCallsList() {
                         <TableHead>Sala</TableHead>
                         <TableHead>Motivo</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Validação</TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead>Atendido por</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
@@ -233,12 +284,46 @@ export default function ClassroomCallsList() {
                         return (
                           <TableRow key={call.id} className={call.status === 'pending' ? 'bg-destructive/5' : ''}>
                             <TableCell className="font-medium">{call.room_name}</TableCell>
-                            <TableCell className="max-w-xs truncate">{call.reason}</TableCell>
+                            <TableCell className="max-w-xs">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger className="truncate block max-w-[200px] text-left">
+                                    {call.reason}
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-sm">
+                                    <p>{call.reason}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </TableCell>
                             <TableCell>
                               <Badge variant={status.variant} className="gap-1">
                                 <StatusIcon className="h-3 w-3" />
                                 {status.label}
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-1">
+                                {getValidationBadge(call)}
+                                {(call.validation_reason || call.treatment) && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <Badge variant="outline" className="gap-1 cursor-help">
+                                          <MessageSquare className="h-3 w-3" />
+                                          {call.treatment ? 'Tratativa' : 'Justificativa'}
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-sm">
+                                        <p className="font-semibold mb-1">
+                                          {call.treatment ? 'Tratativa:' : 'Justificativa:'}
+                                        </p>
+                                        <p>{call.treatment || call.validation_reason}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>{formatDate(call.created_at)}</TableCell>
                             <TableCell>{call.accepted_by_name || '-'}</TableCell>
@@ -247,7 +332,7 @@ export default function ClassroomCallsList() {
                                 {call.status === 'pending' && (
                                   <Button
                                     size="sm"
-                                    onClick={() => handleAccept(call.id)}
+                                    onClick={() => handleOpenAcceptDialog(call.id)}
                                     disabled={acceptCall.isPending}
                                   >
                                     <Check className="h-4 w-4 mr-1" />
@@ -258,7 +343,7 @@ export default function ClassroomCallsList() {
                                   <Button
                                     size="sm"
                                     variant="secondary"
-                                    onClick={() => resolveCall.mutate(call.id)}
+                                    onClick={() => handleOpenResolveDialog(call.id)}
                                     disabled={resolveCall.isPending}
                                   >
                                     <CheckCircle className="h-4 w-4 mr-1" />
@@ -309,6 +394,15 @@ export default function ClassroomCallsList() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <ClassroomCallValidationDialog
+        open={validationDialogOpen}
+        onOpenChange={setValidationDialogOpen}
+        callId={selectedCallId || ''}
+        mode={dialogMode}
+        onConfirm={handleValidationConfirm}
+        isPending={acceptCall.isPending || resolveCall.isPending}
+      />
     </MainLayout>
   );
 }
