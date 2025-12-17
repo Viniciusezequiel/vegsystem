@@ -44,16 +44,15 @@ export default function EquipmentLoans() {
   const handleReturn = (data: ReturnData) => {
     if (!selectedLoan) return;
     
-    // Include return data in notes
-    const returnNotes = `
-Devolvido por: ${data.returner_name}
-Telefone: ${data.returner_phone}
-Setor: ${data.returner_sector}
-Condição: ${data.item_condition === 'good' ? 'Boas condições' : data.item_condition === 'damaged' ? 'Danificado' : 'Faltando peças'}
-${data.notes ? `Obs: ${data.notes}` : ''}
-    `.trim();
-    
-    returnEquipment.mutate(selectedLoan.id, {
+    returnEquipment.mutate({
+      loanId: selectedLoan.id,
+      returner_name: data.returner_name,
+      returner_phone: data.returner_phone,
+      returner_sector: data.returner_sector,
+      item_condition: data.item_condition,
+      notes: data.notes,
+      return_signature: data.return_signature,
+    }, {
       onSuccess: () => {
         setReturnDialogOpen(false);
         setSelectedLoan(null);

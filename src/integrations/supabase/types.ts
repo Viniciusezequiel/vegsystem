@@ -268,6 +268,7 @@ export type Database = {
           loaned_by: string | null
           notes: string | null
           quantity_borrowed: number
+          return_signature: string | null
           returned_by: string | null
           status: Database["public"]["Enums"]["loan_status"]
           updated_at: string
@@ -285,6 +286,7 @@ export type Database = {
           loaned_by?: string | null
           notes?: string | null
           quantity_borrowed?: number
+          return_signature?: string | null
           returned_by?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
           updated_at?: string
@@ -302,6 +304,7 @@ export type Database = {
           loaned_by?: string | null
           notes?: string | null
           quantity_borrowed?: number
+          return_signature?: string | null
           returned_by?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
           updated_at?: string
