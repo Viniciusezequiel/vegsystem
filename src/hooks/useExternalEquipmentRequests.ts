@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +31,31 @@ export interface ExternalEquipmentRequest {
 }
 
 export function useExternalEquipmentRequests(status?: string) {
+  const queryClient = useQueryClient();
+
+  // Set up realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('external-equipment-requests-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'external_equipment_requests'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['external-equipment-requests'] });
+          queryClient.invalidateQueries({ queryKey: ['equipment'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['external-equipment-requests', status],
     queryFn: async () => {

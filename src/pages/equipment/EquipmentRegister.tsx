@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -12,6 +13,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -34,6 +36,7 @@ const equipmentSchema = z.object({
   campus: z.enum(['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm']),
   category: z.string().optional(),
   description: z.string().optional(),
+  allow_external_loan: z.boolean().default(true),
 });
 
 type EquipmentFormData = z.infer<typeof equipmentSchema>;
@@ -57,6 +60,7 @@ export default function EquipmentRegister() {
       campus: 'Campus I',
       category: '',
       description: '',
+      allow_external_loan: true,
     },
   });
 
@@ -71,6 +75,7 @@ export default function EquipmentRegister() {
         campus: existingEquipment.campus,
         category: existingEquipment.category || '',
         description: existingEquipment.description || '',
+        allow_external_loan: existingEquipment.allow_external_loan,
       });
     }
   }, [existingEquipment, isEditing, form]);
@@ -86,6 +91,7 @@ export default function EquipmentRegister() {
         campus: data.campus,
         category: data.category || null,
         description: data.description || null,
+        allow_external_loan: data.allow_external_loan,
       });
     } else {
       await createEquipment.mutateAsync({
@@ -99,6 +105,7 @@ export default function EquipmentRegister() {
         image_url: null,
         category: data.category || null,
         description: data.description || null,
+        allow_external_loan: data.allow_external_loan,
       });
     }
     navigate('/equipment');
@@ -263,6 +270,27 @@ export default function EquipmentRegister() {
                         />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="allow_external_loan"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Permitir empréstimo externo</FormLabel>
+                        <FormDescription>
+                          Quando marcado, este equipamento pode ser solicitado por usuários externos
+                        </FormDescription>
+                      </div>
                     </FormItem>
                   )}
                 />

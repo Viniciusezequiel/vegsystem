@@ -11,6 +11,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const { user, isLoading, isAdmin, profile, role } = useAuth();
   const location = useLocation();
 
+  // Show loading while checking authentication or loading user data
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -30,20 +31,9 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   // SECURITY: User must have a role (be an internal user) to access protected routes
   // This prevents external users from accessing admin panel
   if (!role) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center p-8 max-w-md">
-          <h1 className="text-2xl font-bold text-destructive mb-2">Acesso Não Autorizado</h1>
-          <p className="text-muted-foreground mb-4">
-            Você não tem permissão para acessar o painel administrativo.
-            Este acesso é restrito a colaboradores internos.
-          </p>
-          <a href="/auth" className="text-primary hover:underline">
-            Voltar para login
-          </a>
-        </div>
-      </div>
-    );
+    // If user exists but no role, they might be an external user
+    // Redirect them to the booking page instead of showing error
+    return <Navigate to="/booking" replace />;
   }
 
   // Check if user profile is active
