@@ -52,11 +52,16 @@ export function useExternalEquipmentNotifications() {
 }
 
 export function usePendingExternalEquipmentCount() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+
+  // Only internal users (with roles) can see all pending requests
+  const isInternalUser = !!role;
 
   return {
-    queryKey: ['pending-equipment-requests-count', user?.id],
+    queryKey: ['pending-equipment-requests-count', user?.id, isInternalUser],
     queryFn: async () => {
+      if (!isInternalUser) return 0;
+      
       const { count, error } = await supabase
         .from('external_equipment_requests')
         .select('*', { count: 'exact', head: true })
@@ -65,6 +70,6 @@ export function usePendingExternalEquipmentCount() {
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isInternalUser,
   };
 }
