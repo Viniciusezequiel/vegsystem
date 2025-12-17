@@ -187,6 +187,7 @@ export function useCreateEquipmentLoan() {
       borrower_phone: string;
       expected_return_date: string;
       notes?: string;
+      borrower_signature?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -206,7 +207,17 @@ export function useCreateEquipmentLoan() {
       // Create loan
       const { data, error } = await supabase
         .from('equipment_loans')
-        .insert({ ...loan, loaned_by: user?.id })
+        .insert({ 
+          equipment_id: loan.equipment_id,
+          quantity_borrowed: loan.quantity_borrowed,
+          borrower_name: loan.borrower_name,
+          borrower_sector: loan.borrower_sector,
+          borrower_phone: loan.borrower_phone,
+          expected_return_date: loan.expected_return_date,
+          notes: loan.notes,
+          borrower_signature: loan.borrower_signature,
+          loaned_by: user?.id 
+        })
         .select()
         .single();
       if (error) throw error;

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import {
   Form,
   FormControl,
@@ -34,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Package, Check, ChevronsUpDown, Search, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Package, Check, ChevronsUpDown, Search, Plus, Trash2, PenLine } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -42,6 +43,7 @@ import { useEquipmentList, useCreateEquipmentLoan, Equipment } from '@/hooks/use
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 
 interface SelectedEquipment {
   equipment: Equipment;
@@ -65,6 +67,7 @@ export default function EquipmentLoanForm() {
   const [searchValue, setSearchValue] = useState('');
   const [selectedItems, setSelectedItems] = useState<SelectedEquipment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
   
   const { data: equipment } = useEquipmentList();
   const createLoan = useCreateEquipmentLoan();
@@ -127,6 +130,15 @@ export default function EquipmentLoanForm() {
       return;
     }
 
+    if (!signature) {
+      toast({
+        title: 'Erro',
+        description: 'A assinatura do solicitante é obrigatória',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -140,6 +152,7 @@ export default function EquipmentLoanForm() {
           borrower_phone: data.borrower_phone,
           expected_return_date: data.expected_return_date,
           notes: data.notes || undefined,
+          borrower_signature: signature,
         });
       }
       
@@ -195,17 +208,26 @@ export default function EquipmentLoanForm() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={item.equipment.available_quantity}
-                        value={item.quantity}
-                        onChange={(e) => handleQuantityChange(item.equipment.id, parseInt(e.target.value) || 1)}
-                        className="w-20 h-8"
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        / {item.equipment.available_quantity}
-                      </span>
+                      {/* Only show quantity input if equipment has more than 1 available */}
+                      {item.equipment.quantity > 1 ? (
+                        <>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={item.equipment.available_quantity}
+                            value={item.quantity}
+                            onChange={(e) => handleQuantityChange(item.equipment.id, parseInt(e.target.value) || 1)}
+                            className="w-20 h-8"
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            / {item.equipment.available_quantity}
+                          </span>
+                        </>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          Patrimônio único
+                        </Badge>
+                      )}
                       <Button
                         type="button"
                         variant="ghost"
@@ -382,6 +404,22 @@ export default function EquipmentLoanForm() {
                   )}
                 />
 
+                {/* Signature Section */}
+                <div className="space-y-2 pt-4 border-t">
+                  <Label className="flex items-center gap-2">
+                    <PenLine className="w-4 h-4" />
+                    Assinatura do Solicitante *
+                  </Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    O solicitante deve assinar abaixo para confirmar a retirada dos equipamentos.
+                  </p>
+                  <SignaturePad 
+                    onSignatureChange={setSignature}
+                    width={350}
+                    height={150}
+                  />
+                </div>
+
                 <div className="flex flex-col sm:flex-row justify-end gap-4">
                   <Button
                     type="button"
@@ -393,7 +431,7 @@ export default function EquipmentLoanForm() {
                   </Button>
                   <Button 
                     type="submit" 
-                    disabled={isSubmitting || selectedItems.length === 0} 
+                    disabled={isSubmitting || selectedItems.length === 0 || !signature} 
                     className="w-full sm:w-auto"
                   >
                     {isSubmitting ? 'Registrando...' : `Registrar ${selectedItems.length > 1 ? `${selectedItems.length} Empréstimos` : 'Empréstimo'}`}
