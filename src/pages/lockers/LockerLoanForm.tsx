@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
@@ -24,6 +26,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useLockersList, useCreateLockerLoan } from '@/hooks/useLockers';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 
 const loanSchema = z.object({
   locker_id: z.string().min(1, 'Selecione um escaninho'),
@@ -40,6 +43,7 @@ export default function LockerLoanForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedLocker = searchParams.get('locker') || '';
+  const [signature, setSignature] = useState<string | null>(null);
   
   const { data: lockers } = useLockersList('available');
   const createLoan = useCreateLockerLoan();
@@ -57,6 +61,10 @@ export default function LockerLoanForm() {
   });
 
   const onSubmit = async (data: LoanFormData) => {
+    if (!signature) {
+      return;
+    }
+
     // Calculate expected return date as 6 months from now
     const expectedReturnDate = new Date();
     expectedReturnDate.setMonth(expectedReturnDate.getMonth() + 6);
@@ -68,6 +76,7 @@ export default function LockerLoanForm() {
       borrower_phone: data.borrower_phone,
       borrower_email: data.borrower_email,
       borrower_sector: data.borrower_sector || undefined,
+      borrower_signature: signature,
       expected_return_date: formattedDate,
       notes: data.notes || undefined,
     });
@@ -211,6 +220,20 @@ export default function LockerLoanForm() {
                   )}
                 />
 
+                <div>
+                  <Label>Assinatura do Cliente *</Label>
+                  <div className="mt-1.5">
+                    <SignaturePad
+                      onSignatureChange={setSignature}
+                      width={400}
+                      height={150}
+                    />
+                  </div>
+                  {!signature && (
+                    <p className="text-sm text-destructive mt-1">Assinatura obrigatória</p>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-4">
                   <Button
                     type="button"
@@ -219,7 +242,7 @@ export default function LockerLoanForm() {
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={createLoan.isPending}>
+                  <Button type="submit" disabled={createLoan.isPending || !signature}>
                     {createLoan.isPending ? 'Registrando...' : 'Registrar Empréstimo'}
                   </Button>
                 </div>

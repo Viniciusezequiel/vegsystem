@@ -554,6 +554,7 @@ export type Database = {
           borrower_name: string
           borrower_phone: string
           borrower_sector: string | null
+          borrower_signature: string | null
           created_at: string
           expected_return_date: string
           id: string
@@ -572,6 +573,7 @@ export type Database = {
           borrower_name: string
           borrower_phone: string
           borrower_sector?: string | null
+          borrower_signature?: string | null
           created_at?: string
           expected_return_date: string
           id?: string
@@ -590,6 +592,7 @@ export type Database = {
           borrower_name?: string
           borrower_phone?: string
           borrower_sector?: string | null
+          borrower_signature?: string | null
           created_at?: string
           expected_return_date?: string
           id?: string

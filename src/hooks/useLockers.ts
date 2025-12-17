@@ -20,6 +20,7 @@ export type LockerLoan = {
   borrower_phone: string;
   borrower_email: string | null;
   borrower_sector: string | null;
+  borrower_signature: string | null;
   expected_return_date: string;
   actual_return_date: string | null;
   status: 'active' | 'returned' | 'overdue';
@@ -192,6 +193,7 @@ export function useCreateLockerLoan() {
       borrower_phone: string;
       borrower_email?: string;
       borrower_sector?: string;
+      borrower_signature?: string;
       expected_return_date: string;
       notes?: string;
     }) => {
@@ -200,7 +202,17 @@ export function useCreateLockerLoan() {
       // Create loan
       const { data, error } = await supabase
         .from('locker_loans')
-        .insert({ ...loan, loaned_by: user?.id })
+        .insert({ 
+          locker_id: loan.locker_id,
+          borrower_name: loan.borrower_name,
+          borrower_phone: loan.borrower_phone,
+          borrower_email: loan.borrower_email,
+          borrower_sector: loan.borrower_sector,
+          borrower_signature: loan.borrower_signature,
+          expected_return_date: loan.expected_return_date,
+          notes: loan.notes,
+          loaned_by: user?.id 
+        })
         .select()
         .single();
       if (error) throw error;

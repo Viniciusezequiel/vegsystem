@@ -180,6 +180,24 @@ export function LockerLoanDetailsDialog({
             </>
           )}
 
+          {/* Borrower Signature */}
+          {loan.borrower_signature && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="font-medium mb-2">Assinatura de Retirada</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Assinado por: {loan.borrower_name}
+                </p>
+                <img 
+                  src={loan.borrower_signature} 
+                  alt="Assinatura de retirada" 
+                  className="border rounded-lg bg-white max-w-full"
+                />
+              </div>
+            </>
+          )}
+
           {/* Return signature */}
           {loan.return_signature && (
             <>
