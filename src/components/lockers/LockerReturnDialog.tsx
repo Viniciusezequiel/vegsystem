@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 import { Loader2 } from 'lucide-react';
 
 interface LockerReturnDialogProps {
@@ -25,6 +26,7 @@ interface LockerReturnDialogProps {
 export interface LockerReturnData {
   returner_name: string;
   notes?: string;
+  signature?: string;
 }
 
 export function LockerReturnDialog({
@@ -37,23 +39,26 @@ export function LockerReturnDialog({
 }: LockerReturnDialogProps) {
   const [returnerName, setReturnerName] = useState(borrowerName);
   const [notes, setNotes] = useState('');
+  const [signature, setSignature] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onConfirm({
       returner_name: returnerName,
       notes: notes || undefined,
+      signature: signature || undefined,
     });
   };
 
   const resetForm = () => {
     setReturnerName(borrowerName);
     setNotes('');
+    setSignature(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Devolução</DialogTitle>
           <DialogDescription>
@@ -82,6 +87,16 @@ export function LockerReturnDialog({
               rows={3}
               className="mt-1.5"
             />
+          </div>
+          <div>
+            <Label>Assinatura de quem está devolvendo</Label>
+            <div className="mt-1.5">
+              <SignaturePad
+                onSignatureChange={setSignature}
+                width={350}
+                height={150}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

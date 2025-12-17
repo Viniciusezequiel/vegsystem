@@ -26,9 +26,23 @@ export type LockerLoan = {
   loaned_by: string | null;
   returned_by: string | null;
   notes: string | null;
+  return_signature: string | null;
+  returner_name: string | null;
   created_at: string;
   updated_at: string;
   locker?: Locker;
+};
+
+export type LockerExchange = {
+  id: string;
+  old_loan_id: string;
+  old_locker_id: string;
+  new_locker_id: string;
+  new_loan_id: string | null;
+  reason: string | null;
+  performed_by: string | null;
+  performed_by_name: string;
+  created_at: string;
 };
 
 export function useLockersList(statusFilter?: 'available' | 'occupied') {
@@ -214,7 +228,12 @@ export function useReturnLocker() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (loanId: string) => {
+    mutationFn: async ({ loanId, returnerName, signature, notes }: { 
+      loanId: string; 
+      returnerName?: string;
+      signature?: string;
+      notes?: string;
+    }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
       // Get loan details
@@ -232,7 +251,10 @@ export function useReturnLocker() {
         .update({ 
           status: 'returned',
           actual_return_date: new Date().toISOString().split('T')[0],
-          returned_by: user?.id
+          returned_by: user?.id,
+          returner_name: returnerName || null,
+          return_signature: signature || null,
+          notes: notes || loan.notes,
         })
         .eq('id', loanId);
       if (error) throw error;
@@ -250,6 +272,104 @@ export function useReturnLocker() {
     },
     onError: (error: Error) => {
       toast.error('Erro ao registrar devolução: ' + error.message);
+    },
+  });
+}
+
+export function useExchangeLocker() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      loanId, 
+      newLockerId, 
+      reason 
+    }: { 
+      loanId: string; 
+      newLockerId: string;
+      reason: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get current user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+      
+      // Get current loan details
+      const { data: oldLoan, error: loanError } = await supabase
+        .from('locker_loans')
+        .select('*')
+        .eq('id', loanId)
+        .single();
+      
+      if (loanError) throw loanError;
+
+      // Mark old loan as returned
+      await supabase
+        .from('locker_loans')
+        .update({ 
+          status: 'returned',
+          actual_return_date: new Date().toISOString().split('T')[0],
+          returned_by: user?.id,
+          notes: `Troca de escaninho - ${reason}`
+        })
+        .eq('id', loanId);
+
+      // Set old locker as available
+      await supabase
+        .from('lockers')
+        .update({ status: 'available' })
+        .eq('id', oldLoan.locker_id);
+
+      // Create new loan with same borrower info
+      const { data: newLoan, error: newLoanError } = await supabase
+        .from('locker_loans')
+        .insert({
+          locker_id: newLockerId,
+          borrower_name: oldLoan.borrower_name,
+          borrower_phone: oldLoan.borrower_phone,
+          borrower_email: oldLoan.borrower_email,
+          borrower_sector: oldLoan.borrower_sector,
+          expected_return_date: oldLoan.expected_return_date,
+          loaned_by: user?.id,
+          notes: `Troca do escaninho anterior - ${reason}`,
+        })
+        .select()
+        .single();
+
+      if (newLoanError) throw newLoanError;
+
+      // Set new locker as occupied
+      await supabase
+        .from('lockers')
+        .update({ status: 'occupied' })
+        .eq('id', newLockerId);
+
+      // Record the exchange
+      await supabase
+        .from('locker_exchanges')
+        .insert({
+          old_loan_id: loanId,
+          old_locker_id: oldLoan.locker_id,
+          new_locker_id: newLockerId,
+          new_loan_id: newLoan.id,
+          reason,
+          performed_by: user?.id,
+          performed_by_name: profile?.full_name || user?.email || 'Sistema',
+        });
+
+      return newLoan;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lockers'] });
+      queryClient.invalidateQueries({ queryKey: ['locker-loans'] });
+      toast.success('Troca de escaninho realizada com sucesso!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao trocar escaninho: ' + error.message);
     },
   });
 }

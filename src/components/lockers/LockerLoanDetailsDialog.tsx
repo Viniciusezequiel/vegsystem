@@ -16,7 +16,8 @@ import {
   Clock, 
   MapPin,
   Building2,
-  FileText
+  FileText,
+  ArrowLeftRight
 } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -27,6 +28,7 @@ interface LockerLoanDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   loan: LockerLoan | null;
   onReturn?: () => void;
+  onExchange?: () => void;
   showReturnButton?: boolean;
 }
 
@@ -41,6 +43,7 @@ export function LockerLoanDetailsDialog({
   onOpenChange,
   loan,
   onReturn,
+  onExchange,
   showReturnButton = false,
 }: LockerLoanDetailsDialogProps) {
   if (!loan) return null;
@@ -58,7 +61,7 @@ export function LockerLoanDetailsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Box className="w-5 h-5" />
-            Detalhes da Alocação
+            Detalhes da Locação
           </DialogTitle>
         </DialogHeader>
 
@@ -142,7 +145,7 @@ export function LockerLoanDetailsDialog({
             </h4>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Data da Alocação</span>
+                <span className="text-muted-foreground">Data da Locação</span>
                 <span>{formatDate(loan.created_at)}</span>
               </div>
               <div className="flex items-center justify-between">
@@ -177,13 +180,37 @@ export function LockerLoanDetailsDialog({
             </>
           )}
 
-          {/* Action Button */}
+          {/* Return signature */}
+          {loan.return_signature && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="font-medium mb-2">Assinatura de Devolução</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Devolvido por: {loan.returner_name || 'N/A'}
+                </p>
+                <img 
+                  src={loan.return_signature} 
+                  alt="Assinatura de devolução" 
+                  className="border rounded-lg bg-white max-w-full"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Action Buttons */}
           {showReturnButton && loan.status === 'active' && (
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               <Button onClick={onReturn} className="w-full">
                 <Clock className="w-4 h-4 mr-2" />
                 Registrar Devolução
               </Button>
+              {onExchange && (
+                <Button onClick={onExchange} variant="outline" className="w-full">
+                  <ArrowLeftRight className="w-4 h-4 mr-2" />
+                  Trocar Escaninho
+                </Button>
+              )}
             </div>
           )}
         </div>
