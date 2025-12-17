@@ -206,12 +206,12 @@ export default function ExternalBooking() {
   // Static campus options (same as lost and found)
   const equipmentCampuses = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
-  // Available equipment for selection (only items allowed for external loan, filtered by campus)
-  // Show all equipment that allows external loan, even if quantity is 0 (user can still see/request)
+  // Available equipment for selection (only items allowed for external loan with positive quantity, filtered by campus)
   const availableEquipment = useMemo(() => {
     return equipment?.filter(e => 
       e.status !== 'maintenance' && 
       e.allow_external_loan === true &&
+      e.available_quantity > 0 &&
       (selectedEquipmentCampus === '' || e.campus === selectedEquipmentCampus)
     ) || [];
   }, [equipment, selectedEquipmentCampus]);

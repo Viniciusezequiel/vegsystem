@@ -31,18 +31,34 @@ export interface LostItem {
   updated_at: string;
 }
 
+// Track last expiration call to avoid calling it too often
+let lastExpirationCall = 0;
+const EXPIRATION_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
 export function useLostItems(filters?: { status?: string; search?: string }) {
   return useQuery({
     queryKey: ['lost-items', filters],
     queryFn: async () => {
-      // First, call the function to update expired items
-      await supabase.rpc('expire_old_lost_items');
+      // Only call expiration function once every 5 minutes to improve performance
+      const now = Date.now();
+      if (now - lastExpirationCall > EXPIRATION_INTERVAL) {
+        lastExpirationCall = now;
+        // Fire and forget - don't wait for it
+        (async () => {
+          try {
+            await supabase.rpc('expire_old_lost_items');
+          } catch (e) {
+            console.error('Error expiring items:', e);
+          }
+        })();
+      }
 
-      // Build the base query
+      // Build the base query with a reasonable limit
       let query = supabase
         .from('lost_items')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (filters?.status && filters.status !== 'all') {
         query = query.eq('status', filters.status);
@@ -52,29 +68,14 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
         query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
       }
 
-      // Fetch all items by setting a high limit (Supabase max is 1000 per request)
-      // Use pagination to get all records
-      const allItems: LostItem[] = [];
-      const pageSize = 1000;
-      let page = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
-        
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          allItems.push(...(data as LostItem[]));
-          hasMore = data.length === pageSize;
-          page++;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      return allItems;
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      return (data || []) as LostItem[];
     },
+    staleTime: 30 * 1000, // Data stays fresh for 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 }
 
