@@ -23,9 +23,9 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     );
   }
 
-  // User must be logged in
+  // User must be logged in - redirect to admin auth
   if (!user) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    return <Navigate to="/admin-auth" state={{ from: location }} replace />;
   }
 
   // SECURITY: User must have a role (be an internal user) to access protected routes

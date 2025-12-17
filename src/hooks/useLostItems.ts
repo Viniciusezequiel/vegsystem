@@ -53,12 +53,11 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
         })();
       }
 
-      // Build the base query with a reasonable limit
+      // Build the base query - no limit for full count accuracy
       let query = supabase
         .from('lost_items')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .order('created_at', { ascending: false });
 
       if (filters?.status && filters.status !== 'all') {
         query = query.eq('status', filters.status);
