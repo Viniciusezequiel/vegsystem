@@ -203,15 +203,8 @@ export default function ExternalBooking() {
   const { data: myEquipmentRequests } = useExternalEquipmentRequestsByEmail(emailFilter);
 
   // Get unique campuses from equipment
-  const equipmentCampuses = useMemo(() => {
-    const campuses = new Set<string>();
-    equipment?.forEach(e => {
-      if (e.campus && e.available_quantity > 0 && e.status === 'available' && (e as any).allow_external_loan !== false) {
-        campuses.add(e.campus);
-      }
-    });
-    return Array.from(campuses).sort();
-  }, [equipment]);
+  // Static campus options (same as lost and found)
+  const equipmentCampuses = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
   // Available equipment for selection (only items allowed for external loan, filtered by campus)
   const availableEquipment = useMemo(() => {
