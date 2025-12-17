@@ -13,9 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone } from 'lucide-react';
+import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye } from 'lucide-react';
 import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, EquipmentLoan } from '@/hooks/useEquipment';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
+import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,6 +30,7 @@ const statusLabels = {
 export default function EquipmentLoans() {
   const [activeTab, setActiveTab] = useState('active');
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<EquipmentLoan | null>(null);
   
   const { data: activeLoans } = useEquipmentLoans('active');
@@ -39,6 +41,11 @@ export default function EquipmentLoans() {
   const handleOpenReturn = (loan: EquipmentLoan) => {
     setSelectedLoan(loan);
     setReturnDialogOpen(true);
+  };
+
+  const handleOpenDetails = (loan: EquipmentLoan) => {
+    setSelectedLoan(loan);
+    setDetailsDialogOpen(true);
   };
 
   const handleReturn = (data: ReturnData) => {
@@ -58,6 +65,11 @@ export default function EquipmentLoans() {
         setSelectedLoan(null);
       },
     });
+  };
+
+  const handleReturnFromDetails = () => {
+    setDetailsDialogOpen(false);
+    setReturnDialogOpen(true);
   };
 
   const formatDate = (date: string) => {
@@ -89,7 +101,7 @@ export default function EquipmentLoans() {
               <TableHead className="hidden lg:table-cell">Telefone</TableHead>
               <TableHead>Prev. Devolução</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
-              {showReturnButton && <TableHead className="text-right">Ações</TableHead>}
+              <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -143,18 +155,28 @@ export default function EquipmentLoans() {
                       {overdue ? 'Atrasado' : statusLabels[loan.status].label}
                     </Badge>
                   </TableCell>
-                  {showReturnButton && (
-                    <TableCell className="text-right">
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
                       <Button 
-                        variant="outline" 
+                        variant="ghost" 
                         size="sm"
-                        onClick={() => handleOpenReturn(loan)}
+                        onClick={() => handleOpenDetails(loan)}
                       >
-                        <span className="hidden sm:inline">Registrar Devolução</span>
-                        <span className="sm:hidden">Devolver</span>
+                        <Eye className="h-4 w-4" />
+                        <span className="sr-only">Ver detalhes</span>
                       </Button>
-                    </TableCell>
-                  )}
+                      {showReturnButton && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleOpenReturn(loan)}
+                        >
+                          <span className="hidden sm:inline">Devolver</span>
+                          <span className="sm:hidden">Dev.</span>
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -262,6 +284,15 @@ export default function EquipmentLoans() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Details Dialog */}
+      <EquipmentLoanDetailsDialog
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        loan={selectedLoan}
+        onReturn={handleReturnFromDetails}
+        showReturnButton={selectedLoan?.status === 'active'}
+      />
 
       {/* Return Dialog */}
       {selectedLoan && (
