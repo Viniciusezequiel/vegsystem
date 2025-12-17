@@ -15,9 +15,12 @@ import {
   Users,
   Search,
   Filter,
-  AlertTriangle
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
 import { useReservations, useUpdateReservation } from '@/hooks/useReservations';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/usePermissions';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -31,12 +34,17 @@ import {
 import { Label } from '@/components/ui/label';
 
 export default function ReservationApprovals() {
+  const { isAdmin } = useAuth();
+  const { canApprove } = useUserPermissions();
   const { data: reservations, isLoading } = useReservations({ status: 'pending' });
   const updateReservation = useUpdateReservation();
   const [search, setSearch] = useState('');
   const [selectedReservation, setSelectedReservation] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+
+  // Permission check for approving reservations
+  const canApproveReservations = isAdmin || canApprove('reservations');
 
   const filteredReservations = reservations?.filter(res =>
     res.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -204,25 +212,32 @@ export default function ReservationApprovals() {
                     )}
                   </div>
                   
-                  <div className="flex gap-2 ml-4">
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={() => openRejectDialog(reservation)}
-                      disabled={updateReservation.isPending}
-                    >
-                      <XCircle className="w-4 h-4 mr-1" />
-                      Rejeitar
-                    </Button>
-                    <Button 
-                      size="sm"
-                      onClick={() => handleApprove(reservation)}
-                      disabled={updateReservation.isPending}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Aprovar
-                    </Button>
-                  </div>
+                  {canApproveReservations ? (
+                    <div className="flex gap-2 ml-4">
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => openRejectDialog(reservation)}
+                        disabled={updateReservation.isPending}
+                      >
+                        <XCircle className="w-4 h-4 mr-1" />
+                        Rejeitar
+                      </Button>
+                      <Button 
+                        size="sm"
+                        onClick={() => handleApprove(reservation)}
+                        disabled={updateReservation.isPending}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Aprovar
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 ml-4 text-muted-foreground">
+                      <ShieldAlert className="w-4 h-4" />
+                      <span className="text-sm">Sem permissão</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useMaterialRequests, useMyMaterialRequests, MaterialRequest } from '@/hooks/useMaterialRequests';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/usePermissions';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MaterialRequestDetailsDialog } from '@/components/materials/MaterialRequestDetailsDialog';
@@ -38,7 +39,8 @@ const priorityConfig = {
 
 export default function MaterialRequestsList() {
   const navigate = useNavigate();
-  const { isAdmin, role } = useAuth();
+  const { isAdmin } = useAuth();
+  const { canApprove, canEdit } = useUserPermissions();
   const [search, setSearch] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<MaterialRequest | null>(null);
   
@@ -46,7 +48,8 @@ export default function MaterialRequestsList() {
   const { data: allRequests, isLoading: loadingAll } = useMaterialRequests();
   const { data: myRequests, isLoading: loadingMy } = useMyMaterialRequests();
   
-  const canManage = isAdmin || role === 'analista';
+  // Use permission system: can manage if can approve or edit materials
+  const canManage = isAdmin || canApprove('materials') || canEdit('materials');
   const requests = canManage ? allRequests : myRequests;
   const isLoading = canManage ? loadingAll : loadingMy;
 

@@ -27,6 +27,7 @@ import {
   ExternalEquipmentRequest 
 } from '@/hooks/useExternalEquipmentRequests';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/usePermissions';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -60,9 +61,15 @@ const statusConfig = {
 
 export default function ExternalEquipmentRequestsList() {
   const { user, isAdmin } = useAuth();
+  const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [search, setSearch] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<ExternalEquipmentRequest | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
+  
+  // Permission checks for equipment module
+  const canApproveEquipment = isAdmin || canApprove('equipment');
+  const canEditEquipment = isAdmin || canEdit('equipment');
+  const canDeleteEquipment = isAdmin || canDelete('equipment');
   
   const { data: requests, isLoading } = useExternalEquipmentRequests();
   const updateRequest = useUpdateExternalEquipmentRequest();
@@ -167,7 +174,7 @@ export default function ExternalEquipmentRequestsList() {
             </span>
           </div>
 
-          {request.status === 'pending' && (
+          {request.status === 'pending' && canApproveEquipment && (
             <div className="flex gap-2 mt-3 pt-3 border-t">
               <Button 
                 size="sm" 
@@ -410,7 +417,7 @@ export default function ExternalEquipmentRequestsList() {
                 
                 <div className="flex-1" />
                 
-                {selectedRequest.status === 'pending' && (
+                {selectedRequest.status === 'pending' && canApproveEquipment && (
                   <>
                     <Button 
                       variant="destructive" 
