@@ -92,8 +92,7 @@ const moduleGroups: NavGroup[] = [
     gradient: 'from-cyan-500 to-blue-500',
     module: 'equipment',
     items: [
-      { name: 'Inventário', href: '/equipment', icon: Monitor },
-      { name: 'Gestão de Patrimônios', href: '/equipment/inventory', icon: Package },
+      { name: 'Patrimônios', href: '/equipment', icon: Package },
       { name: 'Empréstimos', href: '/equipment/loans', icon: PackagePlus },
       { name: 'Solicitações Ext.', href: '/equipment/external-requests', icon: Users },
     ],

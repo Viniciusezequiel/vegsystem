@@ -28,7 +28,7 @@ import EquipmentRegister from "./pages/equipment/EquipmentRegister";
 import EquipmentLoans from "./pages/equipment/EquipmentLoans";
 import EquipmentLoanForm from "./pages/equipment/EquipmentLoanForm";
 import ExternalEquipmentRequestsList from "./pages/equipment/ExternalEquipmentRequestsList";
-import InventoryManagement from "./pages/equipment/InventoryManagement";
+
 
 // Lockers Module
 import LockersList from "./pages/lockers/LockersList";
@@ -144,11 +144,8 @@ const App = () => (
                 <ExternalEquipmentRequestsList />
               </ProtectedRoute>
             } />
-            <Route path="/equipment/inventory" element={
-              <ProtectedRoute>
-                <InventoryManagement />
-              </ProtectedRoute>
-            } />
+            {/* Legacy route - redirect to main equipment page */}
+            <Route path="/equipment/inventory" element={<Navigate to="/equipment" replace />} />
             
             {/* Rooms Module */}
             <Route path="/rooms" element={
