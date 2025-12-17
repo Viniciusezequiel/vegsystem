@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mail, Sparkles, User, Phone, CreditCard } from 'lucide-react';
+import { Loader2, Lock, Mail, Sparkles, User, Phone, CreditCard, Shield } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
@@ -65,20 +65,7 @@ export default function Auth() {
   useEffect(() => {
     const checkUserType = async () => {
       if (user && !authLoading) {
-        // Check if user is internal (has role) first
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (roleData) {
-          // Internal user - redirect to admin dashboard
-          navigate('/', { replace: true });
-          return;
-        }
-        
-        // Check if external user
+        // Check if external user - redirect to booking
         const { data: externalUser } = await supabase
           .from('external_users')
           .select('id')
@@ -86,8 +73,20 @@ export default function Auth() {
           .single();
         
         if (externalUser) {
-          // External user - redirect to booking
           navigate('/booking', { replace: true });
+          return;
+        }
+
+        // Check if user is internal (has role) - redirect to admin area
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (roleData) {
+          // Internal user logged in client area - redirect to admin
+          navigate('/', { replace: true });
         }
       }
     };
@@ -170,42 +169,41 @@ export default function Auth() {
     }
 
     if (data.user) {
-      // Check if user has a role (internal user)
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
+      // Check if external user
+      const { data: externalUser } = await supabase
+        .from('external_users')
+        .select('id')
         .eq('user_id', data.user.id)
         .single();
 
-      if (roleData) {
-        // Internal user - go to admin dashboard
+      if (externalUser) {
+        // External user - go to booking
         toast({
           title: 'Login realizado',
-          description: 'Bem-vindo ao painel administrativo!',
+          description: 'Bem-vindo! Redirecionando para reservas...',
         });
-        navigate('/', { replace: true });
+        navigate('/booking', { replace: true });
       } else {
-        // Check if external user
-        const { data: externalUser } = await supabase
-          .from('external_users')
-          .select('id')
+        // Check if user has a role (internal user)
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
           .eq('user_id', data.user.id)
           .single();
 
-        if (externalUser) {
-          // External user - go to booking
+        if (roleData) {
+          // Internal user trying to login in client area - redirect to admin
           toast({
-            title: 'Login realizado',
-            description: 'Bem-vindo! Redirecionando para reservas...',
+            title: 'Colaborador detectado',
+            description: 'Redirecionando para área administrativa...',
           });
-          navigate('/booking', { replace: true });
+          navigate('/', { replace: true });
         } else {
           // User exists in auth but not in profiles or external_users
-          // This could be a newly created user that needs profile setup
           await supabase.auth.signOut();
           toast({
             title: 'Conta não configurada',
-            description: 'Sua conta ainda não está configurada. Contate o administrador.',
+            description: 'Complete seu cadastro para continuar.',
             variant: 'destructive',
           });
         }
@@ -607,8 +605,19 @@ export default function Auth() {
             </Tabs>
           )}
 
+          {/* Admin area link */}
+          <div className="mt-6 pt-4 border-t border-border/50">
+            <Link 
+              to="/admin-auth" 
+              className="flex items-center justify-center gap-2 w-full py-3 text-sm font-medium text-muted-foreground hover:text-primary transition-colors border border-border/50 rounded-lg hover:border-primary/30 hover:bg-primary/5"
+            >
+              <Shield className="w-4 h-4" />
+              Área de Colaboradores (ADM)
+            </Link>
+          </div>
+
           {/* Contact info */}
-          <div className="mt-6 pt-4 border-t border-border/50 text-center space-y-2">
+          <div className="mt-4 pt-4 border-t border-border/50 text-center space-y-2">
             <p className="text-xs text-muted-foreground">
               Precisa de ajuda? <a href="mailto:viniciusezequiel@outlook.com.br" className="text-primary hover:underline">viniciusezequiel@outlook.com.br</a>
             </p>

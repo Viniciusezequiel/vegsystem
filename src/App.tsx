@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ExternalProtectedRoute } from "@/components/ExternalProtectedRoute";
 import Auth from "./pages/Auth";
+import AdminAuth from "./pages/AdminAuth";
 import Setup from "./pages/Setup";
 import Home from "./pages/Home";
 import RegisterItem from "./pages/RegisterItem";
@@ -77,6 +78,7 @@ const App = () => (
             <Routes>
             {/* Public Routes */}
             <Route path="/auth" element={<Auth />} />
+            <Route path="/admin-auth" element={<AdminAuth />} />
             <Route path="/setup" element={<Setup />} />
             
             {/* Protected Routes */}
