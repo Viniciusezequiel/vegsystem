@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -14,6 +15,7 @@ export type Equipment = {
   category: string | null;
   image_url: string | null;
   status: 'available' | 'borrowed' | 'maintenance';
+  allow_external_loan: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -40,6 +42,30 @@ export type EquipmentLoan = {
 };
 
 export function useEquipmentList(search?: string) {
+  const queryClient = useQueryClient();
+  
+  // Set up realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('equipment-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'equipment'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['equipment'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['equipment', search],
     queryFn: async () => {
@@ -142,6 +168,31 @@ export function useDeleteEquipment() {
 }
 
 export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
+  const queryClient = useQueryClient();
+  
+  // Set up realtime subscription for loans
+  useEffect(() => {
+    const channel = supabase
+      .channel('equipment-loans-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'equipment_loans'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['equipment-loans'] });
+          queryClient.invalidateQueries({ queryKey: ['equipment'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['equipment-loans', status],
     queryFn: async () => {
