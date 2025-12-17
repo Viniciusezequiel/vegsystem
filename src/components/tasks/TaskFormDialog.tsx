@@ -204,18 +204,6 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="estimated_hours">Horas Estimadas</Label>
-            <Input
-              id="estimated_hours"
-              type="number"
-              step="0.5"
-              min="0"
-              value={formData.estimated_hours}
-              onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
-              placeholder="Ex: 4"
-            />
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="notes">Observações</Label>

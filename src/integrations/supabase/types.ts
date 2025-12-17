@@ -153,10 +153,13 @@ export type Database = {
           accepted_by_name: string | null
           created_at: string
           id: string
+          is_valid: boolean | null
           reason: string
           resolved_at: string | null
           room_name: string
           status: string
+          treatment: string | null
+          validation_reason: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -164,10 +167,13 @@ export type Database = {
           accepted_by_name?: string | null
           created_at?: string
           id?: string
+          is_valid?: boolean | null
           reason: string
           resolved_at?: string | null
           room_name: string
           status?: string
+          treatment?: string | null
+          validation_reason?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -175,10 +181,13 @@ export type Database = {
           accepted_by_name?: string | null
           created_at?: string
           id?: string
+          is_valid?: boolean | null
           reason?: string
           resolved_at?: string | null
           room_name?: string
           status?: string
+          treatment?: string | null
+          validation_reason?: string | null
         }
         Relationships: []
       }
@@ -467,6 +476,71 @@ export type Database = {
           },
         ]
       }
+      locker_exchanges: {
+        Row: {
+          created_at: string
+          id: string
+          new_loan_id: string | null
+          new_locker_id: string
+          old_loan_id: string
+          old_locker_id: string
+          performed_by: string | null
+          performed_by_name: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          new_loan_id?: string | null
+          new_locker_id: string
+          old_loan_id: string
+          old_locker_id: string
+          performed_by?: string | null
+          performed_by_name: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          new_loan_id?: string | null
+          new_locker_id?: string
+          old_loan_id?: string
+          old_locker_id?: string
+          performed_by?: string | null
+          performed_by_name?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_exchanges_new_loan_id_fkey"
+            columns: ["new_loan_id"]
+            isOneToOne: false
+            referencedRelation: "locker_loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locker_exchanges_new_locker_id_fkey"
+            columns: ["new_locker_id"]
+            isOneToOne: false
+            referencedRelation: "lockers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locker_exchanges_old_loan_id_fkey"
+            columns: ["old_loan_id"]
+            isOneToOne: false
+            referencedRelation: "locker_loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locker_exchanges_old_locker_id_fkey"
+            columns: ["old_locker_id"]
+            isOneToOne: false
+            referencedRelation: "lockers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locker_loans: {
         Row: {
           actual_return_date: string | null
@@ -480,7 +554,9 @@ export type Database = {
           loaned_by: string | null
           locker_id: string
           notes: string | null
+          return_signature: string | null
           returned_by: string | null
+          returner_name: string | null
           status: Database["public"]["Enums"]["loan_status"]
           updated_at: string
         }
@@ -496,7 +572,9 @@ export type Database = {
           loaned_by?: string | null
           locker_id: string
           notes?: string | null
+          return_signature?: string | null
           returned_by?: string | null
+          returner_name?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
           updated_at?: string
         }
@@ -512,7 +590,9 @@ export type Database = {
           loaned_by?: string | null
           locker_id?: string
           notes?: string | null
+          return_signature?: string | null
           returned_by?: string | null
+          returner_name?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
           updated_at?: string
         }
@@ -1189,6 +1269,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "task_history_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_team_members: {
+        Row: {
+          created_at: string
+          id: string
+          task_id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          task_id: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          task_id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_team_members_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"

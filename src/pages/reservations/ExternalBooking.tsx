@@ -161,7 +161,7 @@ export default function ExternalBooking() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [searchData, setSearchData] = useState({
-    attendees_count: 10,
+    attendees_count: '' as unknown as number,
     start_date: '',
     start_time: '',
     end_time: '',
@@ -381,7 +381,7 @@ export default function ExternalBooking() {
     setStep('search');
     setAvailableRooms([]);
     setSelectedRoom(null);
-    setSearchData({ attendees_count: 10, start_date: '', start_time: '', end_time: '' });
+    setSearchData({ attendees_count: '' as unknown as number, start_date: '', start_time: '', end_time: '' });
     setBookingData({ title: '', requester_name: '', requester_email: '', requester_phone: '', description: '' });
   };
 

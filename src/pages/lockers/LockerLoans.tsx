@@ -14,8 +14,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye } from 'lucide-react';
-import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, LockerLoan } from '@/hooks/useLockers';
+import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, LockerLoan } from '@/hooks/useLockers';
 import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
+import { LockerExchangeDialog } from '@/components/lockers/LockerExchangeDialog';
 import { LockerLoanDetailsDialog } from '@/components/lockers/LockerLoanDetailsDialog';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
@@ -30,13 +31,16 @@ const statusLabels = {
 export default function LockerLoans() {
   const [activeTab, setActiveTab] = useState('active');
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<LockerLoan | null>(null);
   
   const { data: activeLoans } = useLockerLoans('active');
   const { data: returnedLoans } = useLockerLoans('returned');
   const { data: overdueLoans } = useOverdueLockerLoans();
+  const { data: availableLockers } = useLockersList('available');
   const returnLocker = useReturnLocker();
+  const exchangeLocker = useExchangeLocker();
 
   const handleOpenReturn = (loan: LockerLoan) => {
     setSelectedLoan(loan);
@@ -51,7 +55,12 @@ export default function LockerLoans() {
   const handleReturn = (data: LockerReturnData) => {
     if (!selectedLoan) return;
     
-    returnLocker.mutate(selectedLoan.id, {
+    returnLocker.mutate({
+      loanId: selectedLoan.id,
+      returnerName: data.returner_name,
+      signature: data.signature,
+      notes: data.notes,
+    }, {
       onSuccess: () => {
         setReturnDialogOpen(false);
         setSelectedLoan(null);
@@ -62,6 +71,26 @@ export default function LockerLoans() {
   const handleReturnFromDetails = () => {
     setDetailsDialogOpen(false);
     setReturnDialogOpen(true);
+  };
+
+  const handleExchangeFromDetails = () => {
+    setDetailsDialogOpen(false);
+    setExchangeDialogOpen(true);
+  };
+
+  const handleExchange = (newLockerId: string, reason: string) => {
+    if (!selectedLoan) return;
+    
+    exchangeLocker.mutate({
+      loanId: selectedLoan.id,
+      newLockerId,
+      reason,
+    }, {
+      onSuccess: () => {
+        setExchangeDialogOpen(false);
+        setSelectedLoan(null);
+      },
+    });
   };
 
   const formatDate = (date: string) => {
@@ -76,7 +105,7 @@ export default function LockerLoans() {
     if (!loans?.length) {
       return (
         <div className="text-center py-8 text-muted-foreground">
-          Nenhuma alocação encontrada
+          Nenhuma locação encontrada
         </div>
       );
     }
@@ -220,14 +249,14 @@ export default function LockerLoans() {
               </Link>
             </Button>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Alocações de Escaninhos</h1>
-              <p className="text-sm text-muted-foreground">Gerencie as alocações e devoluções</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Locações de Escaninhos</h1>
+              <p className="text-sm text-muted-foreground">Gerencie as locações e devoluções</p>
             </div>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <PdfExportButton
-              title="Relatório de Alocações de Escaninhos"
-              filename="alocacoes_escaninhos"
+              title="Relatório de Locações de Escaninhos"
+              filename="locacoes_escaninhos"
               columns={[
                 { header: 'Escaninho', accessor: (row) => row.locker?.code || 'N/A' },
                 { header: 'Campus', accessor: (row) => row.locker?.campus || 'N/A' },
@@ -253,7 +282,7 @@ export default function LockerLoans() {
             <Button asChild className="flex-1 sm:flex-initial">
               <Link to="/lockers/loan/new">
                 <Plus className="mr-2 h-4 w-4" />
-                Nova Alocação
+                Nova Locação
               </Link>
             </Button>
           </div>
@@ -274,7 +303,7 @@ export default function LockerLoans() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Box className="h-5 w-5" />
-              Lista de Alocações
+              Lista de Locações
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -313,6 +342,7 @@ export default function LockerLoans() {
         onOpenChange={setDetailsDialogOpen}
         loan={selectedLoan}
         onReturn={handleReturnFromDetails}
+        onExchange={handleExchangeFromDetails}
         showReturnButton={selectedLoan?.status === 'active'}
       />
 
@@ -325,6 +355,18 @@ export default function LockerLoans() {
           lockerCode={selectedLoan.locker?.code || ''}
           borrowerName={selectedLoan.borrower_name}
           isPending={returnLocker.isPending}
+        />
+      )}
+
+      {/* Exchange Dialog */}
+      {selectedLoan && (
+        <LockerExchangeDialog
+          open={exchangeDialogOpen}
+          onOpenChange={setExchangeDialogOpen}
+          onConfirm={handleExchange}
+          currentLocker={selectedLoan.locker || null}
+          availableLockers={availableLockers || []}
+          isPending={exchangeLocker.isPending}
         />
       )}
     </MainLayout>
