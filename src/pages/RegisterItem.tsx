@@ -248,7 +248,11 @@ export default function RegisterItem() {
                       type="date"
                       className="mt-1.5"
                       value={foundDate}
-                      onChange={(e) => setFoundDate(e.target.value)}
+                      onChange={(e) => {
+                        // Ensure we store the date as-is without timezone conversion
+                        const dateValue = e.target.value;
+                        setFoundDate(dateValue);
+                      }}
                       required
                     />
                   </div>
@@ -259,7 +263,11 @@ export default function RegisterItem() {
                       type="date"
                       className="mt-1.5"
                       value={receivedDate}
-                      onChange={(e) => setReceivedDate(e.target.value)}
+                      onChange={(e) => {
+                        // Ensure we store the date as-is without timezone conversion
+                        const dateValue = e.target.value;
+                        setReceivedDate(dateValue);
+                      }}
                       required
                     />
                   </div>

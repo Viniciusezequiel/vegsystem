@@ -121,11 +121,11 @@ export default function ItemsList() {
 
       // Date range filter
       if (dateFrom || dateTo) {
-        const receivedDate = new Date(item.received_date);
-        if (dateFrom && receivedDate < startOfDay(new Date(dateFrom))) {
+        const receivedDate = new Date(item.received_date + 'T00:00:00');
+        if (dateFrom && receivedDate < startOfDay(new Date(dateFrom + 'T00:00:00'))) {
           return false;
         }
-        if (dateTo && receivedDate > endOfDay(new Date(dateTo))) {
+        if (dateTo && receivedDate > endOfDay(new Date(dateTo + 'T00:00:00'))) {
           return false;
         }
       }
@@ -198,7 +198,7 @@ export default function ItemsList() {
       item.description.substring(0, 40) + (item.description.length > 40 ? '...' : ''),
       item.campus,
       item.found_location.substring(0, 25) + (item.found_location.length > 25 ? '...' : ''),
-      format(new Date(item.received_date), 'dd/MM/yyyy'),
+      format(new Date(item.received_date + 'T00:00:00'), 'dd/MM/yyyy'),
       item.status === 'available' ? 'Disponível' :
       item.status === 'pending' ? 'Pendente' :
       item.status === 'delivered' ? 'Entregue' : 'Expirado',
@@ -687,7 +687,7 @@ export default function ItemsList() {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4" />
-                        <span>{format(new Date(item.found_date), "dd 'de' MMMM", { locale: ptBR })}</span>
+                        <span>{format(new Date(item.found_date + 'T00:00:00'), "dd 'de' MMMM", { locale: ptBR })}</span>
                       </div>
                     </div>
                   </div>

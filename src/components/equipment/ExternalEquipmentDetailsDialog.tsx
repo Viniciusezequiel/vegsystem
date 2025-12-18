@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, Clock, Package, User, Phone, Mail, Building2, FileText, AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { Calendar, Clock, Package, User, Phone, Mail, Building2, FileText, AlertCircle, Loader2, XCircle, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +67,10 @@ export function ExternalEquipmentDetailsDialog({
   onOpenChange 
 }: ExternalEquipmentDetailsDialogProps) {
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [showRescheduleForm, setShowRescheduleForm] = useState(false);
+  const [newRequestedDate, setNewRequestedDate] = useState('');
+  const [newExpectedReturnDate, setNewExpectedReturnDate] = useState('');
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -73,6 +79,7 @@ export function ExternalEquipmentDetailsDialog({
   const status = statusConfig[request.status] || { label: request.status, variant: 'default' as const, color: 'text-gray-500' };
   const isPast = new Date(request.expected_return_date) < new Date();
   const canCancel = !isPast && ['pending', 'approved', 'awaiting_pickup'].includes(request.status);
+  const canReschedule = !isPast && ['pending', 'approved', 'awaiting_pickup'].includes(request.status);
 
   const handleCancel = async () => {
     setIsCancelling(true);
@@ -83,7 +90,6 @@ export function ExternalEquipmentDetailsDialog({
         throw new Error('Você precisa estar logado para cancelar uma solicitação.');
       }
 
-      // Verify ownership
       if (user.email.toLowerCase() !== request.requester_email.toLowerCase()) {
         throw new Error('Você não tem permissão para cancelar esta solicitação.');
       }
@@ -115,141 +121,275 @@ export function ExternalEquipmentDetailsDialog({
     }
   };
 
+  const handleReschedule = async () => {
+    if (!newRequestedDate || !newExpectedReturnDate) {
+      toast({
+        title: 'Erro',
+        description: 'Selecione as novas datas.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (new Date(newExpectedReturnDate) < new Date(newRequestedDate)) {
+      toast({
+        title: 'Erro',
+        description: 'A data de devolução deve ser igual ou posterior à data de retirada.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsRescheduling(true);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user?.email) {
+        throw new Error('Você precisa estar logado para reagendar.');
+      }
+
+      if (user.email.toLowerCase() !== request.requester_email.toLowerCase()) {
+        throw new Error('Você não tem permissão para reagendar esta solicitação.');
+      }
+
+      const { error } = await supabase
+        .from('external_equipment_requests')
+        .update({ 
+          requested_date: newRequestedDate,
+          expected_return_date: newExpectedReturnDate,
+          status: 'pending'
+        })
+        .eq('id', request.id)
+        .eq('requester_email', request.requester_email);
+
+      if (error) {
+        throw new Error('Erro ao reagendar solicitação.');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['external-equipment-requests'] });
+      toast({
+        title: 'Solicitação reagendada',
+        description: 'Sua solicitação foi reagendada e aguarda nova aprovação.',
+      });
+      setShowRescheduleForm(false);
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
+  const resetReschedule = () => {
+    setShowRescheduleForm(false);
+    setNewRequestedDate('');
+    setNewExpectedReturnDate('');
+  };
+
+  const handleClose = () => {
+    resetReschedule();
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="w-5 h-5" />
-            Detalhes da Solicitação
+            {showRescheduleForm ? 'Reagendar Solicitação' : 'Detalhes da Solicitação'}
           </DialogTitle>
           <DialogDescription>
-            Informações sobre sua solicitação de empréstimo
+            {showRescheduleForm ? 'Selecione as novas datas' : 'Informações sobre sua solicitação de empréstimo'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 mt-4">
-          {/* Status */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Status</span>
-            <Badge variant={status.variant}>{status.label}</Badge>
-          </div>
-
-          {/* Equipment */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="w-4 h-4" />
-              <span className="text-sm">Equipamento</span>
+        {showRescheduleForm ? (
+          <div className="space-y-6 mt-4">
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-sm font-medium">{request.equipment_name}</p>
+              <p className="text-xs text-muted-foreground">Quantidade: {request.quantity_requested}</p>
             </div>
-            <p className="font-medium">{request.equipment_name}</p>
-            <p className="text-sm text-muted-foreground">Quantidade: {request.quantity_requested}</p>
-          </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div>
+                <Label>Nova Data de Retirada *</Label>
+                <Input
+                  type="date"
+                  value={newRequestedDate}
+                  onChange={(e) => setNewRequestedDate(e.target.value)}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>Nova Data de Devolução *</Label>
+                <Input
+                  type="date"
+                  value={newExpectedReturnDate}
+                  onChange={(e) => setNewExpectedReturnDate(e.target.value)}
+                  min={newRequestedDate || format(new Date(), 'yyyy-MM-dd')}
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Ao reagendar, sua solicitação voltará ao status "Pendente" e precisará de nova aprovação.
+            </p>
+
+            <div className="flex gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={resetReschedule} className="flex-1">
+                Voltar
+              </Button>
+              <Button 
+                onClick={handleReschedule} 
+                className="flex-1"
+                disabled={isRescheduling || !newRequestedDate || !newExpectedReturnDate}
+              >
+                {isRescheduling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Confirmar Reagendamento
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6 mt-4">
+            {/* Status */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Status</span>
+              <Badge variant={status.variant}>{status.label}</Badge>
+            </div>
+
+            {/* Equipment */}
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">Retirada</span>
+                <Package className="w-4 h-4" />
+                <span className="text-sm">Equipamento</span>
               </div>
-              <p className="font-medium">
-                {format(parseISO(request.requested_date), 'dd/MM/yyyy', { locale: ptBR })}
-              </p>
+              <p className="font-medium">{request.equipment_name}</p>
+              <p className="text-sm text-muted-foreground">Quantidade: {request.quantity_requested}</p>
             </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="w-4 h-4" />
-                <span className="text-sm">Devolução</span>
-              </div>
-              <p className="font-medium">
-                {format(parseISO(request.expected_return_date), 'dd/MM/yyyy', { locale: ptBR })}
-              </p>
-            </div>
-          </div>
 
-          {/* Requester Info */}
-          <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
-            <h4 className="text-sm font-medium">Dados do Solicitante</h4>
-            <div className="grid gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span>{request.requester_name}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-muted-foreground" />
-                <span>{request.requester_email}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-muted-foreground" />
-                <span>{request.requester_phone}</span>
-              </div>
-              {request.requester_organization && (
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-muted-foreground" />
-                  <span className="capitalize">{request.requester_organization}</span>
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm">Retirada</span>
                 </div>
+                <p className="font-medium">
+                  {format(parseISO(request.requested_date), 'dd/MM/yyyy', { locale: ptBR })}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm">Devolução</span>
+                </div>
+                <p className="font-medium">
+                  {format(parseISO(request.expected_return_date), 'dd/MM/yyyy', { locale: ptBR })}
+                </p>
+              </div>
+            </div>
+
+            {/* Requester Info */}
+            <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+              <h4 className="text-sm font-medium">Dados do Solicitante</h4>
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span>{request.requester_name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-muted-foreground" />
+                  <span>{request.requester_email}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span>{request.requester_phone}</span>
+                </div>
+                {request.requester_organization && (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                    <span className="capitalize">{request.requester_organization}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Purpose */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <FileText className="w-4 h-4" />
+                <span className="text-sm">Finalidade</span>
+              </div>
+              <p className="text-sm">{request.purpose}</p>
+            </div>
+
+            {/* Admin Notes */}
+            {request.admin_notes && (
+              <div className="space-y-1 p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">Observações</span>
+                </div>
+                <p className="text-sm">{request.admin_notes}</p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={handleClose} className="flex-1">
+                Fechar
+              </Button>
+              {canReschedule && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowRescheduleForm(true)} 
+                  className="flex-1"
+                >
+                  <CalendarDays className="w-4 h-4 mr-2" />
+                  Reagendar
+                </Button>
+              )}
+              {canCancel && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="flex-1">
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancelar Solicitação</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja cancelar esta solicitação de empréstimo? Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Voltar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleCancel}
+                        disabled={isCancelling}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {isCancelling ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : null}
+                        Confirmar Cancelamento
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
             </div>
           </div>
-
-          {/* Purpose */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <FileText className="w-4 h-4" />
-              <span className="text-sm">Finalidade</span>
-            </div>
-            <p className="text-sm">{request.purpose}</p>
-          </div>
-
-          {/* Admin Notes */}
-          {request.admin_notes && (
-            <div className="space-y-1 p-3 bg-muted rounded-lg">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">Observações</span>
-              </div>
-              <p className="text-sm">{request.admin_notes}</p>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
-              Fechar
-            </Button>
-            {canCancel && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="flex-1">
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Cancelar
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Cancelar Solicitação</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tem certeza que deseja cancelar esta solicitação de empréstimo? Esta ação não pode ser desfeita.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Voltar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleCancel}
-                      disabled={isCancelling}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isCancelling ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : null}
-                      Confirmar Cancelamento
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );

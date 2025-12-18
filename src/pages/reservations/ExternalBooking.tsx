@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useFindAvailableRooms, useReservations, ReservationRoom, Reservation } from '@/hooks/useReservations';
 import { useExternalBookingSettings } from '@/hooks/useAppSettings';
 import { useCreateExternalReservation } from '@/hooks/useExternalReservation';
@@ -63,6 +64,7 @@ const statusLabels: Record<string, { label: string; variant: 'default' | 'second
 
 export default function ExternalBooking() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const findRooms = useFindAvailableRooms();
   const createExternalReservation = useCreateExternalReservation();
   const { data: allReservations } = useReservations();
@@ -70,6 +72,44 @@ export default function ExternalBooking() {
   const { data: equipment } = useEquipmentList();
   const createEquipmentRequest = useCreateExternalEquipmentRequest();
   const { data: externalUserProfile } = useExternalUserProfile();
+
+  // Set up realtime subscriptions for reservations and equipment requests
+  useEffect(() => {
+    const reservationsChannel = supabase
+      .channel('external-reservations-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reservations'] });
+        }
+      )
+      .subscribe();
+
+    const equipmentRequestsChannel = supabase
+      .channel('external-equipment-requests-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'external_equipment_requests'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['external-equipment-requests-by-email'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(reservationsChannel);
+      supabase.removeChannel(equipmentRequestsChannel);
+    };
+  }, [queryClient]);
 
   // Current user state
   const [currentUser, setCurrentUser] = useState<{ email: string; full_name?: string; phone?: string; cpf?: string } | null>(null);
