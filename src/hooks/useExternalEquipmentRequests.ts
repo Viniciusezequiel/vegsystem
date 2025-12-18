@@ -255,6 +255,34 @@ export function useDeleteExternalEquipmentRequest() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      // First, get the request details to restore equipment quantity if needed
+      const { data: request, error: fetchError } = await supabase
+        .from('external_equipment_requests')
+        .select('equipment_id, quantity_requested, status')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      // Restore equipment quantity if the request was approved/awaiting_pickup/loaned
+      if (request?.equipment_id && ['awaiting_pickup', 'loaned'].includes(request.status)) {
+        const { data: equipment, error: eqError } = await supabase
+          .from('equipment')
+          .select('available_quantity')
+          .eq('id', request.equipment_id)
+          .single();
+        
+        if (!eqError && equipment) {
+          await supabase
+            .from('equipment')
+            .update({ 
+              available_quantity: equipment.available_quantity + request.quantity_requested 
+            })
+            .eq('id', request.equipment_id);
+        }
+      }
+      
+      // Delete the request
       const { error } = await supabase
         .from('external_equipment_requests')
         .delete()
@@ -264,9 +292,10 @@ export function useDeleteExternalEquipmentRequest() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['external-equipment-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
       toast({
         title: 'Solicitação excluída',
-        description: 'A solicitação foi removida.',
+        description: 'A solicitação foi removida e a disponibilidade do equipamento foi restaurada.',
       });
     },
     onError: (error) => {

@@ -316,18 +316,19 @@ export default function ExternalBooking() {
       return;
     }
 
-    const start_datetime = `${searchData.start_date}T${searchData.start_time}:00`;
-    const end_datetime = `${searchData.start_date}T${searchData.end_time}:00`;
+    // Create dates with local timezone for proper handling
+    const startDate = new Date(`${searchData.start_date}T${searchData.start_time}:00`);
+    const endDate = new Date(`${searchData.start_date}T${searchData.end_time}:00`);
 
-    if (new Date(end_datetime) <= new Date(start_datetime)) {
+    if (endDate <= startDate) {
       setSearchErrors({ end_time: 'O término deve ser após o início' });
       return;
     }
 
     findRooms.mutate(
       {
-        start_datetime,
-        end_datetime,
+        start_datetime: startDate.toISOString(),
+        end_datetime: endDate.toISOString(),
         attendees_count: Number(searchData.attendees_count),
         is_external: true, // Apply 15 min buffer for external reservations
       },
@@ -358,9 +359,10 @@ export default function ExternalBooking() {
 
     if (!selectedRoom) return;
 
-    const start_datetime = `${searchData.start_date}T${searchData.start_time}:00`;
-    const end_datetime = `${searchData.start_date}T${searchData.end_time}:00`;
-
+    // Create dates with local timezone and convert to ISO string
+    const startDate = new Date(`${searchData.start_date}T${searchData.start_time}:00`);
+    const endDate = new Date(`${searchData.start_date}T${searchData.end_time}:00`);
+    
     createExternalReservation.mutate(
       {
         room_id: selectedRoom.id,
@@ -369,8 +371,8 @@ export default function ExternalBooking() {
         requester_email: bookingData.requester_email,
         requester_phone: bookingData.requester_phone || undefined,
         attendees_count: Number(searchData.attendees_count),
-        start_datetime,
-        end_datetime,
+        start_datetime: startDate.toISOString(),
+        end_datetime: endDate.toISOString(),
         description: bookingData.description || undefined,
       },
       {
