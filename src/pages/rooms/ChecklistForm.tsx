@@ -549,9 +549,6 @@ export default function ChecklistForm() {
             <Card>
               <CardHeader>
                 <CardTitle>Recursos NAAP</CardTitle>
-                <CardDescription>
-                  Carteira de Obeso, Mesa PNE - Status "Consta/Não consta", com checkbox opcional para gerar pendência NAAP
-                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {naapFields.map((field) => (
@@ -634,10 +631,12 @@ export default function ChecklistForm() {
                   <div key={field.id} className="space-y-3 pb-4 border-b last:border-0">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div className="space-y-0.5 flex-1">
-                        <Label className="font-semibold text-base">{field.label}</Label>
-                        <p className="text-sm text-primary/80">
-                          ({field.description})
-                        </p>
+                        <div className="flex flex-wrap items-baseline gap-1">
+                          <Label className="font-semibold text-base">{field.label}</Label>
+                          <span className="text-sm text-muted-foreground">
+                            ({field.description})
+                          </span>
+                        </div>
                       </div>
                       <Select
                         value={field.status || ''}
