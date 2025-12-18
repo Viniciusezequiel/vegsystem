@@ -556,8 +556,13 @@ export default function ChecklistForm() {
               <CardContent className="space-y-6">
                 {naapFields.map((field) => (
                   <div key={field.id} className="space-y-3 pb-4 border-b last:border-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <Label className="font-medium">{field.label}</Label>
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="space-y-1 flex-1">
+                        <Label className="font-medium text-base">{field.label}</Label>
+                        <p className="text-sm text-muted-foreground italic">
+                          Recurso de acessibilidade para pessoas com necessidades especiais
+                        </p>
+                      </div>
                       <Select
                         value={field.status || ''}
                         onValueChange={(value) => handleNaapStatusChange(field.id, value as ConstaStatus)}
@@ -633,9 +638,11 @@ export default function ChecklistForm() {
                 {categoryFields.map((field) => (
                   <div key={field.id} className="space-y-3 pb-4 border-b last:border-0">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <Label className="font-medium">{field.label}</Label>
-                        <p className="text-xs text-muted-foreground">{field.description}</p>
+                      <div className="space-y-1 flex-1">
+                        <Label className="font-medium text-base">{field.label}</Label>
+                        <p className="text-sm text-muted-foreground italic">
+                          Itens: {field.description}
+                        </p>
                       </div>
                       <Select
                         value={field.status || ''}
