@@ -98,7 +98,7 @@ export function ExternalEquipmentDetailsDialog({
         .from('external_equipment_requests')
         .update({ status: 'cancelled' })
         .eq('id', request.id)
-        .eq('requester_email', request.requester_email);
+        .ilike('requester_email', user.email || '');
 
       if (error) {
         throw new Error('Erro ao cancelar solicitação.');
@@ -152,6 +152,41 @@ export function ExternalEquipmentDetailsDialog({
         throw new Error('Você não tem permissão para reagendar esta solicitação.');
       }
 
+      // Check if equipment is available for the new dates
+      if (request.equipment_id) {
+        const { data: existingRequests, error: checkError } = await supabase
+          .from('external_equipment_requests')
+          .select('id, quantity_requested')
+          .eq('equipment_id', request.equipment_id)
+          .neq('id', request.id)
+          .in('status', ['pending', 'approved', 'awaiting_pickup', 'loaned'])
+          .or(`requested_date.lte.${newExpectedReturnDate},expected_return_date.gte.${newRequestedDate}`);
+
+        if (checkError) {
+          console.error('Error checking availability:', checkError);
+        } else if (existingRequests && existingRequests.length > 0) {
+          // Get equipment info
+          const { data: equipmentData } = await supabase
+            .from('equipment')
+            .select('available_quantity')
+            .eq('id', request.equipment_id)
+            .single();
+
+          if (equipmentData) {
+            const totalRequested = existingRequests.reduce((sum, req) => sum + req.quantity_requested, 0);
+            if (totalRequested + request.quantity_requested > equipmentData.available_quantity) {
+              toast({
+                title: 'Data indisponível',
+                description: 'O equipamento não está disponível para as datas selecionadas. Escolha outras datas.',
+                variant: 'destructive',
+              });
+              setIsRescheduling(false);
+              return;
+            }
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('external_equipment_requests')
         .update({ 
@@ -160,13 +195,14 @@ export function ExternalEquipmentDetailsDialog({
           status: 'pending'
         })
         .eq('id', request.id)
-        .eq('requester_email', request.requester_email);
+        .ilike('requester_email', user.email || '');
 
       if (error) {
         throw new Error('Erro ao reagendar solicitação.');
       }
 
       queryClient.invalidateQueries({ queryKey: ['external-equipment-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['external-equipment-requests-by-email'] });
       toast({
         title: 'Solicitação reagendada',
         description: 'Sua solicitação foi reagendada e aguarda nova aprovação.',
