@@ -633,10 +633,10 @@ export default function ChecklistForm() {
                 {categoryFields.map((field) => (
                   <div key={field.id} className="space-y-3 pb-4 border-b last:border-0">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="space-y-1 flex-1">
-                        <Label className="font-medium text-base">{field.label}</Label>
-                        <p className="text-sm text-muted-foreground italic">
-                          Itens: {field.description}
+                      <div className="space-y-0.5 flex-1">
+                        <Label className="font-semibold text-base">{field.label}</Label>
+                        <p className="text-sm text-primary/80">
+                          ({field.description})
                         </p>
                       </div>
                       <Select
