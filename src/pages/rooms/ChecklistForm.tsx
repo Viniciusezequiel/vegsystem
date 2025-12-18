@@ -50,6 +50,7 @@ type NaapField = {
 type CategoryField = {
   id: string;
   label: string;
+  description: string;
   status: ChecklistFieldStatus | null;
   subItems: string[];
   selectedSubItems: string[]; // Which sub-items are pending
@@ -66,25 +67,29 @@ const NAAP_FIELDS: Omit<NaapField, 'status' | 'isNaapPending' | 'pendingReason' 
 ];
 
 // Grouped categories with sub-items
-const CATEGORY_FIELDS: { id: string; label: string; subItems: string[] }[] = [
+const CATEGORY_FIELDS: { id: string; label: string; description: string; subItems: string[] }[] = [
   { 
     id: 'manutencao_mobiliario', 
     label: 'Manutenção de Mobiliário',
+    description: 'Carteiras, Mesa do Professor, Cadeira do Professor',
     subItems: ['Carteiras', 'Mesa do Professor', 'Cadeira do Professor']
   },
   { 
     id: 'infraestrutura', 
     label: 'Infraestrutura',
+    description: 'Ar Condicionado, Lâmpadas, Forro, Limpeza, Parede, Cortinas',
     subItems: ['Ar Condicionado', 'Lâmpadas', 'Forro', 'Limpeza', 'Parede', 'Cortinas']
   },
   { 
     id: 'recursos_midia', 
     label: 'Recursos de Mídia',
+    description: 'Internet, Computador, Microfone, Projetor, Som, Rack',
     subItems: ['Internet', 'Computador', 'Microfone', 'Projetor', 'Som', 'Rack']
   },
   { 
     id: 'recurso_docente', 
     label: 'Recurso Docente (Kit Sala)',
+    description: 'Pincéis, Quadro/Lousa, Relógio, Apagador',
     subItems: ['Pincéis', 'Quadro/Lousa', 'Relógio', 'Apagador']
   },
 ];
@@ -627,8 +632,11 @@ export default function ChecklistForm() {
               <CardContent className="space-y-6">
                 {categoryFields.map((field) => (
                   <div key={field.id} className="space-y-3 pb-4 border-b last:border-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <Label className="font-medium">{field.label}</Label>
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <Label className="font-medium">{field.label}</Label>
+                        <p className="text-xs text-muted-foreground">{field.description}</p>
+                      </div>
                       <Select
                         value={field.status || ''}
                         onValueChange={(value) => handleCategoryStatusChange(field.id, value as ChecklistFieldStatus)}
