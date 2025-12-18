@@ -86,10 +86,23 @@ export default function AdminAuth() {
 
     setIsLoading(true);
 
-    const { error, data } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    let signInResult: { data: any; error: any };
+    try {
+      signInResult = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+    } catch (err) {
+      toast({
+        title: 'Falha de conexão',
+        description: 'Não foi possível conectar ao servidor de login. Verifique sua internet/rede (VPN, firewall ou bloqueador de anúncios) e tente novamente.',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const { error, data } = signInResult;
 
     if (error) {
       let message = 'Erro ao fazer login. Verifique suas credenciais.';
