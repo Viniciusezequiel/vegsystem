@@ -4,7 +4,6 @@ import { ptBR } from 'date-fns/locale';
 import { Calendar, Clock, Package, User, Phone, Mail, Building2, FileText, AlertCircle, Loader2, XCircle, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -27,6 +26,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
 
 interface ExternalEquipmentRequest {
   id: string;
@@ -254,22 +254,22 @@ export function ExternalEquipmentDetailsDialog({
             <div className="space-y-4">
               <div>
                 <Label>Nova Data de Retirada *</Label>
-                <Input
-                  type="date"
+                <DatePickerInput
                   value={newRequestedDate}
-                  onChange={(e) => setNewRequestedDate(e.target.value)}
-                  min={format(new Date(), 'yyyy-MM-dd')}
+                  onChange={setNewRequestedDate}
+                  placeholder="Selecionar data"
                   className="mt-1.5"
+                  minDate={new Date()}
                 />
               </div>
               <div>
                 <Label>Nova Data de Devolução *</Label>
-                <Input
-                  type="date"
+                <DatePickerInput
                   value={newExpectedReturnDate}
-                  onChange={(e) => setNewExpectedReturnDate(e.target.value)}
-                  min={newRequestedDate || format(new Date(), 'yyyy-MM-dd')}
+                  onChange={setNewExpectedReturnDate}
+                  placeholder="Selecionar data"
                   className="mt-1.5"
+                  minDate={newRequestedDate ? new Date(newRequestedDate) : new Date()}
                 />
               </div>
             </div>

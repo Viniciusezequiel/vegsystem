@@ -13,6 +13,8 @@ interface DatePickerInputProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  minDate?: Date;
+  maxDate?: Date;
 }
 
 export function DatePickerInput({
@@ -21,6 +23,8 @@ export function DatePickerInput({
   placeholder = "Selecionar data",
   className,
   disabled = false,
+  minDate,
+  maxDate,
 }: DatePickerInputProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -58,6 +62,11 @@ export function DatePickerInput({
           initialFocus
           locale={ptBR}
           className="pointer-events-auto"
+          disabled={(date) => {
+            if (minDate && date < new Date(minDate.setHours(0, 0, 0, 0))) return true;
+            if (maxDate && date > new Date(maxDate.setHours(23, 59, 59, 999))) return true;
+            return false;
+          }}
         />
       </PopoverContent>
     </Popover>
