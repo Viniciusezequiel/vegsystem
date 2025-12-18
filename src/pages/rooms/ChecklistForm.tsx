@@ -71,14 +71,14 @@ const CATEGORY_FIELDS: { id: string; label: string; description: string; subItem
   { 
     id: 'manutencao_mobiliario', 
     label: 'Manutenção de Mobiliário',
-    description: 'Carteiras, Mesa do Professor, Cadeira do Professor',
-    subItems: ['Carteiras', 'Mesa do Professor', 'Cadeira do Professor']
+    description: 'Carteira, Professor',
+    subItems: ['Carteira', 'Professor']
   },
   { 
     id: 'infraestrutura', 
     label: 'Infraestrutura',
-    description: 'Ar Condicionado, Lâmpadas, Forro, Limpeza, Parede, Cortinas',
-    subItems: ['Ar Condicionado', 'Lâmpadas', 'Forro', 'Limpeza', 'Parede', 'Cortinas']
+    description: 'Ar condicionado, Lâmpadas, Forro, Limpeza, Parede',
+    subItems: ['Ar condicionado', 'Lâmpadas', 'Forro', 'Limpeza', 'Parede']
   },
   { 
     id: 'recursos_midia', 
@@ -89,8 +89,8 @@ const CATEGORY_FIELDS: { id: string; label: string; description: string; subItem
   { 
     id: 'recurso_docente', 
     label: 'Recurso Docente (Kit Sala)',
-    description: 'Pincéis, Quadro/Lousa, Relógio, Apagador',
-    subItems: ['Pincéis', 'Quadro/Lousa', 'Relógio', 'Apagador']
+    description: 'Pincéis, Quadro lousa, Relógio',
+    subItems: ['Pincéis', 'Quadro lousa', 'Relógio']
   },
 ];
 
