@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus, Eye, ChevronDown, X } from 'lucide-react';
+import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus, Eye, ChevronDown, X, Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { z } from 'zod';
@@ -235,17 +235,41 @@ export default function ExternalBooking() {
   });
 
   const [emailFilter, setEmailFilter] = useState('');
+  const [reservationSearch, setReservationSearch] = useState('');
+  const [equipmentSearch, setEquipmentSearch] = useState('');
 
   // Filter reservations by email
   const myReservations = useMemo(() => {
     if (!emailFilter || !allReservations) return [];
-    return allReservations.filter(
+    let filtered = allReservations.filter(
       (r) => r.requester_email.toLowerCase() === emailFilter.toLowerCase()
     );
-  }, [allReservations, emailFilter]);
+    // Apply search filter
+    if (reservationSearch.trim()) {
+      const searchLower = reservationSearch.toLowerCase().trim();
+      filtered = filtered.filter((r) =>
+        r.title.toLowerCase().includes(searchLower) ||
+        r.reservation_rooms?.name?.toLowerCase().includes(searchLower) ||
+        r.status.toLowerCase().includes(searchLower)
+      );
+    }
+    return filtered;
+  }, [allReservations, emailFilter, reservationSearch]);
 
   // Fetch equipment requests by email
   const { data: myEquipmentRequests } = useExternalEquipmentRequestsByEmail(emailFilter);
+
+  // Filter equipment requests by search
+  const filteredEquipmentRequests = useMemo(() => {
+    if (!myEquipmentRequests) return [];
+    if (!equipmentSearch.trim()) return myEquipmentRequests;
+    const searchLower = equipmentSearch.toLowerCase().trim();
+    return myEquipmentRequests.filter((req) =>
+      req.equipment_name.toLowerCase().includes(searchLower) ||
+      req.status.toLowerCase().includes(searchLower) ||
+      req.requester_name.toLowerCase().includes(searchLower)
+    );
+  }, [myEquipmentRequests, equipmentSearch]);
 
   // Get unique campuses from equipment
   // Static campus options (same as lost and found)
@@ -1002,20 +1026,33 @@ export default function ExternalBooking() {
                     Minhas Reservas de Salas
                   </CardTitle>
                   <CardDescription>Acompanhe o status das suas reservas</CardDescription>
+                  <div className="relative mt-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por título, sala ou status..."
+                      value={reservationSearch}
+                      onChange={(e) => setReservationSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {myReservations.length === 0 ? (
                     <div className="text-center py-8">
                       <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-                      <p className="text-muted-foreground">Nenhuma reserva encontrada</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setMainTab('booking')}
-                        className="mt-4"
-                      >
-                        Fazer uma reserva
-                      </Button>
+                      <p className="text-muted-foreground">
+                        {reservationSearch.trim() ? 'Nenhuma reserva encontrada para a busca' : 'Nenhuma reserva encontrada'}
+                      </p>
+                      {!reservationSearch.trim() && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setMainTab('booking')}
+                          className="mt-4"
+                        >
+                          Fazer uma reserva
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
@@ -1068,24 +1105,37 @@ export default function ExternalBooking() {
                     Meus Empréstimos de Equipamentos
                   </CardTitle>
                   <CardDescription>Acompanhe suas solicitações de empréstimo</CardDescription>
+                  <div className="relative mt-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por equipamento ou status..."
+                      value={equipmentSearch}
+                      onChange={(e) => setEquipmentSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {!myEquipmentRequests || myEquipmentRequests.length === 0 ? (
+                  {filteredEquipmentRequests.length === 0 ? (
                     <div className="text-center py-8">
                       <Package className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-                      <p className="text-muted-foreground">Nenhuma solicitação de empréstimo</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setMainTab('equipment')}
-                        className="mt-4"
-                      >
-                        Solicitar empréstimo
-                      </Button>
+                      <p className="text-muted-foreground">
+                        {equipmentSearch.trim() ? 'Nenhuma solicitação encontrada para a busca' : 'Nenhuma solicitação de empréstimo'}
+                      </p>
+                      {!equipmentSearch.trim() && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setMainTab('equipment')}
+                          className="mt-4"
+                        >
+                          Solicitar empréstimo
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                      {myEquipmentRequests.map((req) => (
+                      {filteredEquipmentRequests.map((req) => (
                         <div key={req.id} className="p-4 rounded-xl border bg-card/50 hover:bg-card/80 transition-colors">
                           <div className="flex flex-col gap-3">
                             <div className="flex-1 min-w-0 space-y-1.5">
