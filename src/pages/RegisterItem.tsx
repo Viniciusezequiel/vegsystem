@@ -78,7 +78,7 @@ export default function RegisterItem() {
     if (!campus) return;
 
     // Generate unique 6-digit code
-    const existingCodes = existingItems?.map(item => item.code) || [];
+    const existingCodes = existingItems?.items?.map(item => item.code) || [];
     const newCode = generateUniqueCode(existingCodes);
     
     createLostItem.mutate({

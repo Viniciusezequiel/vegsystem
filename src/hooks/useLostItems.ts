@@ -35,9 +35,12 @@ export interface LostItem {
 let lastExpirationCall = 0;
 const EXPIRATION_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-export function useLostItems(filters?: { status?: string; search?: string }) {
+export function useLostItems(filters?: { status?: string; search?: string; page?: number; pageSize?: number }) {
+  const page = filters?.page ?? 0;
+  const pageSize = filters?.pageSize ?? 100;
+
   return useQuery({
-    queryKey: ['lost-items', filters],
+    queryKey: ['lost-items', filters?.status, filters?.search, page, pageSize],
     queryFn: async () => {
       // Only call expiration function once every 5 minutes to improve performance
       const now = Date.now();
@@ -53,11 +56,12 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
         })();
       }
 
-      // Build the base query - no limit for full count accuracy
+      // Build the base query with pagination
       let query = supabase
         .from('lost_items')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (filters?.status && filters.status !== 'all') {
         query = query.eq('status', filters.status);
@@ -67,14 +71,20 @@ export function useLostItems(filters?: { status?: string; search?: string }) {
         query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       
       if (error) throw error;
       
-      return (data || []) as LostItem[];
+      return {
+        items: (data || []) as LostItem[],
+        totalCount: count ?? 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count ?? 0) / pageSize),
+      };
     },
-    staleTime: 30 * 1000, // Data stays fresh for 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 

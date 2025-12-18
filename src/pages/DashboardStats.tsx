@@ -45,10 +45,10 @@ export default function DashboardStats() {
 
   // Calculate statistics
   const lostItemsStats = {
-    total: lostItems?.length || 0,
-    available: lostItems?.filter(i => i.status === 'available').length || 0,
-    delivered: lostItems?.filter(i => i.status === 'delivered').length || 0,
-    expired: lostItems?.filter(i => i.status === 'expired').length || 0,
+    total: lostItems?.totalCount || 0,
+    available: lostItems?.items?.filter(i => i.status === 'available').length || 0,
+    delivered: lostItems?.items?.filter(i => i.status === 'delivered').length || 0,
+    expired: lostItems?.items?.filter(i => i.status === 'expired').length || 0,
   };
 
   const equipmentStats = {
