@@ -78,8 +78,10 @@ export default function ItemDetail() {
     delivered_by_contact: '',
   });
 
-  // Admin e analista podem editar, mas itens entregues/expirados só admin e analista podem editar
+  // Admin, analista e assistente podem dar baixa em itens disponíveis
+  // Admin e analista podem editar itens entregues/expirados
   const isDeliveredOrExpired = item?.status === 'delivered' || item?.status === 'expired';
+  const canDeliver = role === 'admin' || role === 'analista' || role === 'assistente';
   const canEdit = (role === 'admin' || role === 'analista') && (!isDeliveredOrExpired || role === 'admin' || role === 'analista');
 
   const handleOpenEditDialog = () => {
@@ -372,7 +374,7 @@ export default function ItemDetail() {
           )}
 
           {/* Actions */}
-          {item.status === 'available' && canEdit && (
+          {item.status === 'available' && canDeliver && (
             <div className="flex gap-4 animate-fade-in" style={{ animationDelay: '300ms' }}>
               <Dialog open={isDeliverDialogOpen} onOpenChange={setIsDeliverDialogOpen}>
                 <DialogTrigger asChild>

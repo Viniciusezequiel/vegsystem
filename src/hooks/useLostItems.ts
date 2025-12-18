@@ -83,8 +83,9 @@ export function useLostItems(filters?: { status?: string; search?: string; page?
         totalPages: Math.ceil((count ?? 0) / pageSize),
       };
     },
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000, // Cache válido por 2 minutos
+    gcTime: 10 * 60 * 1000, // Manter em memória por 10 minutos
+    refetchOnWindowFocus: false, // Não refetch ao focar na janela
   });
 }
 
