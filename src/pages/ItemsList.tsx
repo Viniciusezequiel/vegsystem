@@ -27,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { useLostItems, LostItem, useBulkDeliverLostItems, useBulkCreateLostItems } from '@/hooks/useLostItems';
+import { useLostItemsPrefetch } from '@/hooks/useLostItemsPrefetch';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
@@ -73,6 +74,8 @@ export default function ItemsList() {
   const [destinationFilter, setDestinationFilter] = useState<'all' | 'donation' | 'disposal'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const pageSize = 100;
   
   // Filter status options based on user role
   const availableStatusFilters = statusFilters.filter(filter => {
@@ -94,6 +97,17 @@ export default function ItemsList() {
   const { data: items, isLoading } = useLostItems({
     status: statusFilter === 'all' ? undefined : statusFilter,
     search: searchQuery || undefined,
+    page: currentPage,
+    pageSize,
+  });
+
+  // Prefetch next page for smoother navigation
+  useLostItemsPrefetch({
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    search: searchQuery || undefined,
+    page: currentPage,
+    pageSize,
+    totalPages: items?.totalPages || 1,
   });
 
   const bulkDeliver = useBulkDeliverLostItems();
@@ -133,6 +147,17 @@ export default function ItemsList() {
       return true;
     });
   }, [items, campusFilter, destinationFilter, statusFilter, dateFrom, dateTo]);
+
+  // Reset page when filters change
+  const handleStatusFilterChange = (value: ItemStatus | 'all') => {
+    setStatusFilter(value);
+    setCurrentPage(0);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(0);
+  };
 
   // Get expired items for bulk actions
   const expiredItems = useMemo(() => {
@@ -412,7 +437,7 @@ export default function ItemsList() {
             <Input
               placeholder="Buscar por código, descrição ou local..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -473,7 +498,7 @@ export default function ItemsList() {
               key={filter.value}
               variant={statusFilter === filter.value ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setStatusFilter(filter.value)}
+              onClick={() => handleStatusFilterChange(filter.value)}
               className={cn(
                 'transition-all',
                 statusFilter === filter.value && 'shadow-md'
@@ -693,10 +718,35 @@ export default function ItemsList() {
                   </div>
                 </div>
               </div>
-            ))}
+          ))}
+        </div>
+
+        {/* Pagination */}
+        {items && items.totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground px-4">
+              Página {currentPage + 1} de {items.totalPages} ({items.totalCount} itens)
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(items.totalPages - 1, p + 1))}
+              disabled={currentPage >= items.totalPages - 1}
+            >
+              Próxima
+            </Button>
           </div>
-        </>
-      )}
+        )}
+      </>
+    )}
 
       {/* Bulk Action Confirmation Dialog */}
       <Dialog open={!!bulkActionDialog} onOpenChange={() => setBulkActionDialog(null)}>
