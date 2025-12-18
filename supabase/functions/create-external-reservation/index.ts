@@ -178,8 +178,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // External reservations always start as pending
-    const initialStatus = 'pending';
+    // Set status based on room's auto_confirm setting
+    const initialStatus = roomData.auto_confirm ? 'confirmed' : 'pending';
 
     // Create reservation
     const { data: reservation, error: insertError } = await supabase
