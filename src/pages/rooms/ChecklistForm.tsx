@@ -58,6 +58,15 @@ type CategoryField = {
   treatment: string;
 };
 
+// Room-specific checklist item
+type RoomChecklistItem = {
+  id: string;
+  label: string;
+  status: ConstaStatus | null;
+  isNaapPending: boolean;
+  treatment: string;
+};
+
 type Step = 'campus-turno' | 'rooms' | 'form';
 
 // NAAP resources - Carteira de Obeso e Mesa PNE
@@ -129,6 +138,7 @@ export default function ChecklistForm() {
     }))
   );
   
+  const [roomChecklistItems, setRoomChecklistItems] = useState<RoomChecklistItem[]>([]);
   const [furnitureCount, setFurnitureCount] = useState('');
   const [observations, setObservations] = useState('');
 
@@ -141,13 +151,38 @@ export default function ChecklistForm() {
     return rooms.filter(room => room.campus === selectedCampus);
   }, [rooms, selectedCampus]);
 
+  // Get selected room's checklist items
+  const selectedRoomData = useMemo(() => {
+    if (!selectedRoom || !rooms) return null;
+    return rooms.find(r => r.id === selectedRoom);
+  }, [selectedRoom, rooms]);
+
+  // Update room checklist items when room selection changes
+  useMemo(() => {
+    if (selectedRoomData?.checklist_items) {
+      const items = selectedRoomData.checklist_items as { id: string; label: string }[];
+      setRoomChecklistItems(
+        items.map(item => ({
+          id: item.id,
+          label: item.label,
+          status: null,
+          isNaapPending: false,
+          treatment: '',
+        }))
+      );
+    } else {
+      setRoomChecklistItems([]);
+    }
+  }, [selectedRoomData]);
+
   const canProceedStep1 = selectedCampus && shift;
   const canProceedStep2 = selectedRoom !== '';
   
   // All fields must be answered
   const allNaapAnswered = naapFields.every(f => f.status !== null);
   const allCategoryAnswered = categoryFields.every(f => f.status !== null);
-  const allFieldsAnswered = allNaapAnswered && allCategoryAnswered;
+  const allRoomItemsAnswered = roomChecklistItems.length === 0 || roomChecklistItems.every(f => f.status !== null);
+  const allFieldsAnswered = allNaapAnswered && allCategoryAnswered && allRoomItemsAnswered;
   
   // All pending items must have sub-items selected and treatment filled
   const allPendingValid = categoryFields.every(f => 
@@ -156,6 +191,11 @@ export default function ChecklistForm() {
   
   // NAAP fields that are pending must have treatment
   const allNaapPendingValid = naapFields.every(f => 
+    !f.isNaapPending || (f.isNaapPending && f.treatment.trim())
+  );
+
+  // Room checklist items that are pending must have treatment
+  const allRoomItemsPendingValid = roomChecklistItems.every(f => 
     !f.isNaapPending || (f.isNaapPending && f.treatment.trim())
   );
 
@@ -224,13 +264,36 @@ export default function ChecklistForm() {
     ));
   };
 
+  // Handlers for room-specific checklist items
+  const handleRoomItemStatusChange = (itemId: string, status: ConstaStatus) => {
+    setRoomChecklistItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? { ...item, status, isNaapPending: false, treatment: '' }
+        : item
+    ));
+  };
+
+  const handleRoomItemPendingChange = (itemId: string, isPending: boolean) => {
+    setRoomChecklistItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? { ...item, isNaapPending: isPending, treatment: isPending ? item.treatment : '' }
+        : item
+    ));
+  };
+
+  const handleRoomItemTreatmentChange = (itemId: string, treatment: string) => {
+    setRoomChecklistItems(prev => prev.map(item => 
+      item.id === itemId ? { ...item, treatment } : item
+    ));
+  };
+
   const handleRoomSelection = (roomId: string) => {
     setSelectedRoom(roomId);
     setRoomDropdownOpen(false);
   };
 
   const handleSubmit = async () => {
-    if (!canProceedStep2 || !allFieldsAnswered || !allPendingValid || !allNaapPendingValid) return;
+    if (!canProceedStep2 || !allFieldsAnswered || !allPendingValid || !allNaapPendingValid || !allRoomItemsPendingValid) return;
 
     // Create answers array from all fields
     const answersArray: { question_id: string; answer: boolean; notes?: string }[] = [];
@@ -254,6 +317,17 @@ export default function ChecklistForm() {
         notes: field.status === 'pendente' 
           ? `Itens pendentes: ${field.selectedSubItems.join(', ')} | Tratativa: ${field.treatment}`
           : undefined,
+      });
+    });
+
+    // Add room-specific checklist items
+    roomChecklistItems.forEach(item => {
+      answersArray.push({
+        question_id: item.id,
+        answer: item.status === 'consta',
+        notes: item.isNaapPending 
+          ? `Status: ${item.status === 'consta' ? 'Consta' : 'Não consta'} | Pendência NAAP | Tratativa: ${item.treatment}`
+          : `Status: ${item.status === 'consta' ? 'Consta' : 'Não consta'}`,
       });
     });
 
@@ -714,6 +788,84 @@ export default function ChecklistForm() {
               </CardContent>
             </Card>
 
+            {/* Room-Specific Checklist Items */}
+            {roomChecklistItems.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recursos Específicos do Ambiente</CardTitle>
+                  <CardDescription>
+                    Itens cadastrados especificamente para esta sala
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {roomChecklistItems.map((item) => (
+                    <div key={item.id} className="space-y-3 pb-4 border-b last:border-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <Label className="font-medium text-base">{item.label}</Label>
+                        <Select
+                          value={item.status || ''}
+                          onValueChange={(value) => handleRoomItemStatusChange(item.id, value as ConstaStatus)}
+                        >
+                          <SelectTrigger className="w-full sm:w-[180px]">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="consta">
+                              <span className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-green-500" />
+                                Consta
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="nao_consta">
+                              <span className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-gray-500" />
+                                Não Consta
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {item.status === 'nao_consta' && (
+                        <div className="pl-0 sm:pl-4 space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`room-item-pending-${item.id}`}
+                              checked={item.isNaapPending}
+                              onCheckedChange={(checked) => handleRoomItemPendingChange(item.id, checked === true)}
+                            />
+                            <Label 
+                              htmlFor={`room-item-pending-${item.id}`}
+                              className="text-sm text-muted-foreground cursor-pointer"
+                            >
+                              Gerar pendência NAAP
+                            </Label>
+                          </div>
+                          
+                          {item.isNaapPending && (
+                            <div className="space-y-2">
+                              <Label className="text-sm text-destructive font-medium">
+                                Tratativa *
+                              </Label>
+                              <Input
+                                placeholder="Descreva a tratativa para a demanda..."
+                                value={item.treatment}
+                                onChange={(e) => handleRoomItemTreatmentChange(item.id, e.target.value)}
+                                className="border-destructive/50"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Obrigatório: A tratativa será direcionada para as demandas do colaborador
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {/* General Observations */}
             <Card>
               <CardHeader>
@@ -736,7 +888,7 @@ export default function ChecklistForm() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!allFieldsAnswered || !allPendingValid || !allNaapPendingValid || createChecklist.isPending}
+                disabled={!allFieldsAnswered || !allPendingValid || !allNaapPendingValid || !allRoomItemsPendingValid || createChecklist.isPending}
               >
                 {createChecklist.isPending ? 'Salvando...' : 'Salvar Checklist'}
               </Button>
