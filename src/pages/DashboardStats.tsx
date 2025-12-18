@@ -12,7 +12,7 @@ import {
   Building2,
   Lock
 } from 'lucide-react';
-import { useLostItems } from '@/hooks/useLostItems';
+import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
 import { useEquipmentList, useEquipmentLoans } from '@/hooks/useEquipment';
 import { useReservations, useReservationRooms } from '@/hooks/useReservations';
 import { useLockersList, useLockerLoans } from '@/hooks/useLockers';
@@ -35,7 +35,7 @@ import { ptBR } from 'date-fns/locale';
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'];
 
 export default function DashboardStats() {
-  const { data: lostItems } = useLostItems();
+  const { data: lostItemsStats } = useLostItemsCounts();
   const { data: equipment } = useEquipmentList();
   const { data: activeLoans } = useEquipmentLoans('active');
   const { data: reservations } = useReservations();
@@ -43,13 +43,7 @@ export default function DashboardStats() {
   const { data: lockerLoans } = useLockerLoans('active');
   const { data: rooms } = useReservationRooms();
 
-  // Calculate statistics
-  const lostItemsStats = {
-    total: lostItems?.totalCount || 0,
-    available: lostItems?.items?.filter(i => i.status === 'available').length || 0,
-    delivered: lostItems?.items?.filter(i => i.status === 'delivered').length || 0,
-    expired: lostItems?.items?.filter(i => i.status === 'expired').length || 0,
-  };
+  // Lost items stats come directly from the server-side counts hook
 
   const equipmentStats = {
     total: equipment?.length || 0,
@@ -92,9 +86,9 @@ export default function DashboardStats() {
 
   // Lost items by status for pie chart
   const lostItemsPieData = [
-    { name: 'Disponíveis', value: lostItemsStats.available },
-    { name: 'Entregues', value: lostItemsStats.delivered },
-    { name: 'Expirados', value: lostItemsStats.expired },
+    { name: 'Disponíveis', value: lostItemsStats?.available || 0 },
+    { name: 'Entregues', value: lostItemsStats?.delivered || 0 },
+    { name: 'Expirados', value: lostItemsStats?.expired || 0 },
   ].filter(d => d.value > 0);
 
   // Recent reservations (last 7 days)
@@ -128,11 +122,11 @@ export default function DashboardStats() {
             <Package className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{lostItemsStats.total}</div>
+            <div className="text-2xl font-bold">{lostItemsStats?.total || 0}</div>
             <div className="flex gap-2 mt-2 text-xs">
-              <span className="text-green-500">{lostItemsStats.available} disponíveis</span>
+              <span className="text-green-500">{lostItemsStats?.available || 0} disponíveis</span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-blue-500">{lostItemsStats.delivered} entregues</span>
+              <span className="text-blue-500">{lostItemsStats?.delivered || 0} entregues</span>
             </div>
           </CardContent>
         </Card>
