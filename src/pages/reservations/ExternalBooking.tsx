@@ -24,6 +24,7 @@ import vegSystemLogo from '@/assets/veg-system-logo.png';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { ExternalReservationDetailsDialog } from '@/components/reservations/ExternalReservationDetailsDialog';
+import { EquipmentSearchDropdown } from '@/components/equipment/EquipmentSearchDropdown';
 
 const searchSchema = z.object({
   attendees_count: z.number().min(1, 'Mínimo 1 participante'),
@@ -761,55 +762,22 @@ export default function ExternalBooking() {
                       )}
                     </div>
 
-                    {/* Equipment Selection - Dropdown */}
+                    {/* Equipment Selection - Dropdown with Search */}
                     <div className="space-y-4">
                       <Label>Selecione os equipamentos *</Label>
                       {equipmentErrors.equipment && <p className="text-xs text-destructive">{equipmentErrors.equipment}</p>}
                       
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full justify-between h-auto min-h-10 py-2"
-                            disabled={!selectedEquipmentCampus}
-                          >
-                            <span className="text-left truncate">
-                              {!selectedEquipmentCampus 
-                                ? 'Selecione o campus primeiro'
-                                : selectedEquipments.length > 0 
-                                  ? `${selectedEquipments.length} equipamento(s) selecionado(s)` 
-                                  : 'Selecione os equipamentos...'}
-                            </span>
-                            <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-popover border" align="start">
-                          <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-                            {availableEquipment.map(eq => {
-                              const isSelected = selectedEquipments.some(s => s.equipment_id === eq.id);
-                              
-                              return (
-                                <div
-                                  key={eq.id}
-                                  className={`p-3 rounded-md cursor-pointer transition-colors ${
-                                    isSelected ? 'bg-primary/20 text-primary' : 'hover:bg-muted'
-                                  }`}
-                                  onClick={() => handleToggleEquipment(eq)}
-                                >
-                                  <p className="font-medium text-sm">{eq.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {eq.campus} • Disponível: {eq.available_quantity}
-                                  </p>
-                                </div>
-                              );
-                            })}
-                            {availableEquipment.length === 0 && (
-                              <p className="text-sm text-muted-foreground p-3">Nenhum equipamento disponível</p>
-                            )}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                      <EquipmentSearchDropdown
+                        availableEquipment={availableEquipment}
+                        selectedEquipments={selectedEquipments}
+                        onToggleEquipment={handleToggleEquipment}
+                        disabled={!selectedEquipmentCampus}
+                        placeholder={!selectedEquipmentCampus 
+                          ? 'Selecione o campus primeiro'
+                          : selectedEquipments.length > 0 
+                            ? `${selectedEquipments.length} equipamento(s) selecionado(s)` 
+                            : 'Buscar e selecionar equipamentos...'}
+                      />
 
                       {/* Selected Equipment with Quantity Controls */}
                       {selectedEquipments.length > 0 && (
@@ -1104,7 +1072,14 @@ export default function ExternalBooking() {
         <div className="mt-8 text-center">
           <p className="text-xs text-muted-foreground/60">
             Criado e Desenvolvido por{' '}
-            <span className="font-medium gradient-text">VEG System</span>
+            <a 
+              href="https://vegsystem.com.br" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-semibold text-primary hover:text-primary/80 transition-colors"
+            >
+              VEG System
+            </a>
           </p>
         </div>
       </div>

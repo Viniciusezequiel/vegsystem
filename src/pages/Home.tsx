@@ -115,7 +115,15 @@ export default function Home() {
             Visão geral do sistema de gestão
           </p>
           <p className="text-xs text-muted-foreground/60 mt-1">
-            Criado e Desenvolvido por Vinicius Ezequiel
+            Criado e Desenvolvido por{' '}
+            <a 
+              href="https://vegsystem.com.br" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-semibold text-primary hover:text-primary/80 transition-colors"
+            >
+              VEG System
+            </a>
           </p>
         </div>
 

@@ -628,7 +628,15 @@ export default function Auth() {
               Precisa de ajuda? <a href="mailto:viniciusezequiel@outlook.com.br" className="text-primary hover:underline">viniciusezequiel@outlook.com.br</a>
             </p>
             <p className="text-xs text-muted-foreground/70">
-              Criado e desenvolvido por VEG System
+              Criado e desenvolvido por{' '}
+              <a 
+                href="https://vegsystem.com.br" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="font-semibold text-primary hover:text-primary/80 transition-colors"
+              >
+                VEG System
+              </a>
             </p>
           </div>
         </CardContent>

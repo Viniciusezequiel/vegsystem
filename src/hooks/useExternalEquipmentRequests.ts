@@ -83,18 +83,32 @@ export function useExternalEquipmentRequestsByEmail(email: string) {
     queryFn: async () => {
       if (!email) return [];
       
-      // Use ilike for case-insensitive comparison
+      // Get the current user session to ensure we're authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No authenticated user found for equipment requests');
+        return [];
+      }
+      
+      // Query using the authenticated user's email for RLS compatibility
+      // RLS policy checks: lower(requester_email) = lower(auth.users.email)
       const { data, error } = await supabase
         .from('external_equipment_requests')
         .select('*, equipment:equipment_id(id, name, patrimony_code, campus)')
-        .ilike('requester_email', email)
+        .ilike('requester_email', user.email || email)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching equipment requests:', error);
+        throw error;
+      }
       
+      console.log('Equipment requests fetched:', data?.length || 0, 'for email:', user.email);
       return data as ExternalEquipmentRequest[];
     },
     enabled: !!email,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 }
 
