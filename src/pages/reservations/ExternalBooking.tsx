@@ -24,6 +24,7 @@ import vegSystemLogo from '@/assets/veg-system-logo.png';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { ExternalReservationDetailsDialog } from '@/components/reservations/ExternalReservationDetailsDialog';
+import { ExternalEquipmentDetailsDialog } from '@/components/equipment/ExternalEquipmentDetailsDialog';
 import { EquipmentSearchDropdown } from '@/components/equipment/EquipmentSearchDropdown';
 
 const searchSchema = z.object({
@@ -163,6 +164,8 @@ export default function ExternalBooking() {
   const [equipmentErrors, setEquipmentErrors] = useState<Record<string, string>>({});
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedEquipmentRequest, setSelectedEquipmentRequest] = useState<any>(null);
+  const [equipmentDetailsDialogOpen, setEquipmentDetailsDialogOpen] = useState(false);
   const [searchData, setSearchData] = useState({
     attendees_count: '' as unknown as number,
     start_date: '',
@@ -208,15 +211,28 @@ export default function ExternalBooking() {
   // Static campus options (same as lost and found)
   const equipmentCampuses = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
+  // Get equipment IDs that user already has pending/approved requests for
+  const userPendingEquipmentIds = useMemo(() => {
+    if (!myEquipmentRequests) return new Set<string>();
+    return new Set(
+      myEquipmentRequests
+        .filter(req => ['pending', 'approved', 'awaiting_pickup', 'loaned'].includes(req.status))
+        .map(req => req.equipment_id)
+        .filter(Boolean) as string[]
+    );
+  }, [myEquipmentRequests]);
+
   // Available equipment for selection (only items allowed for external loan with positive quantity, filtered by campus)
+  // Also exclude equipment that user already has pending requests for
   const availableEquipment = useMemo(() => {
     return equipment?.filter(e => 
       e.status !== 'maintenance' && 
       e.allow_external_loan === true &&
       e.available_quantity > 0 &&
-      (selectedEquipmentCampus === '' || e.campus === selectedEquipmentCampus)
+      (selectedEquipmentCampus === '' || e.campus === selectedEquipmentCampus) &&
+      !userPendingEquipmentIds.has(e.id)
     ) || [];
-  }, [equipment, selectedEquipmentCampus]);
+  }, [equipment, selectedEquipmentCampus, userPendingEquipmentIds]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -937,7 +953,7 @@ export default function ExternalBooking() {
 
           {/* My Reservations Tab */}
           <TabsContent value="myreservations">
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Room Reservations Section */}
               <Card className="glass-morphism border-primary/20">
                 <CardHeader className="pb-4">
@@ -962,10 +978,10 @@ export default function ExternalBooking() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                       {myReservations.map((r) => (
                         <div key={r.id} className="p-4 rounded-xl border bg-card/50 hover:bg-card/80 transition-colors">
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                          <div className="flex flex-col gap-3">
                             <div className="flex-1 min-w-0 space-y-1.5">
                               <div className="flex items-center gap-2">
                                 <Badge variant={statusLabels[r.status]?.variant || 'default'} className="text-xs">
@@ -987,7 +1003,7 @@ export default function ExternalBooking() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              className="self-start"
+                              className="w-full"
                               onClick={() => {
                                 setSelectedReservation(r);
                                 setDetailsDialogOpen(true);
@@ -1028,10 +1044,10 @@ export default function ExternalBooking() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                       {myEquipmentRequests.map((req) => (
                         <div key={req.id} className="p-4 rounded-xl border bg-card/50 hover:bg-card/80 transition-colors">
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                          <div className="flex flex-col gap-3">
                             <div className="flex-1 min-w-0 space-y-1.5">
                               <div className="flex items-center gap-2">
                                 <Badge variant={statusLabels[req.status]?.variant || 'default'} className="text-xs">
@@ -1052,12 +1068,19 @@ export default function ExternalBooking() {
                                   Devolução: {format(parseISO(req.expected_return_date), 'dd/MM/yyyy', { locale: ptBR })}
                                 </span>
                               </div>
-                              {req.purpose && (
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                  {req.purpose}
-                                </p>
-                              )}
                             </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="w-full"
+                              onClick={() => {
+                                setSelectedEquipmentRequest(req);
+                                setEquipmentDetailsDialogOpen(true);
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-1.5" />
+                              Detalhes
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -1089,6 +1112,13 @@ export default function ExternalBooking() {
         reservation={selectedReservation}
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
+      />
+
+      {/* Equipment Details Dialog */}
+      <ExternalEquipmentDetailsDialog
+        request={selectedEquipmentRequest}
+        open={equipmentDetailsDialogOpen}
+        onOpenChange={setEquipmentDetailsDialogOpen}
       />
     </div>
   );
