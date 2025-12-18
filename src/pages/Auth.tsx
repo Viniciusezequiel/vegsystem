@@ -169,15 +169,14 @@ export default function Auth() {
     }
 
     if (data.user) {
-      // Check if user has a role (internal user) - block them from client area
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .single();
+      // Check role and external_user in parallel for faster login
+      const [roleResult, externalResult] = await Promise.all([
+        supabase.from('user_roles').select('role').eq('user_id', data.user.id).maybeSingle(),
+        supabase.from('external_users').select('id').eq('user_id', data.user.id).maybeSingle(),
+      ]);
 
-      if (roleData) {
-        // Internal user trying to login in client area - block and sign out
+      if (roleResult.data) {
+        // Internal user - block from client area
         await supabase.auth.signOut();
         toast({
           title: 'Acesso negado',
@@ -188,22 +187,13 @@ export default function Auth() {
         return;
       }
 
-      // Check if external user
-      const { data: externalUser } = await supabase
-        .from('external_users')
-        .select('id')
-        .eq('user_id', data.user.id)
-        .single();
-
-      if (externalUser) {
-        // External user - go to booking
+      if (externalResult.data) {
         toast({
           title: 'Login realizado',
           description: 'Bem-vindo! Redirecionando para reservas...',
         });
         navigate('/booking', { replace: true });
       } else {
-        // User exists in auth but not in profiles or external_users
         await supabase.auth.signOut();
         toast({
           title: 'Conta não configurada',

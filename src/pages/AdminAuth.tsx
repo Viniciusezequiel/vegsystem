@@ -111,26 +111,25 @@ export default function AdminAuth() {
     }
 
     if (data.user) {
-      // Check if user has a role (internal user)
+      // Check role in a single optimized query
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', data.user.id)
-        .single();
+        .maybeSingle();
 
       if (roleData) {
-        // Internal user - go to admin dashboard
         toast({
           title: 'Login realizado',
           description: 'Bem-vindo ao painel administrativo!',
         });
+        // AuthContext will handle the rest, just navigate
         navigate('/', { replace: true });
       } else {
-        // Not an internal user - sign out and show error
         await supabase.auth.signOut();
         toast({
           title: 'Acesso negado',
-          description: 'Esta área é restrita a colaboradores. Use a área de cliente para reservas.',
+          description: 'Esta área é restrita a colaboradores.',
           variant: 'destructive',
         });
       }
