@@ -630,13 +630,11 @@ export default function ChecklistForm() {
                 {categoryFields.map((field) => (
                   <div key={field.id} className="space-y-3 pb-4 border-b last:border-0">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="space-y-0.5 flex-1">
-                        <div className="flex flex-wrap items-baseline gap-1">
-                          <Label className="font-semibold text-base">{field.label}</Label>
-                          <span className="text-sm text-muted-foreground">
-                            ({field.description})
-                          </span>
-                        </div>
+                      <div className="flex-1">
+                        <Label className="font-semibold text-base block">{field.label}</Label>
+                        <span className="text-sm text-muted-foreground block mt-1">
+                          Itens: {field.subItems.join(', ')}
+                        </span>
                       </div>
                       <Select
                         value={field.status || ''}
