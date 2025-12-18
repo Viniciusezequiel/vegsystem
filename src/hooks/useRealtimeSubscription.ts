@@ -30,7 +30,7 @@ const tableToQueryKeyMap: Record<TableName, string[]> = {
   external_equipment_requests: ['external-equipment-requests'],
   lockers: ['lockers'],
   locker_loans: ['locker-loans'],
-  lost_items: ['lost-items', 'lost-item'],
+  lost_items: ['lost-items', 'lost-item', 'lost-items-counts'],
   material_requests: ['material-requests'],
   classroom_calls: ['classroom-calls'],
   profiles: ['profiles', 'users'],
