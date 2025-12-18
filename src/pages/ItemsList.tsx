@@ -101,9 +101,9 @@ export default function ItemsList() {
 
   // Apply additional filters
   const filteredItems = useMemo(() => {
-    if (!items) return [];
+    if (!items?.items) return [];
     
-    return items.filter(item => {
+    return items.items.filter(item => {
       // Campus filter
       if (campusFilter !== 'all' && item.campus !== campusFilter) {
         return false;

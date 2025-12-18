@@ -169,6 +169,25 @@ export default function Auth() {
     }
 
     if (data.user) {
+      // Check if user has a role (internal user) - block them from client area
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (roleData) {
+        // Internal user trying to login in client area - block and sign out
+        await supabase.auth.signOut();
+        toast({
+          title: 'Acesso negado',
+          description: 'Colaboradores devem usar a Área Administrativa.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Check if external user
       const { data: externalUser } = await supabase
         .from('external_users')
@@ -184,29 +203,13 @@ export default function Auth() {
         });
         navigate('/booking', { replace: true });
       } else {
-        // Check if user has a role (internal user)
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .single();
-
-        if (roleData) {
-          // Internal user trying to login in client area - redirect to admin
-          toast({
-            title: 'Colaborador detectado',
-            description: 'Redirecionando para área administrativa...',
-          });
-          navigate('/', { replace: true });
-        } else {
-          // User exists in auth but not in profiles or external_users
-          await supabase.auth.signOut();
-          toast({
-            title: 'Conta não configurada',
-            description: 'Complete seu cadastro para continuar.',
-            variant: 'destructive',
-          });
-        }
+        // User exists in auth but not in profiles or external_users
+        await supabase.auth.signOut();
+        toast({
+          title: 'Conta não configurada',
+          description: 'Complete seu cadastro para continuar.',
+          variant: 'destructive',
+        });
       }
     }
 
