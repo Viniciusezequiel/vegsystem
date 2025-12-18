@@ -247,7 +247,7 @@ export default function ItemDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Data encontrado</p>
                   <p className="font-medium">
-                    {format(new Date(item.found_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    {format(new Date(item.found_date + 'T00:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </p>
                 </div>
               </div>
@@ -256,7 +256,7 @@ export default function ItemDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Data recebido</p>
                   <p className="font-medium">
-                    {format(new Date(item.received_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    {format(new Date(item.received_date + 'T00:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </p>
                 </div>
               </div>
