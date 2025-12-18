@@ -71,14 +71,14 @@ const CATEGORY_FIELDS: { id: string; label: string; description: string; subItem
   { 
     id: 'manutencao_mobiliario', 
     label: 'Manutenção de Mobiliário',
-    description: 'Carteira, Professor',
-    subItems: ['Carteira', 'Professor']
+    description: 'Carteiras, Mesa do Professor, Cadeira do Professor',
+    subItems: ['Carteiras', 'Mesa do Professor', 'Cadeira do Professor']
   },
   { 
     id: 'infraestrutura', 
     label: 'Infraestrutura',
-    description: 'Ar condicionado, Lâmpadas, Forro, Limpeza, Parede',
-    subItems: ['Ar condicionado', 'Lâmpadas', 'Forro', 'Limpeza', 'Parede']
+    description: 'Ar Condicionado, Lâmpadas, Forro, Limpeza, Parede, Cortinas',
+    subItems: ['Ar Condicionado', 'Lâmpadas', 'Forro', 'Limpeza', 'Parede', 'Cortinas']
   },
   { 
     id: 'recursos_midia', 
@@ -88,9 +88,9 @@ const CATEGORY_FIELDS: { id: string; label: string; description: string; subItem
   },
   { 
     id: 'recurso_docente', 
-    label: 'Recurso Docente (Kit Sala)',
-    description: 'Pincéis, Quadro lousa, Relógio',
-    subItems: ['Pincéis', 'Quadro lousa', 'Relógio']
+    label: 'Recurso Docente',
+    description: 'Pincéis, Quadro/Lousa, Relógio, Apagador',
+    subItems: ['Pincéis', 'Quadro/Lousa', 'Relógio', 'Apagador']
   },
 ];
 
@@ -550,19 +550,14 @@ export default function ChecklistForm() {
               <CardHeader>
                 <CardTitle>Recursos NAAP</CardTitle>
                 <CardDescription>
-                  Carteira de Obeso e Mesa PNE - Pendência somente se for recurso NAAP
+                  Carteira de Obeso, Mesa PNE - Status "Consta/Não consta", com checkbox opcional para gerar pendência NAAP
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {naapFields.map((field) => (
                   <div key={field.id} className="space-y-3 pb-4 border-b last:border-0">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="space-y-1 flex-1">
-                        <Label className="font-medium text-base">{field.label}</Label>
-                        <p className="text-sm text-muted-foreground italic">
-                          Recurso de acessibilidade para pessoas com necessidades especiais
-                        </p>
-                      </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <Label className="font-medium text-base">{field.label}</Label>
                       <Select
                         value={field.status || ''}
                         onValueChange={(value) => handleNaapStatusChange(field.id, value as ConstaStatus)}
