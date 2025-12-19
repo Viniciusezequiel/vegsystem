@@ -139,14 +139,30 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
 
   const deleteItems = useMutation({
     mutationFn: async () => {
+      // Validate items to delete
+      if (itemsToDelete.length === 0) {
+        throw new Error('Nenhum item para excluir');
+      }
+
+      const idsToDelete = itemsToDelete
+        .map(item => item.id)
+        .filter(id => id && typeof id === 'string' && id.length > 0);
+
+      if (idsToDelete.length === 0) {
+        throw new Error('Nenhum ID válido para excluir');
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user?.id) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
-        .eq('user_id', user?.id || '')
+        .eq('user_id', user.id)
         .maybeSingle();
-      // Delete items by their IDs (since we already filtered them)
-      const idsToDelete = itemsToDelete.map(item => item.id);
       
       const { error } = await supabase
         .from('lost_items')
@@ -164,16 +180,16 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         : 'todos';
 
       await supabase.from('activity_logs').insert({
-        user_id: user?.id || null,
-        user_name: profile?.full_name || user?.email || 'Sistema',
+        user_id: user.id,
+        user_name: profile?.full_name || user.email || 'Sistema',
         module: 'lost-items',
         action: 'delete',
         entity_id: null,
         entity_description: 'Limpeza em lote',
-        details: `Excluiu ${itemsToDelete.length} itens entregues (${dateRangeText})`,
+        details: `Excluiu ${idsToDelete.length} itens entregues (${dateRangeText})`,
       });
 
-      return itemsToDelete.length;
+      return idsToDelete.length;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
