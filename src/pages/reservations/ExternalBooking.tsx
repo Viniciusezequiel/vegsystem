@@ -520,7 +520,7 @@ export default function ExternalBooking() {
           <div className="flex justify-center mb-4">
             <div className="relative">
               <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
-              <img src={vegSystemLogo} alt="VEG System Logo" className="w-20 h-20 relative" style={{ filter: 'drop-shadow(0 0 15px hsl(265 85% 65% / 0.5))' }} />
+              <img src={vegSystemLogo} alt="VEG System Logo" className="w-20 h-20 relative" style={{ filter: 'drop-shadow(0 0 15px hsl(265 85% 65% / 0.5))', mixBlendMode: 'multiply' }} />
             </div>
           </div>
           <h1 className="text-3xl font-bold gradient-text mb-2">VEG System</h1>

@@ -67,8 +67,11 @@ export default function Setup() {
               <img 
                 src={vegSystemLogo} 
                 alt="VEG System Logo" 
-                className="w-full h-full object-contain filter drop-shadow-2xl"
-                style={{ filter: 'drop-shadow(0 0 20px hsl(265 85% 65% / 0.5))' }}
+                className="w-full h-full object-contain"
+                style={{ 
+                  filter: 'drop-shadow(0 0 20px hsl(265 85% 65% / 0.5))',
+                  mixBlendMode: 'multiply'
+                }}
               />
             </div>
           </div>

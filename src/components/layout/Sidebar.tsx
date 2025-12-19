@@ -295,7 +295,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
               'rounded-xl overflow-hidden flex items-center justify-center shrink-0 border border-sidebar-border/30',
               collapsed ? 'w-10 h-10' : 'w-11 h-11'
             )}>
-              <img src={vegSystemLogo} alt="VEG System" className="w-full h-full object-cover" />
+              <img src={vegSystemLogo} alt="VEG System" className="w-full h-full object-cover" style={{ mixBlendMode: 'multiply' }} />
             </div>
             {!collapsed && (
               <div className="min-w-0">
