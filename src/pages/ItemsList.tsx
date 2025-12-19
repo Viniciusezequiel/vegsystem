@@ -29,7 +29,7 @@ import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { useLostItems, LostItem, useBulkDeliverLostItems, useBulkCreateLostItems } from '@/hooks/useLostItems';
 import { useLostItemsPrefetch } from '@/hooks/useLostItemsPrefetch';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import {
@@ -100,6 +100,10 @@ export default function ItemsList() {
     search: searchQuery || undefined,
     page: currentPage,
     pageSize,
+    campus: campusFilter !== 'all' ? campusFilter : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    destination: statusFilter === 'all' ? destinationFilter : undefined,
   });
 
   // Prefetch next page for smoother navigation
@@ -114,40 +118,8 @@ export default function ItemsList() {
   const bulkDeliver = useBulkDeliverLostItems();
   const bulkCreate = useBulkCreateLostItems();
 
-  // Apply additional filters
-  const filteredItems = useMemo(() => {
-    if (!items?.items) return [];
-    
-    return items.items.filter(item => {
-      // Campus filter
-      if (campusFilter !== 'all' && item.campus !== campusFilter) {
-        return false;
-      }
-
-      // Destination filter (for delivered items - donation or disposal)
-      if (destinationFilter !== 'all' && statusFilter === 'all') {
-        if (destinationFilter === 'donation' && item.owner_name !== 'DOAÇÃO') {
-          return false;
-        }
-        if (destinationFilter === 'disposal' && item.owner_name !== 'DESCARTE') {
-          return false;
-        }
-      }
-
-      // Date range filter
-      if (dateFrom || dateTo) {
-        const receivedDate = new Date(item.received_date + 'T00:00:00');
-        if (dateFrom && receivedDate < startOfDay(new Date(dateFrom + 'T00:00:00'))) {
-          return false;
-        }
-        if (dateTo && receivedDate > endOfDay(new Date(dateTo + 'T00:00:00'))) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [items, campusFilter, destinationFilter, statusFilter, dateFrom, dateTo]);
+  // Items are now filtered server-side
+  const filteredItems = items?.items || [];
 
   // Reset page when filters change
   const handleStatusFilterChange = (value: ItemStatus | 'all') => {
@@ -157,6 +129,26 @@ export default function ItemsList() {
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
+    setCurrentPage(0);
+  };
+
+  const handleCampusFilterChange = (value: CampusEnum | 'all') => {
+    setCampusFilter(value);
+    setCurrentPage(0);
+  };
+
+  const handleDateFromChange = (value: string) => {
+    setDateFrom(value);
+    setCurrentPage(0);
+  };
+
+  const handleDateToChange = (value: string) => {
+    setDateTo(value);
+    setCurrentPage(0);
+  };
+
+  const handleDestinationFilterChange = (value: 'all' | 'donation' | 'disposal') => {
+    setDestinationFilter(value);
     setCurrentPage(0);
   };
 
@@ -443,7 +435,7 @@ export default function ItemsList() {
             />
           </div>
           
-          <Select value={campusFilter} onValueChange={(v) => setCampusFilter(v as CampusEnum | 'all')}>
+          <Select value={campusFilter} onValueChange={(v) => handleCampusFilterChange(v as CampusEnum | 'all')}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Campus" />
             </SelectTrigger>
@@ -458,14 +450,14 @@ export default function ItemsList() {
           <div className="flex gap-2 items-center">
             <DatePickerInput
               value={dateFrom}
-              onChange={setDateFrom}
+              onChange={handleDateFromChange}
               placeholder="De"
               className="w-[130px]"
             />
             <span className="text-muted-foreground">-</span>
             <DatePickerInput
               value={dateTo}
-              onChange={setDateTo}
+              onChange={handleDateToChange}
               placeholder="Até"
               className="w-[130px]"
             />
@@ -483,6 +475,7 @@ export default function ItemsList() {
                 setDestinationFilter('all');
                 setDateFrom('');
                 setDateTo('');
+                setCurrentPage(0);
               }}
               className="text-muted-foreground hover:text-foreground"
             >
@@ -517,14 +510,14 @@ export default function ItemsList() {
             <Button
               variant={destinationFilter === 'all' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setDestinationFilter('all')}
+              onClick={() => handleDestinationFilterChange('all')}
             >
               Todos
             </Button>
             <Button
               variant={destinationFilter === 'donation' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setDestinationFilter('donation')}
+              onClick={() => handleDestinationFilterChange('donation')}
               className="gap-1"
             >
               <Gift className="w-4 h-4" />
@@ -533,7 +526,7 @@ export default function ItemsList() {
             <Button
               variant={destinationFilter === 'disposal' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setDestinationFilter('disposal')}
+              onClick={() => handleDestinationFilterChange('disposal')}
               className="gap-1"
             >
               <Trash2 className="w-4 h-4" />
@@ -661,7 +654,7 @@ export default function ItemsList() {
       ) : (
         <>
           <p className="text-sm text-muted-foreground mb-4">
-            {filteredItems.length} {filteredItems.length === 1 ? 'item encontrado' : 'itens encontrados'}
+            {items?.totalCount || 0} {(items?.totalCount || 0) === 1 ? 'item encontrado' : 'itens encontrados'}
             {isSelectionMode && ` | ${selectedItems.length} selecionado(s)`}
           </p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
