@@ -36,7 +36,7 @@ const PAGE_SIZE = 50;
 export function useArchivedLostItems(campus?: 'Campus I' | 'Campus II' | 'Campus IV' | 'Campus HUCM Adm' | 'all') {
   return useInfiniteQuery({
     queryKey: ['lost-items-archive', campus],
-    queryFn: async ({ pageParam = 0 }) => {
+    queryFn: async ({ pageParam }) => {
       let query = supabase
         .from('lost_items_archive')
         .select('*')
@@ -51,10 +51,11 @@ export function useArchivedLostItems(campus?: 'Campus I' | 'Campus II' | 'Campus
       if (error) throw error;
       return {
         items: (data || []) as ArchivedLostItem[],
-        nextPage: data && data.length === PAGE_SIZE ? pageParam + 1 : undefined,
+        pageParam,
+        hasMore: data ? data.length === PAGE_SIZE : false,
       };
     },
-    getNextPageParam: (lastPage) => lastPage.nextPage,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.pageParam + 1 : undefined,
     initialPageParam: 0,
   });
 }
