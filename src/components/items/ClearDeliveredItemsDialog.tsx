@@ -144,9 +144,10 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         throw new Error('Nenhum item para excluir');
       }
 
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const idsToDelete = itemsToDelete
-        .map(item => item.id)
-        .filter(id => id && typeof id === 'string' && id.length > 0);
+        .map((item) => item.id)
+        .filter((id): id is string => typeof id === 'string' && UUID_RE.test(id));
 
       if (idsToDelete.length === 0) {
         throw new Error('Nenhum ID válido para excluir');
@@ -163,13 +164,21 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         .select('full_name')
         .eq('user_id', user.id)
         .maybeSingle();
-      
-      const { error } = await supabase
-        .from('lost_items')
-        .delete()
-        .in('id', idsToDelete);
 
-      if (error) throw error;
+      // Deleta em lotes para evitar URL grande demais (Bad Request)
+      const CHUNK_SIZE = 50;
+      let deletedCount = 0;
+
+      for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
+        const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase
+          .from('lost_items')
+          .delete()
+          .in('id', chunk);
+
+        if (error) throw error;
+        deletedCount += chunk.length;
+      }
 
       const dateRangeText = dateFrom && dateTo 
         ? `de ${format(new Date(dateFrom), 'dd/MM/yyyy')} até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
@@ -186,10 +195,10 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         action: 'delete',
         entity_id: null,
         entity_description: 'Limpeza em lote',
-        details: `Excluiu ${idsToDelete.length} itens entregues (${dateRangeText})`,
+        details: `Excluiu ${deletedCount} itens entregues (${dateRangeText})`,
       });
 
-      return idsToDelete.length;
+      return deletedCount;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
