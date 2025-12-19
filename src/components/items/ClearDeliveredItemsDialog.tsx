@@ -34,22 +34,35 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
 
   const countAndFetchItems = useMutation({
     mutationFn: async () => {
-      let query = supabase
+      // First get all delivered items
+      const { data: allItems, error } = await supabase
         .from('lost_items')
         .select('*')
         .eq('status', 'delivered')
-        .order('delivered_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
-      if (dateFrom) {
-        query = query.gte('delivered_at', `${dateFrom}T00:00:00`);
-      }
-      if (dateTo) {
-        query = query.lte('delivered_at', `${dateTo}T23:59:59`);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      
+      // Filter by date range using delivered_at or created_at as fallback
+      let filtered = allItems || [];
+      
+      if (dateFrom) {
+        const fromDate = new Date(`${dateFrom}T00:00:00`);
+        filtered = filtered.filter(item => {
+          const itemDate = new Date(item.delivered_at || item.created_at);
+          return itemDate >= fromDate;
+        });
+      }
+      
+      if (dateTo) {
+        const toDate = new Date(`${dateTo}T23:59:59`);
+        filtered = filtered.filter(item => {
+          const itemDate = new Date(item.delivered_at || item.created_at);
+          return itemDate <= toDate;
+        });
+      }
+
+      return filtered;
     },
     onSuccess: (items) => {
       setItemsToDelete(items);
@@ -128,14 +141,14 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         .delete()
         .eq('status', 'delivered');
 
-      if (dateFrom) {
-        query = query.gte('delivered_at', `${dateFrom}T00:00:00`);
-      }
-      if (dateTo) {
-        query = query.lte('delivered_at', `${dateTo}T23:59:59`);
-      }
+      // Delete items by their IDs (since we already filtered them)
+      const idsToDelete = itemsToDelete.map(item => item.id);
+      
+      const { error } = await supabase
+        .from('lost_items')
+        .delete()
+        .in('id', idsToDelete);
 
-      const { error } = await query;
       if (error) throw error;
 
       const dateRangeText = dateFrom && dateTo 
@@ -210,7 +223,7 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         {!confirmStep ? (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Período de entrega</Label>
+              <Label>Período (data de cadastro/entrega)</Label>
               <div className="flex gap-2 items-center">
                 <DatePickerInput
                   value={dateFrom}
