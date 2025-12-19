@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +25,12 @@ interface ArchiveDeliveredItemsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface ProgressState {
+  current: number;
+  total: number;
+  processed: number;
+}
+
 export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliveredItemsDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -31,6 +38,8 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
   const [dateTo, setDateTo] = useState('');
   const [confirmStep, setConfirmStep] = useState(false);
   const [itemsToArchive, setItemsToArchive] = useState<any[]>([]);
+  const [progress, setProgress] = useState<ProgressState | null>(null);
+  const abortRef = useRef(false);
 
   const countAndFetchItems = useMutation({
     mutationFn: async () => {
@@ -133,6 +142,8 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
 
   const archiveItems = useMutation({
     mutationFn: async () => {
+      abortRef.current = false;
+      
       if (itemsToArchive.length === 0) {
         throw new Error('Nenhum item para arquivar');
       }
@@ -159,93 +170,105 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
         .maybeSingle();
 
       const userName = profile?.full_name || user.email || 'Sistema';
-      const CHUNK_SIZE = 25; // Reduced chunk size for stability
+      const CHUNK_SIZE = 100; // Larger chunks for speed
+      const totalChunks = Math.ceil(validItems.length / CHUNK_SIZE);
       let archivedCount = 0;
       const errors: string[] = [];
 
+      setProgress({ current: 0, total: totalChunks, processed: 0 });
+
+      // Process chunks with concurrency limit of 3
+      const CONCURRENCY = 3;
+      const chunks: any[][] = [];
       for (let i = 0; i < validItems.length; i += CHUNK_SIZE) {
-        const chunk = validItems.slice(i, i + CHUNK_SIZE);
-        const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
-        const totalChunks = Math.ceil(validItems.length / CHUNK_SIZE);
-        
-        try {
-          // Prepare archive records
-          const archiveRecords = chunk.map((item) => ({
-            original_id: item.id,
-            code: item.code,
-            description: item.description,
-            image_url: item.image_url,
-            campus: item.campus,
-            found_location: item.found_location,
-            found_date: item.found_date,
-            received_date: item.received_date,
-            delivered_by_name: item.delivered_by_name,
-            delivered_by_contact: item.delivered_by_contact,
-            delivered_by_team_member: item.delivered_by_team_member,
-            owner_name: item.owner_name,
-            owner_phone: item.owner_phone,
-            owner_email: item.owner_email,
-            owner_signature: item.owner_signature,
-            status: item.status,
-            delivered_at: item.delivered_at,
-            registered_by: item.registered_by,
-            shelf: item.shelf,
-            box: item.box,
-            seal_number: item.seal_number,
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            archived_by: user.id,
-            archived_by_name: userName,
-          }));
+        chunks.push(validItems.slice(i, i + CHUNK_SIZE));
+      }
 
-          // Insert into archive with retry
-          let archiveSuccess = false;
-          for (let retry = 0; retry < 3 && !archiveSuccess; retry++) {
-            const { error: archiveError } = await supabase
-              .from('lost_items_archive')
-              .insert(archiveRecords);
+      const processChunk = async (chunk: any[], chunkIndex: number): Promise<number> => {
+        if (abortRef.current) return 0;
 
-            if (!archiveError) {
-              archiveSuccess = true;
-            } else if (retry === 2) {
-              throw archiveError;
-            } else {
-              await new Promise(resolve => setTimeout(resolve, 500 * (retry + 1)));
-            }
-          }
+        const archiveRecords = chunk.map((item) => ({
+          original_id: item.id,
+          code: item.code,
+          description: item.description,
+          image_url: item.image_url,
+          campus: item.campus,
+          found_location: item.found_location,
+          found_date: item.found_date,
+          received_date: item.received_date,
+          delivered_by_name: item.delivered_by_name,
+          delivered_by_contact: item.delivered_by_contact,
+          delivered_by_team_member: item.delivered_by_team_member,
+          owner_name: item.owner_name,
+          owner_phone: item.owner_phone,
+          owner_email: item.owner_email,
+          owner_signature: item.owner_signature,
+          status: item.status,
+          delivered_at: item.delivered_at,
+          registered_by: item.registered_by,
+          shelf: item.shelf,
+          box: item.box,
+          seal_number: item.seal_number,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          archived_by: user.id,
+          archived_by_name: userName,
+        }));
 
-          // Delete from main table with retry
-          const chunkIds = chunk.map((item) => item.id);
-          let deleteSuccess = false;
-          for (let retry = 0; retry < 3 && !deleteSuccess; retry++) {
-            const { error: deleteError } = await supabase
-              .from('lost_items')
-              .delete()
-              .in('id', chunkIds);
+        // Insert into archive
+        const { error: archiveError } = await supabase
+          .from('lost_items_archive')
+          .insert(archiveRecords);
 
-            if (!deleteError) {
-              deleteSuccess = true;
-            } else if (retry === 2) {
-              throw deleteError;
-            } else {
-              await new Promise(resolve => setTimeout(resolve, 500 * (retry + 1)));
-            }
-          }
-          
-          archivedCount += chunk.length;
-          
-          // Small delay between chunks to prevent rate limiting
-          if (i + CHUNK_SIZE < validItems.length) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-        } catch (chunkError) {
-          console.error(`Erro no chunk ${chunkNumber}/${totalChunks}:`, chunkError);
-          errors.push(`Lote ${chunkNumber}: ${chunkError instanceof Error ? chunkError.message : 'Erro desconhecido'}`);
+        if (archiveError) {
+          throw new Error(`Inserção: ${archiveError.message}`);
         }
+
+        // Delete from main table
+        const chunkIds = chunk.map((item) => item.id);
+        const { error: deleteError } = await supabase
+          .from('lost_items')
+          .delete()
+          .in('id', chunkIds);
+
+        if (deleteError) {
+          throw new Error(`Exclusão: ${deleteError.message}`);
+        }
+
+        return chunk.length;
+      };
+
+      // Process in batches with concurrency
+      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+        if (abortRef.current) break;
+
+        const batch = chunks.slice(i, i + CONCURRENCY);
+        const batchPromises = batch.map((chunk, idx) => 
+          processChunk(chunk, i + idx)
+            .then(count => {
+              archivedCount += count;
+              setProgress(prev => prev ? {
+                ...prev,
+                current: Math.min(prev.current + 1, prev.total),
+                processed: archivedCount,
+              } : null);
+              return count;
+            })
+            .catch(err => {
+              errors.push(`Lote ${i + idx + 1}: ${err.message}`);
+              setProgress(prev => prev ? {
+                ...prev,
+                current: Math.min(prev.current + 1, prev.total),
+              } : null);
+              return 0;
+            })
+        );
+
+        await Promise.all(batchPromises);
       }
 
       if (archivedCount === 0 && errors.length > 0) {
-        throw new Error(`Falha ao arquivar: ${errors.join('; ')}`);
+        throw new Error(`Falha ao arquivar: ${errors[0]}`);
       }
 
       const dateRangeText = dateFrom && dateTo 
@@ -256,19 +279,16 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
         ? `até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
         : 'todos';
 
-      try {
-        await supabase.from('activity_logs').insert({
-          user_id: user.id,
-          user_name: userName,
-          module: 'lost-items',
-          action: 'archive',
-          entity_id: null,
-          entity_description: 'Arquivamento em lote',
-          details: `Arquivou ${archivedCount} itens entregues (${dateRangeText})${errors.length > 0 ? ` - ${errors.length} lote(s) com erro` : ''}`,
-        });
-      } catch (logError) {
-        console.warn('Falha ao registrar log de atividade:', logError);
-      }
+      // Log activity (non-blocking)
+      supabase.from('activity_logs').insert({
+        user_id: user.id,
+        user_name: userName,
+        module: 'lost-items',
+        action: 'archive',
+        entity_id: null,
+        entity_description: 'Arquivamento em lote',
+        details: `Arquivou ${archivedCount} itens entregues (${dateRangeText})${errors.length > 0 ? ` - ${errors.length} lote(s) com erro` : ''}`,
+      });
 
       return { archivedCount, errors };
     },
@@ -292,6 +312,7 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
       handleClose();
     },
     onError: (error: Error) => {
+      setProgress(null);
       toast({
         title: 'Erro',
         description: error.message || 'Erro de conexão. Tente novamente.',
@@ -301,10 +322,12 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
   });
 
   const handleClose = () => {
+    abortRef.current = true;
     setDateFrom('');
     setDateTo('');
     setConfirmStep(false);
     setItemsToArchive([]);
+    setProgress(null);
     onOpenChange(false);
   };
 
@@ -316,6 +339,8 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
     archiveItems.mutate();
   };
 
+  const progressPercent = progress ? Math.round((progress.current / progress.total) * 100) : 0;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
@@ -325,7 +350,9 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
             Arquivar Itens Entregues
           </DialogTitle>
           <DialogDescription>
-            {confirmStep 
+            {progress 
+              ? 'Arquivando itens...'
+              : confirmStep 
               ? 'Os itens serão movidos para o arquivo. Você poderá consultá-los depois.'
               : 'Selecione o período para arquivar os itens já entregues.'}
           </DialogDescription>
@@ -355,6 +382,20 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
               </p>
             </div>
           </div>
+        ) : progress ? (
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progresso</span>
+                <span className="font-medium">{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-3" />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Lote {progress.current} de {progress.total}</span>
+                <span>{progress.processed} itens processados</span>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="py-4 space-y-4">
             <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-lg border border-primary/20">
@@ -382,8 +423,8 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
-            Cancelar
+          <Button variant="outline" onClick={handleClose} disabled={archiveItems.isPending}>
+            {archiveItems.isPending ? 'Cancelar' : 'Fechar'}
           </Button>
           {!confirmStep ? (
             <Button 
@@ -399,17 +440,12 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
                 'Continuar'
               )}
             </Button>
-          ) : (
+          ) : !progress && (
             <Button 
               onClick={handleConfirmArchive}
               disabled={archiveItems.isPending || itemsToArchive.length === 0}
             >
-              {archiveItems.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Arquivando...
-                </>
-              ) : itemsToArchive.length === 0 ? (
+              {itemsToArchive.length === 0 ? (
                 'Nenhum item encontrado'
               ) : (
                 `Confirmar Arquivamento`
