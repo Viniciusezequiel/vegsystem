@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ArchivedLostItem {
@@ -31,14 +31,17 @@ export interface ArchivedLostItem {
   archived_by_name: string | null;
 }
 
+const PAGE_SIZE = 50;
+
 export function useArchivedLostItems(campus?: 'Campus I' | 'Campus II' | 'Campus IV' | 'Campus HUCM Adm' | 'all') {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['lost-items-archive', campus],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
         .from('lost_items_archive')
         .select('*')
-        .order('archived_at', { ascending: false });
+        .order('archived_at', { ascending: false })
+        .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
 
       if (campus && campus !== 'all') {
         query = query.eq('campus', campus as 'Campus I' | 'Campus II' | 'Campus IV' | 'Campus HUCM Adm');
@@ -46,8 +49,13 @@ export function useArchivedLostItems(campus?: 'Campus I' | 'Campus II' | 'Campus
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as ArchivedLostItem[];
+      return {
+        items: (data || []) as ArchivedLostItem[],
+        nextPage: data && data.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 0,
   });
 }
 
