@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -50,13 +50,26 @@ export default function ArchivedItemsList() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedItem, setSelectedItem] = useState<ArchivedLostItem | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const { data: items, isLoading } = useArchivedLostItems(campusFilter);
+  const { 
+    data, 
+    isLoading, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useArchivedLostItems(campusFilter);
+
+  // Flatten all pages into a single array
+  const allItems = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap(page => page.items);
+  }, [data?.pages]);
 
   const filteredItems = useMemo(() => {
-    if (!items) return [];
+    if (!allItems.length) return [];
     
-    return items.filter(item => {
+    return allItems.filter(item => {
       // Search filter
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase();
@@ -89,7 +102,25 @@ export default function ArchivedItemsList() {
 
       return true;
     });
-  }, [items, searchQuery, dateFrom, dateTo]);
+  }, [allItems, searchQuery, dateFrom, dateTo]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const exportToPdf = () => {
     if (filteredItems.length === 0) {
@@ -251,7 +282,7 @@ export default function ArchivedItemsList() {
 
         {/* Results count */}
         <div className="text-sm text-muted-foreground">
-          {isLoading ? 'Carregando...' : `${filteredItems.length} item(ns) arquivado(s)`}
+          {isLoading ? 'Carregando...' : `${filteredItems.length} item(ns) carregado(s)${hasNextPage ? ' (mais disponíveis)' : ''}`}
         </div>
 
         {/* Items list */}
@@ -265,47 +296,61 @@ export default function ArchivedItemsList() {
             <p>Nenhum item arquivado encontrado</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredItems.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => setSelectedItem(item)}
-                className={cn(
-                  "bg-card rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
-                )}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="font-mono text-sm font-semibold text-primary">{item.code}</span>
-                  <span className="text-xs bg-muted px-2 py-0.5 rounded">Arquivado</span>
-                </div>
-                
-                <p className="text-sm font-medium line-clamp-2 mb-3">{item.description}</p>
-                
-                <div className="space-y-1.5 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>{item.campus}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span className="line-clamp-1">{item.found_location}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>
-                      Arquivado em {item.archived_at ? format(new Date(item.archived_at), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
-                    </span>
-                  </div>
-                  {item.owner_name && (
-                    <div className="flex items-center gap-1.5">
-                      <Package className="w-3.5 h-3.5" />
-                      <span className="line-clamp-1">Entregue para: {item.owner_name}</span>
-                    </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredItems.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedItem(item)}
+                  className={cn(
+                    "bg-card rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
                   )}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-mono text-sm font-semibold text-primary">{item.code}</span>
+                    <span className="text-xs bg-muted px-2 py-0.5 rounded">Arquivado</span>
+                  </div>
+                  
+                  <p className="text-sm font-medium line-clamp-2 mb-3">{item.description}</p>
+                  
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>{item.campus}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span className="line-clamp-1">{item.found_location}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>
+                        Arquivado em {item.archived_at ? format(new Date(item.archived_at), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                      </span>
+                    </div>
+                    {item.owner_name && (
+                      <div className="flex items-center gap-1.5">
+                        <Package className="w-3.5 h-3.5" />
+                        <span className="line-clamp-1">Entregue para: {item.owner_name}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {/* Load more trigger */}
+            <div ref={loadMoreRef} className="flex justify-center py-4">
+              {isFetchingNextPage && (
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              )}
+              {hasNextPage && !isFetchingNextPage && (
+                <Button variant="outline" size="sm" onClick={() => fetchNextPage()}>
+                  Carregar mais
+                </Button>
+              )}
+            </div>
+          </>
         )}
       </div>
 
