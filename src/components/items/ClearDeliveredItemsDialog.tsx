@@ -68,14 +68,16 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
   const generatePdf = () => {
     if (itemsToDelete.length === 0) return;
 
-    const doc = new jsPDF();
+    const doc = new jsPDF('landscape');
     
     // Title
     doc.setFontSize(18);
-    doc.text('Relatório de Itens Entregues', 14, 22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Relatório de Itens Entregues - Achados e Perdidos', 14, 18);
     
     // Date range info
     doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
     const dateRangeText = dateFrom && dateTo 
       ? `Período (recebimento): ${format(new Date(dateFrom), 'dd/MM/yyyy')} até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
       : dateFrom 
@@ -83,27 +85,47 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
       : dateTo 
       ? `Até (recebimento): ${format(new Date(dateTo), 'dd/MM/yyyy')}`
       : 'Todos os itens entregues';
-    doc.text(dateRangeText, 14, 30);
-    doc.text(`Total de itens: ${itemsToDelete.length}`, 14, 36);
-    doc.text(`Data de geração: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 42);
+    doc.text(dateRangeText, 14, 26);
+    doc.text(`Total de itens: ${itemsToDelete.length}`, 14, 32);
+    doc.text(`Data de geração: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 38);
 
-    // Table
+    // Table with more columns
     const tableData = itemsToDelete.map(item => [
       item.code || '-',
-      item.description?.substring(0, 40) + (item.description?.length > 40 ? '...' : '') || '-',
+      item.description?.substring(0, 35) + (item.description?.length > 35 ? '...' : '') || '-',
+      item.campus || '-',
       item.found_location || '-',
+      item.shelf || '-',
+      item.box || '-',
+      item.received_date ? format(new Date(item.received_date + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : '-',
       item.owner_name || '-',
       item.owner_phone || item.owner_email || '-',
-      item.received_date ? format(new Date(item.received_date), 'dd/MM/yyyy', { locale: ptBR }) : '-',
+      item.delivered_at ? format(new Date(item.delivered_at), 'dd/MM/yyyy', { locale: ptBR }) : '-',
     ]);
 
     autoTable(doc, {
-      head: [['Código', 'Descrição', 'Local Achado', 'Dono', 'Contato', 'Recebimento']],
+      head: [['Código', 'Descrição', 'Campus', 'Local Achado', 'Estante', 'Caixa', 'Recebimento', 'Dono', 'Contato', 'Entrega']],
       body: tableData,
-      startY: 50,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
+      startY: 44,
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 },
     });
+
+    // Footer with page numbers
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Página ${i} de ${pageCount}`,
+        doc.internal.pageSize.width / 2,
+        doc.internal.pageSize.height - 10,
+        { align: 'center' }
+      );
+    }
 
     // Save
     const fileName = `itens-entregues-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
