@@ -35,12 +35,21 @@ export interface LostItem {
 let lastExpirationCall = 0;
 const EXPIRATION_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-export function useLostItems(filters?: { status?: string; search?: string; page?: number; pageSize?: number }) {
+export function useLostItems(filters?: { 
+  status?: string; 
+  search?: string; 
+  page?: number; 
+  pageSize?: number;
+  campus?: CampusEnum | 'all';
+  dateFrom?: string;
+  dateTo?: string;
+  destination?: 'all' | 'donation' | 'disposal';
+}) {
   const page = filters?.page ?? 0;
   const pageSize = filters?.pageSize ?? 100;
 
   return useQuery({
-    queryKey: ['lost-items', filters?.status, filters?.search, page, pageSize],
+    queryKey: ['lost-items', filters?.status, filters?.search, page, pageSize, filters?.campus, filters?.dateFrom, filters?.dateTo, filters?.destination],
     queryFn: async () => {
       // Only call expiration function once every 5 minutes to improve performance
       const now = Date.now();
@@ -69,6 +78,28 @@ export function useLostItems(filters?: { status?: string; search?: string; page?
 
       if (filters?.search) {
         query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
+      }
+
+      // Campus filter server-side
+      if (filters?.campus && filters.campus !== 'all') {
+        query = query.eq('campus', filters.campus);
+      }
+
+      // Date range filter server-side
+      if (filters?.dateFrom) {
+        query = query.gte('received_date', filters.dateFrom);
+      }
+      if (filters?.dateTo) {
+        query = query.lte('received_date', filters.dateTo);
+      }
+
+      // Destination filter (for delivered items - donation or disposal)
+      if (filters?.destination && filters.destination !== 'all') {
+        if (filters.destination === 'donation') {
+          query = query.eq('owner_name', 'DOAÇÃO');
+        } else if (filters.destination === 'disposal') {
+          query = query.eq('owner_name', 'DESCARTE');
+        }
       }
 
       const { data, error, count } = await query;
