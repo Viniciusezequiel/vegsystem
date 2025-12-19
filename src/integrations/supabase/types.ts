@@ -726,6 +726,96 @@ export type Database = {
         }
         Relationships: []
       }
+      lost_items_archive: {
+        Row: {
+          archived_at: string
+          archived_by: string | null
+          archived_by_name: string | null
+          box: string | null
+          campus: Database["public"]["Enums"]["campus_enum"]
+          code: string
+          created_at: string
+          delivered_at: string | null
+          delivered_by_contact: string | null
+          delivered_by_name: string
+          delivered_by_team_member: string | null
+          description: string
+          found_date: string
+          found_location: string
+          id: string
+          image_url: string | null
+          original_id: string
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          owner_signature: string | null
+          received_date: string
+          registered_by: string | null
+          seal_number: string | null
+          shelf: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string
+          archived_by?: string | null
+          archived_by_name?: string | null
+          box?: string | null
+          campus: Database["public"]["Enums"]["campus_enum"]
+          code: string
+          created_at?: string
+          delivered_at?: string | null
+          delivered_by_contact?: string | null
+          delivered_by_name: string
+          delivered_by_team_member?: string | null
+          description: string
+          found_date: string
+          found_location: string
+          id?: string
+          image_url?: string | null
+          original_id: string
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          owner_signature?: string | null
+          received_date: string
+          registered_by?: string | null
+          seal_number?: string | null
+          shelf?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string
+          archived_by?: string | null
+          archived_by_name?: string | null
+          box?: string | null
+          campus?: Database["public"]["Enums"]["campus_enum"]
+          code?: string
+          created_at?: string
+          delivered_at?: string | null
+          delivered_by_contact?: string | null
+          delivered_by_name?: string
+          delivered_by_team_member?: string | null
+          description?: string
+          found_date?: string
+          found_location?: string
+          id?: string
+          image_url?: string | null
+          original_id?: string
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          owner_signature?: string | null
+          received_date?: string
+          registered_by?: string | null
+          seal_number?: string | null
+          shelf?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       material_requests: {
         Row: {
           admin_notes: string | null

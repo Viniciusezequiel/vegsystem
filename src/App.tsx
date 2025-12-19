@@ -13,6 +13,7 @@ import Setup from "./pages/Setup";
 import Home from "./pages/Home";
 import RegisterItem from "./pages/RegisterItem";
 import ItemsList from "./pages/ItemsList";
+import ArchivedItemsList from "./pages/ArchivedItemsList";
 import ItemDetail from "./pages/ItemDetail";
 import History from "./pages/History";
 import Users from "./pages/Users";
@@ -112,6 +113,11 @@ const App = () => (
             <Route path="/lost-found/history" element={
               <ProtectedRoute>
                 <History />
+              </ProtectedRoute>
+            } />
+            <Route path="/lost-found/archived" element={
+              <ProtectedRoute>
+                <ArchivedItemsList />
               </ProtectedRoute>
             } />
             

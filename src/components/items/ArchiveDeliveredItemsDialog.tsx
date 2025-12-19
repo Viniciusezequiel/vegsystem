@@ -13,24 +13,24 @@ import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, AlertTriangle, Loader2, FileDown } from 'lucide-react';
+import { Archive, AlertTriangle, Loader2, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-interface ClearDeliveredItemsDialogProps {
+interface ArchiveDeliveredItemsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDeliveredItemsDialogProps) {
+export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliveredItemsDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [confirmStep, setConfirmStep] = useState(false);
-  const [itemsToDelete, setItemsToDelete] = useState<any[]>([]);
+  const [itemsToArchive, setItemsToArchive] = useState<any[]>([]);
 
   const countAndFetchItems = useMutation({
     mutationFn: async () => {
@@ -40,7 +40,6 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         .eq('status', 'delivered')
         .order('received_date', { ascending: false });
 
-      // Filter by received_date (DATE column)
       if (dateFrom) {
         query = query.gte('received_date', dateFrom);
       }
@@ -53,7 +52,7 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
       return data || [];
     },
     onSuccess: (items) => {
-      setItemsToDelete(items);
+      setItemsToArchive(items);
       setConfirmStep(true);
     },
     onError: (error: Error) => {
@@ -66,16 +65,14 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
   });
 
   const generatePdf = () => {
-    if (itemsToDelete.length === 0) return;
+    if (itemsToArchive.length === 0) return;
 
     const doc = new jsPDF('landscape');
     
-    // Title
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('Relatório de Itens Entregues - Achados e Perdidos', 14, 18);
+    doc.text('Relatório de Itens Arquivados - Achados e Perdidos', 14, 18);
     
-    // Date range info
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     const dateRangeText = dateFrom && dateTo 
@@ -86,11 +83,10 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
       ? `Até (recebimento): ${format(new Date(dateTo), 'dd/MM/yyyy')}`
       : 'Todos os itens entregues';
     doc.text(dateRangeText, 14, 26);
-    doc.text(`Total de itens: ${itemsToDelete.length}`, 14, 32);
+    doc.text(`Total de itens: ${itemsToArchive.length}`, 14, 32);
     doc.text(`Data de geração: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 38);
 
-    // Table with more columns
-    const tableData = itemsToDelete.map(item => [
+    const tableData = itemsToArchive.map(item => [
       item.code || '-',
       item.description?.substring(0, 35) + (item.description?.length > 35 ? '...' : '') || '-',
       item.campus || '-',
@@ -113,7 +109,6 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
       margin: { left: 14, right: 14 },
     });
 
-    // Footer with page numbers
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -127,8 +122,7 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
       );
     }
 
-    // Save
-    const fileName = `itens-entregues-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
+    const fileName = `itens-arquivados-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
     doc.save(fileName);
 
     toast({
@@ -137,20 +131,19 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
     });
   };
 
-  const deleteItems = useMutation({
+  const archiveItems = useMutation({
     mutationFn: async () => {
-      // Validate items to delete
-      if (itemsToDelete.length === 0) {
-        throw new Error('Nenhum item para excluir');
+      if (itemsToArchive.length === 0) {
+        throw new Error('Nenhum item para arquivar');
       }
 
       const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const idsToDelete = itemsToDelete
-        .map((item) => item.id)
-        .filter((id): id is string => typeof id === 'string' && UUID_RE.test(id));
+      const validItems = itemsToArchive.filter(
+        (item) => typeof item.id === 'string' && UUID_RE.test(item.id)
+      );
 
-      if (idsToDelete.length === 0) {
-        throw new Error('Nenhum ID válido para excluir');
+      if (validItems.length === 0) {
+        throw new Error('Nenhum item válido para arquivar');
       }
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -165,19 +158,58 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         .eq('user_id', user.id)
         .maybeSingle();
 
-      // Deleta em lotes para evitar URL grande demais (Bad Request)
+      const userName = profile?.full_name || user.email || 'Sistema';
       const CHUNK_SIZE = 50;
-      let deletedCount = 0;
+      let archivedCount = 0;
 
-      for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
-        const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
-        const { error } = await supabase
+      for (let i = 0; i < validItems.length; i += CHUNK_SIZE) {
+        const chunk = validItems.slice(i, i + CHUNK_SIZE);
+        
+        // Prepare archive records
+        const archiveRecords = chunk.map((item) => ({
+          original_id: item.id,
+          code: item.code,
+          description: item.description,
+          image_url: item.image_url,
+          campus: item.campus,
+          found_location: item.found_location,
+          found_date: item.found_date,
+          received_date: item.received_date,
+          delivered_by_name: item.delivered_by_name,
+          delivered_by_contact: item.delivered_by_contact,
+          delivered_by_team_member: item.delivered_by_team_member,
+          owner_name: item.owner_name,
+          owner_phone: item.owner_phone,
+          owner_email: item.owner_email,
+          owner_signature: item.owner_signature,
+          status: item.status,
+          delivered_at: item.delivered_at,
+          registered_by: item.registered_by,
+          shelf: item.shelf,
+          box: item.box,
+          seal_number: item.seal_number,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          archived_by: user.id,
+          archived_by_name: userName,
+        }));
+
+        // Insert into archive
+        const { error: archiveError } = await supabase
+          .from('lost_items_archive')
+          .insert(archiveRecords);
+
+        if (archiveError) throw archiveError;
+
+        // Delete from main table
+        const chunkIds = chunk.map((item) => item.id);
+        const { error: deleteError } = await supabase
           .from('lost_items')
           .delete()
-          .in('id', chunk);
+          .in('id', chunkIds);
 
-        if (error) throw error;
-        deletedCount += chunk.length;
+        if (deleteError) throw deleteError;
+        archivedCount += chunk.length;
       }
 
       const dateRangeText = dateFrom && dateTo 
@@ -190,22 +222,23 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
 
       await supabase.from('activity_logs').insert({
         user_id: user.id,
-        user_name: profile?.full_name || user.email || 'Sistema',
+        user_name: userName,
         module: 'lost-items',
-        action: 'delete',
+        action: 'archive',
         entity_id: null,
-        entity_description: 'Limpeza em lote',
-        details: `Excluiu ${deletedCount} itens entregues (${dateRangeText})`,
+        entity_description: 'Arquivamento em lote',
+        details: `Arquivou ${archivedCount} itens entregues (${dateRangeText})`,
       });
 
-      return deletedCount;
+      return archivedCount;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['lost-items-archive'] });
       toast({
-        title: 'Itens excluídos',
-        description: `${count} item(ns) entregue(s) foram excluídos com sucesso.`,
+        title: 'Itens arquivados',
+        description: `${count} item(ns) entregue(s) foram arquivados com sucesso.`,
       });
       handleClose();
     },
@@ -222,7 +255,7 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
     setDateFrom('');
     setDateTo('');
     setConfirmStep(false);
-    setItemsToDelete([]);
+    setItemsToArchive([]);
     onOpenChange(false);
   };
 
@@ -230,22 +263,22 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
     countAndFetchItems.mutate();
   };
 
-  const handleConfirmDelete = () => {
-    deleteItems.mutate();
+  const handleConfirmArchive = () => {
+    archiveItems.mutate();
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <Trash2 className="w-5 h-5" />
-            Limpar Itens Entregues
+          <DialogTitle className="flex items-center gap-2 text-primary">
+            <Archive className="w-5 h-5" />
+            Arquivar Itens Entregues
           </DialogTitle>
           <DialogDescription>
             {confirmStep 
-              ? 'Exporte o PDF antes de excluir os itens.'
-              : 'Selecione o período para excluir os itens já entregues do sistema.'}
+              ? 'Os itens serão movidos para o arquivo. Você poderá consultá-los depois.'
+              : 'Selecione o período para arquivar os itens já entregues.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -269,20 +302,20 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Deixe em branco para excluir todos os itens entregues.
+                Deixe em branco para arquivar todos os itens entregues.
               </p>
             </div>
           </div>
         ) : (
           <div className="py-4 space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
-              <AlertTriangle className="w-10 h-10 text-destructive shrink-0" />
+            <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-lg border border-primary/20">
+              <AlertTriangle className="w-10 h-10 text-primary shrink-0" />
               <div>
-                <p className="font-semibold text-destructive">
-                  {itemsToDelete.length} item(ns) será(ão) excluído(s)
+                <p className="font-semibold text-primary">
+                  {itemsToArchive.length} item(ns) será(ão) arquivado(s)
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Exporte o PDF com os dados antes de excluir. Esta ação não pode ser desfeita.
+                  Os itens serão movidos para o arquivo histórico e removidos da lista principal.
                 </p>
               </div>
             </div>
@@ -291,10 +324,10 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
               variant="outline" 
               className="w-full gap-2"
               onClick={generatePdf}
-              disabled={itemsToDelete.length === 0}
+              disabled={itemsToArchive.length === 0}
             >
               <FileDown className="w-4 h-4" />
-              Exportar PDF ({itemsToDelete.length} itens)
+              Exportar PDF ({itemsToArchive.length} itens)
             </Button>
           </div>
         )}
@@ -305,7 +338,6 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
           </Button>
           {!confirmStep ? (
             <Button 
-              variant="destructive" 
               onClick={handleContinue}
               disabled={countAndFetchItems.isPending}
             >
@@ -320,19 +352,18 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
             </Button>
           ) : (
             <Button 
-              variant="destructive" 
-              onClick={handleConfirmDelete}
-              disabled={deleteItems.isPending || itemsToDelete.length === 0}
+              onClick={handleConfirmArchive}
+              disabled={archiveItems.isPending || itemsToArchive.length === 0}
             >
-              {deleteItems.isPending ? (
+              {archiveItems.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Excluindo...
+                  Arquivando...
                 </>
-              ) : itemsToDelete.length === 0 ? (
+              ) : itemsToArchive.length === 0 ? (
                 'Nenhum item encontrado'
               ) : (
-                `Confirmar Exclusão`
+                `Confirmar Arquivamento`
               )}
             </Button>
           )}
