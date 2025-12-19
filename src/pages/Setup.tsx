@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Shield, User, Mail, Lock, Key } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import batmanLogo from '@/assets/batman-logo.png';
+import vegSystemLogo from '@/assets/veg-system-logo.png';
 
 export default function Setup() {
   const navigate = useNavigate();
@@ -61,12 +61,16 @@ export default function Setup() {
       
       <Card className="w-full max-w-md relative z-10 border-border/50 bg-card/95 backdrop-blur-sm shadow-2xl">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 w-24 h-24 flex items-center justify-center">
-            <img 
-              src={batmanLogo} 
-              alt="Batman Logo" 
-              className="w-full h-full object-contain"
-            />
+          <div className="mx-auto mb-4 relative">
+            <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
+            <div className="w-24 h-24 relative flex items-center justify-center">
+              <img 
+                src={vegSystemLogo} 
+                alt="VEG System Logo" 
+                className="w-full h-full object-contain filter drop-shadow-2xl"
+                style={{ filter: 'drop-shadow(0 0 20px hsl(265 85% 65% / 0.5))' }}
+              />
+            </div>
           </div>
           
           <div className="flex items-center justify-center gap-2 mb-2">
