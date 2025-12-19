@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2, AlertTriangle, Loader2, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -34,35 +34,23 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
 
   const countAndFetchItems = useMutation({
     mutationFn: async () => {
-      // First get all delivered items
-      const { data: allItems, error } = await supabase
+      let query = supabase
         .from('lost_items')
         .select('*')
         .eq('status', 'delivered')
-        .order('created_at', { ascending: false });
+        .order('received_date', { ascending: false });
 
-      if (error) throw error;
-      
-      // Filter by date range using delivered_at or created_at as fallback
-      let filtered = allItems || [];
-      
+      // Filter by received_date (DATE column)
       if (dateFrom) {
-        const fromDate = new Date(`${dateFrom}T00:00:00`);
-        filtered = filtered.filter(item => {
-          const itemDate = new Date(item.delivered_at || item.created_at);
-          return itemDate >= fromDate;
-        });
+        query = query.gte('received_date', dateFrom);
       }
-      
       if (dateTo) {
-        const toDate = new Date(`${dateTo}T23:59:59`);
-        filtered = filtered.filter(item => {
-          const itemDate = new Date(item.delivered_at || item.created_at);
-          return itemDate <= toDate;
-        });
+        query = query.lte('received_date', dateTo);
       }
 
-      return filtered;
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
     },
     onSuccess: (items) => {
       setItemsToDelete(items);
@@ -89,11 +77,11 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
     // Date range info
     doc.setFontSize(10);
     const dateRangeText = dateFrom && dateTo 
-      ? `Período: ${format(new Date(dateFrom), 'dd/MM/yyyy')} até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
+      ? `Período (recebimento): ${format(new Date(dateFrom), 'dd/MM/yyyy')} até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
       : dateFrom 
-      ? `A partir de: ${format(new Date(dateFrom), 'dd/MM/yyyy')}`
+      ? `A partir de (recebimento): ${format(new Date(dateFrom), 'dd/MM/yyyy')}`
       : dateTo 
-      ? `Até: ${format(new Date(dateTo), 'dd/MM/yyyy')}`
+      ? `Até (recebimento): ${format(new Date(dateTo), 'dd/MM/yyyy')}`
       : 'Todos os itens entregues';
     doc.text(dateRangeText, 14, 30);
     doc.text(`Total de itens: ${itemsToDelete.length}`, 14, 36);
@@ -106,11 +94,11 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
       item.found_location || '-',
       item.owner_name || '-',
       item.owner_phone || item.owner_email || '-',
-      item.delivered_at ? format(new Date(item.delivered_at), 'dd/MM/yyyy', { locale: ptBR }) : '-',
+      item.received_date ? format(new Date(item.received_date), 'dd/MM/yyyy', { locale: ptBR }) : '-',
     ]);
 
     autoTable(doc, {
-      head: [['Código', 'Descrição', 'Local Achado', 'Dono', 'Contato', 'Entrega']],
+      head: [['Código', 'Descrição', 'Local Achado', 'Dono', 'Contato', 'Recebimento']],
       body: tableData,
       startY: 50,
       styles: { fontSize: 8 },
@@ -135,12 +123,6 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         .select('full_name')
         .eq('user_id', user?.id || '')
         .maybeSingle();
-
-      let query = supabase
-        .from('lost_items')
-        .delete()
-        .eq('status', 'delivered');
-
       // Delete items by their IDs (since we already filtered them)
       const idsToDelete = itemsToDelete.map(item => item.id);
       
@@ -223,7 +205,7 @@ export function ClearDeliveredItemsDialog({ open, onOpenChange }: ClearDelivered
         {!confirmStep ? (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Período (data de cadastro/entrega)</Label>
+              <Label>Período (data de recebimento)</Label>
               <div className="flex gap-2 items-center">
                 <DatePickerInput
                   value={dateFrom}
