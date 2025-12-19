@@ -159,57 +159,93 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
         .maybeSingle();
 
       const userName = profile?.full_name || user.email || 'Sistema';
-      const CHUNK_SIZE = 50;
+      const CHUNK_SIZE = 25; // Reduced chunk size for stability
       let archivedCount = 0;
+      const errors: string[] = [];
 
       for (let i = 0; i < validItems.length; i += CHUNK_SIZE) {
         const chunk = validItems.slice(i, i + CHUNK_SIZE);
+        const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
+        const totalChunks = Math.ceil(validItems.length / CHUNK_SIZE);
         
-        // Prepare archive records
-        const archiveRecords = chunk.map((item) => ({
-          original_id: item.id,
-          code: item.code,
-          description: item.description,
-          image_url: item.image_url,
-          campus: item.campus,
-          found_location: item.found_location,
-          found_date: item.found_date,
-          received_date: item.received_date,
-          delivered_by_name: item.delivered_by_name,
-          delivered_by_contact: item.delivered_by_contact,
-          delivered_by_team_member: item.delivered_by_team_member,
-          owner_name: item.owner_name,
-          owner_phone: item.owner_phone,
-          owner_email: item.owner_email,
-          owner_signature: item.owner_signature,
-          status: item.status,
-          delivered_at: item.delivered_at,
-          registered_by: item.registered_by,
-          shelf: item.shelf,
-          box: item.box,
-          seal_number: item.seal_number,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          archived_by: user.id,
-          archived_by_name: userName,
-        }));
+        try {
+          // Prepare archive records
+          const archiveRecords = chunk.map((item) => ({
+            original_id: item.id,
+            code: item.code,
+            description: item.description,
+            image_url: item.image_url,
+            campus: item.campus,
+            found_location: item.found_location,
+            found_date: item.found_date,
+            received_date: item.received_date,
+            delivered_by_name: item.delivered_by_name,
+            delivered_by_contact: item.delivered_by_contact,
+            delivered_by_team_member: item.delivered_by_team_member,
+            owner_name: item.owner_name,
+            owner_phone: item.owner_phone,
+            owner_email: item.owner_email,
+            owner_signature: item.owner_signature,
+            status: item.status,
+            delivered_at: item.delivered_at,
+            registered_by: item.registered_by,
+            shelf: item.shelf,
+            box: item.box,
+            seal_number: item.seal_number,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            archived_by: user.id,
+            archived_by_name: userName,
+          }));
 
-        // Insert into archive
-        const { error: archiveError } = await supabase
-          .from('lost_items_archive')
-          .insert(archiveRecords);
+          // Insert into archive with retry
+          let archiveSuccess = false;
+          for (let retry = 0; retry < 3 && !archiveSuccess; retry++) {
+            const { error: archiveError } = await supabase
+              .from('lost_items_archive')
+              .insert(archiveRecords);
 
-        if (archiveError) throw archiveError;
+            if (!archiveError) {
+              archiveSuccess = true;
+            } else if (retry === 2) {
+              throw archiveError;
+            } else {
+              await new Promise(resolve => setTimeout(resolve, 500 * (retry + 1)));
+            }
+          }
 
-        // Delete from main table
-        const chunkIds = chunk.map((item) => item.id);
-        const { error: deleteError } = await supabase
-          .from('lost_items')
-          .delete()
-          .in('id', chunkIds);
+          // Delete from main table with retry
+          const chunkIds = chunk.map((item) => item.id);
+          let deleteSuccess = false;
+          for (let retry = 0; retry < 3 && !deleteSuccess; retry++) {
+            const { error: deleteError } = await supabase
+              .from('lost_items')
+              .delete()
+              .in('id', chunkIds);
 
-        if (deleteError) throw deleteError;
-        archivedCount += chunk.length;
+            if (!deleteError) {
+              deleteSuccess = true;
+            } else if (retry === 2) {
+              throw deleteError;
+            } else {
+              await new Promise(resolve => setTimeout(resolve, 500 * (retry + 1)));
+            }
+          }
+          
+          archivedCount += chunk.length;
+          
+          // Small delay between chunks to prevent rate limiting
+          if (i + CHUNK_SIZE < validItems.length) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        } catch (chunkError) {
+          console.error(`Erro no chunk ${chunkNumber}/${totalChunks}:`, chunkError);
+          errors.push(`Lote ${chunkNumber}: ${chunkError instanceof Error ? chunkError.message : 'Erro desconhecido'}`);
+        }
+      }
+
+      if (archivedCount === 0 && errors.length > 0) {
+        throw new Error(`Falha ao arquivar: ${errors.join('; ')}`);
       }
 
       const dateRangeText = dateFrom && dateTo 
@@ -220,32 +256,45 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
         ? `até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
         : 'todos';
 
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        user_name: userName,
-        module: 'lost-items',
-        action: 'archive',
-        entity_id: null,
-        entity_description: 'Arquivamento em lote',
-        details: `Arquivou ${archivedCount} itens entregues (${dateRangeText})`,
-      });
+      try {
+        await supabase.from('activity_logs').insert({
+          user_id: user.id,
+          user_name: userName,
+          module: 'lost-items',
+          action: 'archive',
+          entity_id: null,
+          entity_description: 'Arquivamento em lote',
+          details: `Arquivou ${archivedCount} itens entregues (${dateRangeText})${errors.length > 0 ? ` - ${errors.length} lote(s) com erro` : ''}`,
+        });
+      } catch (logError) {
+        console.warn('Falha ao registrar log de atividade:', logError);
+      }
 
-      return archivedCount;
+      return { archivedCount, errors };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ archivedCount, errors }) => {
       queryClient.invalidateQueries({ queryKey: ['lost-items'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       queryClient.invalidateQueries({ queryKey: ['lost-items-archive'] });
-      toast({
-        title: 'Itens arquivados',
-        description: `${count} item(ns) entregue(s) foram arquivados com sucesso.`,
-      });
+      
+      if (errors.length > 0) {
+        toast({
+          title: 'Arquivamento parcial',
+          description: `${archivedCount} item(ns) arquivado(s). ${errors.length} lote(s) falharam.`,
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Itens arquivados',
+          description: `${archivedCount} item(ns) entregue(s) foram arquivados com sucesso.`,
+        });
+      }
       handleClose();
     },
     onError: (error: Error) => {
       toast({
         title: 'Erro',
-        description: error.message,
+        description: error.message || 'Erro de conexão. Tente novamente.',
         variant: 'destructive',
       });
     },
