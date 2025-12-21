@@ -22,6 +22,7 @@ import {
   ImageIcon,
   Archive
 } from 'lucide-react';
+import { LazyItemImage } from '@/components/items/LazyItemImage';
 import { BulkImageUploadDialog } from '@/components/items/BulkImageUploadDialog';
 import { ArchiveDeliveredItemsDialog } from '@/components/items/ArchiveDeliveredItemsDialog';
 import { useNavigate } from 'react-router-dom';
@@ -678,19 +679,11 @@ export default function ItemsList() {
                   </div>
                 )}
                 <div className="flex gap-4">
-                  <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.description}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-8 h-8 text-muted-foreground/50" />
-                      </div>
-                    )}
-                  </div>
+                  <LazyItemImage 
+                    itemId={item.id} 
+                    alt={item.description}
+                    className="w-24 h-24 rounded-lg flex-shrink-0"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div>
