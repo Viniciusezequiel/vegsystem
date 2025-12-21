@@ -38,6 +38,7 @@ let lastExpirationCall = 0;
 const EXPIRATION_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // Check if this is the default query (used for localStorage cache)
+// Now returns true for simple status-only filters (no search, no campus, no date filters)
 function isDefaultQuery(filters?: { 
   status?: string; 
   search?: string; 
@@ -49,12 +50,9 @@ function isDefaultQuery(filters?: {
   destination?: 'all' | 'donation' | 'disposal';
 }): boolean {
   const page = filters?.page ?? 0;
-  const pageSize = filters?.pageSize ?? 100;
   return (
-    (filters?.status === 'available' || !filters?.status) &&
     !filters?.search &&
     page === 0 &&
-    pageSize === 100 &&
     (!filters?.campus || filters.campus === 'all') &&
     !filters?.dateFrom &&
     !filters?.dateTo &&
