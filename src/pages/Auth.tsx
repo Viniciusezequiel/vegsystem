@@ -235,6 +235,24 @@ export default function Auth() {
 
     setIsLoading(true);
 
+    // Check if email belongs to an internal user (admin/staff)
+    // We need to check if there's a profile with this email
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', signupData.email.toLowerCase())
+      .maybeSingle();
+
+    if (existingProfile) {
+      toast({
+        title: 'Email já cadastrado',
+        description: 'Este email pertence a um colaborador. Use a Área Administrativa para entrar.',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
     const redirectUrl = `${window.location.origin}/booking`;
     const cpfDigits = signupData.cpf.replace(/\D/g, '');
 
