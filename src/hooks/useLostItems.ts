@@ -50,6 +50,7 @@ export function useLostItems(filters?: {
 
   return useQuery({
     queryKey: ['lost-items', filters?.status, filters?.search, page, pageSize, filters?.campus, filters?.dateFrom, filters?.dateTo, filters?.destination],
+    placeholderData: (previousData) => previousData, // Keep showing old data while loading new
     queryFn: async () => {
       // Only call expiration function once every 5 minutes to improve performance
       const now = Date.now();
