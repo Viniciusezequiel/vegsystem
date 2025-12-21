@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus, Eye, ChevronDown, X, Search } from 'lucide-react';
+import { Calendar, Users, MapPin, Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, List, User, Lock, Package, Box, LogOut, Plus, Minus, Eye, ChevronDown, X, Search, TrendingUp } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { ExternalReservationDetailsDialog } from '@/components/reservations/ExternalReservationDetailsDialog';
 import { ExternalEquipmentDetailsDialog } from '@/components/equipment/ExternalEquipmentDetailsDialog';
 import { EquipmentSearchDropdown } from '@/components/equipment/EquipmentSearchDropdown';
+import { useExternalNotifications } from '@/hooks/useExternalNotifications';
 
 const searchSchema = z.object({
   attendees_count: z.number().min(1, 'Mínimo 1 participante'),
@@ -73,7 +74,9 @@ export default function ExternalBooking() {
   const createEquipmentRequest = useCreateExternalEquipmentRequest();
   const { data: externalUserProfile } = useExternalUserProfile();
 
-  // Set up realtime subscriptions for reservations and equipment requests
+  // Enable real-time notifications for this user
+  useExternalNotifications();
+
   useEffect(() => {
     const reservationsChannel = supabase
       .channel('external-reservations-realtime')
@@ -512,6 +515,10 @@ export default function ExternalBooking() {
           <div className="flex justify-between items-center mb-4">
             <ThemeToggle collapsed />
             <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/booking/dashboard')} className="gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Dashboard
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate('/booking/profile')} className="gap-2">
                 <User className="w-4 h-4" />
                 Meu Perfil
