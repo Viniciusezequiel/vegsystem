@@ -50,6 +50,7 @@ import ReservationsCalendar from "./pages/reservations/ReservationsCalendar";
 import ReservationLogs from "./pages/reservations/ReservationLogs";
 import ReservationApprovals from "./pages/reservations/ReservationApprovals";
 import ExternalBooking from "./pages/reservations/ExternalBooking";
+import ExternalProfile from "./pages/ExternalProfile";
 import ReschedulingsList from "./pages/reservations/ReschedulingsList";
 
 // Materials Module
@@ -234,6 +235,11 @@ const App = () => (
             <Route path="/booking" element={
               <ExternalProtectedRoute>
                 <ExternalBooking />
+              </ExternalProtectedRoute>
+            } />
+            <Route path="/booking/profile" element={
+              <ExternalProtectedRoute>
+                <ExternalProfile />
               </ExternalProtectedRoute>
             } />
             

@@ -32,17 +32,18 @@ import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
 import { usePendingReservationsCount } from '@/hooks/useReservations';
 import { useExternalEquipmentNotifications, usePendingExternalEquipmentCount } from '@/hooks/useExternalEquipmentNotifications';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions, type Module } from '@/hooks/usePermissions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useState, createContext, useContext } from 'react';
+import { useState, createContext, useContext, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
+import { prefetchLostItemsOnHover } from '@/hooks/useLostItemsGlobalPrefetch';
 
 interface SidebarContextType {
   collapsed: boolean;
@@ -191,6 +192,7 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { profile, role, signOut, isAdmin } = useAuth();
   const { canView } = useUserPermissions();
   const { toast } = useToast();
@@ -204,6 +206,11 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   useExternalEquipmentNotifications();
   const pendingEquipmentConfig = usePendingExternalEquipmentCount();
   const { data: pendingEquipmentCount } = useQuery(pendingEquipmentConfig);
+
+  // Prefetch lost items on hover
+  const handleLostItemsHover = useCallback(() => {
+    prefetchLostItemsOnHover(queryClient);
+  }, [queryClient]);
 
   // Filter module groups based on view permissions
   const visibleModuleGroups = moduleGroups.filter(group => {
@@ -401,6 +408,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                 key={group.basePath} 
                 open={isOpen}
                 onOpenChange={() => toggleGroup(group.basePath)}
+                onMouseEnter={group.basePath === '/lost-found' ? handleLostItemsHover : undefined}
               >
                 <CollapsibleTrigger className={cn(
                   'sidebar-link w-full justify-between',

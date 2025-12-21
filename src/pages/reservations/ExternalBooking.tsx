@@ -508,13 +508,19 @@ export default function ExternalBooking() {
       <div className="relative z-10 container max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          {/* Top bar with theme toggle and logout */}
+          {/* Top bar with theme toggle, profile and logout */}
           <div className="flex justify-between items-center mb-4">
             <ThemeToggle collapsed />
-            <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
-              <LogOut className="w-4 h-4" />
-              Sair
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/booking/profile')} className="gap-2">
+                <User className="w-4 h-4" />
+                Meu Perfil
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+                <LogOut className="w-4 h-4" />
+                Sair
+              </Button>
+            </div>
           </div>
           
           <div className="flex justify-center mb-4">

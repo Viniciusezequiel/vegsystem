@@ -16,6 +16,7 @@ import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
 import { useEquipmentList, useEquipmentLoans } from '@/hooks/useEquipment';
 import { useReservations, useReservationRooms } from '@/hooks/useReservations';
 import { useLockersList, useLockerLoans } from '@/hooks/useLockers';
+import { useLostItemsGlobalPrefetch } from '@/hooks/useLostItemsGlobalPrefetch';
 import { 
   BarChart, 
   Bar, 
@@ -35,6 +36,9 @@ import { ptBR } from 'date-fns/locale';
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'];
 
 export default function DashboardStats() {
+  // Prefetch lost items data for instant loading when navigating
+  useLostItemsGlobalPrefetch();
+
   const { data: lostItemsStats } = useLostItemsCounts();
   const { data: equipment } = useEquipmentList();
   const { data: activeLoans } = useEquipmentLoans('active');
