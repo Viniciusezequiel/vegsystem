@@ -73,20 +73,73 @@ export function useLostItems(filters?: {
 }) {
   const page = filters?.page ?? 0;
   const pageSize = filters?.pageSize ?? 100;
-  
-  // For default query, try to get initial data from localStorage
+
   const initialData = isDefaultQuery(filters) ? loadLostItemsFromCache() : undefined;
+
+  const offlineFilter = (allItems: LostItem[]) => {
+    let list = allItems;
+
+    if (filters?.status && filters.status !== 'all') {
+      list = list.filter(i => i.status === filters.status);
+    }
+
+    if (filters?.search) {
+      const q = filters.search.toLowerCase();
+      list = list.filter(i =>
+        i.code?.toLowerCase().includes(q) ||
+        i.description?.toLowerCase().includes(q) ||
+        i.found_location?.toLowerCase().includes(q)
+      );
+    }
+
+    if (filters?.campus && filters.campus !== 'all') {
+      list = list.filter(i => i.campus === filters.campus);
+    }
+
+    if (filters?.dateFrom) {
+      list = list.filter(i => (i.received_date || '') >= filters.dateFrom!);
+    }
+    if (filters?.dateTo) {
+      list = list.filter(i => (i.received_date || '') <= filters.dateTo!);
+    }
+
+    if (filters?.destination && filters.destination !== 'all') {
+      if (filters.destination === 'donation') {
+        list = list.filter(i => i.owner_name === 'DOAÇÃO');
+      } else if (filters.destination === 'disposal') {
+        list = list.filter(i => i.owner_name === 'DESCARTE');
+      }
+    }
+
+    const totalCount = list.length;
+    const start = page * pageSize;
+    const end = start + pageSize;
+    const items = list.slice(start, end);
+
+    return {
+      items,
+      totalCount,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+    };
+  };
 
   return useQuery({
     queryKey: ['lost-items', filters?.status, filters?.search, page, pageSize, filters?.campus, filters?.dateFrom, filters?.dateTo, filters?.destination],
-    placeholderData: (previousData) => previousData ?? initialData, // Use cached data as placeholder
-    initialData: initialData ?? undefined, // Instant display from localStorage
+    placeholderData: (previousData) => previousData ?? initialData,
+    initialData: initialData ?? undefined,
     queryFn: async () => {
+      // OFFLINE: serve from cache and do client-side filtering
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const cached = loadLostItemsFromCache();
+        return offlineFilter(cached?.items ?? []);
+      }
+
       // Only call expiration function once every 5 minutes to improve performance
       const now = Date.now();
       if (now - lastExpirationCall > EXPIRATION_INTERVAL) {
         lastExpirationCall = now;
-        // Fire and forget - don't wait for it
         (async () => {
           try {
             await supabase.rpc('expire_old_lost_items');
@@ -111,12 +164,10 @@ export function useLostItems(filters?: {
         query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
       }
 
-      // Campus filter server-side
       if (filters?.campus && filters.campus !== 'all') {
         query = query.eq('campus', filters.campus);
       }
 
-      // Date range filter server-side
       if (filters?.dateFrom) {
         query = query.gte('received_date', filters.dateFrom);
       }
@@ -124,7 +175,6 @@ export function useLostItems(filters?: {
         query = query.lte('received_date', filters.dateTo);
       }
 
-      // Destination filter (for delivered items - donation or disposal)
       if (filters?.destination && filters.destination !== 'all') {
         if (filters.destination === 'donation') {
           query = query.eq('owner_name', 'DOAÇÃO');
@@ -133,30 +183,37 @@ export function useLostItems(filters?: {
         }
       }
 
-      const { data, error, count } = await query;
-      
-      if (error) throw error;
-      
-      const result = {
-        items: (data || []) as LostItem[],
-        totalCount: count ?? 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count ?? 0) / pageSize),
-      };
+      try {
+        const { data, error, count } = await query;
+        if (error) throw error;
 
-      // Save to localStorage if this is the default query
-      if (isDefaultQuery(filters)) {
-        saveLostItemsToCache(result);
+        const result = {
+          items: (data || []) as LostItem[],
+          totalCount: count ?? 0,
+          page,
+          pageSize,
+          totalPages: Math.ceil((count ?? 0) / pageSize),
+        };
+
+        if (isDefaultQuery(filters)) {
+          saveLostItemsToCache(result);
+        }
+
+        return result;
+      } catch (e) {
+        // ONLINE error fallback: use local cache so the user can still search/view
+        const cached = loadLostItemsFromCache();
+        if (cached?.items?.length) {
+          return offlineFilter(cached.items);
+        }
+        throw e;
       }
-
-      return result;
     },
-    staleTime: 2 * 60 * 1000, // Cache válido por 2 minutos
-    gcTime: 10 * 60 * 1000, // Manter em memória por 10 minutos
-    refetchOnWindowFocus: false, // Não refetch ao focar na janela
-    // Skip initial fetch if we have fresh localStorage data
-    refetchOnMount: !initialData,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    // Important: always refetch on mount (prevents poisoned cache from unauthenticated prefetch)
+    refetchOnMount: true,
   });
 }
 
