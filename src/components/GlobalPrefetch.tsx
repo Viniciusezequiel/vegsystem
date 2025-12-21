@@ -58,10 +58,9 @@ export function GlobalPrefetch() {
           ]),
         ]);
 
-        // Process items
-        if (!itemsResult.error) {
+        if (!itemsResult.error && itemsResult.data) {
           const itemsData = {
-            items: (itemsResult.data || []) as LostItem[],
+            items: (itemsResult.data as unknown as LostItem[]) || [],
             totalCount: itemsResult.count ?? 0,
             page: 0,
             pageSize: 100,
