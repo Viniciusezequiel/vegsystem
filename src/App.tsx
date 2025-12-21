@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ExternalProtectedRoute } from "@/components/ExternalProtectedRoute";
+import { GlobalPrefetch } from "@/components/GlobalPrefetch";
 import Auth from "./pages/Auth";
 import AdminAuth from "./pages/AdminAuth";
 import Setup from "./pages/Setup";
@@ -51,6 +52,7 @@ import ReservationLogs from "./pages/reservations/ReservationLogs";
 import ReservationApprovals from "./pages/reservations/ReservationApprovals";
 import ExternalBooking from "./pages/reservations/ExternalBooking";
 import ExternalProfile from "./pages/ExternalProfile";
+import ExternalDashboard from "./pages/external/ExternalDashboard";
 import ReschedulingsList from "./pages/reservations/ReschedulingsList";
 
 // Materials Module
@@ -75,6 +77,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <GlobalPrefetch />
         <BrowserRouter>
           <AuthProvider>
             <Routes>
@@ -240,6 +243,11 @@ const App = () => (
             <Route path="/booking/profile" element={
               <ExternalProtectedRoute>
                 <ExternalProfile />
+              </ExternalProtectedRoute>
+            } />
+            <Route path="/booking/dashboard" element={
+              <ExternalProtectedRoute>
+                <ExternalDashboard />
               </ExternalProtectedRoute>
             } />
             
