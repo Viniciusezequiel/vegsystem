@@ -9,6 +9,7 @@ import {
   saveCountsToCache,
   isCacheStale,
 } from '@/lib/lostItemsCache';
+import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
 
 const DEFAULT_QUERY_KEY = ['lost-items', 'available', undefined, 0, 100, undefined, undefined, undefined, undefined];
 const COUNTS_QUERY_KEY = ['lost-items-counts'];
@@ -45,7 +46,7 @@ export function GlobalPrefetch() {
         const [itemsResult, countsResult] = await Promise.all([
           supabase
             .from('lost_items')
-            .select('*', { count: 'exact' })
+            .select(LOST_ITEMS_LIST_SELECT, { count: 'exact' })
             .eq('status', 'available')
             .order('created_at', { ascending: false })
             .range(0, 99),
