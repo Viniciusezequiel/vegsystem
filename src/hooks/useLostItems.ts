@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 import { loadLostItemsFromCache, saveLostItemsToCache } from '@/lib/lostItemsCache';
+import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
