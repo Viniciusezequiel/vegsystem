@@ -65,32 +65,23 @@ export default function Auth() {
   useEffect(() => {
     const checkUserType = async () => {
       if (user && !authLoading) {
-        // Check if external user - redirect to booking
-        const { data: externalUser } = await supabase
-          .from('external_users')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (externalUser) {
-          navigate('/booking', { replace: true });
+        // Prefer internal role check FIRST (prevents staff accounts from being routed to client area)
+        const [roleResult, externalResult] = await Promise.all([
+          supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle(),
+          supabase.from('external_users').select('id').eq('user_id', user.id).maybeSingle(),
+        ]);
+
+        if (roleResult.data) {
+          navigate('/', { replace: true });
           return;
         }
 
-        // Check if user is internal (has role) - redirect to admin area
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (roleData) {
-          // Internal user logged in client area - redirect to admin
-          navigate('/', { replace: true });
+        if (externalResult.data) {
+          navigate('/booking', { replace: true });
         }
       }
     };
-    
+
     checkUserType();
   }, [user, authLoading, navigate]);
 

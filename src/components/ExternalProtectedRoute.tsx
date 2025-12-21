@@ -1,31 +1,18 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { ReactNode } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ExternalProtectedRouteProps {
   children: ReactNode;
 }
 
 export function ExternalProtectedRoute({ children }: ExternalProtectedRouteProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { user, isLoading, role } = useAuth();
+  const location = useLocation();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-    };
-    
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (isAuthenticated === null) {
+  // Wait for auth + role resolution (prevents redirect flicker)
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="relative">
@@ -36,9 +23,16 @@ export function ExternalProtectedRoute({ children }: ExternalProtectedRouteProps
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/booking-auth" replace />;
+  // Must be logged in to access client area
+  if (!user) {
+    return <Navigate to="/booking-auth" state={{ from: location }} replace />;
+  }
+
+  // If internal user (has role), keep them in the admin area
+  if (role) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 }
+
