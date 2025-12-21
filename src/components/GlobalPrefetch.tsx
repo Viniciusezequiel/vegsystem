@@ -35,20 +35,21 @@ export function GlobalPrefetch() {
       queryClient.setQueryData(COUNTS_QUERY_KEY, cachedCounts);
     }
 
-    // STEP 2: Fetch fresh data in background (even if cache exists)
+    // STEP 2: Fetch fresh data (ONLY when authenticated), and cache it
     const fetchFreshData = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return; // don't poison cache with unauthenticated empty results
+
         // Fetch items and counts in parallel
         const [itemsResult, countsResult] = await Promise.all([
-          // Items query
           supabase
             .from('lost_items')
             .select('*', { count: 'exact' })
             .eq('status', 'available')
             .order('created_at', { ascending: false })
             .range(0, 99),
-          
-          // Counts query (all in one go for efficiency)
+
           Promise.all([
             supabase.from('lost_items').select('id', { count: 'exact', head: true }).eq('status', 'available'),
             supabase.from('lost_items').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
@@ -65,12 +66,13 @@ export function GlobalPrefetch() {
             pageSize: 100,
             totalPages: Math.ceil((itemsResult.count ?? 0) / 100),
           };
-          
-          // Update React Query cache
-          queryClient.setQueryData(DEFAULT_QUERY_KEY, itemsData);
-          
-          // Persist to localStorage
-          saveLostItemsToCache(itemsData);
+
+          // Only overwrite cache with empty results if there wasn't anything cached yet.
+          const hasAny = (itemsResult.count ?? 0) > 0 || (itemsResult.data?.length ?? 0) > 0;
+          if (hasAny || !cachedItems) {
+            queryClient.setQueryData(DEFAULT_QUERY_KEY, itemsData);
+            saveLostItemsToCache(itemsData);
+          }
         }
 
         // Process counts
@@ -81,7 +83,7 @@ export function GlobalPrefetch() {
             delivered: deliveredResult.count ?? 0,
             expired: expiredResult.count ?? 0,
           };
-          
+
           queryClient.setQueryData(COUNTS_QUERY_KEY, countsData);
           saveCountsToCache(countsData);
         }
@@ -90,15 +92,13 @@ export function GlobalPrefetch() {
       }
     };
 
-    // If no cache OR cache is stale, fetch immediately
-    // If cache exists and is fresh, still fetch but with slight delay to not block initial render
-    if (!cachedItems || isCacheStale()) {
-      fetchFreshData();
-    } else {
-      // Fresh cache exists - delay background refresh slightly
-      const timer = setTimeout(fetchFreshData, 2000);
-      return () => clearTimeout(timer);
-    }
+    // Try immediately, and also when the user logs in
+    fetchFreshData();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) fetchFreshData();
+    });
+
+    return () => subscription.unsubscribe();
   }, [queryClient]);
 
   return null;
