@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
+import { loadLostItemsFromCache, saveLostItemsToCache } from '@/lib/lostItemsCache';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -35,6 +36,31 @@ export interface LostItem {
 let lastExpirationCall = 0;
 const EXPIRATION_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
+// Check if this is the default query (used for localStorage cache)
+function isDefaultQuery(filters?: { 
+  status?: string; 
+  search?: string; 
+  page?: number; 
+  pageSize?: number;
+  campus?: CampusEnum | 'all';
+  dateFrom?: string;
+  dateTo?: string;
+  destination?: 'all' | 'donation' | 'disposal';
+}): boolean {
+  const page = filters?.page ?? 0;
+  const pageSize = filters?.pageSize ?? 100;
+  return (
+    (filters?.status === 'available' || !filters?.status) &&
+    !filters?.search &&
+    page === 0 &&
+    pageSize === 100 &&
+    (!filters?.campus || filters.campus === 'all') &&
+    !filters?.dateFrom &&
+    !filters?.dateTo &&
+    (!filters?.destination || filters.destination === 'all')
+  );
+}
+
 export function useLostItems(filters?: { 
   status?: string; 
   search?: string; 
@@ -47,10 +73,14 @@ export function useLostItems(filters?: {
 }) {
   const page = filters?.page ?? 0;
   const pageSize = filters?.pageSize ?? 100;
+  
+  // For default query, try to get initial data from localStorage
+  const initialData = isDefaultQuery(filters) ? loadLostItemsFromCache() : undefined;
 
   return useQuery({
     queryKey: ['lost-items', filters?.status, filters?.search, page, pageSize, filters?.campus, filters?.dateFrom, filters?.dateTo, filters?.destination],
-    placeholderData: (previousData) => previousData, // Keep showing old data while loading new
+    placeholderData: (previousData) => previousData ?? initialData, // Use cached data as placeholder
+    initialData: initialData ?? undefined, // Instant display from localStorage
     queryFn: async () => {
       // Only call expiration function once every 5 minutes to improve performance
       const now = Date.now();
@@ -107,17 +137,26 @@ export function useLostItems(filters?: {
       
       if (error) throw error;
       
-      return {
+      const result = {
         items: (data || []) as LostItem[],
         totalCount: count ?? 0,
         page,
         pageSize,
         totalPages: Math.ceil((count ?? 0) / pageSize),
       };
+
+      // Save to localStorage if this is the default query
+      if (isDefaultQuery(filters)) {
+        saveLostItemsToCache(result);
+      }
+
+      return result;
     },
     staleTime: 2 * 60 * 1000, // Cache válido por 2 minutos
     gcTime: 10 * 60 * 1000, // Manter em memória por 10 minutos
     refetchOnWindowFocus: false, // Não refetch ao focar na janela
+    // Skip initial fetch if we have fresh localStorage data
+    refetchOnMount: !initialData,
   });
 }
 
