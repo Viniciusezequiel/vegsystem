@@ -150,10 +150,10 @@ export function useLostItems(filters?: {
         })();
       }
 
-      // Build the base query with pagination
+      // Build the base query with pagination (exclude image_url to avoid timeout)
       let query = supabase
         .from('lost_items')
-        .select('*', { count: 'exact' })
+        .select(LOST_ITEMS_LIST_SELECT, { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -189,7 +189,7 @@ export function useLostItems(filters?: {
         if (error) throw error;
 
         const result = {
-          items: (data || []) as LostItem[],
+          items: (data as unknown as LostItem[]) || [],
           totalCount: count ?? 0,
           page,
           pageSize,
