@@ -10,30 +10,25 @@ let batchTimeout: ReturnType<typeof setTimeout> | null = null;
 let batchPromise: Promise<void> | null = null;
 const listeners = new Map<string, Set<(url: string | null) => void>>();
 
-// Fetch images in batch
-async function fetchBatch() {
-  if (pendingIds.size === 0) return;
-  
-  const idsToFetch = Array.from(pendingIds);
-  pendingIds = new Set();
-  batchTimeout = null;
-  
+// Max batch size to avoid timeout (image_url can be large base64)
+const MAX_BATCH_SIZE = 5;
+
+// Fetch a single small batch
+async function fetchSmallBatch(ids: string[]) {
   try {
     const { data, error } = await supabase
       .from('lost_items')
       .select('id, image_url')
-      .in('id', idsToFetch);
+      .in('id', ids);
     
     if (error) throw error;
     
-    // Update cache and notify listeners
     const resultMap = new Map(data?.map(item => [item.id, item.image_url]) || []);
     
-    idsToFetch.forEach(id => {
+    ids.forEach(id => {
       const url = resultMap.get(id) ?? null;
       imageCache.set(id, url);
       
-      // Notify all listeners for this id
       const idListeners = listeners.get(id);
       if (idListeners) {
         idListeners.forEach(callback => callback(url));
@@ -42,8 +37,7 @@ async function fetchBatch() {
     });
   } catch (e) {
     console.error('Error fetching image batch:', e);
-    // Notify listeners of error (null)
-    idsToFetch.forEach(id => {
+    ids.forEach(id => {
       imageCache.set(id, null);
       const idListeners = listeners.get(id);
       if (idListeners) {
@@ -52,6 +46,24 @@ async function fetchBatch() {
       }
     });
   }
+}
+
+// Fetch images in small batches to avoid timeout
+async function fetchBatch() {
+  if (pendingIds.size === 0) return;
+  
+  const idsToFetch = Array.from(pendingIds);
+  pendingIds = new Set();
+  batchTimeout = null;
+  
+  // Split into small chunks and fetch in parallel
+  const chunks: string[][] = [];
+  for (let i = 0; i < idsToFetch.length; i += MAX_BATCH_SIZE) {
+    chunks.push(idsToFetch.slice(i, i + MAX_BATCH_SIZE));
+  }
+  
+  // Fetch all chunks in parallel
+  await Promise.all(chunks.map(chunk => fetchSmallBatch(chunk)));
 }
 
 // Queue an id for batch fetching
