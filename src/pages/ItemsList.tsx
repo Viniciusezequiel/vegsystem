@@ -20,7 +20,8 @@ import {
   CheckSquare,
   FileSpreadsheet,
   ImageIcon,
-  Archive
+  Archive,
+  Zap
 } from 'lucide-react';
 import { LazyItemImage } from '@/components/items/LazyItemImage';
 import { BulkImageUploadDialog } from '@/components/items/BulkImageUploadDialog';
@@ -51,6 +52,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -96,6 +98,44 @@ export default function ItemsList() {
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [bulkImageDialog, setBulkImageDialog] = useState(false);
   const [archiveDeliveredDialog, setArchiveDeliveredDialog] = useState(false);
+  const [isMigratingImages, setIsMigratingImages] = useState(false);
+
+  const handleMigrateAllImages = async () => {
+    setIsMigratingImages(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('migrate-all-images');
+      
+      if (error) throw error;
+      
+      if (data.migrated > 0) {
+        toast({
+          title: 'Migração concluída!',
+          description: `${data.migrated} imagens migradas com sucesso. ${data.failed > 0 ? `${data.failed} falharam.` : ''}`,
+        });
+        // Force reload to show new URLs
+        window.location.reload();
+      } else if (data.failed > 0) {
+        toast({
+          title: 'Erro na migração',
+          description: `${data.failed} imagens falharam ao migrar.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Nenhuma imagem para migrar',
+          description: 'Todas as imagens já estão otimizadas.',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Falha ao migrar imagens',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsMigratingImages(false);
+    }
+  };
 
   const { data: items, isLoading } = useLostItems({
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -578,6 +618,19 @@ export default function ItemsList() {
 
           {role === 'admin' && (
             <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleMigrateAllImages}
+                disabled={isMigratingImages}
+              >
+                {isMigratingImages ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4 mr-2" />
+                )}
+                Otimizar Imagens
+              </Button>
               <Button variant="outline" size="sm" onClick={() => navigate('/lost-found/archived')}>
                 <Archive className="w-4 h-4 mr-2" />
                 Ver Arquivados
