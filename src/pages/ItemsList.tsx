@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { useLostItems, LostItem, useBulkDeliverLostItems, useBulkCreateLostItems } from '@/hooks/useLostItems';
 import { useLostItemsPrefetch } from '@/hooks/useLostItemsPrefetch';
+import { prefetchImages } from '@/hooks/useImageBatch';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
@@ -121,6 +122,14 @@ export default function ItemsList() {
 
   // Items are now filtered server-side
   const filteredItems = items?.items || [];
+
+  // Prefetch images for visible items
+  useEffect(() => {
+    if (filteredItems.length > 0) {
+      // Prefetch first 20 images immediately
+      prefetchImages(filteredItems.slice(0, 20).map(item => item.id));
+    }
+  }, [filteredItems]);
 
   // Reset page when filters change
   const handleStatusFilterChange = (value: ItemStatus | 'all') => {
