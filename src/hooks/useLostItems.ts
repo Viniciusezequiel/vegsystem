@@ -211,10 +211,9 @@ export function useLostItems(filters?: {
         throw e;
       }
     },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 seconds - faster filter response
+    gcTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
-    // Important: always refetch on mount (prevents poisoned cache from unauthenticated prefetch)
     refetchOnMount: true,
   });
 }
