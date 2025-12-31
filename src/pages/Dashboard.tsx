@@ -1,7 +1,8 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ItemCard } from '@/components/items/ItemCard';
-import { mockStats, mockItems, mockLogs } from '@/data/mockData';
+import { mockItems, mockLogs } from '@/data/mockData';
+import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
 import { 
   Package, 
   CheckCircle2, 
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { data: counts, isLoading: countsLoading } = useLostItemsCounts();
   const recentItems = mockItems.filter(item => item.status === 'available').slice(0, 3);
   const recentLogs = mockLogs.slice(0, 5);
 
@@ -46,26 +48,25 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Total de Itens"
-          value={mockStats.totalItems}
+          value={countsLoading ? '...' : counts?.total ?? 0}
           icon={<Package className="w-5 h-5" />}
           iconClassName="gradient-primary text-primary-foreground"
         />
         <StatCard
           title="Disponíveis"
-          value={mockStats.availableItems}
+          value={countsLoading ? '...' : counts?.available ?? 0}
           icon={<CheckCircle2 className="w-5 h-5" />}
-          trend={{ value: 12, isPositive: true }}
           iconClassName="bg-gradient-to-r from-green-500 to-emerald-500 text-white"
         />
         <StatCard
           title="Entregues"
-          value={mockStats.deliveredItems}
+          value={countsLoading ? '...' : counts?.delivered ?? 0}
           icon={<PackageCheck className="w-5 h-5" />}
           iconClassName="bg-gradient-to-r from-cyan-500 to-blue-500 text-white"
         />
         <StatCard
-          title="Pendentes"
-          value={mockStats.pendingItems}
+          title="Expirados"
+          value={countsLoading ? '...' : counts?.expired ?? 0}
           icon={<Clock className="w-5 h-5" />}
           iconClassName="bg-gradient-to-r from-orange-500 to-amber-500 text-white"
         />
