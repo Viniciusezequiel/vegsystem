@@ -26,6 +26,7 @@ interface CachedCounts {
   version: number;
   timestamp: number;
   data: {
+    total: number;
     available: number;
     delivered: number;
     expired: number;
