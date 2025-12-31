@@ -78,10 +78,15 @@ export function GlobalPrefetch() {
         // Process counts
         const [availableResult, deliveredResult, expiredResult] = countsResult;
         if (!availableResult.error && !deliveredResult.error && !expiredResult.error) {
+          const available = availableResult.count ?? 0;
+          const delivered = deliveredResult.count ?? 0;
+          const expired = expiredResult.count ?? 0;
+
           const countsData = {
-            available: availableResult.count ?? 0,
-            delivered: deliveredResult.count ?? 0,
-            expired: expiredResult.count ?? 0,
+            total: available + delivered + expired,
+            available,
+            delivered,
+            expired,
           };
 
           queryClient.setQueryData(COUNTS_QUERY_KEY, countsData);
