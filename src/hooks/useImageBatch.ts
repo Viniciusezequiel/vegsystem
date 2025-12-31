@@ -1,126 +1,155 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Global cache for image URLs
+// Global cache for image URLs (id -> url). If a row truly has no image, we cache null.
 const imageCache = new Map<string, string | null>();
 
 // Batch queue for pending requests
 let pendingIds: Set<string> = new Set();
 let batchTimeout: ReturnType<typeof setTimeout> | null = null;
-let batchPromise: Promise<void> | null = null;
 const listeners = new Map<string, Set<(url: string | null) => void>>();
 
-// Max batch size to avoid timeout (image_url can be large base64)
-const MAX_BATCH_SIZE = 5;
+// IMPORTANT: image_url can be huge (legacy base64). Keep batches tiny so one bad row
+// doesn't timeout the whole request.
+const MAX_BATCH_SIZE = 1;
 
-// Fetch a single small batch
-async function fetchSmallBatch(ids: string[]) {
+async function fetchOne(id: string) {
   try {
     const { data, error } = await supabase
       .from('lost_items')
       .select('id, image_url')
-      .in('id', ids);
-    
+      .eq('id', id)
+      .single();
+
     if (error) throw error;
-    
-    const resultMap = new Map(data?.map(item => [item.id, item.image_url]) || []);
-    
-    ids.forEach(id => {
-      const url = resultMap.get(id) ?? null;
-      imageCache.set(id, url);
-      
-      const idListeners = listeners.get(id);
-      if (idListeners) {
-        idListeners.forEach(callback => callback(url));
-        listeners.delete(id);
-      }
-    });
+
+    // If the DB value is null (item has no image), cache null.
+    // If it's a URL/base64, cache the string.
+    const url = (data?.image_url ?? null) as string | null;
+    imageCache.set(id, url);
+
+    const idListeners = listeners.get(id);
+    if (idListeners) {
+      idListeners.forEach((callback) => callback(url));
+      listeners.delete(id);
+    }
   } catch (e) {
-    console.error('Error fetching image batch:', e);
-    ids.forEach(id => {
-      imageCache.set(id, null);
-      const idListeners = listeners.get(id);
-      if (idListeners) {
-        idListeners.forEach(callback => callback(null));
-        listeners.delete(id);
-      }
-    });
+    // Do NOT cache null here (otherwise a transient timeout becomes permanent).
+    console.error('Error fetching image:', e);
+
+    const idListeners = listeners.get(id);
+    if (idListeners) {
+      idListeners.forEach((callback) => callback(null));
+      listeners.delete(id);
+    }
   }
 }
 
-// Fetch images in small batches to avoid timeout
 async function fetchBatch() {
   if (pendingIds.size === 0) return;
-  
+
   const idsToFetch = Array.from(pendingIds);
   pendingIds = new Set();
   batchTimeout = null;
-  
-  // Split into small chunks and fetch in parallel
-  const chunks: string[][] = [];
+
+  // Small chunks, processed sequentially to avoid spiking requests
   for (let i = 0; i < idsToFetch.length; i += MAX_BATCH_SIZE) {
-    chunks.push(idsToFetch.slice(i, i + MAX_BATCH_SIZE));
+    const chunk = idsToFetch.slice(i, i + MAX_BATCH_SIZE);
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(chunk.map((id) => fetchOne(id)));
   }
-  
-  // Fetch all chunks in parallel
-  await Promise.all(chunks.map(chunk => fetchSmallBatch(chunk)));
 }
 
-// Queue an id for batch fetching
 function queueImageFetch(id: string, callback: (url: string | null) => void) {
   // If already cached, return immediately
   if (imageCache.has(id)) {
     callback(imageCache.get(id)!);
     return;
   }
-  
+
   // Add to listeners
   if (!listeners.has(id)) {
     listeners.set(id, new Set());
   }
   listeners.get(id)!.add(callback);
-  
+
   // Add to pending batch
   pendingIds.add(id);
-  
+
   // Schedule batch fetch (debounced 50ms)
   if (!batchTimeout) {
     batchTimeout = setTimeout(() => {
-      batchPromise = fetchBatch();
+      void fetchBatch();
     }, 50);
   }
 }
 
 /**
- * Hook for efficient batched image loading
- * Groups multiple image requests into a single query
+ * Hook for efficient image loading (with auto-fix for legacy base64 images).
  */
 export function useBatchedImage(itemId: string | undefined) {
   const [imageUrl, setImageUrl] = useState<string | null>(() => {
-    // Check cache on init
-    if (itemId && imageCache.has(itemId)) {
-      return imageCache.get(itemId)!;
-    }
+    if (itemId && imageCache.has(itemId)) return imageCache.get(itemId)!;
     return null;
   });
-  const [isLoading, setIsLoading] = useState(!imageCache.has(itemId || ''));
-  const requestedRef = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const inFlightRef = useRef(false);
+  const repairAttemptedRef = useRef(false);
 
   const requestImage = useCallback(() => {
-    if (!itemId || requestedRef.current) return;
-    requestedRef.current = true;
-    
-    // Check cache first
+    if (!itemId || inFlightRef.current) return;
+
+    // Cached path
     if (imageCache.has(itemId)) {
       setImageUrl(imageCache.get(itemId)!);
       setIsLoading(false);
       return;
     }
-    
+
+    inFlightRef.current = true;
     setIsLoading(true);
+
     queueImageFetch(itemId, (url) => {
-      setImageUrl(url);
+      const cached = imageCache.has(itemId);
+
+      // Success (including DB-null image)
+      if (cached) {
+        setImageUrl(imageCache.get(itemId)!);
+        setIsLoading(false);
+        inFlightRef.current = false;
+        return;
+      }
+
+      // If we got null and it's NOT cached, it was a fetch error (e.g., statement timeout).
+      // Try a one-time repair: convert base64 -> storage URL server-side, then refetch.
+      if (url === null && !repairAttemptedRef.current) {
+        repairAttemptedRef.current = true;
+
+        (async () => {
+          try {
+            await supabase.functions.invoke('migrate-lost-item-image', {
+              body: { id: itemId },
+            });
+          } catch (e) {
+            console.error('Failed to repair lost item image:', e);
+          }
+
+          // Retry fetch once
+          queueImageFetch(itemId, () => {
+            setImageUrl(imageCache.get(itemId) ?? null);
+            setIsLoading(false);
+            inFlightRef.current = false;
+          });
+        })();
+
+        return;
+      }
+
+      // Final fallback
+      setImageUrl(null);
       setIsLoading(false);
+      inFlightRef.current = false;
     });
   }, [itemId]);
 
@@ -131,14 +160,14 @@ export function useBatchedImage(itemId: string | undefined) {
  * Prefetch images for a list of item IDs
  */
 export function prefetchImages(itemIds: string[]) {
-  const uncachedIds = itemIds.filter(id => !imageCache.has(id));
+  const uncachedIds = itemIds.filter((id) => !imageCache.has(id));
   if (uncachedIds.length === 0) return;
-  
-  uncachedIds.forEach(id => pendingIds.add(id));
-  
+
+  uncachedIds.forEach((id) => pendingIds.add(id));
+
   if (!batchTimeout) {
     batchTimeout = setTimeout(() => {
-      batchPromise = fetchBatch();
+      void fetchBatch();
     }, 50);
   }
 }
