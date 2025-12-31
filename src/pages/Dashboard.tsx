@@ -1,8 +1,9 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { ItemCard } from '@/components/items/ItemCard';
-import { mockItems, mockLogs } from '@/data/mockData';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { mockLogs } from '@/data/mockData';
 import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
+import { useLostItems } from '@/hooks/useLostItems';
 import { 
   Package, 
   CheckCircle2, 
@@ -12,6 +13,8 @@ import {
   TrendingUp,
   Activity,
   Sparkles,
+  MapPin,
+  Calendar,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -21,7 +24,8 @@ import { Button } from '@/components/ui/button';
 export default function Dashboard() {
   const navigate = useNavigate();
   const { data: counts, isLoading: countsLoading } = useLostItemsCounts();
-  const recentItems = mockItems.filter(item => item.status === 'available').slice(0, 3);
+  const { data: itemsData, isLoading: itemsLoading } = useLostItems({ status: 'available', pageSize: 3 });
+  const recentItems = itemsData?.items ?? [];
   const recentLogs = mockLogs.slice(0, 5);
 
   return (
@@ -92,18 +96,47 @@ export default function Dashboard() {
             </Button>
           </div>
           <div className="space-y-4">
-            {recentItems.map((item, index) => (
-              <div 
-                key={item.id} 
-                className="animate-fade-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <ItemCard
-                  item={item}
+            {itemsLoading ? (
+              <div className="text-center text-muted-foreground py-8">Carregando...</div>
+            ) : recentItems.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">Nenhum item disponível</div>
+            ) : (
+              recentItems.map((item, index) => (
+                <div 
+                  key={item.id} 
+                  className="item-card animate-fade-in cursor-pointer"
+                  style={{ animationDelay: `${index * 100}ms` }}
                   onClick={() => navigate(`/items/${item.id}`)}
-                />
-              </div>
-            ))}
+                >
+                  <div className="flex gap-4">
+                    <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                      <Package className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-mono text-muted-foreground">{item.code}</p>
+                          <h3 className="font-medium text-foreground mt-1 line-clamp-2">
+                            {item.description}
+                          </h3>
+                        </div>
+                        <StatusBadge status={item.status} />
+                      </div>
+                      <div className="mt-3 space-y-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="w-4 h-4" />
+                          <span className="truncate">{item.found_location}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="w-4 h-4" />
+                          <span>{format(new Date(item.found_date), "dd 'de' MMMM", { locale: ptBR })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

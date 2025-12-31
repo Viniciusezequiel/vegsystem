@@ -13,18 +13,21 @@ export function useLostItemsCounts() {
     queryKey: ['lost-items-counts'],
     queryFn: async (): Promise<LostItemsCounts> => {
       // Fetch counts for each status in parallel
-      const [totalResult, availableResult, deliveredResult, expiredResult] = await Promise.all([
-        supabase.from('lost_items').select('*', { count: 'exact', head: true }),
+      const [availableResult, deliveredResult, expiredResult] = await Promise.all([
         supabase.from('lost_items').select('*', { count: 'exact', head: true }).eq('status', 'available'),
         supabase.from('lost_items').select('*', { count: 'exact', head: true }).eq('status', 'delivered'),
         supabase.from('lost_items').select('*', { count: 'exact', head: true }).eq('status', 'expired'),
       ]);
 
+      const available = availableResult.count ?? 0;
+      const delivered = deliveredResult.count ?? 0;
+      const expired = expiredResult.count ?? 0;
+
       return {
-        total: totalResult.count ?? 0,
-        available: availableResult.count ?? 0,
-        delivered: deliveredResult.count ?? 0,
-        expired: expiredResult.count ?? 0,
+        total: available + delivered + expired,
+        available,
+        delivered,
+        expired,
       };
     },
     staleTime: 30 * 1000, // 30 seconds
