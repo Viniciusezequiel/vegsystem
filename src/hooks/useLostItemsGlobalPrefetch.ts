@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LostItem } from './useLostItems';
+import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
 
 /**
  * Global prefetch hook that preloads lost items data when the user
@@ -23,7 +24,7 @@ export function useLostItemsGlobalPrefetch() {
         queryFn: async () => {
           const { data, error, count } = await supabase
             .from('lost_items')
-            .select('*', { count: 'exact' })
+            .select(LOST_ITEMS_LIST_SELECT, { count: 'exact' })
             .eq('status', 'available')
             .order('created_at', { ascending: false })
             .range(0, 99);
@@ -31,7 +32,7 @@ export function useLostItemsGlobalPrefetch() {
           if (error) throw error;
           
           return {
-            items: (data || []) as LostItem[],
+            items: (data as unknown as LostItem[]) || [],
             totalCount: count ?? 0,
             page: 0,
             pageSize: 100,
@@ -60,7 +61,7 @@ export function prefetchLostItemsOnHover(queryClient: ReturnType<typeof useQuery
     queryFn: async () => {
       const { data, error, count } = await supabase
         .from('lost_items')
-        .select('*', { count: 'exact' })
+        .select(LOST_ITEMS_LIST_SELECT, { count: 'exact' })
         .eq('status', 'available')
         .order('created_at', { ascending: false })
         .range(0, 99);
@@ -68,7 +69,7 @@ export function prefetchLostItemsOnHover(queryClient: ReturnType<typeof useQuery
       if (error) throw error;
       
       return {
-        items: (data || []) as LostItem[],
+        items: (data as unknown as LostItem[]) || [],
         totalCount: count ?? 0,
         page: 0,
         pageSize: 100,
