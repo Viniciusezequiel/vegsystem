@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { memo } from 'react';
 import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -9,16 +9,15 @@ interface LazyItemImageProps {
 }
 
 /**
- * Optimized image component that renders directly from the provided URL.
- * No extra fetching - expects image_url to be loaded with the item data.
+ * Simple image placeholder component.
+ * Due to base64 images causing database timeouts, we show a placeholder in the list.
+ * Full images are shown only when viewing item details.
+ * Use "Otimizar Imagens" button to migrate base64 to Storage URLs.
  */
 export const LazyItemImage = memo(function LazyItemImage({ 
-  imageUrl, 
   alt, 
   className 
 }: LazyItemImageProps) {
-  const [hasError, setHasError] = useState(false);
-
   return (
     <div
       className={cn(
@@ -26,18 +25,7 @@ export const LazyItemImage = memo(function LazyItemImage({
         className
       )}
     >
-      {imageUrl && !hasError ? (
-        <img
-          src={imageUrl}
-          alt={alt}
-          className="w-full h-full object-cover"
-          onError={() => setHasError(true)}
-          loading="lazy"
-          decoding="async"
-        />
-      ) : (
-        <Package className="w-8 h-8 text-muted-foreground/50" />
-      )}
+      <Package className="w-8 h-8 text-muted-foreground/50" />
     </div>
   );
 });
