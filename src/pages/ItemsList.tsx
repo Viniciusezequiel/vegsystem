@@ -31,7 +31,6 @@ import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { useLostItems, LostItem, useBulkDeliverLostItems, useBulkCreateLostItems } from '@/hooks/useLostItems';
 import { useLostItemsPrefetch } from '@/hooks/useLostItemsPrefetch';
-import { prefetchImages } from '@/hooks/useImageBatch';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
@@ -160,16 +159,8 @@ export default function ItemsList() {
   const bulkDeliver = useBulkDeliverLostItems();
   const bulkCreate = useBulkCreateLostItems();
 
-  // Items are now filtered server-side
+  // Items are now filtered server-side, images included in query
   const filteredItems = items?.items || [];
-
-  // Prefetch images for visible items
-  useEffect(() => {
-    if (filteredItems.length > 0) {
-      // Prefetch first 20 images immediately
-      prefetchImages(filteredItems.slice(0, 20).map(item => item.id));
-    }
-  }, [filteredItems]);
 
   // Reset page when filters change
   const handleStatusFilterChange = (value: ItemStatus | 'all') => {
@@ -742,7 +733,7 @@ export default function ItemsList() {
                 )}
                 <div className="flex gap-4">
                   <LazyItemImage 
-                    itemId={item.id} 
+                    imageUrl={item.image_url} 
                     alt={item.description}
                     className="w-24 h-24 rounded-lg flex-shrink-0"
                   />

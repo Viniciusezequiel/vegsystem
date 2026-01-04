@@ -1,10 +1,11 @@
 // Shared select list for Lost & Found list queries.
-// IMPORTANT: we intentionally exclude `image_url` to avoid huge base64 payloads causing timeouts.
+// Now includes image_url since we'll load it in a single query for better performance.
 
 export const LOST_ITEMS_LIST_SELECT = [
   'id',
   'code',
   'description',
+  'image_url',
   'campus',
   'found_location',
   'found_date',
