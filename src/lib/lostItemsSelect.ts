@@ -1,11 +1,11 @@
 // Shared select list for Lost & Found list queries.
-// IMPORTANT: we intentionally exclude `image_url` to avoid huge base64 payloads causing timeouts.
-// Images should be migrated to Storage URLs using the "Otimizar Imagens" button.
+// Includes image_url - component will filter out base64 to avoid rendering issues.
 
 export const LOST_ITEMS_LIST_SELECT = [
   'id',
   'code',
   'description',
+  'image_url',
   'campus',
   'found_location',
   'found_date',
