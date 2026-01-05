@@ -1,11 +1,11 @@
 // Shared select list for Lost & Found list queries.
-// Includes image_url - component will filter out base64 to avoid rendering issues.
+// IMPORTANT: We exclude image_url from the main query because base64 images cause database timeouts.
+// Images are loaded separately only for items with Storage URLs.
 
 export const LOST_ITEMS_LIST_SELECT = [
   'id',
   'code',
   'description',
-  'image_url',
   'campus',
   'found_location',
   'found_date',
@@ -26,3 +26,6 @@ export const LOST_ITEMS_LIST_SELECT = [
   'created_at',
   'updated_at',
 ].join(',');
+
+// Minimal select for counting (avoids loading any large data)
+export const LOST_ITEMS_COUNT_SELECT = 'id';

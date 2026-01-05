@@ -733,7 +733,6 @@ export default function ItemsList() {
                 )}
                 <div className="flex gap-4">
                   <LazyItemImage 
-                    imageUrl={item.image_url} 
                     alt={item.description}
                     className="w-24 h-24 rounded-lg flex-shrink-0"
                   />
