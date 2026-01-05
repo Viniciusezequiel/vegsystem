@@ -25,8 +25,8 @@ import { ArchiveDeliveredItemsDialog } from '@/components/items/ArchiveDelivered
 import { useNavigate } from 'react-router-dom';
 import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
-import { useLostItems, LostItem, useBulkDeliverLostItems, useBulkCreateLostItems } from '@/hooks/useLostItems';
-import { useLostItemsPrefetch } from '@/hooks/useLostItemsPrefetch';
+import { LostItem, useBulkDeliverLostItems, useBulkCreateLostItems } from '@/hooks/useLostItems';
+import { useInfiniteLostItems } from '@/hooks/useInfiniteLostItems';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
@@ -74,8 +74,7 @@ export default function ItemsList() {
   const [destinationFilter, setDestinationFilter] = useState<'all' | 'donation' | 'disposal'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 100;
+  
   
   // Filter status options based on user role
   const availableStatusFilters = statusFilters.filter(filter => {
@@ -132,61 +131,54 @@ export default function ItemsList() {
     }
   };
 
-  const { data: items, isLoading } = useLostItems({
+  const { 
+    data, 
+    isLoading, 
+    hasNextPage, 
+    isFetchingNextPage, 
+    fetchNextPage 
+  } = useInfiniteLostItems({
     status: statusFilter === 'all' ? undefined : statusFilter,
     search: searchQuery || undefined,
-    page: currentPage,
-    pageSize,
     campus: campusFilter !== 'all' ? campusFilter : undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     destination: statusFilter === 'all' ? destinationFilter : undefined,
   });
 
-  // Prefetch next page for smoother navigation
-  useLostItemsPrefetch({
-    status: statusFilter === 'all' ? undefined : statusFilter,
-    search: searchQuery || undefined,
-    page: currentPage,
-    pageSize,
-    totalPages: items?.totalPages || 1,
-  });
-
   const bulkDeliver = useBulkDeliverLostItems();
   const bulkCreate = useBulkCreateLostItems();
 
-  // Items are now filtered server-side, images included in query
-  const filteredItems = items?.items || [];
+  // Flatten all pages into a single array
+  const filteredItems = useMemo(() => {
+    return data?.pages.flatMap(page => page.items) || [];
+  }, [data]);
 
-  // Reset page when filters change
+  const totalCount = data?.pages[0]?.totalCount ?? 0;
+
+  // Filter change handlers (no page reset needed with infinite scroll)
   const handleStatusFilterChange = (value: ItemStatus | 'all') => {
     setStatusFilter(value);
-    setCurrentPage(0);
   };
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
-    setCurrentPage(0);
   };
 
   const handleCampusFilterChange = (value: CampusEnum | 'all') => {
     setCampusFilter(value);
-    setCurrentPage(0);
   };
 
   const handleDateFromChange = (value: string) => {
     setDateFrom(value);
-    setCurrentPage(0);
   };
 
   const handleDateToChange = (value: string) => {
     setDateTo(value);
-    setCurrentPage(0);
   };
 
   const handleDestinationFilterChange = (value: 'all' | 'donation' | 'disposal') => {
     setDestinationFilter(value);
-    setCurrentPage(0);
   };
 
   // Get expired items for bulk actions
@@ -512,7 +504,6 @@ export default function ItemsList() {
                 setDestinationFilter('all');
                 setDateFrom('');
                 setDateTo('');
-                setCurrentPage(0);
               }}
               className="text-muted-foreground hover:text-foreground"
             >
@@ -704,7 +695,7 @@ export default function ItemsList() {
       ) : (
         <>
           <p className="text-sm text-muted-foreground mb-4">
-            {items?.totalCount || 0} {(items?.totalCount || 0) === 1 ? 'item encontrado' : 'itens encontrados'}
+            {totalCount} {totalCount === 1 ? 'item encontrado' : 'itens encontrados'}
             {isSelectionMode && ` | ${selectedItems.length} selecionado(s)`}
           </p>
           <VirtualizedItemsList
@@ -713,32 +704,10 @@ export default function ItemsList() {
             selectedItems={selectedItems}
             onItemClick={handleItemClick}
             onToggleSelection={toggleItemSelection}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
           />
-
-        {/* Pagination */}
-        {items && items.totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-              disabled={currentPage === 0}
-            >
-              Anterior
-            </Button>
-            <span className="text-sm text-muted-foreground px-4">
-              Página {currentPage + 1} de {items.totalPages} ({items.totalCount} itens)
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.min(items.totalPages - 1, p + 1))}
-              disabled={currentPage >= items.totalPages - 1}
-            >
-              Próxima
-            </Button>
-          </div>
-        )}
       </>
     )}
 
