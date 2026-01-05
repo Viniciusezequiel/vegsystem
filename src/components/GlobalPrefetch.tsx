@@ -11,6 +11,7 @@ import {
   saveImagesToCache,
 } from '@/lib/lostItemsCache';
 import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
+import { setImagePrefetchProgress, resetImagePrefetchProgress } from '@/hooks/useImagePrefetchProgress';
 
 const DEFAULT_QUERY_KEY = ['lost-items', 'available', undefined, 0, 100, undefined, undefined, undefined, undefined];
 const COUNTS_QUERY_KEY = ['lost-items-counts'];
@@ -136,6 +137,7 @@ export function GlobalPrefetch() {
  * Prefetch images for a list of items in batches.
  * This runs in the background and doesn't block the UI.
  * Also saves images to localStorage for instant loading on next visit.
+ * Updates progress indicator as it goes.
  */
 async function prefetchImagesForItems(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -149,7 +151,16 @@ async function prefetchImagesForItems(
     return cached === undefined;
   });
 
-  if (!itemsToFetch.length) return;
+  if (!itemsToFetch.length) {
+    // All images already cached
+    return;
+  }
+
+  // Reset and initialize progress
+  resetImagePrefetchProgress();
+  const totalItems = itemsToFetch.length;
+  let loadedItems = 0;
+  setImagePrefetchProgress(loadedItems, totalItems);
 
   // Split into batches
   const batches: LostItem[][] = [];
@@ -171,6 +182,8 @@ async function prefetchImagesForItems(
 
       if (error) {
         console.error('Error prefetching images:', error);
+        loadedItems += batch.length;
+        setImagePrefetchProgress(loadedItems, totalItems);
         continue;
       }
 
@@ -186,12 +199,18 @@ async function prefetchImagesForItems(
         allFetchedImages[item.id] = validUrl;
       }
 
+      // Update progress
+      loadedItems += batch.length;
+      setImagePrefetchProgress(loadedItems, totalItems);
+
       // Small delay before next batch
       if (batches.indexOf(batch) < batches.length - 1) {
         await new Promise(resolve => setTimeout(resolve, IMAGE_PREFETCH_DELAY_MS));
       }
     } catch (e) {
       console.error('Error in image prefetch batch:', e);
+      loadedItems += batch.length;
+      setImagePrefetchProgress(loadedItems, totalItems);
     }
   }
 

@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Sidebar } from './Sidebar';
 import { OnlineUsersIndicator } from './OnlineUsersIndicator';
+import { ImagePrefetchIndicator } from './ImagePrefetchIndicator';
 import { cn } from '@/lib/utils';
 import { useGlobalRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { Menu, X } from 'lucide-react';
@@ -146,6 +147,9 @@ export function MainLayout({ children }: MainLayoutProps) {
         >
           {children}
         </div>
+        
+        {/* Image prefetch progress indicator */}
+        <ImagePrefetchIndicator />
       </main>
     </div>
   );
