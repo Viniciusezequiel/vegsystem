@@ -174,11 +174,13 @@ async function prefetchImagesForItems(
   for (const batch of batches) {
     try {
       const ids = batch.map(item => item.id);
-      
+
+      // Only fetch items that already have a real URL to avoid pulling huge legacy base64 strings.
       const { data, error } = await supabase
         .from('lost_items')
         .select('id, image_url')
-        .in('id', ids);
+        .in('id', ids)
+        .ilike('image_url', 'http%');
 
       if (error) {
         console.error('Error prefetching images:', error);
@@ -187,16 +189,16 @@ async function prefetchImagesForItems(
         continue;
       }
 
-      // Cache each image result
-      for (const item of data || []) {
-        const imageUrl = item.image_url;
-        // Only cache valid Storage URLs (not base64)
-        const validUrl = imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))
-          ? imageUrl
-          : null;
-        
-        queryClient.setQueryData(['lost-item-image', item.id], validUrl);
-        allFetchedImages[item.id] = validUrl;
+      const byId = new Map<string, string>();
+      for (const row of data || []) {
+        if (row.image_url) byId.set(row.id, row.image_url);
+      }
+
+      // Cache all ids in the batch (null when missing) so the UI won't refetch repeatedly
+      for (const id of ids) {
+        const url = byId.get(id) ?? null;
+        queryClient.setQueryData(['lost-item-image', id], url);
+        allFetchedImages[id] = url;
       }
 
       // Update progress
