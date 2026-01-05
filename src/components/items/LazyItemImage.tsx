@@ -28,6 +28,12 @@ export const LazyItemImage = memo(function LazyItemImage({
     const element = containerRef.current;
     if (!element) return;
 
+    // Fallback for environments where IntersectionObserver isn't available
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsVisible(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

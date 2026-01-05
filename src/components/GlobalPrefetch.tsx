@@ -35,6 +35,7 @@ export function GlobalPrefetch() {
     const cachedItems = loadLostItemsFromCache();
     const cachedCounts = loadCountsFromCache();
     const cachedImages = loadImagesFromCache();
+    const hasCachedImages = !!cachedImages && Object.keys(cachedImages).length > 0;
 
     if (cachedItems) {
       queryClient.setQueryData(DEFAULT_QUERY_KEY, cachedItems);
@@ -44,15 +45,17 @@ export function GlobalPrefetch() {
       queryClient.setQueryData(COUNTS_QUERY_KEY, cachedCounts);
     }
 
-    // Restore cached images to React Query
-    if (cachedImages) {
+    // Restore cached images to React Query (only valid URLs; don't restore cached nulls)
+    if (hasCachedImages && cachedImages) {
       for (const [itemId, imageUrl] of Object.entries(cachedImages)) {
-        queryClient.setQueryData(['lost-item-image', itemId], imageUrl);
+        if (typeof imageUrl === 'string' && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+          queryClient.setQueryData(['lost-item-image', itemId], imageUrl);
+        }
       }
     }
 
-    // If we have cached items but no images cache, prefetch images for cached items
-    if (cachedItems && !cachedImages) {
+    // If we have cached items but no (valid) images cache, prefetch images for cached items
+    if (cachedItems && !hasCachedImages) {
       prefetchImagesForItems(queryClient, cachedItems.items);
     }
 
@@ -145,10 +148,10 @@ async function prefetchImagesForItems(
 ) {
   if (!items.length) return;
 
-  // Get item IDs that don't have cached images yet
+  // Get item IDs that don't have cached images yet (or were cached as null)
   const itemsToFetch = items.filter(item => {
     const cached = queryClient.getQueryData(['lost-item-image', item.id]);
-    return cached === undefined;
+    return cached === undefined || cached === null;
   });
 
   if (!itemsToFetch.length) {
@@ -168,7 +171,7 @@ async function prefetchImagesForItems(
     batches.push(itemsToFetch.slice(i, i + IMAGE_PREFETCH_BATCH_SIZE));
   }
 
-  const allFetchedImages: Record<string, string | null> = {};
+  const allFetchedImages: Record<string, string> = {};
 
   // Process batches sequentially with delay to avoid overwhelming the database
   for (const batch of batches) {
@@ -194,11 +197,11 @@ async function prefetchImagesForItems(
         if (row.image_url) byId.set(row.id, row.image_url);
       }
 
-      // Cache all ids in the batch (null when missing) so the UI won't refetch repeatedly
+      // Cache all ids in the batch (null when missing) so the UI won't refetch repeatedly (this session)
       for (const id of ids) {
         const url = byId.get(id) ?? null;
         queryClient.setQueryData(['lost-item-image', id], url);
-        allFetchedImages[id] = url;
+        if (url) allFetchedImages[id] = url; // persist only valid URLs
       }
 
       // Update progress
