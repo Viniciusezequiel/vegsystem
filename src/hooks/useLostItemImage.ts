@@ -16,20 +16,21 @@ export function useLostItemImage(itemId: string | null, enabled: boolean = true)
         .from('lost_items')
         .select('image_url')
         .eq('id', itemId)
-        .single();
-      
+        // Important: avoid returning huge legacy base64 strings (prevents timeouts)
+        .ilike('image_url', 'http%')
+        .maybeSingle();
+
       if (error) {
         console.error('Error fetching item image:', error);
         return null;
       }
-      
+
       const imageUrl = data?.image_url;
-      
-      // Only return valid Storage URLs (not base64)
+
       if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
         return imageUrl;
       }
-      
+
       return null;
     },
     enabled: enabled && !!itemId,

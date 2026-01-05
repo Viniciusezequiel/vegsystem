@@ -41,7 +41,7 @@ export function ImagePrefetchIndicator() {
     >
       <div className="flex items-center gap-2 mb-2">
         {isComplete ? (
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <CheckCircle2 className="h-4 w-4 text-primary" />
         ) : (
           <ImageIcon className="h-4 w-4 text-muted-foreground animate-pulse" />
         )}
