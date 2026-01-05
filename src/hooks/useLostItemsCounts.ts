@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { LOST_ITEMS_COUNT_SELECT } from '@/lib/lostItemsSelect';
 
 interface LostItemsCounts {
   total: number;
@@ -12,11 +13,12 @@ export function useLostItemsCounts() {
   return useQuery({
     queryKey: ['lost-items-counts'],
     queryFn: async (): Promise<LostItemsCounts> => {
-      // Fetch counts for each status in parallel
+      // Use minimal select (just id) to avoid loading large base64 image data
+      // This prevents database timeouts
       const [availableResult, deliveredResult, expiredResult] = await Promise.all([
-        supabase.from('lost_items').select('*', { count: 'exact', head: true }).eq('status', 'available'),
-        supabase.from('lost_items').select('*', { count: 'exact', head: true }).eq('status', 'delivered'),
-        supabase.from('lost_items').select('*', { count: 'exact', head: true }).eq('status', 'expired'),
+        supabase.from('lost_items').select(LOST_ITEMS_COUNT_SELECT, { count: 'exact', head: true }).eq('status', 'available'),
+        supabase.from('lost_items').select(LOST_ITEMS_COUNT_SELECT, { count: 'exact', head: true }).eq('status', 'delivered'),
+        supabase.from('lost_items').select(LOST_ITEMS_COUNT_SELECT, { count: 'exact', head: true }).eq('status', 'expired'),
       ]);
 
       const available = availableResult.count ?? 0;

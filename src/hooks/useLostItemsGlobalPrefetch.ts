@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LostItem } from './useLostItems';
-import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
+import { LOST_ITEMS_LIST_SELECT, LOST_ITEMS_COUNT_SELECT } from '@/lib/lostItemsSelect';
 
 /**
  * Global prefetch hook that preloads lost items data when the user
