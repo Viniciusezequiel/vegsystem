@@ -16,8 +16,6 @@ export function useLostItemImage(itemId: string | null, enabled: boolean = true)
         .from('lost_items')
         .select('image_url')
         .eq('id', itemId)
-        // Important: avoid returning huge legacy base64 strings (prevents timeouts)
-        .ilike('image_url', 'http%')
         .maybeSingle();
 
       if (error) {
@@ -25,13 +23,7 @@ export function useLostItemImage(itemId: string | null, enabled: boolean = true)
         return null;
       }
 
-      const imageUrl = data?.image_url;
-
-      if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
-        return imageUrl;
-      }
-
-      return null;
+      return data?.image_url || null;
     },
     enabled: enabled && !!itemId,
     staleTime: 10 * 60 * 1000, // 10 minutes - images don't change often

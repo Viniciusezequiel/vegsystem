@@ -183,7 +183,7 @@ async function prefetchImagesForItems(
         .from('lost_items')
         .select('id, image_url')
         .in('id', ids)
-        .ilike('image_url', 'http%');
+        .not('image_url', 'is', null);
 
       if (error) {
         console.error('Error prefetching images:', error);
