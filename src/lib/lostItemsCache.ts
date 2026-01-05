@@ -7,7 +7,8 @@ import type { LostItem } from '@/hooks/useLostItems';
 
 const CACHE_KEY = 'lost-items-cache';
 const COUNTS_CACHE_KEY = 'lost-items-counts-cache';
-const CACHE_VERSION = 1;
+const IMAGES_CACHE_KEY = 'lost-items-images-cache';
+const CACHE_VERSION = 2;
 const CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
 
 interface CachedData {
@@ -31,6 +32,12 @@ interface CachedCounts {
     delivered: number;
     expired: number;
   };
+}
+
+interface CachedImages {
+  version: number;
+  timestamp: number;
+  data: Record<string, string | null>; // itemId -> imageUrl or null
 }
 
 /**
@@ -136,9 +143,52 @@ export function loadCountsFromCache(): CachedCounts['data'] | null {
 }
 
 /**
+ * Save images cache to localStorage
+ */
+export function saveImagesToCache(images: Record<string, string | null>): void {
+  try {
+    // Load existing cache and merge
+    const existing = loadImagesFromCache() || {};
+    const merged = { ...existing, ...images };
+    
+    const cacheEntry: CachedImages = {
+      version: CACHE_VERSION,
+      timestamp: Date.now(),
+      data: merged,
+    };
+    localStorage.setItem(IMAGES_CACHE_KEY, JSON.stringify(cacheEntry));
+  } catch (e) {
+    console.warn('Failed to cache images:', e);
+  }
+}
+
+/**
+ * Load images cache from localStorage
+ */
+export function loadImagesFromCache(): Record<string, string | null> | null {
+  try {
+    const raw = localStorage.getItem(IMAGES_CACHE_KEY);
+    if (!raw) return null;
+
+    const cached: CachedImages = JSON.parse(raw);
+    
+    if (cached.version !== CACHE_VERSION) {
+      localStorage.removeItem(IMAGES_CACHE_KEY);
+      return null;
+    }
+
+    return cached.data;
+  } catch (e) {
+    localStorage.removeItem(IMAGES_CACHE_KEY);
+    return null;
+  }
+}
+
+/**
  * Clear all lost items cache
  */
 export function clearLostItemsCache(): void {
   localStorage.removeItem(CACHE_KEY);
   localStorage.removeItem(COUNTS_CACHE_KEY);
+  localStorage.removeItem(IMAGES_CACHE_KEY);
 }
