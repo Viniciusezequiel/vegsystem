@@ -17,8 +17,17 @@ import {
   FileSpreadsheet,
   ImageIcon,
   Archive,
-  Zap
+  Zap,
+  MoreHorizontal,
+  Settings2
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { VirtualizedItemsList } from '@/components/items/VirtualizedItemsList';
 import { BulkImageUploadDialog } from '@/components/items/BulkImageUploadDialog';
 import { ArchiveDeliveredItemsDialog } from '@/components/items/ArchiveDeliveredItemsDialog';
@@ -563,63 +572,79 @@ export default function ItemsList() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={exportToPDF} disabled={filteredItems.length === 0}>
-            <FileDown className="w-4 h-4 mr-2" />
-            Exportar PDF
-          </Button>
-          
-          <Button variant="outline" size="sm" onClick={downloadTemplate}>
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Baixar Modelo
-          </Button>
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Export/Import Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <FileDown className="w-4 h-4 mr-2" />
+                Exportar/Importar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-popover border shadow-md z-50">
+              <DropdownMenuItem onClick={exportToPDF} disabled={filteredItems.length === 0}>
+                <FileDown className="w-4 h-4 mr-2" />
+                Exportar PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={downloadTemplate}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Baixar Modelo Excel
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <label className="flex items-center cursor-pointer">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Importar Itens
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                </label>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setBulkImageDialog(true)}>
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Upload Imagens em Lote
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <label>
-            <Button variant="outline" size="sm" asChild>
-              <span>
-                <Upload className="w-4 h-4 mr-2" />
-                Importar Itens
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-              </span>
-            </Button>
-          </label>
-
-          <Button variant="outline" size="sm" onClick={() => setBulkImageDialog(true)}>
-            <ImageIcon className="w-4 h-4 mr-2" />
-            Upload Imagens
-          </Button>
-
+          {/* Admin Actions Dropdown */}
           {role === 'admin' && (
-            <>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleMigrateAllImages}
-                disabled={isMigratingImages}
-              >
-                {isMigratingImages ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Zap className="w-4 h-4 mr-2" />
-                )}
-                Otimizar Imagens
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate('/lost-found/archived')}>
-                <Archive className="w-4 h-4 mr-2" />
-                Ver Arquivados
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setArchiveDeliveredDialog(true)}>
-                <Archive className="w-4 h-4 mr-2" />
-                Arquivar Entregues
-              </Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  Ações Admin
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-popover border shadow-md z-50">
+                <DropdownMenuItem 
+                  onClick={handleMigrateAllImages}
+                  disabled={isMigratingImages}
+                >
+                  {isMigratingImages ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4 mr-2" />
+                  )}
+                  Otimizar Imagens
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/lost-found/archived')}>
+                  <Archive className="w-4 h-4 mr-2" />
+                  Ver Arquivados
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setArchiveDeliveredDialog(true)}>
+                  <Archive className="w-4 h-4 mr-2" />
+                  Arquivar Entregues
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
+          {/* Expired Items Selection Mode */}
           {statusFilter === 'expired' && expiredItems.length > 0 && (
             <>
               {isSelectionMode ? (
@@ -641,27 +666,30 @@ export default function ItemsList() {
                     onClick={toggleSelectAll}
                   >
                     <CheckSquare className="w-4 h-4 mr-2" />
-                    {selectedItems.length === expiredItems.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                    {selectedItems.length === expiredItems.length ? 'Desmarcar' : 'Selecionar'} Todos
                   </Button>
                   {selectedItems.length > 0 && (
-                    <>
-                      <Button 
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setBulkActionDialog('donation')}
-                      >
-                        <Gift className="w-4 h-4 mr-2" />
-                        Doação ({selectedItems.length})
-                      </Button>
-                      <Button 
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setBulkActionDialog('disposal')}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Descarte ({selectedItems.length})
-                      </Button>
-                    </>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="secondary">
+                          <MoreHorizontal className="w-4 h-4 mr-2" />
+                          Ações ({selectedItems.length})
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="bg-popover border shadow-md z-50">
+                        <DropdownMenuItem onClick={() => setBulkActionDialog('donation')}>
+                          <Gift className="w-4 h-4 mr-2" />
+                          Enviar para Doação
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setBulkActionDialog('disposal')}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Enviar para Descarte
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </>
               ) : (
@@ -671,7 +699,7 @@ export default function ItemsList() {
                   onClick={() => setIsSelectionMode(true)}
                 >
                   <CheckSquare className="w-4 h-4 mr-2" />
-                  Selecionar para Doação/Descarte
+                  Selecionar Itens
                 </Button>
               )}
             </>

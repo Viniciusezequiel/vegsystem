@@ -1,5 +1,6 @@
-import { memo, useRef, useEffect, useState, useCallback } from 'react';
+import { memo, useRef, useEffect, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LazyItemImage } from '@/components/items/LazyItemImage';
@@ -100,17 +101,14 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
   isFetchingNextPage,
   fetchNextPage,
 }: VirtualizedItemsListProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(2);
 
-  // Update column count based on container width
+  // Update column count based on window width
   useEffect(() => {
     const updateColumnCount = () => {
-      if (containerRef.current) {
-        const width = containerRef.current.offsetWidth;
-        // 2 columns for lg screens (768px+), 1 column otherwise
-        setColumnCount(width >= 768 ? 2 : 1);
-      }
+      // 2 columns for md screens (768px+), 1 column otherwise
+      setColumnCount(window.innerWidth >= 768 ? 2 : 1);
     };
 
     updateColumnCount();
@@ -120,11 +118,12 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
 
   const rowCount = Math.ceil(items.length / columnCount);
 
-  const virtualizer = useVirtualizer({
-    count: rowCount + (hasNextPage ? 1 : 0), // +1 for loading indicator
-    getScrollElement: () => containerRef.current,
+  // Use window virtualizer for page-level scrolling
+  const virtualizer = useWindowVirtualizer({
+    count: rowCount + (hasNextPage ? 1 : 0),
     estimateSize: () => ITEM_HEIGHT + GAP,
     overscan: 5,
+    scrollMargin: listRef.current?.offsetTop ?? 0,
   });
 
   const virtualRows = virtualizer.getVirtualItems();
@@ -134,18 +133,13 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
     const lastItem = virtualRows[virtualRows.length - 1];
     if (!lastItem) return;
 
-    // If the last virtual item is the loading row, fetch more
     if (lastItem.index >= rowCount && hasNextPage && !isFetchingNextPage && fetchNextPage) {
       fetchNextPage();
     }
   }, [virtualRows, rowCount, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full overflow-auto"
-      style={{ height: 'calc(100vh - 350px)', minHeight: '400px' }}
-    >
+    <div ref={listRef}>
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,
@@ -166,7 +160,7 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                   left: 0,
                   width: '100%',
                   height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
+                  transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
                 }}
                 className="flex items-center justify-center"
               >
@@ -191,7 +185,7 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                 top: 0,
                 left: 0,
                 width: '100%',
-                transform: `translateY(${virtualRow.start}px)`,
+                transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
                 display: 'grid',
                 gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
                 gap: `${GAP}px`,
