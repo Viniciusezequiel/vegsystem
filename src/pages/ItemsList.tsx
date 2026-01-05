@@ -2,16 +2,12 @@ import { useState, useMemo, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Search, 
   Package, 
-  MapPin, 
-  Calendar, 
   Loader2, 
-  Building2, 
   FileDown, 
   Gift, 
   Trash2, 
@@ -23,7 +19,7 @@ import {
   Archive,
   Zap
 } from 'lucide-react';
-import { LazyItemImage } from '@/components/items/LazyItemImage';
+import { VirtualizedItemsList } from '@/components/items/VirtualizedItemsList';
 import { BulkImageUploadDialog } from '@/components/items/BulkImageUploadDialog';
 import { ArchiveDeliveredItemsDialog } from '@/components/items/ArchiveDeliveredItemsDialog';
 import { useNavigate } from 'react-router-dom';
@@ -711,61 +707,13 @@ export default function ItemsList() {
             {items?.totalCount || 0} {(items?.totalCount || 0) === 1 ? 'item encontrado' : 'itens encontrados'}
             {isSelectionMode && ` | ${selectedItems.length} selecionado(s)`}
           </p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {filteredItems.map((item, index) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "item-card animate-fade-in cursor-pointer relative",
-                  isSelectionMode && selectedItems.includes(item.id) && "ring-2 ring-primary"
-                )}
-                style={{ animationDelay: `${index * 50}ms` }}
-                onClick={() => handleItemClick(item)}
-              >
-                {isSelectionMode && item.status === 'expired' && (
-                  <div className="absolute top-2 right-2">
-                    <Checkbox
-                      checked={selectedItems.includes(item.id)}
-                      onCheckedChange={() => toggleItemSelection(item.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                )}
-                <div className="flex gap-4">
-                  <LazyItemImage 
-                    itemId={item.id}
-                    alt={item.description}
-                    className="w-24 h-24 rounded-lg flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-mono text-muted-foreground">{item.code}</p>
-                        <h3 className="font-medium text-foreground mt-1 line-clamp-2">
-                          {item.description}
-                        </h3>
-                      </div>
-                      <StatusBadge status={item.status} />
-                    </div>
-                    <div className="mt-3 space-y-1">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building2 className="w-4 h-4" />
-                        <span className="truncate font-medium text-primary">{item.campus}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <MapPin className="w-4 h-4" />
-                        <span className="truncate">{item.found_location}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="w-4 h-4" />
-                        <span>{format(new Date(item.found_date + 'T00:00:00'), "dd 'de' MMMM", { locale: ptBR })}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-          ))}
-        </div>
+          <VirtualizedItemsList
+            items={filteredItems}
+            isSelectionMode={isSelectionMode}
+            selectedItems={selectedItems}
+            onItemClick={handleItemClick}
+            onToggleSelection={toggleItemSelection}
+          />
 
         {/* Pagination */}
         {items && items.totalPages > 1 && (
