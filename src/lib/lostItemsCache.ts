@@ -147,15 +147,27 @@ export function loadCountsFromCache(): CachedCounts['data'] | null {
  */
 export function saveImagesToCache(images: Record<string, string | null>): void {
   try {
-    // Load existing cache and merge
+    // We only persist valid URLs.
+    // Storing nulls would "poison" the cache and prevent newly-migrated images from showing.
     const existing = loadImagesFromCache() || {};
-    const merged = { ...existing, ...images };
-    
-    const cacheEntry: CachedImages = {
+
+    const merged: Record<string, string> = { ...existing };
+
+    for (const [itemId, url] of Object.entries(images)) {
+      if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
+        merged[itemId] = url;
+      } else if (url === null) {
+        // Remove any previously cached URL if caller explicitly sets null
+        delete merged[itemId];
+      }
+    }
+
+    const cacheEntry = {
       version: CACHE_VERSION,
       timestamp: Date.now(),
       data: merged,
-    };
+    } satisfies CachedImages;
+
     localStorage.setItem(IMAGES_CACHE_KEY, JSON.stringify(cacheEntry));
   } catch (e) {
     console.warn('Failed to cache images:', e);
@@ -171,13 +183,21 @@ export function loadImagesFromCache(): Record<string, string | null> | null {
     if (!raw) return null;
 
     const cached: CachedImages = JSON.parse(raw);
-    
+
     if (cached.version !== CACHE_VERSION) {
       localStorage.removeItem(IMAGES_CACHE_KEY);
       return null;
     }
 
-    return cached.data;
+    // Filter out null/invalid entries from older versions or partial migrations
+    const filtered: Record<string, string> = {};
+    for (const [itemId, url] of Object.entries(cached.data || {})) {
+      if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
+        filtered[itemId] = url;
+      }
+    }
+
+    return filtered;
   } catch (e) {
     localStorage.removeItem(IMAGES_CACHE_KEY);
     return null;

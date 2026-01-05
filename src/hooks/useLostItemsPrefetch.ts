@@ -74,36 +74,37 @@ async function prefetchImagesForNextPage(
   queryClient: ReturnType<typeof useQueryClient>,
   items: LostItem[]
 ) {
-  // Filter items that don't have cached images
+  // Filter items that don't have cached images (or were cached as null)
   const itemsToFetch = items.filter(item => {
     const cached = queryClient.getQueryData(['lost-item-image', item.id]);
-    return cached === undefined;
+    return cached === undefined || cached === null;
   });
 
   if (!itemsToFetch.length) return;
 
   try {
     const ids = itemsToFetch.map(item => item.id);
-    
+
+    // Only fetch migrated URLs to avoid pulling huge legacy base64 strings
     const { data, error } = await supabase
       .from('lost_items')
       .select('id, image_url')
-      .in('id', ids);
+      .in('id', ids)
+      .ilike('image_url', 'http%');
 
     if (error) {
       console.error('Error prefetching next page images:', error);
       return;
     }
 
-    // Cache each image result
-    for (const item of data || []) {
-      const imageUrl = item.image_url;
-      // Only cache valid Storage URLs (not base64)
-      const validUrl = imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))
-        ? imageUrl
-        : null;
-      
-      queryClient.setQueryData(['lost-item-image', item.id], validUrl);
+    const byId = new Map<string, string>();
+    for (const row of data || []) {
+      if (row.image_url) byId.set(row.id, row.image_url);
+    }
+
+    // Cache all ids (null when missing) so cards won't refetch repeatedly this session
+    for (const id of ids) {
+      queryClient.setQueryData(['lost-item-image', id], byId.get(id) ?? null);
     }
   } catch (e) {
     console.error('Error in next page image prefetch:', e);
