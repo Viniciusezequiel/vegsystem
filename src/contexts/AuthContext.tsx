@@ -69,12 +69,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+
         // Handle token refresh errors - clear corrupted tokens
         if (event === 'TOKEN_REFRESHED' && !session) {
           console.warn('Token refresh failed, clearing corrupted session...');
+          // Force clear localStorage directly to remove corrupted tokens
+          localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
           await supabase.auth.signOut();
           setSession(null);
           setUser(null);
@@ -91,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Defer Supabase calls with setTimeout to prevent deadlock
         if (session?.user) {
           setTimeout(async () => {
+            if (!mounted) return;
             await fetchUserData(session.user.id);
             setIsLoading(false);
           }, 0);
@@ -102,6 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (event === 'SIGNED_OUT') {
+          // Force clear localStorage on signout
+          localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
           setProfile(null);
           setRole(null);
           setRoleChecked(false);
@@ -112,9 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // THEN check for existing session - with error handling for corrupted tokens
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (!mounted) return;
+
       // If there's an error getting session, clear potentially corrupted storage
       if (error) {
         console.warn('Error getting session, clearing corrupted tokens:', error.message);
+        // Force clear localStorage to remove corrupted tokens
+        localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
@@ -135,9 +148,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setIsLoading(false);
+    }).catch(async (err) => {
+      // Catch any network errors on initial load
+      console.error('Failed to get session on mount:', err);
+      if (!mounted) return;
+      
+      // Clear potentially corrupted tokens
+      localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setRole(null);
+      setRoleChecked(true);
+      setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
