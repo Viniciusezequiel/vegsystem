@@ -16,17 +16,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { FileDown, Loader2 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
-export interface PdfColumn {
-  header: string;
-  accessor: string | ((row: any) => string);
-}
+import { generatePdf, PdfColumn } from '@/lib/pdfService';
+import { useToast } from '@/hooks/use-toast';
 
 export interface PdfFilter {
   label: string;
@@ -49,11 +41,10 @@ export function PdfExportButton({
   data, 
   filters = [] 
 }: PdfExportButtonProps) {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
 
   const handleFilterChange = (key: string, value: string) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -75,27 +66,13 @@ export function PdfExportButton({
     return filtered;
   };
 
-  const generatePdf = async () => {
+  const handleGeneratePdf = async () => {
     setIsGenerating(true);
     
     try {
       const filteredData = getFilteredData();
-      const doc = new jsPDF();
       
-      // Header
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text(title, 14, 20);
-      
-      // Subtitle with date
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100);
-      const dateStr = format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
-      doc.text(`Gerado em: ${dateStr}`, 14, 28);
-      
-      // Applied filters info
-      let yPos = 32;
+      // Build applied filters list for PDF
       const appliedFilters = Object.entries(filterValues)
         .filter(([, value]) => value && value !== 'all')
         .map(([key, value]) => {
@@ -103,64 +80,28 @@ export function PdfExportButton({
           const option = filter?.options.find(o => o.value === value);
           return `${filter?.label}: ${option?.label || value}`;
         });
-      
-      if (appliedFilters.length > 0) {
-        doc.text(`Filtros: ${appliedFilters.join(' | ')}`, 14, yPos);
-        yPos += 6;
-      }
-      
-      doc.text(`Total de registros: ${filteredData.length}`, 14, yPos);
-      
-      // Table
-      const tableData = filteredData.map(row => 
-        columns.map(col => {
-          if (typeof col.accessor === 'function') {
-            return col.accessor(row);
-          }
-          return row[col.accessor] ?? '-';
-        })
-      );
-      
-      const tableHeaders = columns.map(col => col.header);
-      
-      autoTable(doc, {
-        head: [tableHeaders],
-        body: tableData,
-        startY: yPos + 8,
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [59, 130, 246],
-          textColor: 255,
-          fontStyle: 'bold',
-        },
-        alternateRowStyles: {
-          fillColor: [245, 247, 250],
-        },
-        margin: { left: 14, right: 14 },
+
+      await generatePdf({
+        title,
+        columns,
+        data: filteredData,
+        filters: appliedFilters.length > 0 ? appliedFilters : undefined,
+        filename,
+      });
+
+      toast({
+        title: 'PDF gerado',
+        description: 'O relatório foi exportado com sucesso.',
       });
       
-      // Footer
-      const pageCount = doc.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text(
-          `Página ${i} de ${pageCount}`,
-          doc.internal.pageSize.width / 2,
-          doc.internal.pageSize.height - 10,
-          { align: 'center' }
-        );
-      }
-      
-      // Download
-      doc.save(`${filename}_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.pdf`);
       setIsOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao gerar PDF:', error);
+      toast({
+        title: 'Erro ao gerar PDF',
+        description: error.message || 'Falha ao exportar o relatório.',
+        variant: 'destructive',
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -168,8 +109,6 @@ export function PdfExportButton({
 
   const resetFilters = () => {
     setFilterValues({});
-    setDateFrom('');
-    setDateTo('');
   };
 
   return (
@@ -223,7 +162,7 @@ export function PdfExportButton({
           <Button variant="outline" onClick={resetFilters}>
             Limpar Filtros
           </Button>
-          <Button onClick={generatePdf} disabled={isGenerating || getFilteredData().length === 0}>
+          <Button onClick={handleGeneratePdf} disabled={isGenerating || getFilteredData().length === 0}>
             {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -241,3 +180,6 @@ export function PdfExportButton({
     </Dialog>
   );
 }
+
+// Re-export PdfColumn for backward compatibility
+export type { PdfColumn };

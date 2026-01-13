@@ -34,8 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generatePdf } from '@/lib/pdfService';
 import type { Database } from '@/integrations/supabase/types';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
@@ -122,7 +121,7 @@ export default function ArchivedItemsList() {
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const exportToPdf = () => {
+  const exportToPdf = async () => {
     if (filteredItems.length === 0) {
       toast({
         title: 'Nenhum item para exportar',
@@ -132,58 +131,36 @@ export default function ArchivedItemsList() {
       return;
     }
 
-    const doc = new jsPDF('landscape');
-    
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Itens Arquivados - Achados e Perdidos', 14, 18);
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Total de itens: ${filteredItems.length}`, 14, 26);
-    doc.text(`Data de geração: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 32);
+    try {
+      await generatePdf({
+        title: 'Itens Arquivados - Achados e Perdidos',
+        subtitle: `Total de itens: ${filteredItems.length}`,
+        columns: [
+          { header: 'Código', accessor: (row) => row.code || '-' },
+          { header: 'Descrição', accessor: (row) => (row.description?.substring(0, 30) + (row.description?.length > 30 ? '...' : '')) || '-' },
+          { header: 'Campus', accessor: (row) => row.campus || '-' },
+          { header: 'Local', accessor: (row) => row.found_location || '-' },
+          { header: 'Dono', accessor: (row) => row.owner_name || '-' },
+          { header: 'Contato', accessor: (row) => row.owner_phone || row.owner_email || '-' },
+          { header: 'Entrega', accessor: (row) => row.delivered_at ? format(new Date(row.delivered_at), 'dd/MM/yy', { locale: ptBR }) : '-' },
+          { header: 'Arquivado', accessor: (row) => row.archived_at ? format(new Date(row.archived_at), 'dd/MM/yy', { locale: ptBR }) : '-' },
+        ],
+        data: filteredItems,
+        orientation: 'landscape',
+        filename: 'itens-arquivados',
+      });
 
-    const tableData = filteredItems.map(item => [
-      item.code || '-',
-      item.description?.substring(0, 30) + (item.description?.length > 30 ? '...' : '') || '-',
-      item.campus || '-',
-      item.found_location || '-',
-      item.owner_name || '-',
-      item.owner_phone || item.owner_email || '-',
-      item.delivered_at ? format(new Date(item.delivered_at), 'dd/MM/yy', { locale: ptBR }) : '-',
-      item.archived_at ? format(new Date(item.archived_at), 'dd/MM/yy', { locale: ptBR }) : '-',
-    ]);
-
-    autoTable(doc, {
-      head: [['Código', 'Descrição', 'Campus', 'Local', 'Dono', 'Contato', 'Entrega', 'Arquivado']],
-      body: tableData,
-      startY: 38,
-      styles: { fontSize: 7, cellPadding: 2 },
-      headStyles: { fillColor: [59, 130, 246], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      margin: { left: 14, right: 14 },
-    });
-
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(
-        `Página ${i} de ${pageCount}`,
-        doc.internal.pageSize.width / 2,
-        doc.internal.pageSize.height - 10,
-        { align: 'center' }
-      );
+      toast({
+        title: 'PDF gerado',
+        description: 'Arquivo baixado com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao gerar PDF',
+        description: error.message || 'Falha ao exportar o relatório.',
+        variant: 'destructive',
+      });
     }
-
-    const fileName = `itens-arquivados-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
-    doc.save(fileName);
-
-    toast({
-      title: 'PDF gerado',
-      description: `Arquivo ${fileName} baixado com sucesso.`,
-    });
   };
 
   const clearFilters = () => {
