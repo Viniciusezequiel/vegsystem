@@ -23,45 +23,38 @@ serve(async (req) => {
       }
     );
 
-    // Allow requests with admin key or from authenticated admin
+    // Require JWT authentication - no hardcoded keys allowed
     const authHeader = req.headers.get('Authorization');
-    const adminKey = req.headers.get('X-Admin-Key');
     
-    // Check for admin key (use a secure comparison)
-    const validAdminKey = 'vegsystem-admin-2024';
-    const isAdminKeyValid = adminKey === validAdminKey;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
     
-    if (!isAdminKeyValid) {
-      if (authHeader) {
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-        
-        if (userError || !user) {
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-          );
-        }
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
 
-        // Check if user is admin
-        const { data: roleData, error: roleError } = await supabaseAdmin
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
+    // Check if user is admin
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
 
-        if (roleError || roleData?.role !== 'admin') {
-          return new Response(
-            JSON.stringify({ error: 'Only admins can update user emails' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
-          );
-        }
-      } else {
-        return new Response(
-          JSON.stringify({ error: 'Authorization required' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-        );
-      }
+    if (roleError || roleData?.role !== 'admin') {
+      return new Response(
+        JSON.stringify({ error: 'Only admins can update user emails' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
     }
 
     const { userId, newEmail } = await req.json();
