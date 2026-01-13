@@ -71,7 +71,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        // Handle token refresh errors - clear corrupted tokens
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.warn('Token refresh failed, clearing corrupted session...');
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setRole(null);
+          setRoleChecked(true);
+          setIsLoading(false);
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -97,8 +110,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // THEN check for existing session - with error handling for corrupted tokens
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      // If there's an error getting session, clear potentially corrupted storage
+      if (error) {
+        console.warn('Error getting session, clearing corrupted tokens:', error.message);
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setRole(null);
+        setRoleChecked(true);
+        setIsLoading(false);
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
 
