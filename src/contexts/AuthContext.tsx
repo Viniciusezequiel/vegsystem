@@ -44,19 +44,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle(),
       ]);
 
-      if (profileResult.data) {
+      if (profileResult.error) {
+        console.error('Error fetching profile:', profileResult.error);
+      } else if (profileResult.data) {
         setProfile(profileResult.data as Profile);
       }
 
-      if (roleResult.data) {
+      if (roleResult.error) {
+        console.error('Error fetching role:', roleResult.error);
+        setRole(null);
+      } else if (roleResult.data) {
         setRole(roleResult.data.role as AppRole);
       } else {
         setRole(null);
       }
-      
-      setRoleChecked(true);
     } catch (error) {
       console.error('Error fetching user data:', error);
+      setProfile(null);
+      setRole(null);
+    } finally {
+      // Always mark role as checked, even on error
       setRoleChecked(true);
     }
   };
