@@ -6,12 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mail, Shield, ArrowLeft } from 'lucide-react';
+import { Loader2, Lock, Mail, Shield, ArrowLeft, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-
+import { useHealthCheck } from '@/hooks/useHealthCheck';
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
   password: z.string().min(6, { message: 'Senha deve ter no mínimo 6 caracteres' }),
@@ -21,6 +21,7 @@ export default function AdminAuth() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading, role } = useAuth();
   const { toast } = useToast();
+  const { status: serverStatus, retry: retryHealthCheck, isOnline } = useHealthCheck();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -151,7 +152,50 @@ export default function AdminAuth() {
     setIsLoading(false);
   };
 
-  if (authLoading) {
+  // Server offline state - show before loading check
+  if (serverStatus === 'offline' || serverStatus === 'timeout') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md glass-morphism border-destructive/30">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+              <WifiOff className="w-8 h-8 text-destructive" />
+            </div>
+            <CardTitle className="text-xl text-destructive">
+              {serverStatus === 'timeout' ? 'Servidor Lento' : 'Servidor Indisponível'}
+            </CardTitle>
+            <CardDescription>
+              {serverStatus === 'timeout' 
+                ? 'O servidor está demorando muito para responder. Isso pode indicar instabilidade temporária.'
+                : 'Não foi possível conectar ao servidor de autenticação. Verifique sua conexão com a internet ou tente novamente em alguns minutos.'
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground text-center space-y-2">
+              <p>Possíveis causas:</p>
+              <ul className="list-disc list-inside text-left">
+                <li>Conexão de internet instável</li>
+                <li>VPN ou firewall bloqueando acesso</li>
+                <li>Bloqueador de anúncios interferindo</li>
+                <li>Manutenção temporária do servidor</li>
+              </ul>
+            </div>
+            <Button 
+              onClick={retryHealthCheck}
+              className="w-full"
+              variant="outline"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (authLoading || serverStatus === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="relative">
@@ -204,6 +248,14 @@ export default function AdminAuth() {
             <CardTitle className="text-3xl font-bold gradient-text">
               Área Administrativa
             </CardTitle>
+          </div>
+          <CardDescription className="text-muted-foreground">
+            Acesso restrito a colaboradores
+          </CardDescription>
+          {/* Server status indicator */}
+          <div className="mt-3 flex items-center justify-center gap-2 text-xs">
+            <CheckCircle2 className="w-3 h-3 text-green-500" />
+            <span className="text-muted-foreground">Servidor online</span>
           </div>
           <CardDescription className="text-muted-foreground">
             Acesso restrito a colaboradores
