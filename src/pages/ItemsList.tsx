@@ -57,8 +57,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generatePdf } from '@/lib/pdfService';
 import * as XLSX from 'xlsx';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -232,49 +231,43 @@ export default function ItemsList() {
     setBulkActionDialog(null);
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Title
-    doc.setFontSize(18);
-    doc.text('Relatório de Achados e Perdidos', 14, 22);
-    
-    // Filter info
-    doc.setFontSize(10);
-    let filterText = `Status: ${statusFilter === 'all' ? 'Todos' : statusFilters.find(f => f.value === statusFilter)?.label}`;
-    if (campusFilter !== 'all') filterText += ` | Campus: ${campusFilter}`;
-    if (dateFrom) filterText += ` | De: ${format(new Date(dateFrom), 'dd/MM/yyyy')}`;
-    if (dateTo) filterText += ` | Até: ${format(new Date(dateTo), 'dd/MM/yyyy')}`;
-    doc.text(filterText, 14, 30);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 36);
-    
-    // Table data
-    const tableData = filteredItems.map(item => [
-      item.code,
-      item.description.substring(0, 40) + (item.description.length > 40 ? '...' : ''),
-      item.campus,
-      item.found_location.substring(0, 25) + (item.found_location.length > 25 ? '...' : ''),
-      format(new Date(item.received_date + 'T00:00:00'), 'dd/MM/yyyy'),
-      item.status === 'available' ? 'Disponível' :
-      item.status === 'pending' ? 'Pendente' :
-      item.status === 'delivered' ? 'Entregue' : 'Expirado',
-      item.shelf || '-',
-      item.box || '-',
-    ]);
-    
-    autoTable(doc, {
-      head: [['Código', 'Descrição', 'Campus', 'Local', 'Recebido', 'Status', 'Prateleira', 'Caixa']],
-      body: tableData,
-      startY: 42,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
-    });
-    
-    doc.save(`achados-perdidos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-    toast({
-      title: 'PDF gerado',
-      description: 'O relatório foi exportado com sucesso.',
-    });
+  const exportToPDF = async () => {
+    try {
+      // Build filters list
+      const appliedFilters: string[] = [];
+      appliedFilters.push(`Status: ${statusFilter === 'all' ? 'Todos' : statusFilters.find(f => f.value === statusFilter)?.label}`);
+      if (campusFilter !== 'all') appliedFilters.push(`Campus: ${campusFilter}`);
+      if (dateFrom) appliedFilters.push(`De: ${format(new Date(dateFrom), 'dd/MM/yyyy')}`);
+      if (dateTo) appliedFilters.push(`Até: ${format(new Date(dateTo), 'dd/MM/yyyy')}`);
+
+      await generatePdf({
+        title: 'Relatório de Achados e Perdidos',
+        columns: [
+          { header: 'Código', accessor: 'code' },
+          { header: 'Descrição', accessor: (row) => row.description.substring(0, 40) + (row.description.length > 40 ? '...' : '') },
+          { header: 'Campus', accessor: 'campus' },
+          { header: 'Local', accessor: (row) => row.found_location.substring(0, 25) + (row.found_location.length > 25 ? '...' : '') },
+          { header: 'Recebido', accessor: (row) => format(new Date(row.received_date + 'T00:00:00'), 'dd/MM/yyyy') },
+          { header: 'Status', accessor: (row) => row.status === 'available' ? 'Disponível' : row.status === 'pending' ? 'Pendente' : row.status === 'delivered' ? 'Entregue' : 'Expirado' },
+          { header: 'Prateleira', accessor: (row) => row.shelf || '-' },
+          { header: 'Caixa', accessor: (row) => row.box || '-' },
+        ],
+        data: filteredItems,
+        filters: appliedFilters,
+        filename: 'achados-perdidos',
+      });
+
+      toast({
+        title: 'PDF gerado',
+        description: 'O relatório foi exportado com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao gerar PDF',
+        description: error.message || 'Falha ao exportar o relatório.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Helper function to parse dates in various formats (DD/MM/YYYY or YYYY-MM-DD)

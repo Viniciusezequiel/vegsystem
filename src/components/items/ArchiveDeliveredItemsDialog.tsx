@@ -17,8 +17,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Archive, AlertTriangle, Loader2, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generatePdf } from '@/lib/pdfService';
 
 interface ArchiveDeliveredItemsDialogProps {
   open: boolean;
@@ -73,71 +72,49 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
     },
   });
 
-  const generatePdf = () => {
+  const handleGeneratePdf = async () => {
     if (itemsToArchive.length === 0) return;
 
-    const doc = new jsPDF('landscape');
-    
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Relatório de Itens Arquivados - Achados e Perdidos', 14, 18);
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    const dateRangeText = dateFrom && dateTo 
-      ? `Período (recebimento): ${format(new Date(dateFrom), 'dd/MM/yyyy')} até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
-      : dateFrom 
-      ? `A partir de (recebimento): ${format(new Date(dateFrom), 'dd/MM/yyyy')}`
-      : dateTo 
-      ? `Até (recebimento): ${format(new Date(dateTo), 'dd/MM/yyyy')}`
-      : 'Todos os itens entregues';
-    doc.text(dateRangeText, 14, 26);
-    doc.text(`Total de itens: ${itemsToArchive.length}`, 14, 32);
-    doc.text(`Data de geração: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 38);
+    try {
+      const dateRangeText = dateFrom && dateTo 
+        ? `Período (recebimento): ${format(new Date(dateFrom), 'dd/MM/yyyy')} até ${format(new Date(dateTo), 'dd/MM/yyyy')}`
+        : dateFrom 
+        ? `A partir de (recebimento): ${format(new Date(dateFrom), 'dd/MM/yyyy')}`
+        : dateTo 
+        ? `Até (recebimento): ${format(new Date(dateTo), 'dd/MM/yyyy')}`
+        : 'Todos os itens entregues';
 
-    const tableData = itemsToArchive.map(item => [
-      item.code || '-',
-      item.description?.substring(0, 35) + (item.description?.length > 35 ? '...' : '') || '-',
-      item.campus || '-',
-      item.found_location || '-',
-      item.shelf || '-',
-      item.box || '-',
-      item.received_date ? format(new Date(item.received_date + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : '-',
-      item.owner_name || '-',
-      item.owner_phone || item.owner_email || '-',
-      item.delivered_at ? format(new Date(item.delivered_at), 'dd/MM/yyyy', { locale: ptBR }) : '-',
-    ]);
+      await generatePdf({
+        title: 'Relatório de Itens Arquivados - Achados e Perdidos',
+        subtitle: `${dateRangeText} | Total de itens: ${itemsToArchive.length}`,
+        columns: [
+          { header: 'Código', accessor: (row) => row.code || '-' },
+          { header: 'Descrição', accessor: (row) => (row.description?.substring(0, 35) + (row.description?.length > 35 ? '...' : '')) || '-' },
+          { header: 'Campus', accessor: (row) => row.campus || '-' },
+          { header: 'Local Achado', accessor: (row) => row.found_location || '-' },
+          { header: 'Estante', accessor: (row) => row.shelf || '-' },
+          { header: 'Caixa', accessor: (row) => row.box || '-' },
+          { header: 'Recebimento', accessor: (row) => row.received_date ? format(new Date(row.received_date + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : '-' },
+          { header: 'Dono', accessor: (row) => row.owner_name || '-' },
+          { header: 'Contato', accessor: (row) => row.owner_phone || row.owner_email || '-' },
+          { header: 'Entrega', accessor: (row) => row.delivered_at ? format(new Date(row.delivered_at), 'dd/MM/yyyy', { locale: ptBR }) : '-' },
+        ],
+        data: itemsToArchive,
+        orientation: 'landscape',
+        filename: 'itens-arquivados',
+      });
 
-    autoTable(doc, {
-      head: [['Código', 'Descrição', 'Campus', 'Local Achado', 'Estante', 'Caixa', 'Recebimento', 'Dono', 'Contato', 'Entrega']],
-      body: tableData,
-      startY: 44,
-      styles: { fontSize: 7, cellPadding: 2 },
-      headStyles: { fillColor: [59, 130, 246], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      margin: { left: 14, right: 14 },
-    });
-
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(
-        `Página ${i} de ${pageCount}`,
-        doc.internal.pageSize.width / 2,
-        doc.internal.pageSize.height - 10,
-        { align: 'center' }
-      );
+      toast({
+        title: 'PDF gerado',
+        description: 'Arquivo baixado com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao gerar PDF',
+        description: error.message || 'Falha ao exportar o relatório.',
+        variant: 'destructive',
+      });
     }
-
-    const fileName = `itens-arquivados-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
-    doc.save(fileName);
-
-    toast({
-      title: 'PDF gerado',
-      description: `Arquivo ${fileName} baixado com sucesso.`,
-    });
   };
 
   const archiveItems = useMutation({
@@ -413,7 +390,7 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
             <Button 
               variant="outline" 
               className="w-full gap-2"
-              onClick={generatePdf}
+              onClick={handleGeneratePdf}
               disabled={itemsToArchive.length === 0}
             >
               <FileDown className="w-4 h-4" />
