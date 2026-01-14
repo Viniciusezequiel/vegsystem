@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { saveEquipmentToCache, loadEquipmentFromCache, saveLoansToCache, loadLoansFromCache } from '@/lib/equipmentCache';
 
 export type Equipment = {
   id: string;
@@ -19,6 +20,7 @@ export type Equipment = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  _pending?: boolean; // Flag for offline-created items
 };
 
 export type EquipmentLoan = {
@@ -39,10 +41,14 @@ export type EquipmentLoan = {
   created_at: string;
   updated_at: string;
   equipment?: Equipment;
+  _pending?: boolean; // Flag for offline-created items
 };
 
 export function useEquipmentList(search?: string) {
   const queryClient = useQueryClient();
+  
+  // Restore from cache on mount
+  const cachedData = loadEquipmentFromCache();
   
   // Set up realtime subscription
   useEffect(() => {
@@ -68,7 +74,25 @@ export function useEquipmentList(search?: string) {
 
   return useQuery({
     queryKey: ['equipment', search],
+    initialData: cachedData ?? undefined,
     queryFn: async () => {
+      // OFFLINE: serve from cache
+      if (!navigator.onLine) {
+        const cached = loadEquipmentFromCache();
+        if (cached) {
+          // Apply search filter client-side
+          if (search) {
+            const q = search.toLowerCase();
+            return cached.filter(e =>
+              e.name?.toLowerCase().includes(q) ||
+              e.patrimony_code?.toLowerCase().includes(q)
+            );
+          }
+          return cached;
+        }
+        return [];
+      }
+
       let query = supabase
         .from('equipment')
         .select('*')
@@ -78,9 +102,31 @@ export function useEquipmentList(search?: string) {
         query = query.or(`name.ilike.%${search}%,patrimony_code.ilike.%${search}%`);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Equipment[];
+      try {
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        // Save to cache (only full list without search)
+        if (!search && data) {
+          saveEquipmentToCache(data as Equipment[]);
+        }
+        
+        return data as Equipment[];
+      } catch (e) {
+        // Fallback to cache on error
+        const cached = loadEquipmentFromCache();
+        if (cached) {
+          if (search) {
+            const q = search.toLowerCase();
+            return cached.filter(eq =>
+              eq.name?.toLowerCase().includes(q) ||
+              eq.patrimony_code?.toLowerCase().includes(q)
+            );
+          }
+          return cached;
+        }
+        throw e;
+      }
     },
   });
 }
@@ -170,6 +216,9 @@ export function useDeleteEquipment() {
 export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
   const queryClient = useQueryClient();
   
+  // Restore from cache on mount
+  const cachedLoans = loadLoansFromCache();
+  
   // Set up realtime subscription for loans
   useEffect(() => {
     const channel = supabase
@@ -195,7 +244,17 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
 
   return useQuery({
     queryKey: ['equipment-loans', status],
+    initialData: cachedLoans ? (status ? cachedLoans.filter(l => l.status === status) : cachedLoans) : undefined,
     queryFn: async () => {
+      // OFFLINE: serve from cache
+      if (!navigator.onLine) {
+        const cached = loadLoansFromCache();
+        if (cached) {
+          return status ? cached.filter(l => l.status === status) : cached;
+        }
+        return [];
+      }
+
       let query = supabase
         .from('equipment_loans')
         .select('*, equipment(*)')
@@ -205,9 +264,24 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
         query = query.eq('status', status);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as EquipmentLoan[];
+      try {
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        // Save to cache (only full list without filter)
+        if (!status && data) {
+          saveLoansToCache(data as EquipmentLoan[]);
+        }
+        
+        return data as EquipmentLoan[];
+      } catch (e) {
+        // Fallback to cache on error
+        const cached = loadLoansFromCache();
+        if (cached) {
+          return status ? cached.filter(l => l.status === status) : cached;
+        }
+        throw e;
+      }
     },
   });
 }
