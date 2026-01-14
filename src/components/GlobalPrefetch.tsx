@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LostItem } from '@/hooks/useLostItems';
+import type { Equipment, EquipmentLoan } from '@/hooks/useEquipment';
 import {
   loadLostItemsFromCache,
   loadCountsFromCache,
@@ -10,11 +11,19 @@ import {
   saveCountsToCache,
   saveImagesToCache,
 } from '@/lib/lostItemsCache';
+import {
+  loadEquipmentFromCache,
+  loadLoansFromCache,
+  saveEquipmentToCache,
+  saveLoansToCache,
+} from '@/lib/equipmentCache';
 import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
 import { setImagePrefetchProgress, resetImagePrefetchProgress } from '@/hooks/useImagePrefetchProgress';
 
 const DEFAULT_QUERY_KEY = ['lost-items', 'available', undefined, 0, 100, undefined, undefined, undefined, undefined];
 const COUNTS_QUERY_KEY = ['lost-items-counts'];
+const EQUIPMENT_QUERY_KEY = ['equipment', undefined];
+const LOANS_QUERY_KEY = ['equipment-loans', undefined];
 
 // Batch size for prefetching images (to avoid overwhelming the database)
 const IMAGE_PREFETCH_BATCH_SIZE = 20;
@@ -37,12 +46,25 @@ export function GlobalPrefetch() {
     const cachedImages = loadImagesFromCache();
     const hasCachedImages = !!cachedImages && Object.keys(cachedImages).length > 0;
 
+    // Restore equipment cache
+    const cachedEquipment = loadEquipmentFromCache();
+    const cachedLoans = loadLoansFromCache();
+
     if (cachedItems) {
       queryClient.setQueryData(DEFAULT_QUERY_KEY, cachedItems);
     }
 
     if (cachedCounts) {
       queryClient.setQueryData(COUNTS_QUERY_KEY, cachedCounts);
+    }
+
+    // Restore equipment to React Query
+    if (cachedEquipment) {
+      queryClient.setQueryData(EQUIPMENT_QUERY_KEY, cachedEquipment);
+    }
+
+    if (cachedLoans) {
+      queryClient.setQueryData(LOANS_QUERY_KEY, cachedLoans);
     }
 
     // Restore cached images to React Query (only valid URLs; don't restore cached nulls)
@@ -65,8 +87,8 @@ export function GlobalPrefetch() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return; // don't poison cache with unauthenticated empty results
 
-        // Fetch items and counts in parallel
-        const [itemsResult, countsResult] = await Promise.all([
+        // Fetch items, counts, equipment, and loans in parallel
+        const [itemsResult, countsResult, equipmentResult, loansResult] = await Promise.all([
           supabase
             .from('lost_items')
             .select(LOST_ITEMS_LIST_SELECT, { count: 'exact' })
@@ -79,6 +101,16 @@ export function GlobalPrefetch() {
             supabase.from('lost_items').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
             supabase.from('lost_items').select('id', { count: 'exact', head: true }).eq('status', 'expired'),
           ]),
+
+          supabase
+            .from('equipment')
+            .select('*')
+            .order('created_at', { ascending: false }),
+
+          supabase
+            .from('equipment_loans')
+            .select('*, equipment(*)')
+            .order('created_at', { ascending: false }),
         ]);
 
         if (!itemsResult.error && itemsResult.data) {
@@ -118,6 +150,20 @@ export function GlobalPrefetch() {
 
           queryClient.setQueryData(COUNTS_QUERY_KEY, countsData);
           saveCountsToCache(countsData);
+        }
+
+        // Process equipment
+        if (!equipmentResult.error && equipmentResult.data) {
+          const equipmentData = equipmentResult.data as Equipment[];
+          queryClient.setQueryData(EQUIPMENT_QUERY_KEY, equipmentData);
+          saveEquipmentToCache(equipmentData);
+        }
+
+        // Process loans
+        if (!loansResult.error && loansResult.data) {
+          const loansData = loansResult.data as EquipmentLoan[];
+          queryClient.setQueryData(LOANS_QUERY_KEY, loansData);
+          saveLoansToCache(loansData);
         }
       } catch (e) {
         console.error('GlobalPrefetch error:', e);

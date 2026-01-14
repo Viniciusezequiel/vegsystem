@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { OfflineProvider } from "@/contexts/OfflineContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ExternalProtectedRoute } from "@/components/ExternalProtectedRoute";
 import { GlobalPrefetch } from "@/components/GlobalPrefetch";
@@ -80,6 +81,7 @@ const App = () => (
         <GlobalPrefetch />
         <BrowserRouter>
           <AuthProvider>
+            <OfflineProvider>
             <Routes>
             {/* Public Routes */}
             <Route path="/auth" element={<Auth />} />
