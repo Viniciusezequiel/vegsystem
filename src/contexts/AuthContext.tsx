@@ -28,6 +28,60 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_BOOT_TIMEOUT_MS = 8000;
+const USERDATA_TIMEOUT_MS = 8000;
+const CACHED_USER_DATA_KEY = 'auth-cached-user-data:v1';
+
+type CachedUserData = {
+  userId: string;
+  role: AppRole | null;
+  profile: Profile | null;
+  savedAt: number;
+};
+
+function safeJsonParse<T>(value: string | null): T | null {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timeoutId: number | undefined;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(`timeout:${label}`)), ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  });
+}
+
+function loadCachedUserData(userId: string): CachedUserData | null {
+  const cached = safeJsonParse<CachedUserData>(localStorage.getItem(CACHED_USER_DATA_KEY));
+  if (!cached) return null;
+  if (cached.userId !== userId) return null;
+  return cached;
+}
+
+function saveCachedUserData(data: CachedUserData) {
+  try {
+    localStorage.setItem(CACHED_USER_DATA_KEY, JSON.stringify(data));
+  } catch {
+    // ignore quota / blocked storage
+  }
+}
+
+function clearCachedUserData() {
+  try {
+    localStorage.removeItem(CACHED_USER_DATA_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -36,34 +90,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [roleChecked, setRoleChecked] = useState(false);
 
+  const applyCachedUserData = (userId: string) => {
+    const cached = loadCachedUserData(userId);
+    if (!cached) return false;
+
+    setProfile(cached.profile);
+    setRole(cached.role);
+    setRoleChecked(true);
+    setIsLoading(false);
+    return true;
+  };
+
   const fetchUserData = async (userId: string) => {
     try {
-      // Fetch profile and role in parallel for better performance
-      const [profileResult, roleResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
-        supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle(),
-      ]);
+      // Fetch profile and role in parallel for better performance (bounded by timeout)
+      const [profileResult, roleResult] = await withTimeout(
+        Promise.all([
+          supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
+          supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle(),
+        ]),
+        USERDATA_TIMEOUT_MS,
+        'fetchUserData'
+      );
 
-      if (profileResult.error) {
+      const nextProfile = profileResult?.data ? (profileResult.data as Profile) : null;
+      const nextRole = roleResult?.data?.role ? (roleResult.data.role as AppRole) : null;
+
+      if (profileResult?.error) {
         console.error('Error fetching profile:', profileResult.error);
-      } else if (profileResult.data) {
-        setProfile(profileResult.data as Profile);
+      }
+      if (roleResult?.error) {
+        console.error('Error fetching role:', roleResult.error);
       }
 
-      if (roleResult.error) {
-        console.error('Error fetching role:', roleResult.error);
-        setRole(null);
-      } else if (roleResult.data) {
-        setRole(roleResult.data.role as AppRole);
-      } else {
-        setRole(null);
-      }
+      setProfile(nextProfile);
+      setRole(nextRole);
+
+      saveCachedUserData({
+        userId,
+        profile: nextProfile,
+        role: nextRole,
+        savedAt: Date.now(),
+      });
     } catch (error) {
+      // Important: do NOT wipe cached data on transient network failures
       console.error('Error fetching user data:', error);
-      setProfile(null);
-      setRole(null);
     } finally {
-      // Always mark role as checked, even on error
+      // Always mark role as checked, even on error/timeout
       setRoleChecked(true);
     }
   };
@@ -71,98 +144,120 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
+    const resetUserState = () => {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setRole(null);
+      setRoleChecked(false);
+    };
 
-        // Handle token refresh errors - clear corrupted tokens
-        if (event === 'TOKEN_REFRESHED' && !session) {
-          console.warn('Token refresh failed, clearing corrupted session...');
-          // Force clear localStorage directly to remove corrupted tokens
-          localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
-          await supabase.auth.signOut();
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setRole(null);
-          setRoleChecked(true);
-          setIsLoading(false);
-          return;
-        }
+    const handleSignedOut = () => {
+      // Force clear localStorage on signout
+      localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
+      clearCachedUserData();
+      resetUserState();
+      setRoleChecked(true);
+      setIsLoading(false);
+    };
 
-        setSession(session);
-        setUser(session?.user ?? null);
+    const handleAuthenticatedSession = async (nextSession: Session) => {
+      setSession(nextSession);
+      setUser(nextSession.user);
 
-        // Defer Supabase calls with setTimeout to prevent deadlock
-        if (session?.user) {
-          setTimeout(async () => {
-            if (!mounted) return;
-            await fetchUserData(session.user.id);
-            setIsLoading(false);
-          }, 0);
-        } else {
-          setProfile(null);
-          setRole(null);
-          setRoleChecked(true);
-          setIsLoading(false);
-        }
+      // Try cached data first to avoid app lock when backend is unstable
+      const hasCached = applyCachedUserData(nextSession.user.id);
 
-        if (event === 'SIGNED_OUT') {
-          // Force clear localStorage on signout
-          localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
-          setProfile(null);
-          setRole(null);
-          setRoleChecked(false);
-          setIsLoading(false);
-        }
+      // If no cached, we must resolve role before rendering protected routes
+      if (!hasCached) {
+        setIsLoading(true);
       }
-    );
 
-    // THEN check for existing session - with error handling for corrupted tokens
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      await fetchUserData(nextSession.user.id);
+      setIsLoading(false);
+    };
+
+    // Set up auth state listener FIRST
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!mounted) return;
 
-      // If there's an error getting session, clear potentially corrupted storage
-      if (error) {
-        console.warn('Error getting session, clearing corrupted tokens:', error.message);
-        // Force clear localStorage to remove corrupted tokens
+      // Handle token refresh errors - clear corrupted tokens
+      if (event === 'TOKEN_REFRESHED' && !nextSession) {
+        console.warn('Token refresh failed, clearing corrupted session...');
         localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
+        clearCachedUserData();
         await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setRole(null);
+        resetUserState();
         setRoleChecked(true);
         setIsLoading(false);
         return;
       }
 
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        await fetchUserData(session.user.id);
-      } else {
-        setRoleChecked(true);
+      if (event === 'SIGNED_OUT') {
+        handleSignedOut();
+        return;
       }
 
-      setIsLoading(false);
-    }).catch(async (err) => {
-      // Catch any network errors on initial load
-      console.error('Failed to get session on mount:', err);
-      if (!mounted) return;
-      
-      // Clear potentially corrupted tokens
-      localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
-      await supabase.auth.signOut();
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setRole(null);
+      if (nextSession?.user) {
+        // Resolve using cached data quickly, then refresh with bounded fetch
+        // Defer Supabase calls with setTimeout to prevent deadlock
+        setTimeout(async () => {
+          if (!mounted) return;
+          try {
+            await handleAuthenticatedSession(nextSession);
+          } catch (err) {
+            console.error('Failed handling auth session:', err);
+            setRoleChecked(true);
+            setIsLoading(false);
+          }
+        }, 0);
+        return;
+      }
+
+      // No session
+      resetUserState();
       setRoleChecked(true);
       setIsLoading(false);
     });
+
+    // THEN check for existing session - bounded by timeout to avoid infinite loading
+    withTimeout(supabase.auth.getSession(), AUTH_BOOT_TIMEOUT_MS, 'getSession')
+      .then(async ({ data: { session: initialSession }, error }) => {
+        if (!mounted) return;
+
+        // If there's an error getting session, clear potentially corrupted storage
+        if (error) {
+          console.warn('Error getting session, clearing corrupted tokens:', error.message);
+          localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
+          clearCachedUserData();
+          await supabase.auth.signOut();
+          resetUserState();
+          setRoleChecked(true);
+          setIsLoading(false);
+          return;
+        }
+
+        if (initialSession?.user) {
+          await handleAuthenticatedSession(initialSession);
+          return;
+        }
+
+        // No session
+        resetUserState();
+        setRoleChecked(true);
+        setIsLoading(false);
+      })
+      .catch(async (err) => {
+        // Catch any network errors / timeouts on initial load
+        console.error('Failed to get session on mount:', err);
+        if (!mounted) return;
+
+        // Don't block the app forever: allow routes to decide (redirect to /admin-auth)
+        setRoleChecked(true);
+        setIsLoading(false);
+      });
 
     return () => {
       mounted = false;
@@ -182,6 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setProfile(null);
     setRole(null);
+    clearCachedUserData();
   };
 
   const value: AuthContextType = {
@@ -196,11 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSupervisor: role === 'supervisor',
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
