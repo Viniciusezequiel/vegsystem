@@ -82,270 +82,271 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <OfflineProvider>
-            <Routes>
-            {/* Public Routes */}
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/admin-auth" element={<AdminAuth />} />
-            <Route path="/setup" element={<Setup />} />
-            
-            {/* Protected Routes */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <DashboardStats />
-              </ProtectedRoute>
-            } />
-            
-            {/* Lost and Found Module */}
-            <Route path="/lost-found" element={
-              <ProtectedRoute>
-                <ItemsList />
-              </ProtectedRoute>
-            } />
-            <Route path="/lost-found/register" element={
-              <ProtectedRoute>
-                <RegisterItem />
-              </ProtectedRoute>
-            } />
-            <Route path="/lost-found/items" element={
-              <ProtectedRoute>
-                <ItemsList />
-              </ProtectedRoute>
-            } />
-            <Route path="/lost-found/items/:id" element={
-              <ProtectedRoute>
-                <ItemDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/lost-found/history" element={
-              <ProtectedRoute>
-                <History />
-              </ProtectedRoute>
-            } />
-            <Route path="/lost-found/archived" element={
-              <ProtectedRoute>
-                <ArchivedItemsList />
-              </ProtectedRoute>
-            } />
-            
-            {/* Equipment Module */}
-            <Route path="/equipment" element={
-              <ProtectedRoute>
-                <EquipmentList />
-              </ProtectedRoute>
-            } />
-            <Route path="/equipment/register" element={
-              <ProtectedRoute>
-                <EquipmentRegister />
-              </ProtectedRoute>
-            } />
-            <Route path="/equipment/loans" element={
-              <ProtectedRoute>
-                <EquipmentLoans />
-              </ProtectedRoute>
-            } />
-            <Route path="/equipment/loan/new" element={
-              <ProtectedRoute>
-                <EquipmentLoanForm />
-              </ProtectedRoute>
-            } />
-            <Route path="/equipment/edit/:id" element={
-              <ProtectedRoute>
-                <EquipmentRegister />
-              </ProtectedRoute>
-            } />
-            <Route path="/equipment/external-requests" element={
-              <ProtectedRoute>
-                <ExternalEquipmentRequestsList />
-              </ProtectedRoute>
-            } />
-            {/* Legacy route - redirect to main equipment page */}
-            <Route path="/equipment/inventory" element={<Navigate to="/equipment" replace />} />
-            
-            {/* Rooms Module */}
-            <Route path="/rooms" element={
-              <ProtectedRoute>
-                <RoomsList />
-              </ProtectedRoute>
-            } />
-            <Route path="/rooms/checklist/new" element={
-              <ProtectedRoute>
-                <ChecklistForm />
-              </ProtectedRoute>
-            } />
-            <Route path="/rooms/checklists" element={
-              <ProtectedRoute>
-                <ChecklistHistory />
-              </ProtectedRoute>
-            } />
-            
-            {/* Lockers Module */}
-            <Route path="/lockers" element={
-              <ProtectedRoute>
-                <LockersList />
-              </ProtectedRoute>
-            } />
-            <Route path="/lockers/loan/new" element={
-              <ProtectedRoute>
-                <LockerLoanForm />
-              </ProtectedRoute>
-            } />
-            <Route path="/lockers/loans" element={
-              <ProtectedRoute>
-                <LockerLoans />
-              </ProtectedRoute>
-            } />
-            <Route path="/lockers/allocations" element={
-              <ProtectedRoute>
-                <LockerLoans />
-              </ProtectedRoute>
-            } />
-            
-            {/* Reservations Module */}
-            <Route path="/reservations" element={
-              <ProtectedRoute>
-                <ReservationRoomsList />
-              </ProtectedRoute>
-            } />
-            <Route path="/reservations/list" element={
-              <ProtectedRoute>
-                <ReservationsList />
-              </ProtectedRoute>
-            } />
-            <Route path="/reservations/new" element={
-              <ProtectedRoute>
-                <ReservationForm />
-              </ProtectedRoute>
-            } />
-            <Route path="/reservations/calendar" element={
-              <ProtectedRoute>
-                <ReservationsCalendar />
-              </ProtectedRoute>
-            } />
-            <Route path="/reservations/logs" element={
-              <ProtectedRoute>
-                <ReservationLogs />
-              </ProtectedRoute>
-            } />
-            <Route path="/reservations/approvals" element={
-              <ProtectedRoute>
-                <ReservationApprovals />
-              </ProtectedRoute>
-            } />
-            <Route path="/reservations/reschedulings" element={
-              <ProtectedRoute>
-                <ReschedulingsList />
-              </ProtectedRoute>
-            } />
-            <Route path="/booking-auth" element={<Navigate to="/auth" replace />} />
-            <Route path="/booking" element={
-              <ExternalProtectedRoute>
-                <ExternalBooking />
-              </ExternalProtectedRoute>
-            } />
-            <Route path="/booking/profile" element={
-              <ExternalProtectedRoute>
-                <ExternalProfile />
-              </ExternalProtectedRoute>
-            } />
-            <Route path="/booking/dashboard" element={
-              <ExternalProtectedRoute>
-                <ExternalDashboard />
-              </ExternalProtectedRoute>
-            } />
-            
-            {/* Materials Module */}
-            <Route path="/materials" element={
-              <ProtectedRoute>
-                <MaterialRequestsList />
-              </ProtectedRoute>
-            } />
-            <Route path="/materials/new" element={
-              <ProtectedRoute>
-                <MaterialRequestForm />
-              </ProtectedRoute>
-            } />
-            <Route path="/materials/my-requests" element={
-              <ProtectedRoute>
-                <MyMaterialRequests />
-              </ProtectedRoute>
-            } />
-            
-            {/* Classroom Calls Module */}
-            <Route path="/chamado-sala" element={<ClassroomCallForm />} />
-            <Route path="/classroom-calls" element={
-              <ProtectedRoute>
-                <ClassroomCallsList />
-              </ProtectedRoute>
-            } />
-            
-            {/* Tasks Module */}
-            <Route path="/tasks" element={
-              <ProtectedRoute>
-                <TasksList />
-              </ProtectedRoute>
-            } />
-            <Route path="/tasks/my-tasks" element={
-              <ProtectedRoute>
-                <MyTasks />
-              </ProtectedRoute>
-            } />
-            <Route path="/tasks/dashboard" element={
-              <ProtectedRoute>
-                <TasksDashboard />
-              </ProtectedRoute>
-            } />
-            
-            {/* Legacy routes */}
-            <Route path="/register" element={
-              <ProtectedRoute>
-                <RegisterItem />
-              </ProtectedRoute>
-            } />
-            <Route path="/items" element={
-              <ProtectedRoute>
-                <ItemsList />
-              </ProtectedRoute>
-            } />
-            <Route path="/items/:id" element={
-              <ProtectedRoute>
-                <ItemDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/history" element={
-              <ProtectedRoute>
-                <History />
-              </ProtectedRoute>
-            } />
-            
-            {/* System - Admin only */}
-            <Route path="/users" element={
-              <ProtectedRoute requireAdmin>
-                <Users />
-              </ProtectedRoute>
-            } />
-            <Route path="/permissions" element={
-              <ProtectedRoute requireAdmin>
-                <Permissions />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="/reports" element={
-              <ProtectedRoute>
-                <Reports />
-              </ProtectedRoute>
-            } />
-            <Route path="/activity-history" element={
-              <ProtectedRoute>
-                <ActivityHistory />
-              </ProtectedRoute>
-            } />
-            
+              <Routes>
+              {/* Public Routes */}
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/admin-auth" element={<AdminAuth />} />
+              <Route path="/setup" element={<Setup />} />
+              
+              {/* Protected Routes */}
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <DashboardStats />
+                </ProtectedRoute>
+              } />
+              
+              {/* Lost and Found Module */}
+              <Route path="/lost-found" element={
+                <ProtectedRoute>
+                  <ItemsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/lost-found/register" element={
+                <ProtectedRoute>
+                  <RegisterItem />
+                </ProtectedRoute>
+              } />
+              <Route path="/lost-found/items" element={
+                <ProtectedRoute>
+                  <ItemsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/lost-found/items/:id" element={
+                <ProtectedRoute>
+                  <ItemDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/lost-found/history" element={
+                <ProtectedRoute>
+                  <History />
+                </ProtectedRoute>
+              } />
+              <Route path="/lost-found/archived" element={
+                <ProtectedRoute>
+                  <ArchivedItemsList />
+                </ProtectedRoute>
+              } />
+              
+              {/* Equipment Module */}
+              <Route path="/equipment" element={
+                <ProtectedRoute>
+                  <EquipmentList />
+                </ProtectedRoute>
+              } />
+              <Route path="/equipment/register" element={
+                <ProtectedRoute>
+                  <EquipmentRegister />
+                </ProtectedRoute>
+              } />
+              <Route path="/equipment/loans" element={
+                <ProtectedRoute>
+                  <EquipmentLoans />
+                </ProtectedRoute>
+              } />
+              <Route path="/equipment/loan/new" element={
+                <ProtectedRoute>
+                  <EquipmentLoanForm />
+                </ProtectedRoute>
+              } />
+              <Route path="/equipment/edit/:id" element={
+                <ProtectedRoute>
+                  <EquipmentRegister />
+                </ProtectedRoute>
+              } />
+              <Route path="/equipment/external-requests" element={
+                <ProtectedRoute>
+                  <ExternalEquipmentRequestsList />
+                </ProtectedRoute>
+              } />
+              {/* Legacy route - redirect to main equipment page */}
+              <Route path="/equipment/inventory" element={<Navigate to="/equipment" replace />} />
+              
+              {/* Rooms Module */}
+              <Route path="/rooms" element={
+                <ProtectedRoute>
+                  <RoomsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/rooms/checklist/new" element={
+                <ProtectedRoute>
+                  <ChecklistForm />
+                </ProtectedRoute>
+              } />
+              <Route path="/rooms/checklists" element={
+                <ProtectedRoute>
+                  <ChecklistHistory />
+                </ProtectedRoute>
+              } />
+              
+              {/* Lockers Module */}
+              <Route path="/lockers" element={
+                <ProtectedRoute>
+                  <LockersList />
+                </ProtectedRoute>
+              } />
+              <Route path="/lockers/loan/new" element={
+                <ProtectedRoute>
+                  <LockerLoanForm />
+                </ProtectedRoute>
+              } />
+              <Route path="/lockers/loans" element={
+                <ProtectedRoute>
+                  <LockerLoans />
+                </ProtectedRoute>
+              } />
+              <Route path="/lockers/allocations" element={
+                <ProtectedRoute>
+                  <LockerLoans />
+                </ProtectedRoute>
+              } />
+              
+              {/* Reservations Module */}
+              <Route path="/reservations" element={
+                <ProtectedRoute>
+                  <ReservationRoomsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/list" element={
+                <ProtectedRoute>
+                  <ReservationsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/new" element={
+                <ProtectedRoute>
+                  <ReservationForm />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/calendar" element={
+                <ProtectedRoute>
+                  <ReservationsCalendar />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/logs" element={
+                <ProtectedRoute>
+                  <ReservationLogs />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/approvals" element={
+                <ProtectedRoute>
+                  <ReservationApprovals />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/reschedulings" element={
+                <ProtectedRoute>
+                  <ReschedulingsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/booking-auth" element={<Navigate to="/auth" replace />} />
+              <Route path="/booking" element={
+                <ExternalProtectedRoute>
+                  <ExternalBooking />
+                </ExternalProtectedRoute>
+              } />
+              <Route path="/booking/profile" element={
+                <ExternalProtectedRoute>
+                  <ExternalProfile />
+                </ExternalProtectedRoute>
+              } />
+              <Route path="/booking/dashboard" element={
+                <ExternalProtectedRoute>
+                  <ExternalDashboard />
+                </ExternalProtectedRoute>
+              } />
+              
+              {/* Materials Module */}
+              <Route path="/materials" element={
+                <ProtectedRoute>
+                  <MaterialRequestsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/materials/new" element={
+                <ProtectedRoute>
+                  <MaterialRequestForm />
+                </ProtectedRoute>
+              } />
+              <Route path="/materials/my-requests" element={
+                <ProtectedRoute>
+                  <MyMaterialRequests />
+                </ProtectedRoute>
+              } />
+              
+              {/* Classroom Calls Module */}
+              <Route path="/chamado-sala" element={<ClassroomCallForm />} />
+              <Route path="/classroom-calls" element={
+                <ProtectedRoute>
+                  <ClassroomCallsList />
+                </ProtectedRoute>
+              } />
+              
+              {/* Tasks Module */}
+              <Route path="/tasks" element={
+                <ProtectedRoute>
+                  <TasksList />
+                </ProtectedRoute>
+              } />
+              <Route path="/tasks/my-tasks" element={
+                <ProtectedRoute>
+                  <MyTasks />
+                </ProtectedRoute>
+              } />
+              <Route path="/tasks/dashboard" element={
+                <ProtectedRoute>
+                  <TasksDashboard />
+                </ProtectedRoute>
+              } />
+              
+              {/* Legacy routes */}
+              <Route path="/register" element={
+                <ProtectedRoute>
+                  <RegisterItem />
+                </ProtectedRoute>
+              } />
+              <Route path="/items" element={
+                <ProtectedRoute>
+                  <ItemsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/items/:id" element={
+                <ProtectedRoute>
+                  <ItemDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/history" element={
+                <ProtectedRoute>
+                  <History />
+                </ProtectedRoute>
+              } />
+              
+              {/* System - Admin only */}
+              <Route path="/users" element={
+                <ProtectedRoute requireAdmin>
+                  <Users />
+                </ProtectedRoute>
+              } />
+              <Route path="/permissions" element={
+                <ProtectedRoute requireAdmin>
+                  <Permissions />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="/reports" element={
+                <ProtectedRoute>
+                  <Reports />
+                </ProtectedRoute>
+              } />
+              <Route path="/activity-history" element={
+                <ProtectedRoute>
+                  <ActivityHistory />
+                </ProtectedRoute>
+              } />
+              
               <Route path="*" element={<NotFound />} />
-            </Routes>
+              </Routes>
+            </OfflineProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
