@@ -125,29 +125,16 @@ export default function AdminAuth() {
     }
 
     if (data.user) {
-      // Check role in a single optimized query
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .maybeSingle();
-
-      if (roleData) {
-        toast({
-          title: 'Login realizado',
-          description: 'Bem-vindo ao painel administrativo!',
-        });
-        // AuthContext will handle the rest, just navigate
-        navigate('/', { replace: true });
-      } else {
-        await supabase.auth.signOut();
-        toast({
-          title: 'Acesso negado',
-          description: 'Esta área é restrita a colaboradores.',
-          variant: 'destructive',
-        });
-      }
+      // Não bloqueie o login validando permissões aqui.
+      // A validação de papel/perfil acontece no AuthContext/ProtectedRoute.
+      // Isso evita loops quando o backend está instável ou a consulta de roles falha.
+      toast({
+        title: 'Login realizado',
+        description: 'Validando permissões...',
+      });
+      navigate('/', { replace: true });
     }
+
 
     setIsLoading(false);
   };
