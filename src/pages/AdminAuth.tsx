@@ -152,50 +152,9 @@ export default function AdminAuth() {
     setIsLoading(false);
   };
 
-  // Server offline state - show before loading check
-  if (serverStatus === 'offline' || serverStatus === 'timeout') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md glass-morphism border-destructive/30">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
-              <WifiOff className="w-8 h-8 text-destructive" />
-            </div>
-            <CardTitle className="text-xl text-destructive">
-              {serverStatus === 'timeout' ? 'Servidor Lento' : 'Servidor Indisponível'}
-            </CardTitle>
-            <CardDescription>
-              {serverStatus === 'timeout' 
-                ? 'O servidor está demorando muito para responder. Isso pode indicar instabilidade temporária.'
-                : 'Não foi possível conectar ao servidor de autenticação. Verifique sua conexão com a internet ou tente novamente em alguns minutos.'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-sm text-muted-foreground text-center space-y-2">
-              <p>Possíveis causas:</p>
-              <ul className="list-disc list-inside text-left">
-                <li>Conexão de internet instável</li>
-                <li>VPN ou firewall bloqueando acesso</li>
-                <li>Bloqueador de anúncios interferindo</li>
-                <li>Manutenção temporária do servidor</li>
-              </ul>
-            </div>
-            <Button 
-              onClick={retryHealthCheck}
-              className="w-full"
-              variant="outline"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (authLoading || serverStatus === 'checking') {
+  // Server status is informational; do not block the login UI.
+  // (The /auth/v1/health endpoint can be slow or blocked by network policies even when login works.)
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="relative">
