@@ -106,12 +106,26 @@ export default function AdminAuth() {
     const { error, data } = signInResult;
 
     if (error) {
+      const raw = String(error.message ?? '');
+      const isNetwork = /failed to fetch/i.test(raw) || /network/i.test(raw);
+
+      if (isNetwork) {
+        toast({
+          title: 'Falha de conexão',
+          description:
+            'Não foi possível conectar ao servidor de login. Verifique internet/rede (VPN, firewall ou bloqueador de anúncios) e tente novamente.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
       let message = 'Erro ao fazer login. Verifique suas credenciais.';
-      if (error.message.includes('Invalid login credentials')) {
+      if (raw.includes('Invalid login credentials')) {
         message = 'Email ou senha incorretos.';
-      } else if (error.message.includes('Email not confirmed')) {
+      } else if (raw.includes('Email not confirmed')) {
         message = 'Email não confirmado. Contate o administrador.';
-      } else if (error.message.includes('User not found')) {
+      } else if (raw.includes('User not found')) {
         message = 'Usuário não encontrado.';
       }
 
@@ -123,6 +137,7 @@ export default function AdminAuth() {
       setIsLoading(false);
       return;
     }
+
 
     if (data.user) {
       // Não bloqueie o login validando permissões aqui.
@@ -200,12 +215,33 @@ export default function AdminAuth() {
           </CardDescription>
           {/* Server status indicator */}
           <div className="mt-3 flex items-center justify-center gap-2 text-xs">
-            <CheckCircle2 className="w-3 h-3 text-green-500" />
-            <span className="text-muted-foreground">Servidor online</span>
+            {serverStatus === 'checking' ? (
+              <>
+                <RefreshCw className="w-3 h-3 animate-spin text-primary" />
+                <span className="text-muted-foreground">Verificando servidor…</span>
+              </>
+            ) : serverStatus === 'online' ? (
+              <>
+                <CheckCircle2 className="w-3 h-3 text-primary" />
+                <span className="text-muted-foreground">Servidor online</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3 h-3 text-destructive" />
+                <span className="text-muted-foreground">
+                  {isOnline ? 'Servidor indisponível' : 'Sem internet'}
+                </span>
+                <button
+                  type="button"
+                  onClick={retryHealthCheck}
+                  className="text-primary hover:underline"
+                >
+                  Tentar novamente
+                </button>
+              </>
+            )}
           </div>
-          <CardDescription className="text-muted-foreground">
-            Acesso restrito a colaboradores
-          </CardDescription>
+
         </CardHeader>
         
         <CardContent>
