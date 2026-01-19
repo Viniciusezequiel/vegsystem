@@ -252,6 +252,7 @@ export function useCreateLostItem() {
       received_date: string;
       shelf?: string;
       box?: string;
+      box_number?: string;
       seal_number?: string;
       delivered_by_name: string;
       delivered_by_contact?: string;

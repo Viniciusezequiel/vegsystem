@@ -295,53 +295,67 @@ export default function ChecklistForm() {
   const handleSubmit = async () => {
     if (!canProceedStep2 || !allFieldsAnswered || !allPendingValid || !allNaapPendingValid || !allRoomItemsPendingValid) return;
 
-    // Create answers array from all fields
-    const answersArray: { question_id: string; answer: boolean; notes?: string }[] = [];
+    // Build a comprehensive observations string with all the checklist data
+    // This approach works because the current checklist_answers table expects UUID question_ids
+    // but our custom fields use string IDs. We store everything in observations instead.
     
-    // Add NAAP fields
+    const checklistSummary: string[] = [];
+    
+    // NAAP Resources Summary
+    checklistSummary.push('=== RECURSOS NAAP ===');
     naapFields.forEach(field => {
-      answersArray.push({
-        question_id: field.id,
-        answer: field.status === 'consta',
-        notes: field.isNaapPending 
-          ? `Status: ${field.status === 'consta' ? 'Consta' : 'Não consta'} | Pendência NAAP | Tratativa: ${field.treatment}`
-          : `Status: ${field.status === 'consta' ? 'Consta' : 'Não consta'}`,
-      });
+      const status = field.status === 'consta' ? 'Consta' : 'Não consta';
+      if (field.isNaapPending) {
+        checklistSummary.push(`• ${field.label}: ${status} [PENDÊNCIA] - Tratativa: ${field.treatment}`);
+      } else {
+        checklistSummary.push(`• ${field.label}: ${status}`);
+      }
     });
     
-    // Add category fields
+    // Categories Summary
+    checklistSummary.push('\n=== CATEGORIAS ===');
     categoryFields.forEach(field => {
-      answersArray.push({
-        question_id: field.id,
-        answer: field.status === 'verificado',
-        notes: field.status === 'pendente' 
-          ? `Itens pendentes: ${field.selectedSubItems.join(', ')} | Tratativa: ${field.treatment}`
-          : undefined,
-      });
+      const status = field.status === 'verificado' ? 'Verificado' : 'Pendente';
+      if (field.status === 'pendente' && field.selectedSubItems.length > 0) {
+        checklistSummary.push(`• ${field.label}: ${status}`);
+        checklistSummary.push(`  Itens pendentes: ${field.selectedSubItems.join(', ')}`);
+        checklistSummary.push(`  Tratativa: ${field.treatment}`);
+      } else {
+        checklistSummary.push(`• ${field.label}: ${status}`);
+      }
     });
-
-    // Add room-specific checklist items
-    roomChecklistItems.forEach(item => {
-      answersArray.push({
-        question_id: item.id,
-        answer: item.status === 'consta',
-        notes: item.isNaapPending 
-          ? `Status: ${item.status === 'consta' ? 'Consta' : 'Não consta'} | Pendência NAAP | Tratativa: ${item.treatment}`
-          : `Status: ${item.status === 'consta' ? 'Consta' : 'Não consta'}`,
+    
+    // Room-specific items
+    if (roomChecklistItems.length > 0) {
+      checklistSummary.push('\n=== RECURSOS DO AMBIENTE ===');
+      roomChecklistItems.forEach(item => {
+        const status = item.status === 'consta' ? 'Consta' : 'Não consta';
+        if (item.isNaapPending) {
+          checklistSummary.push(`• ${item.label}: ${status} [PENDÊNCIA] - Tratativa: ${item.treatment}`);
+        } else {
+          checklistSummary.push(`• ${item.label}: ${status}`);
+        }
       });
-    });
+    }
+    
+    // Add furniture count if provided
+    if (furnitureCount) {
+      checklistSummary.push(`\nQuantidade de mobiliário: ${furnitureCount}`);
+    }
+    
+    // Add user observations
+    if (observations) {
+      checklistSummary.push(`\n=== OBSERVAÇÕES GERAIS ===\n${observations}`);
+    }
 
-    // Add furniture count as observation
-    const fullObservations = furnitureCount 
-      ? `Quantidade de mobiliário: ${furnitureCount}${observations ? `\n${observations}` : ''}`
-      : observations;
+    const fullObservations = checklistSummary.join('\n');
 
-    // Create checklist for the selected room
+    // Create checklist without answers (store everything in observations)
     await createChecklist.mutateAsync({
       room_id: selectedRoom,
       shift,
-      observations: fullObservations || undefined,
-      answers: answersArray,
+      observations: fullObservations,
+      answers: [], // Empty array since we're storing data in observations
     });
 
     navigate('/rooms/checklists');

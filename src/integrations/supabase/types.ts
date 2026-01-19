@@ -651,6 +651,7 @@ export type Database = {
       lost_items: {
         Row: {
           box: string | null
+          box_number: string | null
           campus: Database["public"]["Enums"]["campus_enum"]
           code: string
           created_at: string
@@ -676,6 +677,7 @@ export type Database = {
         }
         Insert: {
           box?: string | null
+          box_number?: string | null
           campus: Database["public"]["Enums"]["campus_enum"]
           code: string
           created_at?: string
@@ -701,6 +703,7 @@ export type Database = {
         }
         Update: {
           box?: string | null
+          box_number?: string | null
           campus?: Database["public"]["Enums"]["campus_enum"]
           code?: string
           created_at?: string
@@ -732,6 +735,7 @@ export type Database = {
           archived_by: string | null
           archived_by_name: string | null
           box: string | null
+          box_number: string | null
           campus: Database["public"]["Enums"]["campus_enum"]
           code: string
           created_at: string
@@ -761,6 +765,7 @@ export type Database = {
           archived_by?: string | null
           archived_by_name?: string | null
           box?: string | null
+          box_number?: string | null
           campus: Database["public"]["Enums"]["campus_enum"]
           code: string
           created_at?: string
@@ -790,6 +795,7 @@ export type Database = {
           archived_by?: string | null
           archived_by_name?: string | null
           box?: string | null
+          box_number?: string | null
           campus?: Database["public"]["Enums"]["campus_enum"]
           code?: string
           created_at?: string
@@ -876,6 +882,7 @@ export type Database = {
           created_at: string
           department: string
           email: string | null
+          force_password_change: boolean | null
           full_name: string
           id: string
           is_active: boolean
@@ -888,6 +895,7 @@ export type Database = {
           created_at?: string
           department?: string
           email?: string | null
+          force_password_change?: boolean | null
           full_name: string
           id?: string
           is_active?: boolean
@@ -900,6 +908,7 @@ export type Database = {
           created_at?: string
           department?: string
           email?: string | null
+          force_password_change?: boolean | null
           full_name?: string
           id?: string
           is_active?: boolean
