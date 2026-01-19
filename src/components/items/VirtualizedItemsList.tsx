@@ -4,7 +4,7 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LazyItemImage } from '@/components/items/LazyItemImage';
-import { MapPin, Calendar, Building2, Loader2 } from 'lucide-react';
+import { MapPin, Calendar, Building2, Loader2, Package } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -84,6 +84,12 @@ const ItemCard = memo(function ItemCard({
               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
               <span>{format(new Date(item.found_date + 'T00:00:00'), "dd 'de' MMM", { locale: ptBR })}</span>
             </div>
+            {item.box_number && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Package className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">Caixa {item.box_number}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

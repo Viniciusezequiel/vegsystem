@@ -25,6 +25,7 @@ import DashboardStats from "./pages/DashboardStats";
 import NotFound from "./pages/NotFound";
 import Permissions from "./pages/Permissions";
 import ActivityHistory from "./pages/ActivityHistory";
+import ChangePassword from "./pages/ChangePassword";
 
 // Equipment Module
 import EquipmentList from "./pages/equipment/EquipmentList";
@@ -87,6 +88,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin-auth" element={<AdminAuth />} />
               <Route path="/setup" element={<Setup />} />
+              <Route path="/change-password" element={<ChangePassword />} />
               
               {/* Protected Routes */}
               <Route path="/" element={

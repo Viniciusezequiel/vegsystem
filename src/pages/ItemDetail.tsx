@@ -73,6 +73,7 @@ export default function ItemDetail() {
     received_date: '',
     shelf: '',
     box: '',
+    box_number: '',
     seal_number: '',
     delivered_by_name: '',
     delivered_by_contact: '',
@@ -94,6 +95,7 @@ export default function ItemDetail() {
         received_date: item.received_date,
         shelf: item.shelf || '',
         box: item.box || '',
+        box_number: item.box_number || '',
         seal_number: item.seal_number || '',
         delivered_by_name: item.delivered_by_name,
         delivered_by_contact: item.delivered_by_contact || '',
@@ -112,6 +114,7 @@ export default function ItemDetail() {
         ...editData,
         shelf: editData.shelf || null,
         box: editData.box || null,
+        box_number: editData.box_number || null,
         seal_number: editData.seal_number || null,
         delivered_by_contact: editData.delivered_by_contact || null,
       },
@@ -265,7 +268,7 @@ export default function ItemDetail() {
             {/* Storage Info */}
             <div className="mt-6 pt-4 border-t border-border">
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Armazenamento</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="flex items-start gap-3">
                   <Archive className="w-5 h-5 text-muted-foreground mt-0.5" />
                   <div>
@@ -278,6 +281,13 @@ export default function ItemDetail() {
                   <div>
                     <p className="text-sm text-muted-foreground">Caixa</p>
                     <p className="font-medium">{item.box || '-'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Package className="w-5 h-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nº da Caixa</p>
+                    <p className="font-medium">{item.box_number || '-'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -529,7 +539,7 @@ export default function ItemDetail() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="editShelf">Prateleira</Label>
                 <Input
@@ -548,6 +558,16 @@ export default function ItemDetail() {
                   className="mt-1.5"
                   value={editData.box}
                   onChange={(e) => setEditData({ ...editData, box: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editBoxNumber">Nº da Caixa</Label>
+                <Input
+                  id="editBoxNumber"
+                  placeholder="Ex: 001, 002..."
+                  className="mt-1.5"
+                  value={editData.box_number}
+                  onChange={(e) => setEditData({ ...editData, box_number: e.target.value })}
                 />
               </div>
               <div>
