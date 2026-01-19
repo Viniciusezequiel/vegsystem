@@ -18,6 +18,7 @@ export interface LostItem {
   received_date: string;
   shelf: string | null;
   box: string | null;
+  box_number: string | null;
   seal_number: string | null;
   delivered_by_name: string;
   delivered_by_contact: string | null;

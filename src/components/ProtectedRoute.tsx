@@ -36,6 +36,11 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     return <Navigate to="/booking" replace />;
   }
 
+  // Check if user needs to change password
+  if (profile?.force_password_change && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+
   // Check if user profile is active
   if (profile && !profile.is_active) {
     return (
