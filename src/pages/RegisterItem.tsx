@@ -54,6 +54,7 @@ export default function RegisterItem() {
   const [receivedDate, setReceivedDate] = useState('');
   const [shelf, setShelf] = useState('');
   const [box, setBox] = useState('');
+  const [boxNumber, setBoxNumber] = useState('');
   const [sealNumber, setSealNumber] = useState('');
   const [deliveredBy, setDeliveredBy] = useState('');
   const [contact, setContact] = useState('');
@@ -109,6 +110,7 @@ export default function RegisterItem() {
         setReceivedDate('');
         setShelf('');
         setBox('');
+        setBoxNumber('');
         setSealNumber('');
         setDeliveredBy('');
         setContact('');
@@ -277,7 +279,7 @@ export default function RegisterItem() {
 
             <div className="form-section animate-fade-in" style={{ animationDelay: '150ms' }}>
               <h3 className="font-medium text-foreground mb-4">Armazenamento</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                 <div>
                   <Label htmlFor="shelf">Estante</Label>
                   <Input
@@ -296,6 +298,16 @@ export default function RegisterItem() {
                     className="mt-1.5"
                     value={box}
                     onChange={(e) => setBox(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="boxNumber">Nº da Caixa</Label>
+                  <Input
+                    id="boxNumber"
+                    placeholder="Ex: CX-001"
+                    className="mt-1.5"
+                    value={boxNumber}
+                    onChange={(e) => setBoxNumber(e.target.value)}
                   />
                 </div>
                 <div>

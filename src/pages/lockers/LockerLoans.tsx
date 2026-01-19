@@ -13,7 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye } from 'lucide-react';
+import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, LockerLoan } from '@/hooks/useLockers';
 import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
 import { LockerExchangeDialog } from '@/components/lockers/LockerExchangeDialog';
@@ -34,6 +35,7 @@ export default function LockerLoans() {
   const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<LockerLoan | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const { data: activeLoans } = useLockerLoans('active');
   const { data: returnedLoans } = useLockerLoans('returned');
@@ -41,6 +43,21 @@ export default function LockerLoans() {
   const { data: availableLockers } = useLockersList('available');
   const returnLocker = useReturnLocker();
   const exchangeLocker = useExchangeLocker();
+
+  // Filter loans by locker code or borrower name
+  const filterLoans = (loans: LockerLoan[] | undefined) => {
+    if (!loans || !searchQuery.trim()) return loans;
+    const query = searchQuery.toLowerCase().trim();
+    return loans.filter(loan => 
+      loan.locker?.code?.toLowerCase().includes(query) ||
+      loan.borrower_name.toLowerCase().includes(query) ||
+      loan.borrower_phone.includes(query)
+    );
+  };
+
+  const filteredActiveLoans = filterLoans(activeLoans);
+  const filteredReturnedLoans = filterLoans(returnedLoans);
+  const filteredOverdueLoans = filterLoans(overdueLoans);
 
   const handleOpenReturn = (loan: LockerLoan) => {
     setSelectedLoan(loan);
