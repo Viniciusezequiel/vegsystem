@@ -56,6 +56,7 @@ export default function Users() {
   const [activityUser, setActivityUser] = useState<UserProfile | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<UserProfile | null>(null);
   const [newPasswordValue, setNewPasswordValue] = useState('');
+  const [forcePasswordChange, setForcePasswordChange] = useState(true);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -190,6 +191,7 @@ export default function Users() {
         body: {
           user_id: resetPasswordUser.user_id,
           new_password: newPasswordValue,
+          force_password_change: forcePasswordChange,
         },
       });
 
@@ -197,10 +199,13 @@ export default function Users() {
         throw new Error(response.error?.message || response.data?.error);
       }
 
-      toast.success('Senha redefinida com sucesso!');
+      toast.success(forcePasswordChange 
+        ? 'Senha redefinida! O usuário precisará trocar a senha no próximo login.' 
+        : 'Senha redefinida com sucesso!');
       setIsResetPasswordDialogOpen(false);
       setResetPasswordUser(null);
       setNewPasswordValue('');
+      setForcePasswordChange(true);
     } catch (error: any) {
       toast.error(error.message || 'Erro ao redefinir senha');
     } finally {
@@ -615,11 +620,22 @@ export default function Users() {
                 minLength={6}
               />
             </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="force-password-change"
+                checked={forcePasswordChange}
+                onCheckedChange={setForcePasswordChange}
+              />
+              <Label htmlFor="force-password-change" className="text-sm cursor-pointer">
+                Solicitar troca de senha no próximo login
+              </Label>
+            </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => {
                 setIsResetPasswordDialogOpen(false);
                 setResetPasswordUser(null);
                 setNewPasswordValue('');
+                setForcePasswordChange(true);
               }}>
                 Cancelar
               </Button>

@@ -91,6 +91,7 @@ export default function RegisterItem() {
       received_date: receivedDate,
       shelf: shelf || undefined,
       box: box || undefined,
+      box_number: boxNumber || undefined,
       seal_number: sealNumber || undefined,
       delivered_by_name: deliveredBy,
       delivered_by_contact: contact || undefined,

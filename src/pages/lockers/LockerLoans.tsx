@@ -322,31 +322,42 @@ export default function LockerLoans() {
               <Box className="h-5 w-5" />
               Lista de Locações
             </CardTitle>
+            <div className="mt-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por número do escaninho, nome ou telefone..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="active" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Ativos</span> ({activeLoans?.length || 0})
+                  <span className="hidden sm:inline">Ativos</span> ({filteredActiveLoans?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="overdue" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Atrasados</span> ({overdueLoans?.length || 0})
+                  <span className="hidden sm:inline">Atrasados</span> ({filteredOverdueLoans?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="returned" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Devolvidos</span> ({returnedLoans?.length || 0})
+                  <span className="hidden sm:inline">Devolvidos</span> ({filteredReturnedLoans?.length || 0})
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="active" className="mt-4">
-                {renderLoansTable(activeLoans, true)}
+                {renderLoansTable(filteredActiveLoans, true)}
               </TabsContent>
               <TabsContent value="overdue" className="mt-4">
-                {renderLoansTable(overdueLoans, true)}
+                {renderLoansTable(filteredOverdueLoans, true)}
               </TabsContent>
               <TabsContent value="returned" className="mt-4">
-                {renderLoansTable(returnedLoans, false)}
+                {renderLoansTable(filteredReturnedLoans, false)}
               </TabsContent>
             </Tabs>
           </CardContent>

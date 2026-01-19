@@ -22,7 +22,7 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { user_id, new_password } = await req.json();
+    const { user_id, new_password, force_password_change = false } = await req.json();
 
     if (!user_id || !new_password) {
       return new Response(
@@ -85,7 +85,20 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Password reset for user ${user_id} by admin ${requestingUser.id}`);
+    // If force_password_change is true, update the profile
+    if (force_password_change) {
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({ force_password_change: true })
+        .eq('user_id', user_id);
+      
+      if (profileError) {
+        console.error('Error updating force_password_change:', profileError);
+        // Don't fail the request, password was already updated
+      }
+    }
+
+    console.log(`Password reset for user ${user_id} by admin ${requestingUser.id}, force_change: ${force_password_change}`);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Senha redefinida com sucesso' }),
