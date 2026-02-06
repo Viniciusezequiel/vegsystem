@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -41,12 +42,44 @@ const generateUniqueCode = (existingCodes: string[]): string => {
   return code;
 };
 
+// Compress image to reduce file size
+const compressImage = (file: File, maxWidth: number, quality: number): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('No canvas context')); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error('No blob')); return; }
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+        },
+        'image/jpeg',
+        quality,
+      );
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+};
+
 export default function RegisterItem() {
   const navigate = useNavigate();
   const createLostItem = useCreateLostItem();
   const { data: existingItems } = useLostItems();
   
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [campus, setCampus] = useState<CampusEnum | ''>('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -65,11 +98,41 @@ export default function RegisterItem() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      // Compress if > 2MB
+      if (file.size > 2 * 1024 * 1024) {
+        compressImage(file, 1200, 0.7).then((compressed) => {
+          setImageFile(compressed);
+        }).catch(() => {
+          setImageFile(file);
+        });
+      } else {
+        setImageFile(file);
+      }
+      // Create a preview URL (lightweight, no base64 in memory)
+      const objectUrl = URL.createObjectURL(file);
+      setImagePreview(objectUrl);
+    }
+  };
+
+  const uploadImageToStorage = async (file: File, itemCode: string): Promise<string | null> => {
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const filePath = `${itemCode}-${Date.now()}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('lost-items')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('lost-items')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      return null;
     }
   };
 
@@ -81,6 +144,13 @@ export default function RegisterItem() {
     // Generate unique 6-digit code
     const existingCodes = existingItems?.items?.map(item => item.code) || [];
     const newCode = generateUniqueCode(existingCodes);
+
+    // Upload image to Storage if exists (instead of sending base64)
+    let imageUrl: string | undefined;
+    if (imageFile) {
+      const url = await uploadImageToStorage(imageFile, newCode);
+      imageUrl = url || undefined;
+    }
     
     createLostItem.mutate({
       code: newCode,
@@ -95,7 +165,7 @@ export default function RegisterItem() {
       seal_number: sealNumber || undefined,
       delivered_by_name: deliveredBy,
       delivered_by_contact: contact || undefined,
-      image_url: imagePreview || undefined,
+      image_url: imageUrl,
     }, {
       onSuccess: () => {
         // Show success dialog with code
@@ -103,7 +173,9 @@ export default function RegisterItem() {
         setSuccessDialogOpen(true);
         
         // Reset form
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
         setImagePreview(null);
+        setImageFile(null);
         setCampus('');
         setDescription('');
         setLocation('');
@@ -152,7 +224,7 @@ export default function RegisterItem() {
                   />
                   <button
                     type="button"
-                    onClick={() => setImagePreview(null)}
+                    onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setImageFile(null); }}
                     className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1.5 hover:bg-destructive/90"
                   >
                     <span className="sr-only">Remover</span>

@@ -563,7 +563,7 @@ export default function EquipmentLoanForm() {
                   <p className="text-xs text-muted-foreground mb-2">
                     O solicitante deve assinar abaixo para confirmar a retirada dos equipamentos.
                   </p>
-                  <SignaturePad onSignatureChange={setSignature} width={350} height={150} />
+                  <SignaturePad onSignatureChange={setSignature} height={150} />
                 </div>
 
                 <div className="flex flex-col sm:flex-row justify-end gap-4">

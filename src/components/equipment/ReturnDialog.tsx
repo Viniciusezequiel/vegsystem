@@ -168,7 +168,7 @@ export function ReturnDialog({
           <div>
             <Label>Assinatura de quem está devolvendo *</Label>
             <div className="mt-1.5">
-              <SignaturePad onSignatureChange={setSignature} width={350} height={150} />
+              <SignaturePad onSignatureChange={setSignature} height={150} />
             </div>
             {!signature && (
               <p className="text-sm text-destructive mt-1">Assinatura obrigatória</p>
