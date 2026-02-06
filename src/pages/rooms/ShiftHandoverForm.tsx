@@ -20,6 +20,7 @@ import { ArrowLeft, ClipboardList, Check, X, Save, AlertTriangle } from 'lucide-
 import { useCreateShiftHandover } from '@/hooks/useShiftHandovers';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
@@ -95,7 +96,17 @@ export default function ShiftHandoverForm() {
 
   const handleSubmit = async () => {
     if (!allTasksAnswered) {
+      toast.error('Preencha Sim ou Não em todas as tarefas antes de enviar.');
       return;
+    }
+
+    // If impact incident is checked, at least one incident must have description
+    if (hasImpactIncident) {
+      const hasAnyIncident = incidents.some(i => i.description.trim());
+      if (!hasAnyIncident) {
+        toast.error('Descreva pelo menos uma intercorrência quando há intercorrência de impacto.');
+        return;
+      }
     }
 
     await createHandover.mutateAsync({
@@ -113,7 +124,7 @@ export default function ShiftHandoverForm() {
         answer: t.answer === true,
         observation: t.observation || undefined,
       })),
-      incidents: incidents.filter(i => i.description || i.location),
+      incidents: hasImpactIncident ? incidents.filter(i => i.description || i.location) : [],
     });
 
     navigate('/rooms/shift-handovers');
@@ -190,7 +201,9 @@ export default function ShiftHandoverForm() {
         {/* Tasks Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Tarefas</CardTitle>
+            <CardTitle className="text-lg">
+              Tarefas <span className="text-sm font-normal text-muted-foreground">(obrigatório Sim ou Não)</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -204,6 +217,7 @@ export default function ShiftHandoverForm() {
                         size="sm"
                         variant={task.answer === true ? 'default' : 'outline'}
                         onClick={() => updateTask(index, 'answer', true)}
+                        className={task.answer === null ? 'border-destructive/50' : ''}
                       >
                         <Check className="h-4 w-4 mr-1" /> Sim
                       </Button>
@@ -212,6 +226,7 @@ export default function ShiftHandoverForm() {
                         size="sm"
                         variant={task.answer === false ? 'destructive' : 'outline'}
                         onClick={() => updateTask(index, 'answer', false)}
+                        className={task.answer === null ? 'border-destructive/50' : ''}
                       >
                         <X className="h-4 w-4 mr-1" /> Não
                       </Button>
@@ -225,6 +240,9 @@ export default function ShiftHandoverForm() {
                   />
                 </div>
               ))}
+              {!allTasksAnswered && (
+                <p className="text-sm text-destructive">* Selecione Sim ou Não em todas as tarefas</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -251,29 +269,32 @@ export default function ShiftHandoverForm() {
               </Badge>
             </div>
 
-            <Separator />
-
-            <div className="space-y-4">
-              {incidents.map((incident, index) => (
-                <div key={index} className="space-y-2 pb-4 border-b last:border-b-0 last:pb-0">
-                  <span className="text-sm font-medium">{incident.incident_type}</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Descrição"
-                      value={incident.description}
-                      onChange={e => updateIncident(index, 'description', e.target.value)}
-                      className="text-sm"
-                    />
-                    <Input
-                      placeholder="Local"
-                      value={incident.location}
-                      onChange={e => updateIncident(index, 'location', e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
+            {hasImpactIncident && (
+              <>
+                <Separator />
+                <div className="space-y-4">
+                  {incidents.map((incident, index) => (
+                    <div key={index} className="space-y-2 pb-4 border-b last:border-b-0 last:pb-0">
+                      <span className="text-sm font-medium">{incident.incident_type}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Input
+                          placeholder="Descrição"
+                          value={incident.description}
+                          onChange={e => updateIncident(index, 'description', e.target.value)}
+                          className="text-sm"
+                        />
+                        <Input
+                          placeholder="Local"
+                          value={incident.location}
+                          onChange={e => updateIncident(index, 'location', e.target.value)}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

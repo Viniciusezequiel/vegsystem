@@ -50,7 +50,11 @@ export function EquipmentLoanDetailsDialog({
 }: EquipmentLoanDetailsDialogProps) {
   if (!loan) return null;
 
-  const isOverdue = loan.status === 'active' && isPast(parseISO(loan.expected_return_date));
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+  const returnDateParsed = parseISO(loan.expected_return_date);
+  returnDateParsed.setHours(0, 0, 0, 0);
+  const isOverdue = loan.status === 'active' && returnDateParsed < todayDate;
   const status = isOverdue ? 'overdue' : loan.status;
 
   const formatDate = (date: string) => {

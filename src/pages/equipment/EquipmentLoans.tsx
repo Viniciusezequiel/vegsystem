@@ -103,7 +103,12 @@ export default function EquipmentLoans() {
   };
 
   const isOverdue = (loan: EquipmentLoan) => {
-    return loan.status === 'active' && isPast(parseISO(loan.expected_return_date));
+    if (loan.status !== 'active') return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const returnDate = parseISO(loan.expected_return_date);
+    returnDate.setHours(0, 0, 0, 0);
+    return returnDate < today;
   };
 
   const renderLoansTable = (loans: EquipmentLoan[] | undefined, showReturnButton = false) => {
