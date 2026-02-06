@@ -95,6 +95,9 @@ export default function ShiftHandoverForm() {
 
   const allTasksAnswered = tasks.every(t => t.answer !== null);
   const allNoTasksHaveObservation = tasks.every(t => t.answer !== false || t.observation.trim() !== '');
+  const hasAnyIncidentDescription = incidents.some(i => i.description.trim());
+  const allDescribedIncidentsHaveTreatment = incidents.every(i => !i.description.trim() || i.treatment.trim());
+  const incidentsValid = !hasImpactIncident || (hasAnyIncidentDescription && allDescribedIncidentsHaveTreatment);
 
   const handleSubmit = async () => {
     if (!allTasksAnswered) {
@@ -307,6 +310,9 @@ export default function ShiftHandoverForm() {
             {hasImpactIncident && (
               <>
                 <Separator />
+                {!hasAnyIncidentDescription && (
+                  <p className="text-sm text-destructive">* Preencha a descrição de pelo menos uma intercorrência</p>
+                )}
                 <div className="space-y-4">
                   {incidents.map((incident, index) => (
                     <div key={index} className="space-y-2 pb-4 border-b last:border-b-0 last:pb-0">
@@ -316,7 +322,7 @@ export default function ShiftHandoverForm() {
                           placeholder="Descrição"
                           value={incident.description}
                           onChange={e => updateIncident(index, 'description', e.target.value)}
-                          className="text-sm"
+                          className={`text-sm ${hasImpactIncident && !hasAnyIncidentDescription ? 'border-destructive/50' : ''}`}
                         />
                         <Input
                           placeholder="Local"
@@ -385,7 +391,7 @@ export default function ShiftHandoverForm() {
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!allTasksAnswered || !allNoTasksHaveObservation || createHandover.isPending}
+            disabled={!allTasksAnswered || !allNoTasksHaveObservation || !incidentsValid || createHandover.isPending}
           >
             <Save className="h-4 w-4 mr-2" />
             {createHandover.isPending ? 'Salvando...' : 'Registrar Passagem'}
