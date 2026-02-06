@@ -12,7 +12,6 @@ import {
   Calendar, 
   Package, 
   Box, 
-  CalendarDays, 
   ClipboardCheck,
   Download,
   Search,
@@ -24,7 +23,6 @@ import {
 } from 'lucide-react';
 import { useEquipmentList, useEquipmentLoans } from '@/hooks/useEquipment';
 import { useLockersList, useLockerLoans } from '@/hooks/useLockers';
-import { useReservations, useReservationRooms } from '@/hooks/useReservations';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Constants } from '@/integrations/supabase/types';
@@ -39,10 +37,6 @@ const statusLabels = {
   borrowed: 'Emprestado',
   maintenance: 'Manutenção',
   occupied: 'Ocupado',
-  pending: 'Pendente',
-  confirmed: 'Confirmada',
-  cancelled: 'Cancelada',
-  completed: 'Concluída',
 };
 
 export default function Reports() {
@@ -59,8 +53,6 @@ export default function Reports() {
   const { data: lockers } = useLockersList();
   const { data: lockerLoansActive } = useLockerLoans('active');
   const { data: lockerLoansReturned } = useLockerLoans('returned');
-  const { data: reservations } = useReservations();
-  const { data: rooms } = useReservationRooms();
 
   // Combine loans data
   const allEquipmentLoans = useMemo(() => [
@@ -91,22 +83,6 @@ export default function Reports() {
     return new Date();
   }, [dateRange, endDate]);
 
-  // Filter function
-  const filterByDateAndCampus = <T extends { created_at?: string; campus?: string }>(
-    data: T[] | undefined,
-    dateField: keyof T = 'created_at' as keyof T
-  ) => {
-    if (!data) return [];
-    return data.filter(item => {
-      const itemDate = item[dateField] ? parseISO(String(item[dateField])) : null;
-      const dateMatch = itemDate && effectiveStartDate && effectiveEndDate
-        ? isWithinInterval(itemDate, { start: startOfDay(effectiveStartDate), end: endOfDay(effectiveEndDate) })
-        : true;
-      const campusMatch = campusFilter === 'all' || item.campus === campusFilter;
-      return dateMatch && campusMatch;
-    });
-  };
-
   // Stats calculations
   const stats = useMemo(() => ({
     equipment: {
@@ -119,16 +95,11 @@ export default function Reports() {
       available: lockers?.filter(l => l.status === 'available').length || 0,
       occupied: lockers?.filter(l => l.status === 'occupied').length || 0,
     },
-    reservations: {
-      total: reservations?.length || 0,
-      pending: reservations?.filter(r => r.status === 'pending').length || 0,
-      confirmed: reservations?.filter(r => r.status === 'confirmed').length || 0,
-    },
     loans: {
       equipmentActive: equipmentLoansActive?.length || 0,
       lockerActive: lockerLoansActive?.length || 0,
     }
-  }), [equipment, lockers, reservations, equipmentLoansActive, lockerLoansActive]);
+  }), [equipment, lockers, equipmentLoansActive, lockerLoansActive]);
 
   return (
     <MainLayout>
@@ -143,7 +114,7 @@ export default function Reports() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
@@ -166,19 +137,6 @@ export default function Reports() {
               <div>
                 <p className="text-2xl font-bold">{stats.lockers.total}</p>
                 <p className="text-xs text-muted-foreground">Escaninhos</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-violet-500/10">
-                <CalendarDays className="w-5 h-5 text-violet-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.reservations.total}</p>
-                <p className="text-xs text-muted-foreground">Reservas</p>
               </div>
             </div>
           </CardContent>
@@ -275,7 +233,7 @@ export default function Reports() {
       </Card>
 
       <Tabs defaultValue="equipment" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-3 h-auto">
           <TabsTrigger value="equipment" className="gap-2 py-3">
             <Box className="w-4 h-4" />
             Equipamentos
@@ -283,10 +241,6 @@ export default function Reports() {
           <TabsTrigger value="lockers" className="gap-2 py-3">
             <Package className="w-4 h-4" />
             Escaninhos
-          </TabsTrigger>
-          <TabsTrigger value="reservations" className="gap-2 py-3">
-            <CalendarDays className="w-4 h-4" />
-            Reservas
           </TabsTrigger>
           <TabsTrigger value="loans" className="gap-2 py-3">
             <Clock className="w-4 h-4" />
@@ -413,77 +367,6 @@ export default function Reports() {
                 </div>
                 <div className="p-4 rounded-lg bg-secondary/50 text-center">
                   <p className="text-2xl font-bold text-primary">{stats.lockers.total}</p>
-                  <p className="text-sm text-muted-foreground">Total</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Reservations Tab */}
-        <TabsContent value="reservations">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <CalendarDays className="w-5 h-5 text-primary" />
-                    Relatório de Reservas
-                  </CardTitle>
-                  <CardDescription>
-                    {reservations?.length || 0} reservas no período
-                  </CardDescription>
-                </div>
-                <PdfExportButton
-                  title="Relatório de Reservas"
-                  filename={`reservas-${format(new Date(), 'yyyy-MM-dd')}`}
-                  columns={[
-                    { header: 'Ambiente', accessor: (r) => r.reservation_rooms?.name || 'N/A' },
-                    { header: 'Título', accessor: 'title' },
-                    { header: 'Solicitante', accessor: 'requester_name' },
-                    { header: 'Email', accessor: 'requester_email' },
-                    { header: 'Início', accessor: (r) => format(new Date(r.start_datetime), 'dd/MM/yyyy HH:mm') },
-                    { header: 'Término', accessor: (r) => format(new Date(r.end_datetime), 'dd/MM/yyyy HH:mm') },
-                    { header: 'Participantes', accessor: (r) => String(r.attendees_count) },
-                    { header: 'Tipo', accessor: (r) => r.is_fixed ? 'Fixa' : r.is_external ? 'Livre' : 'Normal' },
-                    { header: 'Status', accessor: (r) => statusLabels[r.status as keyof typeof statusLabels] || r.status },
-                  ]}
-                  data={reservations || []}
-                  filters={[
-                    {
-                      label: 'Status',
-                      key: 'status',
-                      options: [
-                        { label: 'Pendente', value: 'pending' },
-                        { label: 'Confirmada', value: 'confirmed' },
-                        { label: 'Cancelada', value: 'cancelled' },
-                        { label: 'Concluída', value: 'completed' },
-                      ],
-                    },
-                    {
-                      label: 'Tipo',
-                      key: 'is_fixed',
-                      options: [
-                        { label: 'Fixa', value: 'true' },
-                        { label: 'Livre', value: 'false' },
-                      ],
-                    },
-                  ]}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg bg-secondary/50 text-center">
-                  <p className="text-2xl font-bold text-amber-500">{stats.reservations.pending}</p>
-                  <p className="text-sm text-muted-foreground">Pendentes</p>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary/50 text-center">
-                  <p className="text-2xl font-bold text-green-500">{stats.reservations.confirmed}</p>
-                  <p className="text-sm text-muted-foreground">Confirmadas</p>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary/50 text-center">
-                  <p className="text-2xl font-bold text-primary">{stats.reservations.total}</p>
                   <p className="text-sm text-muted-foreground">Total</p>
                 </div>
               </div>

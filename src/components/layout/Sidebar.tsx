@@ -13,9 +13,6 @@ import {
   Lock,
   ChevronDown,
   Loader2,
-  CalendarDays,
-  Calendar,
-  List,
   BarChart3,
   ChevronLeft,
   ChevronRight,
@@ -30,7 +27,6 @@ import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
-import { usePendingReservationsCount } from '@/hooks/useReservations';
 import { useExternalEquipmentNotifications, usePendingExternalEquipmentCount } from '@/hooks/useExternalEquipmentNotifications';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -125,21 +121,6 @@ const moduleGroups: NavGroup[] = [
     ],
   },
   {
-    name: 'Reservas',
-    icon: CalendarDays,
-    basePath: '/reservations',
-    gradient: 'from-indigo-500 to-violet-500',
-    module: 'reservations',
-    items: [
-      { name: 'Ambientes', href: '/reservations', icon: CalendarDays },
-      { name: 'Reservas', href: '/reservations/list', icon: List },
-      { name: 'Calendário', href: '/reservations/calendar', icon: Calendar },
-      { name: 'Remanejamentos', href: '/reservations/reschedulings', icon: RefreshCw },
-      { name: 'Aprovações', href: '/reservations/approvals', icon: CheckSquare, hasBadge: true },
-      { name: 'Histórico', href: '/reservations/logs', icon: History },
-    ],
-  },
-  {
     name: 'Materiais',
     icon: ShoppingCart,
     basePath: '/materials',
@@ -201,7 +182,6 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   const { data: pendingCallsCount } = usePendingCallsCount();
   const { pendingTasksCount } = useTaskNotifications();
   const { pendingMaterialsCount } = useMaterialNotifications();
-  const { data: pendingReservationsCount } = usePendingReservationsCount();
   
   // Equipment external requests notifications
   useExternalEquipmentNotifications();
@@ -442,7 +422,6 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                     // Determine which notification count to show based on module
                     const badgeCount = item.hasBadge 
                       ? (group.basePath === '/materials' ? pendingMaterialsCount 
-                        : group.basePath === '/reservations' ? pendingReservationsCount 
                         : group.basePath === '/equipment' ? pendingEquipmentCount
                         : pendingTasksCount)
                       : 0;

@@ -31,9 +31,17 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   // SECURITY: User must have a role (be an internal user) to access protected routes
   // This prevents external users from accessing admin panel
   if (!role) {
-    // If user exists but no role, they might be an external user
-    // Redirect them to the booking page instead of showing error
-    return <Navigate to="/booking" replace />;
+    // If user exists but no role, they don't have access to the admin area
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center p-8 max-w-md">
+          <h1 className="text-2xl font-bold text-destructive mb-2">Acesso Negado</h1>
+          <p className="text-muted-foreground">
+            Sua conta não possui permissões para acessar o sistema. Contate o administrador.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Check if user needs to change password
