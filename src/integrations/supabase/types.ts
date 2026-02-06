@@ -1348,6 +1348,7 @@ export type Database = {
           id: string
           incident_type: string
           location: string | null
+          treatment: string | null
         }
         Insert: {
           description?: string | null
@@ -1355,6 +1356,7 @@ export type Database = {
           id?: string
           incident_type: string
           location?: string | null
+          treatment?: string | null
         }
         Update: {
           description?: string | null
@@ -1362,6 +1364,7 @@ export type Database = {
           id?: string
           incident_type?: string
           location?: string | null
+          treatment?: string | null
         }
         Relationships: [
           {
