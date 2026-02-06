@@ -7,7 +7,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { ExternalProtectedRoute } from "@/components/ExternalProtectedRoute";
 import { GlobalPrefetch } from "@/components/GlobalPrefetch";
 import Auth from "./pages/Auth";
 import AdminAuth from "./pages/AdminAuth";
@@ -34,7 +33,6 @@ import EquipmentLoans from "./pages/equipment/EquipmentLoans";
 import EquipmentLoanForm from "./pages/equipment/EquipmentLoanForm";
 import ExternalEquipmentRequestsList from "./pages/equipment/ExternalEquipmentRequestsList";
 
-
 // Lockers Module
 import LockersList from "./pages/lockers/LockersList";
 import LockerLoanForm from "./pages/lockers/LockerLoanForm";
@@ -46,18 +44,6 @@ import ChecklistForm from "./pages/rooms/ChecklistForm";
 import ChecklistHistory from "./pages/rooms/ChecklistHistory";
 import ShiftHandoverForm from "./pages/rooms/ShiftHandoverForm";
 import ShiftHandoverHistory from "./pages/rooms/ShiftHandoverHistory";
-
-// Reservations Module
-import ReservationRoomsList from "./pages/reservations/ReservationRoomsList";
-import ReservationsList from "./pages/reservations/ReservationsList";
-import ReservationForm from "./pages/reservations/ReservationForm";
-import ReservationsCalendar from "./pages/reservations/ReservationsCalendar";
-import ReservationLogs from "./pages/reservations/ReservationLogs";
-import ReservationApprovals from "./pages/reservations/ReservationApprovals";
-import ExternalBooking from "./pages/reservations/ExternalBooking";
-import ExternalProfile from "./pages/ExternalProfile";
-import ExternalDashboard from "./pages/external/ExternalDashboard";
-import ReschedulingsList from "./pages/reservations/ReschedulingsList";
 
 // Materials Module
 import MaterialRequestsList from "./pages/materials/MaterialRequestsList";
@@ -212,59 +198,6 @@ const App = () => (
                 <ProtectedRoute>
                   <LockerLoans />
                 </ProtectedRoute>
-              } />
-              
-              {/* Reservations Module */}
-              <Route path="/reservations" element={
-                <ProtectedRoute>
-                  <ReservationRoomsList />
-                </ProtectedRoute>
-              } />
-              <Route path="/reservations/list" element={
-                <ProtectedRoute>
-                  <ReservationsList />
-                </ProtectedRoute>
-              } />
-              <Route path="/reservations/new" element={
-                <ProtectedRoute>
-                  <ReservationForm />
-                </ProtectedRoute>
-              } />
-              <Route path="/reservations/calendar" element={
-                <ProtectedRoute>
-                  <ReservationsCalendar />
-                </ProtectedRoute>
-              } />
-              <Route path="/reservations/logs" element={
-                <ProtectedRoute>
-                  <ReservationLogs />
-                </ProtectedRoute>
-              } />
-              <Route path="/reservations/approvals" element={
-                <ProtectedRoute>
-                  <ReservationApprovals />
-                </ProtectedRoute>
-              } />
-              <Route path="/reservations/reschedulings" element={
-                <ProtectedRoute>
-                  <ReschedulingsList />
-                </ProtectedRoute>
-              } />
-              <Route path="/booking-auth" element={<Navigate to="/auth" replace />} />
-              <Route path="/booking" element={
-                <ExternalProtectedRoute>
-                  <ExternalBooking />
-                </ExternalProtectedRoute>
-              } />
-              <Route path="/booking/profile" element={
-                <ExternalProtectedRoute>
-                  <ExternalProfile />
-                </ExternalProtectedRoute>
-              } />
-              <Route path="/booking/dashboard" element={
-                <ExternalProtectedRoute>
-                  <ExternalDashboard />
-                </ExternalProtectedRoute>
               } />
               
               {/* Materials Module */}

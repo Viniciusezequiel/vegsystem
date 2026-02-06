@@ -30,7 +30,6 @@ const moduleLabels: Record<string, { name: string; icon: React.ReactNode; descri
   lostItems: { name: 'Achados e Perdidos', icon: <Package className="w-5 h-5" />, description: 'Gerenciamento de itens perdidos e encontrados' },
   equipment: { name: 'Patrimônios', icon: <Box className="w-5 h-5" />, description: 'Controle de equipamentos e empréstimos' },
   lockers: { name: 'Escaninhos', icon: <Box className="w-5 h-5" />, description: 'Gestão de escaninhos e empréstimos' },
-  reservations: { name: 'Reservas', icon: <Calendar className="w-5 h-5" />, description: 'Sistema de reservas de ambientes' },
   rooms: { name: 'Salas', icon: <MapPin className="w-5 h-5" />, description: 'Cadastro de salas para checklist' },
   checklists: { name: 'Checklists', icon: <ClipboardCheck className="w-5 h-5" />, description: 'Controle de checklists das salas' },
 };
@@ -284,63 +283,6 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                Reservas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Permitir reservas externas</p>
-                  <p className="text-sm text-muted-foreground">Pessoas externas podem fazer reservas</p>
-                </div>
-                <Switch 
-                  checked={settings.general.allowExternalReservations}
-                  onCheckedChange={(v) => handleGeneralChange('allowExternalReservations', v)}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Exigir aprovação</p>
-                  <p className="text-sm text-muted-foreground">Reservas precisam de aprovação manual</p>
-                </div>
-                <Switch 
-                  checked={settings.general.requireApprovalForReservations}
-                  onCheckedChange={(v) => handleGeneralChange('requireApprovalForReservations', v)}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="maxDays">Dias máximos de antecedência</Label>
-                  <Input 
-                    id="maxDays" 
-                    type="number" 
-                    value={settings.general.maxReservationDaysAhead}
-                    onChange={(e) => handleGeneralChange('maxReservationDaysAhead', parseInt(e.target.value) || 90)}
-                    className="mt-1.5" 
-                    disabled={!isAdmin}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="maxDuration">Duração máxima (horas)</Label>
-                  <Input 
-                    id="maxDuration" 
-                    type="number" 
-                    value={settings.general.maxReservationDuration}
-                    onChange={(e) => handleGeneralChange('maxReservationDuration', parseInt(e.target.value) || 8)}
-                    className="mt-1.5" 
-                    disabled={!isAdmin}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-primary" />
                 Padrões do Sistema
               </CardTitle>
@@ -408,28 +350,6 @@ export default function Settings() {
                 <Switch 
                   checked={settings.notifications.emailOnItemDelivered}
                   onCheckedChange={(v) => handleNotificationChange('emailOnItemDelivered', v)}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Reserva criada</p>
-                  <p className="text-sm text-muted-foreground">Notificar quando uma nova reserva for criada</p>
-                </div>
-                <Switch 
-                  checked={settings.notifications.emailOnReservationCreated}
-                  onCheckedChange={(v) => handleNotificationChange('emailOnReservationCreated', v)}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Reserva aprovada</p>
-                  <p className="text-sm text-muted-foreground">Notificar o solicitante quando a reserva for aprovada</p>
-                </div>
-                <Switch 
-                  checked={settings.notifications.emailOnReservationApproved}
-                  onCheckedChange={(v) => handleNotificationChange('emailOnReservationApproved', v)}
                   disabled={!isAdmin}
                 />
               </div>

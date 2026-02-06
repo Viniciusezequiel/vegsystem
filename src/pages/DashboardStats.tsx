@@ -3,35 +3,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { 
   Package, 
   Monitor, 
-  CalendarDays, 
   Users, 
   TrendingUp,
   Clock,
   CheckCircle2,
   AlertCircle,
-  Building2,
   Lock
 } from 'lucide-react';
 import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
 import { useEquipmentList, useEquipmentLoans } from '@/hooks/useEquipment';
-import { useReservations, useReservationRooms } from '@/hooks/useReservations';
 import { useLockersList, useLockerLoans } from '@/hooks/useLockers';
 import { useLostItemsGlobalPrefetch } from '@/hooks/useLostItemsGlobalPrefetch';
 import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
+  Tooltip,
+  ResponsiveContainer,
 } from 'recharts';
-import { format, subDays, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'];
 
@@ -42,12 +32,8 @@ export default function DashboardStats() {
   const { data: lostItemsStats } = useLostItemsCounts();
   const { data: equipment } = useEquipmentList();
   const { data: activeLoans } = useEquipmentLoans('active');
-  const { data: reservations } = useReservations();
   const { data: lockers } = useLockersList();
   const { data: lockerLoans } = useLockerLoans('active');
-  const { data: rooms } = useReservationRooms();
-
-  // Lost items stats come directly from the server-side counts hook
 
   const equipmentStats = {
     total: equipment?.length || 0,
@@ -56,37 +42,11 @@ export default function DashboardStats() {
     maintenance: equipment?.filter(e => e.status === 'maintenance').length || 0,
   };
 
-  const reservationStats = {
-    total: reservations?.length || 0,
-    pending: reservations?.filter(r => r.status === 'pending').length || 0,
-    confirmed: reservations?.filter(r => r.status === 'confirmed').length || 0,
-    cancelled: reservations?.filter(r => r.status === 'cancelled').length || 0,
-  };
-
   const lockerStats = {
     total: lockers?.length || 0,
     available: lockers?.filter(l => l.status === 'available').length || 0,
     occupied: lockers?.filter(l => l.status === 'occupied').length || 0,
   };
-
-  // Room occupancy data for chart
-  const roomOccupancyData = rooms?.map(room => {
-    const roomReservations = reservations?.filter(r => 
-      r.room_id === room.id && 
-      (r.status === 'confirmed' || r.status === 'pending')
-    ) || [];
-    return {
-      name: room.name.length > 15 ? room.name.substring(0, 15) + '...' : room.name,
-      reservas: roomReservations.length,
-    };
-  }).sort((a, b) => b.reservas - a.reservas).slice(0, 10) || [];
-
-  // Reservations by status for pie chart
-  const reservationPieData = [
-    { name: 'Confirmadas', value: reservationStats.confirmed },
-    { name: 'Pendentes', value: reservationStats.pending },
-    { name: 'Canceladas', value: reservationStats.cancelled },
-  ].filter(d => d.value > 0);
 
   // Lost items by status for pie chart
   const lostItemsPieData = [
@@ -95,21 +55,12 @@ export default function DashboardStats() {
     { name: 'Expirados', value: lostItemsStats?.expired || 0 },
   ].filter(d => d.value > 0);
 
-  // Recent reservations (last 7 days)
-  const recentReservationsData = Array.from({ length: 7 }, (_, i) => {
-    const date = subDays(new Date(), 6 - i);
-    const count = reservations?.filter(r => {
-      const createdAt = new Date(r.created_at);
-      return isWithinInterval(createdAt, {
-        start: startOfDay(date),
-        end: endOfDay(date),
-      });
-    }).length || 0;
-    return {
-      name: format(date, 'EEE', { locale: ptBR }),
-      reservas: count,
-    };
-  });
+  // Equipment by status for pie chart
+  const equipmentPieData = [
+    { name: 'Disponíveis', value: equipmentStats.available },
+    { name: 'Emprestados', value: equipmentStats.borrowed },
+    { name: 'Manutenção', value: equipmentStats.maintenance },
+  ].filter(d => d.value > 0);
 
   return (
     <MainLayout>
@@ -119,7 +70,7 @@ export default function DashboardStats() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Achados e Perdidos</CardTitle>
@@ -150,21 +101,6 @@ export default function DashboardStats() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border-indigo-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Reservas</CardTitle>
-            <CalendarDays className="h-4 w-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{reservationStats.total}</div>
-            <div className="flex gap-2 mt-2 text-xs">
-              <span className="text-green-500">{reservationStats.confirmed} confirmadas</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-yellow-500">{reservationStats.pending} pendentes</span>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border-orange-500/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Escaninhos</CardTitle>
@@ -181,93 +117,24 @@ export default function DashboardStats() {
         </Card>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Reservations by Room */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              Ocupação de Salas
-            </CardTitle>
-            <CardDescription>Top 10 salas com mais reservas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {roomOccupancyData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={roomOccupancyData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis type="number" className="text-xs" />
-                    <YAxis dataKey="name" type="category" width={120} className="text-xs" />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }} 
-                    />
-                    <Bar dataKey="reservas" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  Nenhuma reserva encontrada
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Reservations Over Time */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              Reservas nos Últimos 7 Dias
-            </CardTitle>
-            <CardDescription>Quantidade de reservas criadas por dia</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={recentReservationsData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="name" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }} 
-                  />
-                  <Bar dataKey="reservas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Pie Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Reservations by Status */}
+        {/* Equipment by Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" />
-              Status das Reservas
+              Status dos Equipamentos
             </CardTitle>
             <CardDescription>Distribuição por status</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[250px]">
-              {reservationPieData.length > 0 ? (
+              {equipmentPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={reservationPieData}
+                      data={equipmentPieData}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -275,7 +142,7 @@ export default function DashboardStats() {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {reservationPieData.map((entry, index) => (
+                      {equipmentPieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -291,7 +158,7 @@ export default function DashboardStats() {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  Nenhuma reserva encontrada
+                  Nenhum equipamento encontrado
                 </div>
               )}
             </div>
@@ -375,13 +242,13 @@ export default function DashboardStats() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Ambientes Cadastrados</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Itens Disponíveis</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{rooms?.length || 0}</div>
+            <div className="text-2xl font-bold">{lostItemsStats?.available || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Salas disponíveis para reserva
+              Itens aguardando retirada
             </p>
           </CardContent>
         </Card>
