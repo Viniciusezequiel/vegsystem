@@ -1341,6 +1341,118 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_handover_incidents: {
+        Row: {
+          description: string | null
+          handover_id: string
+          id: string
+          incident_type: string
+          location: string | null
+        }
+        Insert: {
+          description?: string | null
+          handover_id: string
+          id?: string
+          incident_type: string
+          location?: string | null
+        }
+        Update: {
+          description?: string | null
+          handover_id?: string
+          id?: string
+          incident_type?: string
+          location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_handover_incidents_handover_id_fkey"
+            columns: ["handover_id"]
+            isOneToOne: false
+            referencedRelation: "shift_handovers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_handover_tasks: {
+        Row: {
+          answer: boolean
+          handover_id: string
+          id: string
+          observation: string | null
+          task_name: string
+        }
+        Insert: {
+          answer?: boolean
+          handover_id: string
+          id?: string
+          observation?: string | null
+          task_name: string
+        }
+        Update: {
+          answer?: boolean
+          handover_id?: string
+          id?: string
+          observation?: string | null
+          task_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_handover_tasks_handover_id_fkey"
+            columns: ["handover_id"]
+            isOneToOne: false
+            referencedRelation: "shift_handovers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_handovers: {
+        Row: {
+          collaborator_name: string
+          collaborator_time: string
+          created_at: string
+          day_of_week: string
+          filled_at: string
+          filled_by: string
+          general_observations: string | null
+          handover_date: string
+          has_impact_incident: boolean
+          id: string
+          sector: string
+          shift: string
+          unit: string
+        }
+        Insert: {
+          collaborator_name: string
+          collaborator_time: string
+          created_at?: string
+          day_of_week: string
+          filled_at?: string
+          filled_by: string
+          general_observations?: string | null
+          handover_date?: string
+          has_impact_incident?: boolean
+          id?: string
+          sector?: string
+          shift: string
+          unit?: string
+        }
+        Update: {
+          collaborator_name?: string
+          collaborator_time?: string
+          created_at?: string
+          day_of_week?: string
+          filled_at?: string
+          filled_by?: string
+          general_observations?: string | null
+          handover_date?: string
+          has_impact_incident?: boolean
+          id?: string
+          sector?: string
+          shift?: string
+          unit?: string
+        }
+        Relationships: []
+      }
       task_comments: {
         Row: {
           content: string
