@@ -9,10 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock } from 'lucide-react';
 import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, EquipmentLoan } from '@/hooks/useEquipment';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
+import { ReservationsTabContent } from '@/components/equipment/ReservationsTabContent';
+import { ReservationFormDialog } from '@/components/equipment/ReservationFormDialog';
+import { useEquipmentReservations } from '@/hooks/useEquipmentReservations';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -30,13 +33,15 @@ const borrowerTypeLabels: Record<string, string> = {
 };
 
 export default function EquipmentLoans() {
-  const [activeTab, setActiveTab] = useState('active');
+  const [activeTab, setActiveTab] = useState('reservations');
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<EquipmentLoan | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   
   const { data: activeLoans } = useEquipmentLoans('active');
+  const { data: awaitingReservations } = useEquipmentReservations('awaiting_pickup');
   const { data: returnedLoans } = useEquipmentLoans('returned');
   const { data: overdueLoans } = useOverdueLoans();
   const returnEquipment = useReturnEquipment();
@@ -260,6 +265,10 @@ export default function EquipmentLoans() {
                 },
               ]}
             />
+            <Button onClick={() => setReservationDialogOpen(true)} variant="outline" className="flex-1 sm:flex-initial">
+              <CalendarClock className="mr-2 h-4 w-4" />
+              Nova Pré-Reserva
+            </Button>
             <Button asChild className="flex-1 sm:flex-initial">
               <Link to="/equipment/loan/new">
                 <Plus className="mr-2 h-4 w-4" />
@@ -300,7 +309,11 @@ export default function EquipmentLoans() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="reservations" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <CalendarClock className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Pré-Reservas</span> ({awaitingReservations?.length || 0})
+                </TabsTrigger>
                 <TabsTrigger value="active" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">Ativos</span> ({filteredActiveLoans?.length || 0})
@@ -314,6 +327,9 @@ export default function EquipmentLoans() {
                   <span className="hidden sm:inline">Devolvidos</span> ({filteredReturnedLoans?.length || 0})
                 </TabsTrigger>
               </TabsList>
+              <TabsContent value="reservations" className="mt-4">
+                <ReservationsTabContent searchQuery={searchQuery} />
+              </TabsContent>
               <TabsContent value="active" className="mt-4">
                 {renderLoansTable(filteredActiveLoans, true)}
               </TabsContent>
@@ -346,6 +362,11 @@ export default function EquipmentLoans() {
           isPending={returnEquipment.isPending}
         />
       )}
+
+      <ReservationFormDialog
+        open={reservationDialogOpen}
+        onOpenChange={setReservationDialogOpen}
+      />
     </MainLayout>
   );
 }
