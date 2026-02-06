@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+
 import {
   Table,
   TableBody,
@@ -45,14 +45,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { 
   Plus, Search, Package, ArrowRight, Edit, Trash2, ArrowLeftRight, 
-  History, Ban, Upload, Loader2 
+  History, Ban, Upload, Loader2, CalendarClock 
 } from 'lucide-react';
 import { useEquipmentList, useDeleteEquipment, Equipment } from '@/hooks/useEquipment';
 import {
   useInventoryMovements,
   useCreateTransfer,
   useCreateWriteOff,
-  useUpdateExternalLoanAvailability,
   useBulkImportEquipment,
 } from '@/hooks/useInventory';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,7 +83,6 @@ export default function EquipmentList() {
   const deleteEquipment = useDeleteEquipment();
   const createTransfer = useCreateTransfer();
   const createWriteOff = useCreateWriteOff();
-  const updateExternalLoan = useUpdateExternalLoanAvailability();
   const bulkImport = useBulkImportEquipment();
   const { isAdmin } = useAuth();
 
@@ -170,16 +168,12 @@ export default function EquipmentList() {
       quantity: Number(row['Quantidade'] || row['quantity'] || 1),
       category: row['Categoria'] || row['category'],
       description: row['Descrição'] || row['description'],
-      allow_external_loan: row['Empréstimo Externo'] !== 'Não' && row['allow_external_loan'] !== false,
+      allow_external_loan: false,
     }));
 
     await bulkImport.mutateAsync(formattedData);
     setImportDialogOpen(false);
     setImportData([]);
-  };
-
-  const handleToggleExternalLoan = async (id: string, currentValue: boolean) => {
-    await updateExternalLoan.mutateAsync({ id, allow_external_loan: !currentValue });
   };
 
   const getMovementTypeBadge = (type: string) => {
@@ -332,6 +326,12 @@ export default function EquipmentList() {
               </DialogContent>
             </Dialog>
             <Button asChild variant="outline">
+              <Link to="/equipment/reservations">
+                <CalendarClock className="mr-2 h-4 w-4" />
+                Pré-Reservas
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
               <Link to="/equipment/loans">
                 <ArrowRight className="mr-2 h-4 w-4" />
                 Empréstimos
@@ -413,7 +413,6 @@ export default function EquipmentList() {
                           <TableHead>Campus</TableHead>
                           <TableHead>Local</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Emp. Externo</TableHead>
                           <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -432,13 +431,6 @@ export default function EquipmentList() {
                               <Badge variant={statusLabels[item.status].variant}>
                                 {statusLabels[item.status].label}
                               </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Switch
-                                checked={(item as any).allow_external_loan ?? true}
-                                onCheckedChange={() => handleToggleExternalLoan(item.id, (item as any).allow_external_loan ?? true)}
-                                disabled={item.status === 'maintenance'}
-                              />
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">

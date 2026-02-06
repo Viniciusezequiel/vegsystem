@@ -30,7 +30,7 @@ import EquipmentList from "./pages/equipment/EquipmentList";
 import EquipmentRegister from "./pages/equipment/EquipmentRegister";
 import EquipmentLoans from "./pages/equipment/EquipmentLoans";
 import EquipmentLoanForm from "./pages/equipment/EquipmentLoanForm";
-
+import EquipmentReservations from "./pages/equipment/EquipmentReservations";
 
 // Lockers Module
 import LockersList from "./pages/lockers/LockersList";
@@ -139,6 +139,11 @@ const App = () => (
               <Route path="/equipment/edit/:id" element={
                 <ProtectedRoute>
                   <EquipmentRegister />
+                </ProtectedRoute>
+              } />
+              <Route path="/equipment/reservations" element={
+                <ProtectedRoute>
+                  <EquipmentReservations />
                 </ProtectedRoute>
               } />
               {/* Legacy route - redirect to main equipment page */}
