@@ -44,6 +44,8 @@ import LockerLoans from "./pages/lockers/LockerLoans";
 import RoomsList from "./pages/rooms/RoomsList";
 import ChecklistForm from "./pages/rooms/ChecklistForm";
 import ChecklistHistory from "./pages/rooms/ChecklistHistory";
+import ShiftHandoverForm from "./pages/rooms/ShiftHandoverForm";
+import ShiftHandoverHistory from "./pages/rooms/ShiftHandoverHistory";
 
 // Reservations Module
 import ReservationRoomsList from "./pages/reservations/ReservationRoomsList";
@@ -177,6 +179,16 @@ const App = () => (
               <Route path="/rooms/checklists" element={
                 <ProtectedRoute>
                   <ChecklistHistory />
+                </ProtectedRoute>
+              } />
+              <Route path="/rooms/shift-handover/new" element={
+                <ProtectedRoute>
+                  <ShiftHandoverForm />
+                </ProtectedRoute>
+              } />
+              <Route path="/rooms/shift-handovers" element={
+                <ProtectedRoute>
+                  <ShiftHandoverHistory />
                 </ProtectedRoute>
               } />
               

@@ -109,6 +109,7 @@ const moduleGroups: NavGroup[] = [
     items: [
       { name: 'Novo Checklist', href: '/rooms/checklist/new', icon: ClipboardCheck },
       { name: 'Checklists', href: '/rooms/checklists', icon: Search },
+      { name: 'Passagem de Plantão', href: '/rooms/shift-handovers', icon: RefreshCw },
       { name: 'Gestão de Salas', href: '/rooms', icon: ClipboardCheck, adminOnly: true },
     ],
   },
