@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -32,14 +31,21 @@ import { useCreateEquipment, useUpdateEquipment, useEquipment } from '@/hooks/us
 
 const equipmentSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
-  patrimony_code: z.string().min(1, 'Número do patrimônio é obrigatório'),
+  patrimony_code: z.string().optional(),
   patrimony_type: z.enum(['unique', 'quantity']),
   quantity: z.coerce.number().min(1, 'Quantidade mínima é 1'),
   location: z.string().min(1, 'Local é obrigatório'),
   campus: z.enum(['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm']),
   category: z.string().optional(),
   description: z.string().optional(),
-  allow_external_loan: z.boolean().default(true),
+}).refine((data) => {
+  if (data.patrimony_type === 'unique') {
+    return !!data.patrimony_code && data.patrimony_code.trim().length > 0;
+  }
+  return true;
+}, {
+  message: 'Número do patrimônio é obrigatório para patrimônio único',
+  path: ['patrimony_code'],
 });
 
 type EquipmentFormData = z.infer<typeof equipmentSchema>;
@@ -64,7 +70,6 @@ export default function EquipmentRegister() {
       campus: 'Campus I',
       category: '',
       description: '',
-      allow_external_loan: true,
     },
   });
 
@@ -90,30 +95,32 @@ export default function EquipmentRegister() {
         campus: existingEquipment.campus,
         category: existingEquipment.category || '',
         description: existingEquipment.description || '',
-        allow_external_loan: existingEquipment.allow_external_loan,
       });
     }
   }, [existingEquipment, isEditing, form]);
 
   const onSubmit = async (data: EquipmentFormData) => {
     const finalQuantity = data.patrimony_type === 'unique' ? 1 : data.quantity;
+    const finalPatrimonyCode = data.patrimony_type === 'quantity' 
+      ? `QTD-${Date.now().toString(36).toUpperCase()}`
+      : data.patrimony_code || '';
     
     if (isEditing && id) {
       await updateEquipment.mutateAsync({
         id,
         name: data.name,
-        patrimony_code: data.patrimony_code,
+        patrimony_code: data.patrimony_type === 'unique' ? (data.patrimony_code || '') : existingEquipment?.patrimony_code || finalPatrimonyCode,
         quantity: finalQuantity,
         location: data.location,
         campus: data.campus,
         category: data.category || null,
         description: data.description || null,
-        allow_external_loan: data.allow_external_loan,
+        allow_external_loan: false,
       });
     } else {
       await createEquipment.mutateAsync({
         name: data.name,
-        patrimony_code: data.patrimony_code,
+        patrimony_code: finalPatrimonyCode,
         quantity: finalQuantity,
         location: data.location,
         campus: data.campus,
@@ -122,7 +129,7 @@ export default function EquipmentRegister() {
         image_url: null,
         category: data.category || null,
         description: data.description || null,
-        allow_external_loan: data.allow_external_loan,
+        allow_external_loan: false,
       });
     }
     navigate('/equipment');
@@ -167,35 +174,19 @@ export default function EquipmentRegister() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome do Equipamento *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Projetor Epson" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="patrimony_code"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Número do Patrimônio *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: PAT-2024-001" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome do Equipamento *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Projetor Epson" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {/* Patrimony Type Selection */}
                 <FormField
@@ -230,6 +221,23 @@ export default function EquipmentRegister() {
                     </FormItem>
                   )}
                 />
+
+                {/* Patrimony code - only for unique type */}
+                {patrimonyType === 'unique' && (
+                  <FormField
+                    control={form.control}
+                    name="patrimony_code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número do Patrimônio *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: PAT-2024-001" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 {/* Quantity field - only visible when type is 'quantity' */}
                 {patrimonyType === 'quantity' && (
@@ -327,26 +335,6 @@ export default function EquipmentRegister() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="allow_external_loan"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Permitir empréstimo externo</FormLabel>
-                        <FormDescription>
-                          Quando marcado, este equipamento pode ser solicitado por usuários externos
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
 
                 <div className="flex justify-end gap-4">
                   <Button

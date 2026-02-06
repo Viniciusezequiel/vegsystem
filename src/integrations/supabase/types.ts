@@ -352,6 +352,65 @@ export type Database = {
           },
         ]
       }
+      equipment_reservations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          equipment_id: string
+          id: string
+          notes: string | null
+          purpose: string | null
+          quantity_reserved: number
+          requester_name: string
+          requester_phone: string
+          requester_sector: string
+          requester_type: string
+          scheduled_pickup_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          equipment_id: string
+          id?: string
+          notes?: string | null
+          purpose?: string | null
+          quantity_reserved?: number
+          requester_name: string
+          requester_phone: string
+          requester_sector: string
+          requester_type?: string
+          scheduled_pickup_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          equipment_id?: string
+          id?: string
+          notes?: string | null
+          purpose?: string | null
+          quantity_reserved?: number
+          requester_name?: string
+          requester_phone?: string
+          requester_sector?: string
+          requester_type?: string
+          scheduled_pickup_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_reservations_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_equipment_requests: {
         Row: {
           admin_notes: string | null
