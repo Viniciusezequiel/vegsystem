@@ -87,18 +87,8 @@ export function useCreateEquipmentReservation() {
 
       if (eqError) throw eqError;
 
-      // Check existing reservations for same equipment on same date
-      const { data: existingReservations } = await supabase
-        .from('equipment_reservations')
-        .select('quantity_reserved')
-        .eq('equipment_id', reservation.equipment_id)
-        .eq('status', 'awaiting_pickup');
-
-      const totalReserved = existingReservations?.reduce((sum, r) => sum + r.quantity_reserved, 0) || 0;
-      const effectiveAvailable = equipment.available_quantity - totalReserved;
-
-      if (effectiveAvailable < reservation.quantity_reserved) {
-        throw new Error(`Quantidade indisponível. Disponível real: ${effectiveAvailable} (${totalReserved} já reservado(s))`);
+      if (equipment.available_quantity < reservation.quantity_reserved) {
+        throw new Error(`Quantidade indisponível. Disponível: ${equipment.available_quantity}`);
       }
 
       const { data, error } = await supabase
@@ -111,6 +101,17 @@ export function useCreateEquipmentReservation() {
         .single();
 
       if (error) throw error;
+
+      // Deduzir do estoque imediatamente
+      const newAvailable = equipment.available_quantity - reservation.quantity_reserved;
+      await supabase
+        .from('equipment')
+        .update({
+          available_quantity: newAvailable,
+          status: newAvailable === 0 ? 'borrowed' : 'available',
+        })
+        .eq('id', reservation.equipment_id);
+
       return data;
     },
     onSuccess: () => {
@@ -124,24 +125,70 @@ export function useCreateEquipmentReservation() {
   });
 }
 
-export function useUpdateReservationStatus() {
+export function useCancelReservation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async (id: string) => {
+      // Buscar reserva para restaurar estoque
+      const { data: reservation, error: fetchError } = await supabase
+        .from('equipment_reservations')
+        .select('*, equipment(*)')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (reservation.status !== 'awaiting_pickup') {
+        throw new Error('Apenas reservas aguardando retirada podem ser canceladas');
+      }
+
+      // Cancelar reserva
       const { error } = await supabase
         .from('equipment_reservations')
-        .update({ status })
+        .update({ status: 'cancelled' })
+        .eq('id', id);
+      if (error) throw error;
+
+      // Restaurar estoque
+      const equip = reservation.equipment as any;
+      await supabase
+        .from('equipment')
+        .update({
+          available_quantity: equip.available_quantity + reservation.quantity_reserved,
+          status: 'available',
+        })
+        .eq('id', reservation.equipment_id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      toast.success('Reserva cancelada e estoque restaurado!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao cancelar reserva: ' + error.message);
+    },
+  });
+}
+
+export function useMarkReservationPickedUp() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('equipment_reservations')
+        .update({ status: 'picked_up' })
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-reservations'] });
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
-      toast.success('Status da reserva atualizado!');
+      toast.success('Reserva marcada como retirada!');
     },
     onError: (error: Error) => {
-      toast.error('Erro ao atualizar status: ' + error.message);
+      toast.error('Erro ao atualizar reserva: ' + error.message);
     },
   });
 }

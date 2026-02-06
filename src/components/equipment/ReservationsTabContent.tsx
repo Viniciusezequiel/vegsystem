@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -15,8 +16,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Clock, CheckCircle, XCircle, Phone } from 'lucide-react';
-import { useEquipmentReservations, useUpdateReservationStatus, EquipmentReservation } from '@/hooks/useEquipmentReservations';
+import { Clock, CheckCircle, XCircle, Phone, ArrowRight } from 'lucide-react';
+import { useEquipmentReservations, useCancelReservation, EquipmentReservation } from '@/hooks/useEquipmentReservations';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -37,8 +38,9 @@ interface ReservationsTabContentProps {
 }
 
 export function ReservationsTabContent({ searchQuery }: ReservationsTabContentProps) {
+  const navigate = useNavigate();
   const { data: reservations } = useEquipmentReservations('awaiting_pickup');
-  const updateStatus = useUpdateReservationStatus();
+  const cancelReservation = useCancelReservation();
 
   const filtered = useMemo(() => {
     if (!reservations || !searchQuery.trim()) return reservations;
@@ -61,12 +63,29 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
     return isPast(pickupDate) && !isToday(pickupDate);
   };
 
-  const handleMarkPickedUp = (id: string) => {
-    updateStatus.mutate({ id, status: 'picked_up' });
+  const handlePickup = (reservation: EquipmentReservation) => {
+    // Navegar para o formulário de empréstimo pré-preenchido com dados da reserva
+    navigate('/equipment/loan/new', {
+      state: {
+        fromReservation: {
+          reservationId: reservation.id,
+          equipmentId: reservation.equipment_id,
+          equipmentName: reservation.equipment?.name,
+          equipmentPatrimonyCode: reservation.equipment?.patrimony_code,
+          quantity: reservation.quantity_reserved,
+          borrowerName: reservation.requester_name,
+          borrowerPhone: reservation.requester_phone,
+          borrowerSector: reservation.requester_sector,
+          borrowerType: reservation.requester_type,
+          purpose: reservation.purpose,
+          notes: reservation.notes,
+        },
+      },
+    });
   };
 
   const handleCancel = (id: string) => {
-    updateStatus.mutate({ id, status: 'cancelled' });
+    cancelReservation.mutate(id);
   };
 
   if (!filtered?.length) {
@@ -150,11 +169,10 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleMarkPickedUp(reservation.id)}
-                      disabled={updateStatus.isPending}
+                      onClick={() => handlePickup(reservation)}
                     >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">Retirado</span>
+                      <ArrowRight className="h-3 w-3 mr-1" />
+                      <span className="hidden sm:inline">Retirar</span>
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -166,7 +184,7 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
                         <AlertDialogHeader>
                           <AlertDialogTitle>Cancelar reserva?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja cancelar esta pré-reserva de {reservation.equipment?.name}?
+                            Tem certeza que deseja cancelar esta pré-reserva de {reservation.equipment?.name}? O estoque será restaurado.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
