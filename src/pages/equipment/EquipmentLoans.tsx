@@ -1,19 +1,15 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Inbox, User, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Inbox, Search } from 'lucide-react';
 import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, EquipmentLoan } from '@/hooks/useEquipment';
 import { useExternalEquipmentRequests } from '@/hooks/useExternalEquipmentRequests';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
@@ -28,17 +24,42 @@ const statusLabels = {
   overdue: { label: 'Atrasado', variant: 'destructive' as const, icon: AlertTriangle },
 };
 
+const borrowerTypeLabels: Record<string, string> = {
+  aluno: 'Aluno',
+  professor: 'Professor',
+  funcionario: 'Funcionário',
+};
+
 export default function EquipmentLoans() {
   const [activeTab, setActiveTab] = useState('active');
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<EquipmentLoan | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const { data: activeLoans } = useEquipmentLoans('active');
   const { data: returnedLoans } = useEquipmentLoans('returned');
   const { data: overdueLoans } = useOverdueLoans();
   const { data: awaitingPickupRequests } = useExternalEquipmentRequests('awaiting_pickup');
   const returnEquipment = useReturnEquipment();
+
+  const filterLoans = (loans: EquipmentLoan[] | undefined) => {
+    if (!loans || !searchQuery.trim()) return loans;
+    const q = searchQuery.toLowerCase();
+    return loans.filter(loan =>
+      loan.borrower_name.toLowerCase().includes(q) ||
+      loan.borrower_phone.includes(q) ||
+      loan.borrower_sector.toLowerCase().includes(q) ||
+      loan.equipment?.name?.toLowerCase().includes(q) ||
+      loan.equipment?.patrimony_code?.toLowerCase().includes(q) ||
+      loan.collaborator_name?.toLowerCase().includes(q) ||
+      loan.borrower_type?.toLowerCase().includes(q)
+    );
+  };
+
+  const filteredActiveLoans = useMemo(() => filterLoans(activeLoans), [activeLoans, searchQuery]);
+  const filteredReturnedLoans = useMemo(() => filterLoans(returnedLoans), [returnedLoans, searchQuery]);
+  const filteredOverdueLoans = useMemo(() => filterLoans(overdueLoans), [overdueLoans, searchQuery]);
 
   const handleOpenReturn = (loan: EquipmentLoan) => {
     setSelectedLoan(loan);
@@ -61,6 +82,9 @@ export default function EquipmentLoans() {
       item_condition: data.item_condition,
       notes: data.notes,
       return_signature: data.return_signature,
+      return_collaborator_name: data.return_collaborator_name,
+      all_items_returned: data.all_items_returned,
+      pending_items_description: data.pending_items_description,
     }, {
       onSuccess: () => {
         setReturnDialogOpen(false);
@@ -99,9 +123,12 @@ export default function EquipmentLoans() {
               <TableHead>Equipamento</TableHead>
               <TableHead className="hidden sm:table-cell">Qtd.</TableHead>
               <TableHead>Solicitante</TableHead>
+              <TableHead className="hidden md:table-cell">Tipo</TableHead>
               <TableHead className="hidden md:table-cell">Setor</TableHead>
               <TableHead className="hidden lg:table-cell">Telefone</TableHead>
+              <TableHead className="hidden lg:table-cell">Finalidade</TableHead>
               <TableHead>Prev. Devolução</TableHead>
+              <TableHead className="hidden sm:table-cell">Colaborador</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -116,22 +143,21 @@ export default function EquipmentLoans() {
                   <TableCell className="font-medium">
                     <div className="min-w-0">
                       <span className="block truncate">{loan.equipment?.name || 'N/A'}</span>
-                      <span className="text-xs text-muted-foreground block">
-                        {loan.equipment?.patrimony_code}
-                      </span>
-                      <span className="text-xs text-muted-foreground sm:hidden">
-                        Qtd: {loan.quantity_borrowed}
-                      </span>
+                      <span className="text-xs text-muted-foreground block">{loan.equipment?.patrimony_code}</span>
+                      <span className="text-xs text-muted-foreground sm:hidden">Qtd: {loan.quantity_borrowed}</span>
                     </div>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">{loan.quantity_borrowed}</TableCell>
                   <TableCell>
                     <div className="min-w-0">
                       <span className="block truncate">{loan.borrower_name}</span>
-                      <span className="text-xs text-muted-foreground md:hidden">
-                        {loan.borrower_sector}
-                      </span>
+                      <span className="text-xs text-muted-foreground md:hidden">{loan.borrower_sector}</span>
                     </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <Badge variant="outline" className="text-xs">
+                      {borrowerTypeLabels[loan.borrower_type || 'aluno'] || loan.borrower_type}
+                    </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{loan.borrower_sector}</TableCell>
                   <TableCell className="hidden lg:table-cell">
@@ -145,11 +171,17 @@ export default function EquipmentLoans() {
                       {loan.borrower_phone}
                     </a>
                   </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {loan.purpose || '—'}
+                  </TableCell>
                   <TableCell className={overdue ? 'text-destructive font-medium' : ''}>
                     <div className="min-w-0">
                       <span className="block">{formatDate(loan.expected_return_date)}</span>
                       {overdue && <span className="text-xs">(Atrasado)</span>}
                     </div>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <span className="text-xs text-muted-foreground">{loan.collaborator_name || '—'}</span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <Badge variant={overdue ? 'destructive' : statusLabels[loan.status].variant}>
@@ -159,20 +191,12 @@ export default function EquipmentLoans() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleOpenDetails(loan)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenDetails(loan)}>
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">Ver detalhes</span>
                       </Button>
                       {showReturnButton && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleOpenReturn(loan)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => handleOpenReturn(loan)}>
                           <span className="hidden sm:inline">Devolver</span>
                           <span className="sm:hidden">Dev.</span>
                         </Button>
@@ -211,10 +235,13 @@ export default function EquipmentLoans() {
                 { header: 'Equipamento', accessor: (row) => row.equipment?.name || 'N/A' },
                 { header: 'Patrimônio', accessor: (row) => row.equipment?.patrimony_code || 'N/A' },
                 { header: 'Qtd.', accessor: (row) => String(row.quantity_borrowed) },
+                { header: 'Tipo', accessor: (row) => borrowerTypeLabels[row.borrower_type || 'aluno'] || row.borrower_type || '' },
                 { header: 'Solicitante', accessor: 'borrower_name' },
                 { header: 'Setor', accessor: 'borrower_sector' },
                 { header: 'Telefone', accessor: 'borrower_phone' },
+                { header: 'Finalidade', accessor: (row) => row.purpose || '' },
                 { header: 'Prev. Devolução', accessor: (row) => formatDate(row.expected_return_date) },
+                { header: 'Colaborador', accessor: (row) => row.collaborator_name || '' },
                 { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
               ]}
               data={[...(activeLoans || []), ...(returnedLoans || [])]}
@@ -252,17 +279,28 @@ export default function EquipmentLoans() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Lista de Empréstimos
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Lista de Empréstimos
+              </CardTitle>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, equipamento, setor..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="active" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Ativos</span> ({activeLoans?.length || 0})
+                  <span className="hidden sm:inline">Ativos</span> ({filteredActiveLoans?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="awaiting" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <Inbox className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -270,15 +308,15 @@ export default function EquipmentLoans() {
                 </TabsTrigger>
                 <TabsTrigger value="overdue" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Atrasados</span> ({overdueLoans?.length || 0})
+                  <span className="hidden sm:inline">Atrasados</span> ({filteredOverdueLoans?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="returned" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Devolvidos</span> ({returnedLoans?.length || 0})
+                  <span className="hidden sm:inline">Devolvidos</span> ({filteredReturnedLoans?.length || 0})
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="active" className="mt-4">
-                {renderLoansTable(activeLoans, true)}
+                {renderLoansTable(filteredActiveLoans, true)}
               </TabsContent>
               <TabsContent value="awaiting" className="mt-4">
                 {awaitingPickupRequests && awaitingPickupRequests.length > 0 ? (
@@ -305,9 +343,7 @@ export default function EquipmentLoans() {
                                 <div className="min-w-0">
                                   <span className="block truncate">{req.equipment_name}</span>
                                   {req.equipment?.patrimony_code && (
-                                    <span className="text-xs text-muted-foreground block">
-                                      {req.equipment.patrimony_code}
-                                    </span>
+                                    <span className="text-xs text-muted-foreground block">{req.equipment.patrimony_code}</span>
                                   )}
                                 </div>
                               </TableCell>
@@ -315,9 +351,7 @@ export default function EquipmentLoans() {
                               <TableCell>
                                 <div className="min-w-0">
                                   <span className="block truncate">{req.requester_name}</span>
-                                  <span className="text-xs text-muted-foreground block truncate">
-                                    {req.requester_email}
-                                  </span>
+                                  <span className="text-xs text-muted-foreground block truncate">{req.requester_email}</span>
                                 </div>
                               </TableCell>
                               <TableCell className="hidden md:table-cell">
@@ -344,9 +378,7 @@ export default function EquipmentLoans() {
                     </div>
                     <div className="pt-2">
                       <Button asChild variant="outline" size="sm">
-                        <Link to="/equipment/external-requests">
-                          Ver todas as solicitações externas
-                        </Link>
+                        <Link to="/equipment/external-requests">Ver todas as solicitações externas</Link>
                       </Button>
                     </div>
                   </div>
@@ -357,17 +389,16 @@ export default function EquipmentLoans() {
                 )}
               </TabsContent>
               <TabsContent value="overdue" className="mt-4">
-                {renderLoansTable(overdueLoans, true)}
+                {renderLoansTable(filteredOverdueLoans, true)}
               </TabsContent>
               <TabsContent value="returned" className="mt-4">
-                {renderLoansTable(returnedLoans, false)}
+                {renderLoansTable(filteredReturnedLoans, false)}
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
       </div>
 
-      {/* Details Dialog */}
       <EquipmentLoanDetailsDialog
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
@@ -376,7 +407,6 @@ export default function EquipmentLoans() {
         showReturnButton={selectedLoan?.status === 'active'}
       />
 
-      {/* Return Dialog */}
       {selectedLoan && (
         <ReturnDialog
           open={returnDialogOpen}
