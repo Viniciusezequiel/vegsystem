@@ -31,9 +31,20 @@ export type EquipmentLoan = {
   borrower_sector: string;
   borrower_phone: string;
   borrower_signature: string | null;
+  borrower_type: string | null;
+  purpose: string | null;
+  authorizer_name: string | null;
+  authorizer_contact: string | null;
+  collaborator_name: string | null;
   expected_return_date: string;
   actual_return_date: string | null;
   return_signature: string | null;
+  return_collaborator_name: string | null;
+  returner_name: string | null;
+  returner_phone: string | null;
+  item_condition: string | null;
+  all_items_returned: boolean | null;
+  pending_items_description: string | null;
   status: 'active' | 'returned' | 'overdue';
   loaned_by: string | null;
   returned_by: string | null;
@@ -41,7 +52,7 @@ export type EquipmentLoan = {
   created_at: string;
   updated_at: string;
   equipment?: Equipment;
-  _pending?: boolean; // Flag for offline-created items
+  _pending?: boolean;
 };
 
 export function useEquipmentList(search?: string) {
@@ -315,6 +326,11 @@ export function useCreateEquipmentLoan() {
       expected_return_date: string;
       notes?: string;
       borrower_signature?: string;
+      borrower_type?: string;
+      purpose?: string;
+      authorizer_name?: string;
+      authorizer_contact?: string;
+      collaborator_name?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -343,6 +359,11 @@ export function useCreateEquipmentLoan() {
           expected_return_date: loan.expected_return_date,
           notes: loan.notes,
           borrower_signature: loan.borrower_signature,
+          borrower_type: loan.borrower_type,
+          purpose: loan.purpose,
+          authorizer_name: loan.authorizer_name,
+          authorizer_contact: loan.authorizer_contact,
+          collaborator_name: loan.collaborator_name,
           loaned_by: user?.id 
         })
         .select()
@@ -384,6 +405,9 @@ export function useReturnEquipment() {
       item_condition?: string;
       notes?: string;
       return_signature?: string;
+      return_collaborator_name?: string;
+      all_items_returned?: boolean;
+      pending_items_description?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -404,7 +428,13 @@ export function useReturnEquipment() {
           actual_return_date: new Date().toISOString().split('T')[0],
           returned_by: user?.id,
           return_signature: data.return_signature,
-          notes: data.notes ? `${loan.notes ? loan.notes + '\n' : ''}Devolução: ${data.notes}${data.item_condition ? ` (Condição: ${data.item_condition})` : ''}` : loan.notes
+          returner_name: data.returner_name,
+          returner_phone: data.returner_phone,
+          item_condition: data.item_condition,
+          return_collaborator_name: data.return_collaborator_name,
+          all_items_returned: data.all_items_returned ?? true,
+          pending_items_description: data.pending_items_description,
+          notes: data.notes ? `${loan.notes ? loan.notes + '\n' : ''}Devolução: ${data.notes}` : loan.notes
         })
         .eq('id', data.loanId);
       if (error) throw error;

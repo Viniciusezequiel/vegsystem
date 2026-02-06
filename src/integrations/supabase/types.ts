@@ -257,55 +257,88 @@ export type Database = {
       equipment_loans: {
         Row: {
           actual_return_date: string | null
+          all_items_returned: boolean | null
+          authorizer_contact: string | null
+          authorizer_name: string | null
           borrower_name: string
           borrower_phone: string
           borrower_sector: string
           borrower_signature: string | null
+          borrower_type: string | null
+          collaborator_name: string | null
           created_at: string
           equipment_id: string
           expected_return_date: string
           id: string
+          item_condition: string | null
           loaned_by: string | null
           notes: string | null
+          pending_items_description: string | null
+          purpose: string | null
           quantity_borrowed: number
+          return_collaborator_name: string | null
           return_signature: string | null
           returned_by: string | null
+          returner_name: string | null
+          returner_phone: string | null
           status: Database["public"]["Enums"]["loan_status"]
           updated_at: string
         }
         Insert: {
           actual_return_date?: string | null
+          all_items_returned?: boolean | null
+          authorizer_contact?: string | null
+          authorizer_name?: string | null
           borrower_name: string
           borrower_phone: string
           borrower_sector: string
           borrower_signature?: string | null
+          borrower_type?: string | null
+          collaborator_name?: string | null
           created_at?: string
           equipment_id: string
           expected_return_date: string
           id?: string
+          item_condition?: string | null
           loaned_by?: string | null
           notes?: string | null
+          pending_items_description?: string | null
+          purpose?: string | null
           quantity_borrowed?: number
+          return_collaborator_name?: string | null
           return_signature?: string | null
           returned_by?: string | null
+          returner_name?: string | null
+          returner_phone?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
           updated_at?: string
         }
         Update: {
           actual_return_date?: string | null
+          all_items_returned?: boolean | null
+          authorizer_contact?: string | null
+          authorizer_name?: string | null
           borrower_name?: string
           borrower_phone?: string
           borrower_sector?: string
           borrower_signature?: string | null
+          borrower_type?: string | null
+          collaborator_name?: string | null
           created_at?: string
           equipment_id?: string
           expected_return_date?: string
           id?: string
+          item_condition?: string | null
           loaned_by?: string | null
           notes?: string | null
+          pending_items_description?: string | null
+          purpose?: string | null
           quantity_borrowed?: number
+          return_collaborator_name?: string | null
           return_signature?: string | null
           returned_by?: string | null
+          returner_name?: string | null
+          returner_phone?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
           updated_at?: string
         }

@@ -7,6 +7,7 @@ import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -35,15 +36,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Package, Check, ChevronsUpDown, Search, Plus, Trash2, PenLine } from 'lucide-react';
+import { ArrowLeft, Package, Plus, Trash2, PenLine, Search, UserCheck, FileText } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEquipmentList, useCreateEquipmentLoan, Equipment } from '@/hooks/useEquipment';
-import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { SignaturePad } from '@/components/ui/SignaturePad';
+import { useAuth } from '@/contexts/AuthContext';
+import { Separator } from '@/components/ui/separator';
 
 interface SelectedEquipment {
   equipment: Equipment;
@@ -52,9 +54,13 @@ interface SelectedEquipment {
 
 const loanSchema = z.object({
   borrower_name: z.string().min(1, 'Nome é obrigatório'),
-  borrower_sector: z.string().min(1, 'Setor é obrigatório'),
+  borrower_type: z.string().min(1, 'Tipo é obrigatório'),
+  borrower_sector: z.string().min(1, 'Setor/Curso é obrigatório'),
   borrower_phone: z.string().min(1, 'Telefone é obrigatório'),
+  purpose: z.string().min(1, 'Finalidade é obrigatória'),
   expected_return_date: z.string().min(1, 'Data de devolução é obrigatória'),
+  authorizer_name: z.string().optional(),
+  authorizer_contact: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -63,11 +69,13 @@ type LoanFormData = z.infer<typeof loanSchema>;
 export default function EquipmentLoanForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [selectedItems, setSelectedItems] = useState<SelectedEquipment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   
   const { data: equipment } = useEquipmentList();
   const createLoan = useCreateEquipmentLoan();
@@ -77,7 +85,6 @@ export default function EquipmentLoanForm() {
   }, [equipment]);
 
   const filteredEquipment = useMemo(() => {
-    // Exclude already selected items
     const selectedIds = selectedItems.map(s => s.equipment.id);
     const notSelected = availableEquipment.filter(e => !selectedIds.includes(e.id));
     
@@ -93,12 +100,18 @@ export default function EquipmentLoanForm() {
     resolver: zodResolver(loanSchema),
     defaultValues: {
       borrower_name: '',
+      borrower_type: 'aluno',
       borrower_sector: '',
       borrower_phone: '',
+      purpose: '',
       expected_return_date: '',
+      authorizer_name: '',
+      authorizer_contact: '',
       notes: '',
     },
   });
+
+  const borrowerType = form.watch('borrower_type');
 
   const handleAddEquipment = (equip: Equipment) => {
     setSelectedItems(prev => [...prev, { equipment: equip, quantity: 1 }]);
@@ -122,27 +135,23 @@ export default function EquipmentLoanForm() {
 
   const onSubmit = async (data: LoanFormData) => {
     if (selectedItems.length === 0) {
-      toast({
-        title: 'Erro',
-        description: 'Selecione pelo menos um equipamento',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: 'Selecione pelo menos um equipamento', variant: 'destructive' });
       return;
     }
 
     if (!signature) {
-      toast({
-        title: 'Erro',
-        description: 'A assinatura do solicitante é obrigatória',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: 'A assinatura do solicitante é obrigatória', variant: 'destructive' });
+      return;
+    }
+
+    if (!acceptedTerms) {
+      toast({ title: 'Erro', description: 'É necessário aceitar o termo de responsabilidade', variant: 'destructive' });
       return;
     }
 
     setIsSubmitting(true);
     
     try {
-      // Create loans for all selected items
       for (const item of selectedItems) {
         await createLoan.mutateAsync({
           equipment_id: item.equipment.id,
@@ -153,20 +162,18 @@ export default function EquipmentLoanForm() {
           expected_return_date: data.expected_return_date,
           notes: data.notes || undefined,
           borrower_signature: signature,
+          borrower_type: data.borrower_type,
+          purpose: data.purpose,
+          authorizer_name: data.authorizer_name || undefined,
+          authorizer_contact: data.authorizer_contact || undefined,
+          collaborator_name: profile?.full_name || undefined,
         });
       }
       
-      toast({
-        title: 'Sucesso',
-        description: `${selectedItems.length} empréstimo(s) registrado(s) com sucesso`,
-      });
+      toast({ title: 'Sucesso', description: `${selectedItems.length} empréstimo(s) registrado(s) com sucesso` });
       navigate('/equipment/loans');
     } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Falha ao registrar empréstimos',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: 'Falha ao registrar empréstimos', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -181,10 +188,11 @@ export default function EquipmentLoanForm() {
           </Button>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">Novo Empréstimo</h1>
-            <p className="text-sm text-muted-foreground">Registre um ou mais empréstimos de equipamentos</p>
+            <p className="text-sm text-muted-foreground">Termo de Responsabilidade pelo Empréstimo e Uso de Equipamentos</p>
           </div>
         </div>
 
+        {/* Equipment Selection */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -193,22 +201,15 @@ export default function EquipmentLoanForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Selected Equipment List */}
             {selectedItems.length > 0 && (
               <div className="space-y-3 mb-4">
                 {selectedItems.map((item) => (
-                  <div 
-                    key={item.equipment.id}
-                    className="flex items-center gap-4 p-3 rounded-lg border bg-secondary/20"
-                  >
+                  <div key={item.equipment.id} className="flex items-center gap-4 p-3 rounded-lg border bg-secondary/20">
                     <div className="flex-1">
                       <p className="font-medium">{item.equipment.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Patrimônio: {item.equipment.patrimony_code}
-                      </p>
+                      <p className="text-xs text-muted-foreground">Patrimônio: {item.equipment.patrimony_code}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {/* Only show quantity input if equipment has more than 1 available */}
                       {item.equipment.quantity > 1 ? (
                         <>
                           <Input
@@ -219,22 +220,12 @@ export default function EquipmentLoanForm() {
                             onChange={(e) => handleQuantityChange(item.equipment.id, parseInt(e.target.value) || 1)}
                             className="w-20 h-8"
                           />
-                          <span className="text-xs text-muted-foreground">
-                            / {item.equipment.available_quantity}
-                          </span>
+                          <span className="text-xs text-muted-foreground">/ {item.equipment.available_quantity}</span>
                         </>
                       ) : (
-                        <Badge variant="secondary" className="text-xs">
-                          Patrimônio único
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">Patrimônio único</Badge>
                       )}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleRemoveEquipment(item.equipment.id)}
-                      >
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemoveEquipment(item.equipment.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -243,7 +234,6 @@ export default function EquipmentLoanForm() {
               </div>
             )}
 
-            {/* Add Equipment Button */}
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full gap-2">
@@ -255,12 +245,7 @@ export default function EquipmentLoanForm() {
                 <Command shouldFilter={false}>
                   <div className="flex items-center border-b px-3">
                     <Search className="h-4 w-4 shrink-0 opacity-50" />
-                    <CommandInput 
-                      placeholder="Buscar por nome ou patrimônio..." 
-                      value={searchValue}
-                      onValueChange={setSearchValue}
-                      className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                    />
+                    <CommandInput placeholder="Buscar por nome ou patrimônio..." value={searchValue} onValueChange={setSearchValue} className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground" />
                   </div>
                   <CommandList className="max-h-[300px] overflow-y-auto">
                     {filteredEquipment.length === 0 ? (
@@ -268,28 +253,16 @@ export default function EquipmentLoanForm() {
                     ) : (
                       <CommandGroup heading={`${filteredEquipment.length} equipamento(s) disponível(is)`}>
                         {filteredEquipment.slice(0, 50).map((equip) => (
-                          <CommandItem
-                            key={equip.id}
-                            value={equip.id}
-                            onSelect={() => handleAddEquipment(equip)}
-                            className="cursor-pointer hover:bg-accent"
-                          >
+                          <CommandItem key={equip.id} value={equip.id} onSelect={() => handleAddEquipment(equip)} className="cursor-pointer hover:bg-accent">
                             <div className="flex flex-col flex-1 gap-0.5">
                               <span className="font-medium">{equip.name}</span>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <span>Patrimônio: {equip.patrimony_code}</span>
-                                <span className="text-primary font-medium">
-                                  {equip.available_quantity} disponível(is)
-                                </span>
+                                <span className="text-primary font-medium">{equip.available_quantity} disponível(is)</span>
                               </div>
                             </div>
                           </CommandItem>
                         ))}
-                        {filteredEquipment.length > 50 && (
-                          <div className="text-xs text-muted-foreground text-center py-2 border-t">
-                            Mostrando 50 de {filteredEquipment.length}. Refine sua busca.
-                          </div>
-                        )}
                       </CommandGroup>
                     )}
                   </CommandList>
@@ -298,20 +271,46 @@ export default function EquipmentLoanForm() {
             </Popover>
 
             {selectedItems.length > 0 && (
-              <Badge variant="secondary" className="mt-2">
-                {selectedItems.length} equipamento(s) selecionado(s)
-              </Badge>
+              <Badge variant="secondary" className="mt-2">{selectedItems.length} equipamento(s) selecionado(s)</Badge>
             )}
           </CardContent>
         </Card>
 
+        {/* Borrower Info */}
         <Card>
           <CardHeader>
-            <CardTitle>Dados do Solicitante</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5" />
+              Identificação do Responsável
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Borrower Type */}
+                <FormField
+                  control={form.control}
+                  name="borrower_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Solicitante *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="aluno">Aluno</SelectItem>
+                          <SelectItem value="professor">Professor</SelectItem>
+                          <SelectItem value="funcionario">Funcionário</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
@@ -332,22 +331,28 @@ export default function EquipmentLoanForm() {
                     name="borrower_sector"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Curso *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <FormLabel>{borrowerType === 'funcionario' ? 'Setor *' : 'Curso *'}</FormLabel>
+                        {borrowerType === 'funcionario' ? (
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o curso" />
-                            </SelectTrigger>
+                            <Input placeholder="Ex: TI, Administrativo" {...field} />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Medicina">Medicina</SelectItem>
-                            <SelectItem value="Fisioterapia">Fisioterapia</SelectItem>
-                            <SelectItem value="Odontologia">Odontologia</SelectItem>
-                            <SelectItem value="Enfermagem">Enfermagem</SelectItem>
-                            <SelectItem value="Fonoaudiologia">Fonoaudiologia</SelectItem>
-                            <SelectItem value="Psicologia">Psicologia</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        ) : (
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o curso" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Medicina">Medicina</SelectItem>
+                              <SelectItem value="Fisioterapia">Fisioterapia</SelectItem>
+                              <SelectItem value="Odontologia">Odontologia</SelectItem>
+                              <SelectItem value="Enfermagem">Enfermagem</SelectItem>
+                              <SelectItem value="Fonoaudiologia">Fonoaudiologia</SelectItem>
+                              <SelectItem value="Psicologia">Psicologia</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -369,22 +374,83 @@ export default function EquipmentLoanForm() {
 
                   <FormField
                     control={form.control}
+                    name="purpose"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Finalidade do Empréstimo *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a finalidade" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Aula">Aula</SelectItem>
+                            <SelectItem value="Reunião">Reunião</SelectItem>
+                            <SelectItem value="Evento">Evento</SelectItem>
+                            <SelectItem value="Projeto">Projeto</SelectItem>
+                            <SelectItem value="Outro">Outro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="expected_return_date"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Data Prevista de Devolução *</FormLabel>
                         <FormControl>
-                          <DatePickerInput
-                            value={field.value}
-                            onChange={field.onChange}
-                            placeholder="Selecionar data"
-                          />
+                          <DatePickerInput value={field.value} onChange={field.onChange} placeholder="Selecionar data" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+
+                {/* Authorizer info - only for students */}
+                {borrowerType === 'aluno' && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-4">
+                        Em caso de retirada por aluno, identificar o responsável que autorizou:
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={form.control}
+                          name="authorizer_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nome do Autorizador</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Nome do professor/responsável" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="authorizer_contact"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Contato do Autorizador</FormLabel>
+                              <FormControl>
+                                <Input placeholder="E-mail ou telefone" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <FormField
                   control={form.control}
@@ -393,16 +459,50 @@ export default function EquipmentLoanForm() {
                     <FormItem>
                       <FormLabel>Observações</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Informações adicionais sobre o empréstimo..."
-                          rows={3}
-                          {...field}
-                        />
+                        <Textarea placeholder="Informações adicionais sobre o empréstimo..." rows={3} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                {/* Terms of Responsibility */}
+                <Separator />
+                <Card className="bg-muted/30 border-dashed">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Termo de Responsabilidade
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="text-xs text-muted-foreground space-y-2">
+                      <p>1- Se o equipamento for danificado ou inutilizado por emprego inadequado, mau uso, negligência ou extravio, a instituição cobrará do responsável pelo empréstimo o valor de um equipamento equivalente.</p>
+                      <p>2- Em caso de dano, inutilização ou extravio do equipamento deverei comunicar imediatamente o setor de Recursos Didáticos.</p>
+                      <p>3- Devolverei no prazo limite de até 01 (um) dia útil ao término da utilização, o(s) equipamento(s) completo(s) e em perfeito estado de conservação.</p>
+                      <p>4- A não devolução do(s) equipamento(s) poderá acarretar em sanções administrativas.</p>
+                      <p>5- Estando os equipamentos em minha posse, estarei sujeito a inspeções sem prévio aviso.</p>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="accept-terms"
+                        checked={acceptedTerms}
+                        onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                      />
+                      <label htmlFor="accept-terms" className="text-sm font-medium cursor-pointer">
+                        Li e aceito o Termo de Responsabilidade
+                      </label>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Collaborator info */}
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium">Colaborador responsável pelo empréstimo:</span>{' '}
+                    {profile?.full_name || 'Não identificado'}
+                  </p>
+                </div>
 
                 {/* Signature Section */}
                 <div className="space-y-2 pt-4 border-t">
@@ -413,27 +513,14 @@ export default function EquipmentLoanForm() {
                   <p className="text-xs text-muted-foreground mb-2">
                     O solicitante deve assinar abaixo para confirmar a retirada dos equipamentos.
                   </p>
-                  <SignaturePad 
-                    onSignatureChange={setSignature}
-                    width={350}
-                    height={150}
-                  />
+                  <SignaturePad onSignatureChange={setSignature} width={350} height={150} />
                 </div>
 
                 <div className="flex flex-col sm:flex-row justify-end gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate('/equipment/loans')}
-                    className="w-full sm:w-auto"
-                  >
+                  <Button type="button" variant="outline" onClick={() => navigate('/equipment/loans')} className="w-full sm:w-auto">
                     Cancelar
                   </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={isSubmitting || selectedItems.length === 0 || !signature} 
-                    className="w-full sm:w-auto"
-                  >
+                  <Button type="submit" disabled={isSubmitting || selectedItems.length === 0 || !signature || !acceptedTerms} className="w-full sm:w-auto">
                     {isSubmitting ? 'Registrando...' : `Registrar ${selectedItems.length > 1 ? `${selectedItems.length} Empréstimos` : 'Empréstimo'}`}
                   </Button>
                 </div>
