@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mail, Shield, ArrowLeft, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Loader2, Lock, Mail, Shield, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
@@ -353,16 +353,6 @@ export default function AdminAuth() {
             </form>
           )}
 
-          {/* Back to client area */}
-          <div className="mt-6 pt-4 border-t border-border/50">
-            <Link 
-              to="/auth" 
-              className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Voltar para área de cliente
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>

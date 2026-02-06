@@ -27,8 +27,7 @@ import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
-import { useExternalEquipmentNotifications, usePendingExternalEquipmentCount } from '@/hooks/useExternalEquipmentNotifications';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions, type Module } from '@/hooks/usePermissions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -93,7 +92,6 @@ const moduleGroups: NavGroup[] = [
     items: [
       { name: 'Patrimônios', href: '/equipment', icon: Package },
       { name: 'Empréstimos', href: '/equipment/loans', icon: PackagePlus },
-      { name: 'Solicitações Ext.', href: '/equipment/external-requests', icon: Users, hasBadge: true },
     ],
   },
   {
@@ -183,11 +181,6 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   const { pendingTasksCount } = useTaskNotifications();
   const { pendingMaterialsCount } = useMaterialNotifications();
   
-  // Equipment external requests notifications
-  useExternalEquipmentNotifications();
-  const pendingEquipmentConfig = usePendingExternalEquipmentCount();
-  const { data: pendingEquipmentCount } = useQuery(pendingEquipmentConfig);
-
   // Prefetch lost items on hover
   const handleLostItemsHover = useCallback(() => {
     prefetchLostItemsOnHover(queryClient);
@@ -231,7 +224,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
         title: 'Logout realizado',
         description: 'Você foi desconectado do sistema.',
       });
-      navigate('/auth');
+      navigate('/admin-auth');
     } catch (error) {
       toast({
         title: 'Erro',
@@ -422,7 +415,6 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                     // Determine which notification count to show based on module
                     const badgeCount = item.hasBadge 
                       ? (group.basePath === '/materials' ? pendingMaterialsCount 
-                        : group.basePath === '/equipment' ? pendingEquipmentCount
                         : pendingTasksCount)
                       : 0;
                     const showBadge = item.hasBadge && badgeCount && badgeCount > 0;
