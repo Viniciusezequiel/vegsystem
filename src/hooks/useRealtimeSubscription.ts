@@ -4,9 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 type TableName = 
-  | 'reservations'
-  | 'reservation_rooms'
-  | 'reservation_reschedulings'
   | 'equipment'
   | 'equipment_loans'
   | 'external_equipment_requests'
@@ -16,15 +13,11 @@ type TableName =
   | 'material_requests'
   | 'classroom_calls'
   | 'profiles'
-  | 'external_users'
   | 'tasks'
   | 'user_roles'
   | 'role_permissions';
 
 const tableToQueryKeyMap: Record<TableName, string[]> = {
-  reservations: ['reservations', 'reservation-logs'],
-  reservation_rooms: ['reservation-rooms'],
-  reservation_reschedulings: ['reschedulings'],
   equipment: ['equipment'],
   equipment_loans: ['equipment-loans'],
   external_equipment_requests: ['external-equipment-requests'],
@@ -34,7 +27,6 @@ const tableToQueryKeyMap: Record<TableName, string[]> = {
   material_requests: ['material-requests'],
   classroom_calls: ['classroom-calls'],
   profiles: ['profiles', 'users'],
-  external_users: ['external-users'],
   tasks: ['tasks', 'my-tasks', 'task'],
   user_roles: ['users', 'user-permissions'],
   role_permissions: ['role-permissions', 'user-permissions'],
@@ -88,9 +80,6 @@ export function useRealtimeSubscription(tables: TableName[] = []) {
 // Hook for subscribing to all main tables
 export function useGlobalRealtimeSubscription() {
   const allTables: TableName[] = [
-    'reservations',
-    'reservation_rooms',
-    'reservation_reschedulings',
     'equipment',
     'equipment_loans',
     'external_equipment_requests',
@@ -100,7 +89,6 @@ export function useGlobalRealtimeSubscription() {
     'material_requests',
     'classroom_calls',
     'profiles',
-    'external_users',
     'tasks',
     'user_roles',
     'role_permissions',

@@ -9,9 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Inbox, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search } from 'lucide-react';
 import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, EquipmentLoan } from '@/hooks/useEquipment';
-import { useExternalEquipmentRequests } from '@/hooks/useExternalEquipmentRequests';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
@@ -40,7 +39,6 @@ export default function EquipmentLoans() {
   const { data: activeLoans } = useEquipmentLoans('active');
   const { data: returnedLoans } = useEquipmentLoans('returned');
   const { data: overdueLoans } = useOverdueLoans();
-  const { data: awaitingPickupRequests } = useExternalEquipmentRequests('awaiting_pickup');
   const returnEquipment = useReturnEquipment();
 
   const filterLoans = (loans: EquipmentLoan[] | undefined) => {
@@ -302,14 +300,10 @@ export default function EquipmentLoans() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="active" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">Ativos</span> ({filteredActiveLoans?.length || 0})
-                </TabsTrigger>
-                <TabsTrigger value="awaiting" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                  <Inbox className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Aguardando</span> ({awaitingPickupRequests?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="overdue" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -322,76 +316,6 @@ export default function EquipmentLoans() {
               </TabsList>
               <TabsContent value="active" className="mt-4">
                 {renderLoansTable(filteredActiveLoans, true)}
-              </TabsContent>
-              <TabsContent value="awaiting" className="mt-4">
-                {awaitingPickupRequests && awaitingPickupRequests.length > 0 ? (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Solicitações externas aprovadas aguardando retirada pelo solicitante
-                    </p>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Equipamento</TableHead>
-                            <TableHead className="hidden sm:table-cell">Qtd.</TableHead>
-                            <TableHead>Solicitante</TableHead>
-                            <TableHead className="hidden md:table-cell">Telefone</TableHead>
-                            <TableHead>Data Retirada</TableHead>
-                            <TableHead className="hidden sm:table-cell">Devolução</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {awaitingPickupRequests.map((req) => (
-                            <TableRow key={req.id} className="bg-purple-500/5">
-                              <TableCell className="font-medium">
-                                <div className="min-w-0">
-                                  <span className="block truncate">{req.equipment_name}</span>
-                                  {req.equipment?.patrimony_code && (
-                                    <span className="text-xs text-muted-foreground block">{req.equipment.patrimony_code}</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="hidden sm:table-cell">{req.quantity_requested}</TableCell>
-                              <TableCell>
-                                <div className="min-w-0">
-                                  <span className="block truncate">{req.requester_name}</span>
-                                  <span className="text-xs text-muted-foreground block truncate">{req.requester_email}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="hidden md:table-cell">
-                                <a 
-                                  href={`https://wa.me/55${req.requester_phone.replace(/\D/g, '')}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-primary hover:underline"
-                                >
-                                  <Phone className="h-3 w-3" />
-                                  {req.requester_phone}
-                                </a>
-                              </TableCell>
-                              <TableCell>
-                                {format(parseISO(req.requested_date), "dd/MM/yyyy", { locale: ptBR })}
-                              </TableCell>
-                              <TableCell className="hidden sm:table-cell">
-                                {format(parseISO(req.expected_return_date), "dd/MM/yyyy", { locale: ptBR })}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                    <div className="pt-2">
-                      <Button asChild variant="outline" size="sm">
-                        <Link to="/equipment/external-requests">Ver todas as solicitações externas</Link>
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhuma solicitação aguardando retirada
-                  </div>
-                )}
               </TabsContent>
               <TabsContent value="overdue" className="mt-4">
                 {renderLoansTable(filteredOverdueLoans, true)}

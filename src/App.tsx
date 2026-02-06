@@ -8,7 +8,6 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { GlobalPrefetch } from "@/components/GlobalPrefetch";
-import Auth from "./pages/Auth";
 import AdminAuth from "./pages/AdminAuth";
 import Setup from "./pages/Setup";
 import Home from "./pages/Home";
@@ -31,7 +30,7 @@ import EquipmentList from "./pages/equipment/EquipmentList";
 import EquipmentRegister from "./pages/equipment/EquipmentRegister";
 import EquipmentLoans from "./pages/equipment/EquipmentLoans";
 import EquipmentLoanForm from "./pages/equipment/EquipmentLoanForm";
-import ExternalEquipmentRequestsList from "./pages/equipment/ExternalEquipmentRequestsList";
+
 
 // Lockers Module
 import LockersList from "./pages/lockers/LockersList";
@@ -73,7 +72,6 @@ const App = () => (
             <OfflineProvider>
               <Routes>
               {/* Public Routes */}
-              <Route path="/auth" element={<Auth />} />
               <Route path="/admin-auth" element={<AdminAuth />} />
               <Route path="/setup" element={<Setup />} />
               <Route path="/change-password" element={<ChangePassword />} />
@@ -141,11 +139,6 @@ const App = () => (
               <Route path="/equipment/edit/:id" element={
                 <ProtectedRoute>
                   <EquipmentRegister />
-                </ProtectedRoute>
-              } />
-              <Route path="/equipment/external-requests" element={
-                <ProtectedRoute>
-                  <ExternalEquipmentRequestsList />
                 </ProtectedRoute>
               } />
               {/* Legacy route - redirect to main equipment page */}
