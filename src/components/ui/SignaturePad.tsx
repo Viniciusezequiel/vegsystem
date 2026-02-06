@@ -5,13 +5,11 @@ import { RotateCcw } from 'lucide-react';
 
 interface SignaturePadProps {
   onSignatureChange: (signature: string | null) => void;
-  width?: number;
   height?: number;
 }
 
 export const SignaturePad = ({ 
   onSignatureChange, 
-  width = 400, 
   height = 200 
 }: SignaturePadProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -55,7 +53,7 @@ export const SignaturePad = ({
       return;
     }
 
-    const canvasWidth = Math.min(width, containerWidth - 2); // -2 for border
+    const canvasWidth = containerWidth - 2; // -2 for border
     const canvasHeight = height;
 
     const canvas = new FabricCanvas(canvasRef.current, {
@@ -79,7 +77,7 @@ export const SignaturePad = ({
     });
 
     fabricCanvasRef.current = canvas;
-  }, [width, height]);
+  }, [height]);
 
   useEffect(() => {
     initAttemptRef.current = 0;
@@ -123,9 +121,9 @@ export const SignaturePad = ({
     <div className="space-y-2">
       <div 
         ref={containerRef}
-        className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white"
+        className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white w-full"
       >
-        <canvas ref={canvasRef} className="touch-none" />
+        <canvas ref={canvasRef} className="touch-none w-full" />
       </div>
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">

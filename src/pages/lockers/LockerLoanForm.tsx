@@ -225,7 +225,6 @@ export default function LockerLoanForm() {
                   <div className="mt-1.5">
                     <SignaturePad
                       onSignatureChange={setSignature}
-                      width={400}
                       height={150}
                     />
                   </div>
