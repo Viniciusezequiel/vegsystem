@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { ArrowLeft, Package, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,6 +33,7 @@ import { useCreateEquipment, useUpdateEquipment, useEquipment } from '@/hooks/us
 const equipmentSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   patrimony_code: z.string().min(1, 'Número do patrimônio é obrigatório'),
+  patrimony_type: z.enum(['unique', 'quantity']),
   quantity: z.coerce.number().min(1, 'Quantidade mínima é 1'),
   location: z.string().min(1, 'Local é obrigatório'),
   campus: z.enum(['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm']),
@@ -55,6 +58,7 @@ export default function EquipmentRegister() {
     defaultValues: {
       name: '',
       patrimony_code: '',
+      patrimony_type: 'unique',
       quantity: 1,
       location: '',
       campus: 'Campus I',
@@ -64,12 +68,23 @@ export default function EquipmentRegister() {
     },
   });
 
+  const patrimonyType = form.watch('patrimony_type');
+
+  // When patrimony type changes to unique, force quantity to 1
+  useEffect(() => {
+    if (patrimonyType === 'unique') {
+      form.setValue('quantity', 1);
+    }
+  }, [patrimonyType, form]);
+
   // Populate form when editing
   useEffect(() => {
     if (existingEquipment && isEditing) {
+      const isUnique = existingEquipment.quantity === 1;
       form.reset({
         name: existingEquipment.name,
         patrimony_code: existingEquipment.patrimony_code,
+        patrimony_type: isUnique ? 'unique' : 'quantity',
         quantity: existingEquipment.quantity,
         location: existingEquipment.location,
         campus: existingEquipment.campus,
@@ -81,12 +96,14 @@ export default function EquipmentRegister() {
   }, [existingEquipment, isEditing, form]);
 
   const onSubmit = async (data: EquipmentFormData) => {
+    const finalQuantity = data.patrimony_type === 'unique' ? 1 : data.quantity;
+    
     if (isEditing && id) {
       await updateEquipment.mutateAsync({
         id,
         name: data.name,
         patrimony_code: data.patrimony_code,
-        quantity: data.quantity,
+        quantity: finalQuantity,
         location: data.location,
         campus: data.campus,
         category: data.category || null,
@@ -97,10 +114,10 @@ export default function EquipmentRegister() {
       await createEquipment.mutateAsync({
         name: data.name,
         patrimony_code: data.patrimony_code,
-        quantity: data.quantity,
+        quantity: finalQuantity,
         location: data.location,
         campus: data.campus,
-        available_quantity: data.quantity,
+        available_quantity: finalQuantity,
         status: 'available',
         image_url: null,
         category: data.category || null,
@@ -178,31 +195,67 @@ export default function EquipmentRegister() {
                       </FormItem>
                     )}
                   />
+                </div>
 
+                {/* Patrimony Type Selection */}
+                <FormField
+                  control={form.control}
+                  name="patrimony_type"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>Tipo de Controle *</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex flex-col sm:flex-row gap-4"
+                        >
+                          <div className="flex items-center space-x-2 rounded-md border p-3 flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+                            <RadioGroupItem value="unique" id="unique" />
+                            <Label htmlFor="unique" className="cursor-pointer flex-1">
+                              <span className="font-medium">Patrimônio Único</span>
+                              <p className="text-xs text-muted-foreground">Item individual com patrimônio exclusivo (quantidade fixa = 1)</p>
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2 rounded-md border p-3 flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+                            <RadioGroupItem value="quantity" id="quantity" />
+                            <Label htmlFor="quantity" className="cursor-pointer flex-1">
+                              <span className="font-medium">Por Quantidade</span>
+                              <p className="text-xs text-muted-foreground">Item com múltiplas unidades disponíveis para empréstimo</p>
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Quantity field - only visible when type is 'quantity' */}
+                {patrimonyType === 'quantity' && (
                   <FormField
                     control={form.control}
                     name="quantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Quantidade *</FormLabel>
+                        <FormLabel>Quantidade Disponível *</FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
                             min={1} 
                             {...field} 
-                            disabled={isEditing && existingEquipment?.quantity === 1}
                           />
                         </FormControl>
+                        <FormDescription>
+                          Informe a quantidade total de unidades disponíveis para empréstimo
+                        </FormDescription>
                         <FormMessage />
-                        {isEditing && existingEquipment?.quantity === 1 && (
-                          <p className="text-xs text-muted-foreground">
-                            Item com patrimônio único não pode ter quantidade alterada
-                          </p>
-                        )}
                       </FormItem>
                     )}
                   />
+                )}
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
                     name="category"

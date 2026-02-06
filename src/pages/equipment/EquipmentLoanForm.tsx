@@ -36,31 +36,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Package, Plus, Trash2, PenLine, Search, UserCheck, FileText, Edit3 } from 'lucide-react';
+import { ArrowLeft, Package, Plus, Trash2, PenLine, Search, UserCheck, FileText } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useEquipmentList, useCreateEquipmentLoan, useCreateEquipment, Equipment } from '@/hooks/useEquipment';
+import { useEquipmentList, useCreateEquipmentLoan, Equipment } from '@/hooks/useEquipment';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import { useAuth } from '@/contexts/AuthContext';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface SelectedEquipment {
   equipment: Equipment;
   quantity: number;
-}
-
-interface ManualEquipment {
-  id: string; // temporary client-side id
-  name: string;
-  patrimony_code: string;
-  quantity: number;
-  location: string;
-  campus: 'Campus I' | 'Campus II' | 'Campus IV' | 'Campus HUCM Adm';
-  description: string;
 }
 
 const loanSchema = z.object({
@@ -87,19 +76,9 @@ export default function EquipmentLoanForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [manualItems, setManualItems] = useState<ManualEquipment[]>([]);
-  const [manualForm, setManualForm] = useState({
-    name: '',
-    patrimony_code: '',
-    quantity: 1,
-    location: '',
-    campus: 'Campus I' as ManualEquipment['campus'],
-    description: '',
-  });
   
   const { data: equipment } = useEquipmentList();
   const createLoan = useCreateEquipmentLoan();
-  const createEquipment = useCreateEquipment();
 
   const availableEquipment = useMemo(() => {
     return equipment?.filter(e => e.available_quantity > 0) || [];
@@ -154,24 +133,11 @@ export default function EquipmentLoanForm() {
     );
   };
 
-  const handleAddManualEquipment = () => {
-    if (!manualForm.name || !manualForm.patrimony_code || !manualForm.location) {
-      toast({ title: 'Erro', description: 'Preencha nome, patrimônio e localização do equipamento', variant: 'destructive' });
-      return;
-    }
-    setManualItems(prev => [...prev, { ...manualForm, id: crypto.randomUUID() }]);
-    setManualForm({ name: '', patrimony_code: '', quantity: 1, location: '', campus: 'Campus I', description: '' });
-  };
-
-  const handleRemoveManualEquipment = (id: string) => {
-    setManualItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const totalItems = selectedItems.length + manualItems.length;
+  const totalItems = selectedItems.length;
 
   const onSubmit = async (data: LoanFormData) => {
     if (totalItems === 0) {
-      toast({ title: 'Erro', description: 'Selecione ou adicione pelo menos um equipamento', variant: 'destructive' });
+      toast({ title: 'Erro', description: 'Selecione pelo menos um equipamento', variant: 'destructive' });
       return;
     }
 
@@ -188,7 +154,6 @@ export default function EquipmentLoanForm() {
     setIsSubmitting(true);
     
     try {
-      // Process registered equipment loans
       for (const item of selectedItems) {
         await createLoan.mutateAsync({
           equipment_id: item.equipment.id,
@@ -198,39 +163,6 @@ export default function EquipmentLoanForm() {
           borrower_phone: data.borrower_phone,
           expected_return_date: data.expected_return_date,
           notes: data.notes || undefined,
-          borrower_signature: signature,
-          borrower_type: data.borrower_type,
-          purpose: data.purpose,
-          authorizer_name: data.authorizer_name || undefined,
-          authorizer_contact: data.authorizer_contact || undefined,
-          collaborator_name: profile?.full_name || undefined,
-        });
-      }
-
-      // Process manual equipment: create equipment first, then loan
-      for (const manual of manualItems) {
-        const newEquip = await createEquipment.mutateAsync({
-          name: manual.name,
-          patrimony_code: manual.patrimony_code,
-          quantity: manual.quantity,
-          available_quantity: manual.quantity,
-          location: manual.location,
-          campus: manual.campus,
-          description: manual.description || null,
-          category: null,
-          image_url: null,
-          status: 'available',
-          allow_external_loan: true,
-        });
-
-        await createLoan.mutateAsync({
-          equipment_id: newEquip.id,
-          quantity_borrowed: manual.quantity,
-          borrower_name: data.borrower_name,
-          borrower_sector: data.borrower_sector,
-          borrower_phone: data.borrower_phone,
-          expected_return_date: data.expected_return_date,
-          notes: data.notes ? `${data.notes}\n(Equipamento cadastrado manualmente via empréstimo)` : '(Equipamento cadastrado manualmente via empréstimo)',
           borrower_signature: signature,
           borrower_type: data.borrower_type,
           purpose: data.purpose,
@@ -271,8 +203,8 @@ export default function EquipmentLoanForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Show all selected items (registered + manual) */}
-            {(selectedItems.length > 0 || manualItems.length > 0) && (
+            {/* Show all selected items */}
+            {selectedItems.length > 0 && (
               <div className="space-y-3 mb-4">
                 {selectedItems.map((item) => (
                   <div key={item.equipment.id} className="flex items-center gap-4 p-3 rounded-lg border bg-secondary/20">
@@ -302,146 +234,49 @@ export default function EquipmentLoanForm() {
                     </div>
                   </div>
                 ))}
-                {manualItems.map((item) => (
-                  <div key={item.id} className="flex items-center gap-4 p-3 rounded-lg border border-dashed bg-accent/10">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{item.name}</p>
-                        <Badge variant="outline" className="text-xs">Manual</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Patrimônio: {item.patrimony_code} · {item.location} · {item.campus}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Qtd: {item.quantity}</span>
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemoveManualEquipment(item.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
               </div>
             )}
 
-            <Tabs defaultValue="registered" className="w-full">
-              <TabsList className="w-full grid grid-cols-2">
-                <TabsTrigger value="registered" className="gap-2">
-                  <Search className="h-4 w-4" />
-                  Cadastrado
-                </TabsTrigger>
-                <TabsTrigger value="manual" className="gap-2">
-                  <Edit3 className="h-4 w-4" />
-                  Manual
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="registered" className="mt-4">
-                <Popover open={open} onOpenChange={setOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full gap-2">
-                      <Plus className="h-4 w-4" />
-                      Buscar Equipamento Cadastrado
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-0" align="start" sideOffset={4}>
-                    <Command shouldFilter={false}>
-                      <div className="flex items-center border-b px-3">
-                        <Search className="h-4 w-4 shrink-0 opacity-50" />
-                        <CommandInput placeholder="Buscar por nome ou patrimônio..." value={searchValue} onValueChange={setSearchValue} className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground" />
-                      </div>
-                      <CommandList className="max-h-[300px] overflow-y-auto">
-                        {filteredEquipment.length === 0 ? (
-                          <CommandEmpty>Nenhum equipamento encontrado.</CommandEmpty>
-                        ) : (
-                          <CommandGroup heading={`${filteredEquipment.length} equipamento(s) disponível(is)`}>
-                            {filteredEquipment.slice(0, 50).map((equip) => (
-                              <CommandItem key={equip.id} value={equip.id} onSelect={() => handleAddEquipment(equip)} className="cursor-pointer hover:bg-accent">
-                                <div className="flex flex-col flex-1 gap-0.5">
-                                  <span className="font-medium">{equip.name}</span>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span>Patrimônio: {equip.patrimony_code}</span>
-                                    <span className="text-primary font-medium">{equip.available_quantity} disponível(is)</span>
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        )}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </TabsContent>
-
-              <TabsContent value="manual" className="mt-4 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Para itens que não estão cadastrados no sistema. O equipamento será cadastrado automaticamente ao registrar o empréstimo.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nome do Equipamento *</Label>
-                    <Input
-                      placeholder="Ex: Projetor Epson X300"
-                      value={manualForm.name}
-                      onChange={(e) => setManualForm(prev => ({ ...prev, name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Código Patrimônio *</Label>
-                    <Input
-                      placeholder="Ex: PAT-12345"
-                      value={manualForm.patrimony_code}
-                      onChange={(e) => setManualForm(prev => ({ ...prev, patrimony_code: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Localização *</Label>
-                    <Input
-                      placeholder="Ex: Sala 101, Bloco A"
-                      value={manualForm.location}
-                      onChange={(e) => setManualForm(prev => ({ ...prev, location: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Campus *</Label>
-                    <Select
-                      value={manualForm.campus}
-                      onValueChange={(value) => setManualForm(prev => ({ ...prev, campus: value as ManualEquipment['campus'] }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Campus I">Campus I</SelectItem>
-                        <SelectItem value="Campus II">Campus II</SelectItem>
-                        <SelectItem value="Campus IV">Campus IV</SelectItem>
-                        <SelectItem value="Campus HUCM Adm">Campus HUCM Adm</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Quantidade</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={manualForm.quantity}
-                      onChange={(e) => setManualForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Descrição</Label>
-                    <Input
-                      placeholder="Descrição adicional (opcional)"
-                      value={manualForm.description}
-                      onChange={(e) => setManualForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <Button type="button" variant="outline" className="w-full gap-2" onClick={handleAddManualEquipment}>
+            {/* Equipment Search */}
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full gap-2">
                   <Plus className="h-4 w-4" />
-                  Adicionar Equipamento Manual
+                  Buscar Equipamento
                 </Button>
-              </TabsContent>
-            </Tabs>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start" sideOffset={4}>
+                <Command shouldFilter={false}>
+                  <div className="flex items-center border-b px-3">
+                    <Search className="h-4 w-4 shrink-0 opacity-50" />
+                    <CommandInput placeholder="Buscar por nome ou patrimônio..." value={searchValue} onValueChange={setSearchValue} className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground" />
+                  </div>
+                  <CommandList className="max-h-[300px] overflow-y-auto">
+                    {filteredEquipment.length === 0 ? (
+                      <CommandEmpty>Nenhum equipamento encontrado.</CommandEmpty>
+                    ) : (
+                      <CommandGroup heading={`${filteredEquipment.length} equipamento(s) disponível(is)`}>
+                        {filteredEquipment.slice(0, 50).map((equip) => (
+                          <CommandItem key={equip.id} value={equip.id} onSelect={() => handleAddEquipment(equip)} className="cursor-pointer hover:bg-accent">
+                            <div className="flex flex-col flex-1 gap-0.5">
+                              <span className="font-medium">{equip.name}</span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>Patrimônio: {equip.patrimony_code}</span>
+                                {equip.quantity > 1 ? (
+                                  <span className="text-primary font-medium">{equip.available_quantity} disponível(is)</span>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Único</Badge>
+                                )}
+                              </div>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             {totalItems > 0 && (
               <Badge variant="secondary" className="mt-2">{totalItems} equipamento(s) selecionado(s)</Badge>
