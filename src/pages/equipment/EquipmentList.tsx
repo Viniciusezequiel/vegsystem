@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { 
   Plus, Search, Package, ArrowRight, Edit, Trash2, ArrowLeftRight, 
-  History, Ban, Upload, Loader2, CalendarClock 
+  History, Ban, Upload, Loader2 
 } from 'lucide-react';
 import { useEquipmentList, useDeleteEquipment, Equipment } from '@/hooks/useEquipment';
 import {
@@ -325,12 +325,6 @@ export default function EquipmentList() {
                 </div>
               </DialogContent>
             </Dialog>
-            <Button asChild variant="outline">
-              <Link to="/equipment/reservations">
-                <CalendarClock className="mr-2 h-4 w-4" />
-                Pré-Reservas
-              </Link>
-            </Button>
             <Button asChild variant="outline">
               <Link to="/equipment/loans">
                 <ArrowRight className="mr-2 h-4 w-4" />
