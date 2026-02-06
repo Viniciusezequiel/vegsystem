@@ -173,6 +173,12 @@ export function ShiftHandoverDetailsDialog({ handoverId, onClose }: Props) {
                           {incident.location}
                         </div>
                       )}
+                      {incident.treatment && (
+                        <div className="bg-muted/50 p-2 rounded-md mt-1">
+                          <p className="text-xs font-medium text-muted-foreground">Tratativa:</p>
+                          <p className="text-xs">{incident.treatment}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

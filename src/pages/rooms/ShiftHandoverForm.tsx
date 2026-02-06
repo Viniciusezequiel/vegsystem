@@ -54,6 +54,7 @@ type IncidentState = {
   incident_type: string;
   description: string;
   location: string;
+  treatment: string;
 };
 
 export default function ShiftHandoverForm() {
@@ -81,7 +82,7 @@ export default function ShiftHandoverForm() {
   );
 
   const [incidents, setIncidents] = useState<IncidentState[]>(
-    INCIDENT_TYPES.map(type => ({ incident_type: type, description: '', location: '' }))
+    INCIDENT_TYPES.map(type => ({ incident_type: type, description: '', location: '', treatment: '' }))
   );
 
   const updateTask = (index: number, field: keyof TaskState, value: any) => {
@@ -93,10 +94,16 @@ export default function ShiftHandoverForm() {
   };
 
   const allTasksAnswered = tasks.every(t => t.answer !== null);
+  const allNoTasksHaveObservation = tasks.every(t => t.answer !== false || t.observation.trim() !== '');
 
   const handleSubmit = async () => {
     if (!allTasksAnswered) {
       toast.error('Preencha Sim ou Não em todas as tarefas antes de enviar.');
+      return;
+    }
+
+    if (!allNoTasksHaveObservation) {
+      toast.error('Preencha a observação para todas as tarefas marcadas como "Não".');
       return;
     }
 
@@ -105,6 +112,12 @@ export default function ShiftHandoverForm() {
       const hasAnyIncident = incidents.some(i => i.description.trim());
       if (!hasAnyIncident) {
         toast.error('Descreva pelo menos uma intercorrência quando há intercorrência de impacto.');
+        return;
+      }
+      // Incidents with description must have treatment
+      const incidentsMissingTreatment = incidents.filter(i => i.description.trim() && !i.treatment.trim());
+      if (incidentsMissingTreatment.length > 0) {
+        toast.error('Preencha a tratativa para todas as intercorrências descritas.');
         return;
       }
     }
@@ -124,7 +137,12 @@ export default function ShiftHandoverForm() {
         answer: t.answer === true,
         observation: t.observation || undefined,
       })),
-      incidents: hasImpactIncident ? incidents.filter(i => i.description || i.location) : [],
+      incidents: hasImpactIncident ? incidents.filter(i => i.description || i.location).map(i => ({
+        incident_type: i.incident_type,
+        description: i.description || undefined,
+        location: i.location || undefined,
+        treatment: i.treatment || undefined,
+      })) : [],
     });
 
     navigate('/rooms/shift-handovers');
@@ -232,16 +250,33 @@ export default function ShiftHandoverForm() {
                       </Button>
                     </div>
                   </div>
-                  <Input
-                    placeholder="Observação (opcional)"
-                    value={task.observation}
-                    onChange={e => updateTask(index, 'observation', e.target.value)}
-                    className="text-sm"
-                  />
+                  {task.answer === false ? (
+                    <div className="space-y-1">
+                      <Input
+                        placeholder="Observação (obrigatório quando Não)"
+                        value={task.observation}
+                        onChange={e => updateTask(index, 'observation', e.target.value)}
+                        className={`text-sm ${!task.observation.trim() ? 'border-destructive' : ''}`}
+                      />
+                      {!task.observation.trim() && (
+                        <p className="text-xs text-destructive">* Observação obrigatória para tarefas com resposta "Não"</p>
+                      )}
+                    </div>
+                  ) : (
+                    <Input
+                      placeholder="Observação (opcional)"
+                      value={task.observation}
+                      onChange={e => updateTask(index, 'observation', e.target.value)}
+                      className="text-sm"
+                    />
+                  )}
                 </div>
               ))}
               {!allTasksAnswered && (
                 <p className="text-sm text-destructive">* Selecione Sim ou Não em todas as tarefas</p>
+              )}
+              {allTasksAnswered && !allNoTasksHaveObservation && (
+                <p className="text-sm text-destructive">* Preencha a observação para todas as tarefas marcadas como "Não"</p>
               )}
             </div>
           </CardContent>
@@ -290,6 +325,20 @@ export default function ShiftHandoverForm() {
                           className="text-sm"
                         />
                       </div>
+                      {incident.description.trim() && (
+                        <div className="space-y-1">
+                          <Textarea
+                            placeholder="Tratativa (obrigatório) - Descreva a ação tomada para resolver a intercorrência"
+                            value={incident.treatment}
+                            onChange={e => updateIncident(index, 'treatment', e.target.value)}
+                            className={`text-sm ${!incident.treatment.trim() ? 'border-destructive' : ''}`}
+                            rows={2}
+                          />
+                          {!incident.treatment.trim() && (
+                            <p className="text-xs text-destructive">* Tratativa obrigatória para intercorrências descritas</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -336,7 +385,7 @@ export default function ShiftHandoverForm() {
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!allTasksAnswered || createHandover.isPending}
+            disabled={!allTasksAnswered || !allNoTasksHaveObservation || createHandover.isPending}
           >
             <Save className="h-4 w-4 mr-2" />
             {createHandover.isPending ? 'Salvando...' : 'Registrar Passagem'}

@@ -32,6 +32,7 @@ export type ShiftHandoverIncident = {
   incident_type: string;
   description: string | null;
   location: string | null;
+  treatment: string | null;
 };
 
 export type ShiftHandoverWithDetails = ShiftHandover & {
@@ -105,7 +106,7 @@ export function useCreateShiftHandover() {
       collaborator_name: string;
       collaborator_time: string;
       tasks: { task_name: string; answer: boolean; observation?: string }[];
-      incidents: { incident_type: string; description?: string; location?: string }[];
+      incidents: { incident_type: string; description?: string; location?: string; treatment?: string }[];
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
@@ -154,6 +155,7 @@ export function useCreateShiftHandover() {
           incident_type: i.incident_type,
           description: i.description || null,
           location: i.location || null,
+          treatment: i.treatment || null,
         }));
 
         const { error: incidentsError } = await supabase
