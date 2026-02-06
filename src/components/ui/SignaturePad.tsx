@@ -19,6 +19,7 @@ export const SignaturePad = ({
   const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const onSignatureChangeRef = useRef(onSignatureChange);
   const [isEmpty, setIsEmpty] = useState(true);
+  const initAttemptRef = useRef(0);
 
   // Keep ref in sync with prop
   useEffect(() => {
@@ -34,16 +35,26 @@ export const SignaturePad = ({
     onSignatureChangeRef.current(null);
   }, []);
 
-  useEffect(() => {
+  const initCanvas = useCallback(() => {
     if (!canvasRef.current || !containerRef.current) return;
     
-    // Prevent double initialization
+    // Dispose existing canvas
     if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.dispose();
+      fabricCanvasRef.current = null;
+    }
+
+    const containerWidth = containerRef.current.offsetWidth;
+    
+    // If container has no width yet (dialog not fully rendered), retry
+    if (containerWidth < 50) {
+      initAttemptRef.current += 1;
+      if (initAttemptRef.current < 10) {
+        requestAnimationFrame(initCanvas);
+      }
       return;
     }
 
-    // Get container width for responsive sizing
-    const containerWidth = containerRef.current.offsetWidth;
     const canvasWidth = Math.min(width, containerWidth - 2); // -2 for border
     const canvasHeight = height;
 
@@ -68,14 +79,45 @@ export const SignaturePad = ({
     });
 
     fabricCanvasRef.current = canvas;
+  }, [width, height]);
+
+  useEffect(() => {
+    initAttemptRef.current = 0;
+    
+    // Use a small delay to ensure the dialog/container is fully rendered
+    const timer = setTimeout(() => {
+      initCanvas();
+    }, 100);
+
+    // Also observe container resize to re-init if needed
+    const container = containerRef.current;
+    let resizeObserver: ResizeObserver | null = null;
+    
+    if (container) {
+      let lastWidth = 0;
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry) {
+          const newWidth = entry.contentRect.width;
+          // Only re-init if width changed significantly and canvas exists with wrong size
+          if (Math.abs(newWidth - lastWidth) > 10 && lastWidth > 0 && fabricCanvasRef.current) {
+            initCanvas();
+          }
+          lastWidth = newWidth;
+        }
+      });
+      resizeObserver.observe(container);
+    }
 
     return () => {
+      clearTimeout(timer);
+      resizeObserver?.disconnect();
       if (fabricCanvasRef.current) {
         fabricCanvasRef.current.dispose();
         fabricCanvasRef.current = null;
       }
     };
-  }, [width, height]);
+  }, [initCanvas]);
 
   return (
     <div className="space-y-2">

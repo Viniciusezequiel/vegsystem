@@ -115,7 +115,12 @@ export default function LockerLoans() {
   };
 
   const isOverdue = (loan: LockerLoan) => {
-    return loan.status === 'active' && isPast(parseISO(loan.expected_return_date));
+    if (loan.status !== 'active') return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const returnDate = parseISO(loan.expected_return_date);
+    returnDate.setHours(0, 0, 0, 0);
+    return returnDate < today;
   };
 
   const renderLoansTable = (loans: LockerLoan[] | undefined, showReturnButton = false) => {

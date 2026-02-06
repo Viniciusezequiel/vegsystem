@@ -48,7 +48,11 @@ export function LockerLoanDetailsDialog({
 }: LockerLoanDetailsDialogProps) {
   if (!loan) return null;
 
-  const isOverdue = loan.status === 'active' && isPast(parseISO(loan.expected_return_date));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const returnDate = parseISO(loan.expected_return_date);
+  returnDate.setHours(0, 0, 0, 0);
+  const isOverdue = loan.status === 'active' && returnDate < today;
   const status = isOverdue ? 'overdue' : loan.status;
 
   const formatDate = (date: string) => {
