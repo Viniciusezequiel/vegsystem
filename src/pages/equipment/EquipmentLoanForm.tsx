@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,11 +41,26 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEquipmentList, useCreateEquipmentLoan, Equipment } from '@/hooks/useEquipment';
+import { useMarkReservationPickedUp } from '@/hooks/useEquipmentReservations';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import { useAuth } from '@/contexts/AuthContext';
 import { Separator } from '@/components/ui/separator';
+
+type ReservationState = {
+  reservationId: string;
+  equipmentId: string;
+  equipmentName: string;
+  equipmentPatrimonyCode: string;
+  quantity: number;
+  borrowerName: string;
+  borrowerPhone: string;
+  borrowerSector: string;
+  borrowerType: string;
+  purpose: string | null;
+  notes: string | null;
+};
 
 interface SelectedEquipment {
   equipment: Equipment;
@@ -68,6 +83,7 @@ type LoanFormData = z.infer<typeof loanSchema>;
 
 export default function EquipmentLoanForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { profile } = useAuth();
   const [open, setOpen] = useState(false);
@@ -77,8 +93,21 @@ export default function EquipmentLoanForm() {
   const [signature, setSignature] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   
+  const reservationData = (location.state as { fromReservation?: ReservationState } | null)?.fromReservation;
+  
   const { data: equipment } = useEquipmentList();
   const createLoan = useCreateEquipmentLoan();
+  const markPickedUp = useMarkReservationPickedUp();
+
+  // Pre-fill form from reservation data
+  useEffect(() => {
+    if (reservationData && equipment) {
+      const equip = equipment.find(e => e.id === reservationData.equipmentId);
+      if (equip && selectedItems.length === 0) {
+        setSelectedItems([{ equipment: equip, quantity: reservationData.quantity }]);
+      }
+    }
+  }, [reservationData, equipment]);
 
   const availableEquipment = useMemo(() => {
     return equipment?.filter(e => e.available_quantity > 0) || [];
@@ -99,15 +128,15 @@ export default function EquipmentLoanForm() {
   const form = useForm<LoanFormData>({
     resolver: zodResolver(loanSchema),
     defaultValues: {
-      borrower_name: '',
-      borrower_type: 'aluno',
-      borrower_sector: '',
-      borrower_phone: '',
-      purpose: '',
+      borrower_name: reservationData?.borrowerName || '',
+      borrower_type: reservationData?.borrowerType || 'aluno',
+      borrower_sector: reservationData?.borrowerSector || '',
+      borrower_phone: reservationData?.borrowerPhone || '',
+      purpose: reservationData?.purpose || '',
       expected_return_date: '',
       authorizer_name: '',
       authorizer_contact: '',
-      notes: '',
+      notes: reservationData?.notes || '',
     },
   });
 
@@ -169,7 +198,13 @@ export default function EquipmentLoanForm() {
           authorizer_name: data.authorizer_name || undefined,
           authorizer_contact: data.authorizer_contact || undefined,
           collaborator_name: profile?.full_name || undefined,
+          skip_stock_deduction: !!reservationData, // Estoque já deduzido na reserva
         });
+      }
+      
+      // Se veio de uma reserva, marcar como retirada
+      if (reservationData?.reservationId) {
+        await markPickedUp.mutateAsync(reservationData.reservationId);
       }
       
       toast({ title: 'Sucesso', description: `${totalItems} empréstimo(s) registrado(s) com sucesso` });
@@ -189,8 +224,15 @@ export default function EquipmentLoanForm() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Novo Empréstimo</h1>
-            <p className="text-sm text-muted-foreground">Termo de Responsabilidade pelo Empréstimo e Uso de Equipamentos</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+              {reservationData ? 'Retirada de Pré-Reserva' : 'Novo Empréstimo'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {reservationData 
+                ? 'Complete o formulário para registrar a retirada do equipamento pré-reservado'
+                : 'Termo de Responsabilidade pelo Empréstimo e Uso de Equipamentos'
+              }
+            </p>
           </div>
         </div>
 

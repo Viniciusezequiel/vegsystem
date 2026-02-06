@@ -331,54 +331,69 @@ export function useCreateEquipmentLoan() {
       authorizer_name?: string;
       authorizer_contact?: string;
       collaborator_name?: string;
+      skip_stock_deduction?: boolean; // Para reservas já deduzidas
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // First, update equipment available quantity
-      const { data: equipment, error: equipError } = await supabase
-        .from('equipment')
-        .select('available_quantity')
-        .eq('id', loan.equipment_id)
-        .single();
+      const { skip_stock_deduction, ...loanData } = loan;
       
-      if (equipError) throw equipError;
-      
-      if (equipment.available_quantity < loan.quantity_borrowed) {
-        throw new Error('Quantidade indisponível');
+      if (!skip_stock_deduction) {
+        // Verificar disponibilidade apenas se não for reserva
+        const { data: equipment, error: equipError } = await supabase
+          .from('equipment')
+          .select('available_quantity')
+          .eq('id', loan.equipment_id)
+          .single();
+        
+        if (equipError) throw equipError;
+        
+        if (equipment.available_quantity < loan.quantity_borrowed) {
+          throw new Error('Quantidade indisponível');
+        }
       }
 
       // Create loan
       const { data, error } = await supabase
         .from('equipment_loans')
         .insert({ 
-          equipment_id: loan.equipment_id,
-          quantity_borrowed: loan.quantity_borrowed,
-          borrower_name: loan.borrower_name,
-          borrower_sector: loan.borrower_sector,
-          borrower_phone: loan.borrower_phone,
-          expected_return_date: loan.expected_return_date,
-          notes: loan.notes,
-          borrower_signature: loan.borrower_signature,
-          borrower_type: loan.borrower_type,
-          purpose: loan.purpose,
-          authorizer_name: loan.authorizer_name,
-          authorizer_contact: loan.authorizer_contact,
-          collaborator_name: loan.collaborator_name,
+          equipment_id: loanData.equipment_id,
+          quantity_borrowed: loanData.quantity_borrowed,
+          borrower_name: loanData.borrower_name,
+          borrower_sector: loanData.borrower_sector,
+          borrower_phone: loanData.borrower_phone,
+          expected_return_date: loanData.expected_return_date,
+          notes: loanData.notes,
+          borrower_signature: loanData.borrower_signature,
+          borrower_type: loanData.borrower_type,
+          purpose: loanData.purpose,
+          authorizer_name: loanData.authorizer_name,
+          authorizer_contact: loanData.authorizer_contact,
+          collaborator_name: loanData.collaborator_name,
           loaned_by: user?.id 
         })
         .select()
         .single();
       if (error) throw error;
 
-      // Update available quantity
-      const newAvailable = equipment.available_quantity - loan.quantity_borrowed;
-      await supabase
-        .from('equipment')
-        .update({ 
-          available_quantity: newAvailable,
-          status: newAvailable === 0 ? 'borrowed' : 'available'
-        })
-        .eq('id', loan.equipment_id);
+      if (!skip_stock_deduction) {
+        // Update available quantity only for non-reservation loans
+        const { data: equipment } = await supabase
+          .from('equipment')
+          .select('available_quantity')
+          .eq('id', loan.equipment_id)
+          .single();
+        
+        if (equipment) {
+          const newAvailable = equipment.available_quantity - loan.quantity_borrowed;
+          await supabase
+            .from('equipment')
+            .update({ 
+              available_quantity: newAvailable,
+              status: newAvailable === 0 ? 'borrowed' : 'available'
+            })
+            .eq('id', loan.equipment_id);
+        }
+      }
 
       return data;
     },

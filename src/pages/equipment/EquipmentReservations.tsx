@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ArrowLeft, Plus, CalendarClock, Clock, CheckCircle, XCircle, Search, Phone } from 'lucide-react';
-import { useEquipmentReservations, useUpdateReservationStatus, EquipmentReservation } from '@/hooks/useEquipmentReservations';
+import { useEquipmentReservations, useCancelReservation, EquipmentReservation } from '@/hooks/useEquipmentReservations';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ReservationFormDialog } from '@/components/equipment/ReservationFormDialog';
@@ -46,7 +46,7 @@ export default function EquipmentReservations() {
   const { data: awaitingReservations } = useEquipmentReservations('awaiting_pickup');
   const { data: pickedUpReservations } = useEquipmentReservations('picked_up');
   const { data: cancelledReservations } = useEquipmentReservations('cancelled');
-  const updateStatus = useUpdateReservationStatus();
+  const cancelReservation = useCancelReservation();
 
   const filterReservations = (reservations: EquipmentReservation[] | undefined) => {
     if (!reservations || !searchQuery.trim()) return reservations;
@@ -74,11 +74,11 @@ export default function EquipmentReservations() {
   };
 
   const handleMarkPickedUp = (id: string) => {
-    updateStatus.mutate({ id, status: 'picked_up' });
+    // This page is legacy - pickup now goes through the loan form
   };
 
   const handleCancel = (id: string) => {
-    updateStatus.mutate({ id, status: 'cancelled' });
+    cancelReservation.mutate(id);
   };
 
   const renderTable = (reservations: EquipmentReservation[] | undefined, showActions = false) => {
@@ -165,7 +165,6 @@ export default function EquipmentReservations() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleMarkPickedUp(reservation.id)}
-                          disabled={updateStatus.isPending}
                         >
                           <CheckCircle className="h-3 w-3 mr-1" />
                           <span className="hidden sm:inline">Retirado</span>
