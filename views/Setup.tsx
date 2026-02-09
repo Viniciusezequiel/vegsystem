@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Shield, User, Mail, Lock, Key } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import vegSystemLogo from '@/assets/veg-system-logo.png';
+const vegSystemLogo = '/veg-system-logo.png';
 
 export default function Setup() {
   const navigate = useNavigate();

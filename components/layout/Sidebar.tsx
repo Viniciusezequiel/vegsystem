@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import vegSystemLogo from '@/assets/veg-system-logo.png';
+const vegSystemLogo = '/veg-system-logo.png';
 import { prefetchLostItemsOnHover } from '@/hooks/useLostItemsGlobalPrefetch';
 
 interface SidebarContextType {

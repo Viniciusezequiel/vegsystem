@@ -10,55 +10,55 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { GlobalPrefetch } from "@/components/GlobalPrefetch";
-import AdminAuth from "@/pages/AdminAuth";
-import Setup from "@/pages/Setup";
-import Home from "@/pages/Home";
-import RegisterItem from "@/pages/RegisterItem";
-import ItemsList from "@/pages/ItemsList";
-import ArchivedItemsList from "@/pages/ArchivedItemsList";
-import ItemDetail from "@/pages/ItemDetail";
-import History from "@/pages/History";
-import Users from "@/pages/Users";
-import Settings from "@/pages/Settings";
-import Reports from "@/pages/Reports";
-import DashboardStats from "@/pages/DashboardStats";
-import NotFound from "@/pages/NotFound";
-import Permissions from "@/pages/Permissions";
-import ActivityHistory from "@/pages/ActivityHistory";
-import ChangePassword from "@/pages/ChangePassword";
+import AdminAuth from "@/views/AdminAuth";
+import Setup from "@/views/Setup";
+import Home from "@/views/Home";
+import RegisterItem from "@/views/RegisterItem";
+import ItemsList from "@/views/ItemsList";
+import ArchivedItemsList from "@/views/ArchivedItemsList";
+import ItemDetail from "@/views/ItemDetail";
+import History from "@/views/History";
+import Users from "@/views/Users";
+import Settings from "@/views/Settings";
+import Reports from "@/views/Reports";
+import DashboardStats from "@/views/DashboardStats";
+import NotFound from "@/views/NotFound";
+import Permissions from "@/views/Permissions";
+import ActivityHistory from "@/views/ActivityHistory";
+import ChangePassword from "@/views/ChangePassword";
 
 // Equipment Module
-import EquipmentList from "@/pages/equipment/EquipmentList";
-import EquipmentRegister from "@/pages/equipment/EquipmentRegister";
-import EquipmentLoans from "@/pages/equipment/EquipmentLoans";
-import EquipmentLoanForm from "@/pages/equipment/EquipmentLoanForm";
-import EquipmentReservations from "@/pages/equipment/EquipmentReservations";
+import EquipmentList from "@/views/equipment/EquipmentList";
+import EquipmentRegister from "@/views/equipment/EquipmentRegister";
+import EquipmentLoans from "@/views/equipment/EquipmentLoans";
+import EquipmentLoanForm from "@/views/equipment/EquipmentLoanForm";
+import EquipmentReservations from "@/views/equipment/EquipmentReservations";
 
 // Lockers Module
-import LockersList from "@/pages/lockers/LockersList";
-import LockerLoanForm from "@/pages/lockers/LockerLoanForm";
-import LockerLoans from "@/pages/lockers/LockerLoans";
+import LockersList from "@/views/lockers/LockersList";
+import LockerLoanForm from "@/views/lockers/LockerLoanForm";
+import LockerLoans from "@/views/lockers/LockerLoans";
 
 // Rooms Module
-import RoomsList from "@/pages/rooms/RoomsList";
-import ChecklistForm from "@/pages/rooms/ChecklistForm";
-import ChecklistHistory from "@/pages/rooms/ChecklistHistory";
-import ShiftHandoverForm from "@/pages/rooms/ShiftHandoverForm";
-import ShiftHandoverHistory from "@/pages/rooms/ShiftHandoverHistory";
+import RoomsList from "@/views/rooms/RoomsList";
+import ChecklistForm from "@/views/rooms/ChecklistForm";
+import ChecklistHistory from "@/views/rooms/ChecklistHistory";
+import ShiftHandoverForm from "@/views/rooms/ShiftHandoverForm";
+import ShiftHandoverHistory from "@/views/rooms/ShiftHandoverHistory";
 
 // Materials Module
-import MaterialRequestsList from "@/pages/materials/MaterialRequestsList";
-import MaterialRequestForm from "@/pages/materials/MaterialRequestForm";
-import MyMaterialRequests from "@/pages/materials/MyMaterialRequests";
+import MaterialRequestsList from "@/views/materials/MaterialRequestsList";
+import MaterialRequestForm from "@/views/materials/MaterialRequestForm";
+import MyMaterialRequests from "@/views/materials/MyMaterialRequests";
 
 // Classroom Calls Module
-import ClassroomCallForm from "@/pages/classroom/ClassroomCallForm";
-import ClassroomCallsList from "@/pages/classroom/ClassroomCallsList";
+import ClassroomCallForm from "@/views/classroom/ClassroomCallForm";
+import ClassroomCallsList from "@/views/classroom/ClassroomCallsList";
 
 // Tasks Module
-import TasksList from "@/pages/tasks/TasksList";
-import MyTasks from "@/pages/tasks/MyTasks";
-import TasksDashboard from "@/pages/tasks/TasksDashboard";
+import TasksList from "@/views/tasks/TasksList";
+import MyTasks from "@/views/tasks/MyTasks";
+import TasksDashboard from "@/views/tasks/TasksDashboard";
 
 const queryClient = new QueryClient();
 

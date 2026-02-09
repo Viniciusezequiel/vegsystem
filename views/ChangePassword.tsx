@@ -9,7 +9,7 @@ import { Loader2, Lock, Shield, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import vegSystemLogo from '@/assets/veg-system-logo.png';
+const vegSystemLogo = '/veg-system-logo.png';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 const passwordSchema = z.object({
