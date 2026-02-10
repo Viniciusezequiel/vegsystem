@@ -44,6 +44,8 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useLostItem, useUpdateLostItem, useDeliverLostItem } from '@/hooks/useLostItems';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { Constants } from '@/integrations/supabase/types';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 
@@ -57,6 +59,21 @@ export default function ItemDetail() {
   const { data: item, isLoading, error } = useLostItem(id);
   const updateItem = useUpdateLostItem();
   const deliverItem = useDeliverLostItem();
+
+  // Fetch the name of who registered the item
+  const { data: registeredByName } = useQuery({
+    queryKey: ['profile-name', item?.registered_by],
+    queryFn: async () => {
+      if (!item?.registered_by) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', item.registered_by)
+        .maybeSingle();
+      return data?.full_name || null;
+    },
+    enabled: !!item?.registered_by,
+  });
 
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -325,13 +342,20 @@ export default function ItemDetail() {
             <div className="mt-6 pt-4 border-t border-border">
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Registro no Sistema</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3">
                   <Clock className="w-5 h-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-sm text-muted-foreground">Data/Hora do registro</p>
                     <p className="font-medium">
                       {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                     </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <User className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Cadastrado por</p>
+                    <p className="font-medium">{registeredByName || 'Não identificado'}</p>
                   </div>
                 </div>
               </div>
