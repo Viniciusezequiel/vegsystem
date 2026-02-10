@@ -375,13 +375,30 @@ export default function RegisterItem() {
                 </div>
                 <div>
                   <Label htmlFor="boxNumber">Nº da Caixa</Label>
-                  <Input
-                    id="boxNumber"
-                    placeholder="Ex: CX-001"
-                    className="mt-1.5"
-                    value={boxNumber}
-                    onChange={(e) => setBoxNumber(e.target.value)}
-                  />
+                  <Select value={boxNumber} onValueChange={setBoxNumber}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Selecione a caixa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[
+                        '1.3 (Variados)',
+                        '1.4 (Necessaire e lancheira)',
+                        '1.5 (Vasilhas/Jalecos e pijamas)',
+                        '1.6 (Variados)',
+                        '2.3 (Sombrinhas)',
+                        '2.4 (Necessaire e Lancheiras)',
+                        '2.5 (Roupas)',
+                        '2.6 (Roupas)',
+                        '3.3 (Pequenos pertences e eletrônicos)',
+                        '3.4 (Material acadêmico)',
+                        '3.5 (Garrafas e copos)',
+                        '3.6 (Garrafas e copos)',
+                        '9.1 (Documentos pessoais e pertences de valor)',
+                      ].map((opt) => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="sealNumber">Nº do Lacre</Label>
