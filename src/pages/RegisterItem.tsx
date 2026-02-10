@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -97,6 +97,7 @@ export default function RegisterItem() {
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [createdCode, setCreatedCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -143,6 +144,8 @@ export default function RegisterItem() {
     e.preventDefault();
     
     if (!campus) return;
+    if (isSubmittingRef.current || createLostItem.isPending) return;
+    isSubmittingRef.current = true;
 
     // Generate unique 6-digit code
     const existingCodes = existingItems?.items?.map(item => item.code) || [];
@@ -171,11 +174,9 @@ export default function RegisterItem() {
       image_url: imageUrl,
     }, {
       onSuccess: () => {
-        // Show success dialog with code
         setCreatedCode(newCode);
         setSuccessDialogOpen(true);
         
-        // Reset form
         if (imagePreview) URL.revokeObjectURL(imagePreview);
         setImagePreview(null);
         setImageFile(null);
@@ -191,6 +192,10 @@ export default function RegisterItem() {
         setSealNumber('');
         setDeliveredBy('');
         setContact('');
+        isSubmittingRef.current = false;
+      },
+      onError: () => {
+        isSubmittingRef.current = false;
       }
     });
   };
