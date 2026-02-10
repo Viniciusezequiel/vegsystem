@@ -30,6 +30,7 @@ const moduleLabels: Record<string, { name: string; icon: React.ReactNode; descri
   lostItems: { name: 'Achados e Perdidos', icon: <Package className="w-5 h-5" />, description: 'Gerenciamento de itens perdidos e encontrados' },
   equipment: { name: 'Patrimônios', icon: <Box className="w-5 h-5" />, description: 'Controle de equipamentos e empréstimos' },
   lockers: { name: 'Escaninhos', icon: <Box className="w-5 h-5" />, description: 'Gestão de escaninhos e empréstimos' },
+  reservations: { name: 'Reservas', icon: <Calendar className="w-5 h-5" />, description: 'Reservas de salas e espaços' },
   rooms: { name: 'Salas', icon: <MapPin className="w-5 h-5" />, description: 'Cadastro de salas para checklist' },
   checklists: { name: 'Checklists', icon: <ClipboardCheck className="w-5 h-5" />, description: 'Controle de checklists das salas' },
 };
