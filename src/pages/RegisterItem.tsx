@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { Camera, CheckCircle, Loader2, Copy, Check, Image as ImageIcon } from 'lucide-react';
 import { useCreateLostItem, useLostItems } from '@/hooks/useLostItems';
+import { useStorageConfig } from '@/hooks/useStorageConfig';
 import type { Database } from '@/integrations/supabase/types';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
@@ -77,6 +78,7 @@ export default function RegisterItem() {
   const navigate = useNavigate();
   const createLostItem = useCreateLostItem();
   const { data: existingItems } = useLostItems();
+  const { data: storageConfig } = useStorageConfig();
   
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -86,6 +88,7 @@ export default function RegisterItem() {
   const [foundDate, setFoundDate] = useState('');
   const [receivedDate, setReceivedDate] = useState('');
   const [shelf, setShelf] = useState('');
+  const [shelfCode, setShelfCode] = useState('');
   const [box, setBox] = useState('');
   const [boxNumber, setBoxNumber] = useState('');
   const [sealNumber, setSealNumber] = useState('');
@@ -182,6 +185,7 @@ export default function RegisterItem() {
         setFoundDate('');
         setReceivedDate('');
         setShelf('');
+        setShelfCode('');
         setBox('');
         setBoxNumber('');
         setSealNumber('');
@@ -291,7 +295,7 @@ export default function RegisterItem() {
                 </div>
                 <div>
                   <Label htmlFor="campus">Campus *</Label>
-                  <Select value={campus} onValueChange={(v) => setCampus(v as CampusEnum)} required>
+                  <Select value={campus} onValueChange={(v) => { setCampus(v as CampusEnum); setShelfCode(''); setShelf(''); setBoxNumber(''); }} required>
                     <SelectTrigger className="mt-1.5">
                       <SelectValue placeholder="Selecione o campus" />
                     </SelectTrigger>
@@ -352,65 +356,79 @@ export default function RegisterItem() {
 
             <div className="form-section animate-fade-in" style={{ animationDelay: '150ms' }}>
               <h3 className="font-medium text-foreground mb-4">Armazenamento</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                <div>
-                  <Label htmlFor="shelf">Estante</Label>
-                  <Input
-                    id="shelf"
-                    placeholder="Ex: A"
-                    className="mt-1.5"
-                    value={shelf}
-                    onChange={(e) => setShelf(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="box">Prateleira</Label>
-                  <Input
-                    id="box"
-                    placeholder="Ex: 01"
-                    className="mt-1.5"
-                    value={box}
-                    onChange={(e) => setBox(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="boxNumber">Nº da Caixa</Label>
-                  <Select value={boxNumber} onValueChange={setBoxNumber}>
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Selecione a caixa" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[
-                        '1.3 (Variados)',
-                        '1.4 (Necessaire e lancheira)',
-                        '1.5 (Vasilhas/Jalecos e pijamas)',
-                        '1.6 (Variados)',
-                        '2.3 (Sombrinhas)',
-                        '2.4 (Necessaire e Lancheiras)',
-                        '2.5 (Roupas)',
-                        '2.6 (Roupas)',
-                        '3.3 (Pequenos pertences e eletrônicos)',
-                        '3.4 (Material acadêmico)',
-                        '3.5 (Garrafas e copos)',
-                        '3.6 (Garrafas e copos)',
-                        '9.1 (Documentos pessoais e pertences de valor)',
-                      ].map((opt) => (
-                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="sealNumber">Nº do Lacre</Label>
-                  <Input
-                    id="sealNumber"
-                    placeholder="Ex: LC-001234"
-                    className="mt-1.5"
-                    value={sealNumber}
-                    onChange={(e) => setSealNumber(e.target.value)}
-                  />
-                </div>
-              </div>
+              {(() => {
+                const campusConfig = storageConfig?.campuses.find(c => c.campus === campus);
+                const shelves = campusConfig?.shelves || [];
+                const selectedShelf = shelves.find(s => s.code === shelfCode);
+                const estante = shelfCode ? shelfCode.split('.')[0] : '';
+
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div>
+                      <Label>Estante</Label>
+                      <Input
+                        value={estante}
+                        readOnly
+                        placeholder={campus ? 'Auto' : 'Selecione campus'}
+                        className="mt-1.5 bg-muted/50"
+                      />
+                    </div>
+                    <div>
+                      <Label>Prateleira</Label>
+                      <Select
+                        value={shelfCode}
+                        onValueChange={(v) => {
+                          setShelfCode(v);
+                          setShelf(v);
+                          setBoxNumber('');
+                          // Auto-set estante
+                        }}
+                        disabled={!campus || shelves.length === 0}
+                      >
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue placeholder={!campus ? 'Selecione campus' : shelves.length === 0 ? 'Nenhuma configurada' : 'Selecione'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {shelves.map(s => (
+                            <SelectItem key={s.id} value={s.code}>
+                              {s.code} ({s.label})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Nº da Caixa</Label>
+                      <Select
+                        value={boxNumber}
+                        onValueChange={setBoxNumber}
+                        disabled={!selectedShelf || selectedShelf.boxes.length === 0}
+                      >
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue placeholder={!selectedShelf ? 'Selecione prat.' : selectedShelf.boxes.length === 0 ? 'Sem caixas' : 'Selecione'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedShelf?.boxes.map(b => (
+                            <SelectItem key={b.id} value={b.label}>
+                              Caixa {b.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="sealNumber">Nº do Lacre</Label>
+                      <Input
+                        id="sealNumber"
+                        placeholder="Ex: LC-001234"
+                        className="mt-1.5"
+                        value={sealNumber}
+                        onChange={(e) => setSealNumber(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="form-section animate-fade-in" style={{ animationDelay: '200ms' }}>

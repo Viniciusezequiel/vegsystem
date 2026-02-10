@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History, Search } from 'lucide-react';
 import { UserActivityDialog } from '@/components/users/UserActivityDialog';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
@@ -49,6 +49,7 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ElementType; colo
 };
 
 export default function Users() {
+  const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
@@ -397,6 +398,18 @@ export default function Users() {
 
       {/* Users List */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
+        {/* Search */}
+        <div className="p-4 border-b border-border">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome, email ou setor..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-muted/50">
@@ -411,7 +424,16 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {users?.map((user, index) => {
+              {users?.filter(user => {
+                if (!searchQuery) return true;
+                const q = searchQuery.toLowerCase();
+                return (
+                  user.full_name.toLowerCase().includes(q) ||
+                  (user.email?.toLowerCase().includes(q)) ||
+                  (user.department?.toLowerCase().includes(q)) ||
+                  (user.position?.toLowerCase().includes(q))
+                );
+              }).map((user, index) => {
                 const roleConfig = roleLabels[user.role || 'assistente'];
                 const RoleIcon = roleConfig.icon;
                 

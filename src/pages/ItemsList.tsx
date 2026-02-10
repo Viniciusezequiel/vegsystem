@@ -21,6 +21,7 @@ import {
   MoreHorizontal,
   Settings2
 } from 'lucide-react';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,7 @@ import {
 import { VirtualizedItemsList } from '@/components/items/VirtualizedItemsList';
 import { BulkImageUploadDialog } from '@/components/items/BulkImageUploadDialog';
 import { ArchiveDeliveredItemsDialog } from '@/components/items/ArchiveDeliveredItemsDialog';
+import { StorageConfigDialog } from '@/components/items/StorageConfigDialog';
 import { useNavigate } from 'react-router-dom';
 import { ItemStatus } from '@/types';
 import { cn } from '@/lib/utils';
@@ -100,6 +102,7 @@ export default function ItemsList() {
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [bulkImageDialog, setBulkImageDialog] = useState(false);
   const [archiveDeliveredDialog, setArchiveDeliveredDialog] = useState(false);
+  const [storageConfigDialog, setStorageConfigDialog] = useState(false);
   const [isMigratingImages, setIsMigratingImages] = useState(false);
 
   const handleMigrateAllImages = async () => {
@@ -633,6 +636,11 @@ export default function ItemsList() {
                   <Archive className="w-4 h-4 mr-2" />
                   Arquivar Entregues
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setStorageConfigDialog(true)}>
+                  <Package className="w-4 h-4 mr-2" />
+                  Configurar Prateleiras/Caixas
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -841,6 +849,11 @@ export default function ItemsList() {
       <ArchiveDeliveredItemsDialog
         open={archiveDeliveredDialog}
         onOpenChange={setArchiveDeliveredDialog}
+      />
+
+      <StorageConfigDialog
+        open={storageConfigDialog}
+        onOpenChange={setStorageConfigDialog}
       />
     </MainLayout>
   );
