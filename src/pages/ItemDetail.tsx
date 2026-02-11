@@ -37,12 +37,13 @@ import {
   CalendarCheck,
   Pencil,
   Loader2,
-  PenLine
+  PenLine,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { useLostItem, useUpdateLostItem, useDeliverLostItem } from '@/hooks/useLostItems';
+import { useLostItem, useUpdateLostItem, useDeliverLostItem, useDeleteLostItem } from '@/hooks/useLostItems';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -59,6 +60,7 @@ export default function ItemDetail() {
   const { data: item, isLoading, error } = useLostItem(id);
   const updateItem = useUpdateLostItem();
   const deliverItem = useDeliverLostItem();
+  const deleteItem = useDeleteLostItem();
 
   // Fetch the name of who registered the item
   const { data: registeredByName } = useQuery({
@@ -77,6 +79,7 @@ export default function ItemDetail() {
 
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deliveryData, setDeliveryData] = useState({
     owner_name: '',
     owner_phone: '',
@@ -239,12 +242,20 @@ export default function ItemDetail() {
               <h2 className="text-xl font-semibold text-foreground mb-4">
                 {item.description}
               </h2>
-              {canEdit && (
-                <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
-                  <Pencil className="w-4 h-4 mr-2" />
-                  Editar
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {canEdit && (
+                  <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Editar
+                  </Button>
+                )}
+                {role === 'admin' && (
+                  <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Excluir
+                  </Button>
+                )}
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -639,6 +650,37 @@ export default function ItemDetail() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir Item</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o item <strong>{item.code}</strong>? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteItem.isPending}
+              onClick={() => {
+                deleteItem.mutate(item.id, {
+                  onSuccess: () => {
+                    setIsDeleteDialogOpen(false);
+                    navigate('/items');
+                  },
+                });
+              }}
+            >
+              {deleteItem.isPending ? 'Excluindo...' : 'Excluir'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </MainLayout>
