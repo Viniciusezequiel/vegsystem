@@ -1,6 +1,6 @@
 // src/hooks/useHealthCheck.ts
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../supabase/client' // caminho relativo correto
+import { supabase } from '../lib/supabaseClient' // 👈 corrigido
 
 type HealthStatus = 'checking' | 'online' | 'offline'
 
@@ -40,7 +40,6 @@ export function useHealthCheck(autoCheck = true): HealthCheckResult {
   useEffect(() => {
     if (autoCheck) {
       checkHealth()
-      // opcional: checagem periódica a cada 60 segundos
       const interval = setInterval(checkHealth, 60000)
       return () => clearInterval(interval)
     }
