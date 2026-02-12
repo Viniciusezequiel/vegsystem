@@ -69,3 +69,15 @@ export const useDeleteEquipment = () => {
     isPending: false,
   };
 };
+
+// Criar empréstimo de equipamento
+export const useCreateEquipmentLoan = () => {
+  return {
+    mutateAsync: async (loan: any) => {
+      const { data, error } = await supabase.from('equipment_loans').insert([loan]);
+      if (error) throw error;
+      return data;
+    },
+    isPending: false,
+  };
+};
