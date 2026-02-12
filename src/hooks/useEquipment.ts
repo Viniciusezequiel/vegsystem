@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabase/client'; // ajuste o caminho se necessário
+import { supabase } from '../supabase/client';
 
 // ---------------------------
 // Lista de equipamentos
@@ -21,6 +21,7 @@ export function useEquipmentList() {
 
       if (error) setError(error.message);
       else setData(data || []);
+
       setLoading(false);
     }
 
@@ -45,15 +46,12 @@ export function useEquipmentLoans(status?: 'active' | 'returned') {
 
       let query = supabase
         .from('equipment_loans')
-        // ajuste o relacionamento conforme seu Supabase:
-        // se a foreign key é `equipment_id` e o relacionamento se chama `equipment`
-        .select('*, equipment:equipment_id(*)')
+        .select('*, equipment:equipment_id(*)') // ajuste conforme relacionamento
         .order('created_at', { ascending: false });
 
       if (status) query = query.eq('status', status);
 
       const { data, error } = await query;
-
       if (error) setError(error.message);
       else setData(data || []);
 
@@ -64,4 +62,30 @@ export function useEquipmentLoans(status?: 'active' | 'returned') {
   }, [status]);
 
   return { data, loading, error };
+}
+
+// ---------------------------
+// Deletar equipamento
+// ---------------------------
+export function useDeleteEquipment() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const deleteEquipment = async (id: string) => {
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase
+      .from('equipment')
+      .delete()
+      .eq('id', id);
+
+    if (error) setError(error.message);
+
+    setLoading(false);
+
+    return !error;
+  };
+
+  return { deleteEquipment, loading, error };
 }
