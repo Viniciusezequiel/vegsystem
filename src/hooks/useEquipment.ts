@@ -16,7 +16,11 @@ export const useEquipmentLoans = () => {
   return useQuery(['equipmentLoans'], async () => {
     const { data, error } = await supabase
       .from('equipment_loans')
-      .select('*,equipment(*)')
+      .select(`
+  *,
+  equipment:equipment_id(*)
+`)
+
       .order('created_at', { ascending: false });
 
     if (error) throw error;
