@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase/client';
 
+// ----------------------
 // Lista de equipamentos
+// ----------------------
 export function useEquipmentList() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,6 @@ export function useEquipmentList() {
 
       if (error) setError(error.message);
       else setData(data || []);
-
       setLoading(false);
     }
 
@@ -28,7 +29,9 @@ export function useEquipmentList() {
   return { data, loading, error };
 }
 
+// ----------------------
 // Empréstimos de equipamentos
+// ----------------------
 export function useEquipmentLoans(status?: 'active' | 'returned') {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,10 +50,8 @@ export function useEquipmentLoans(status?: 'active' | 'returned') {
       if (status) query = query.eq('status', status);
 
       const { data, error } = await query;
-
       if (error) setError(error.message);
       else setData(data || []);
-
       setLoading(false);
     }
 
@@ -60,29 +61,9 @@ export function useEquipmentLoans(status?: 'active' | 'returned') {
   return { data, loading, error };
 }
 
-// Deletar equipamento
-export function useDeleteEquipment() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function deleteEquipment(id: string) {
-    setLoading(true);
-    setError(null);
-
-    const { error } = await supabase
-      .from('equipment')
-      .delete()
-      .eq('id', id);
-
-    if (error) setError(error.message);
-
-    setLoading(false);
-  }
-
-  return { deleteEquipment, loading, error };
-}
-
+// ----------------------
 // Criar equipamento
+// ----------------------
 export function useCreateEquipment() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +84,9 @@ export function useCreateEquipment() {
   return { createEquipment, loading, error };
 }
 
+// ----------------------
 // Atualizar equipamento
+// ----------------------
 export function useUpdateEquipment() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +108,33 @@ export function useUpdateEquipment() {
   return { updateEquipment, loading, error };
 }
 
-// Buscar um equipamento pelo ID
+// ----------------------
+// Deletar equipamento
+// ----------------------
+export function useDeleteEquipment() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function deleteEquipment(id: string) {
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase
+      .from('equipment')
+      .delete()
+      .eq('id', id);
+
+    if (error) setError(error.message);
+
+    setLoading(false);
+  }
+
+  return { deleteEquipment, loading, error };
+}
+
+// ----------------------
+// Pegar equipamento por ID
+// ----------------------
 export function useEquipment(id: string) {
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,7 +154,7 @@ export function useEquipment(id: string) {
         .single();
 
       if (error) setError(error.message);
-      else setData(data || null);
+      else setData(data);
 
       setLoading(false);
     }
@@ -154,4 +163,27 @@ export function useEquipment(id: string) {
   }, [id]);
 
   return { data, loading, error };
+}
+
+// ----------------------
+// Criar empréstimo de equipamento
+// ----------------------
+export function useCreateEquipmentLoan() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function createLoan(payload: any) {
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase
+      .from('equipment_loans')
+      .insert([payload]);
+
+    if (error) setError(error.message);
+
+    setLoading(false);
+  }
+
+  return { createLoan, loading, error };
 }
