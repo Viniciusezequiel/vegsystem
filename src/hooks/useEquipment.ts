@@ -12,8 +12,8 @@ export function useEquipmentLoans() {
       setError(null)
 
       const { data, error } = await supabase
-        .from('equipment_loans')   // nome exato da tabela
-        .select('*')               // pega todas as colunas
+        .from('equipment_loans') // tabela no Supabase
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (error) {
