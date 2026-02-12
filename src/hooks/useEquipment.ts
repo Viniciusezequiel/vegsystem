@@ -51,38 +51,4 @@ export function useEquipmentLoans(status?: 'active' | 'returned') {
       if (status) query = query.eq('status', status);
 
       const { data, error } = await query;
-      if (error) setError(error.message);
-      else setData(data || []);
-
-      setLoading(false);
-    }
-
-    fetchLoans();
-  }, [status]);
-
-  return { data, loading, error };
-}
-
-// ------------------------------
-// Deletar equipamento
-// ------------------------------
-export function useDeleteEquipment() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function deleteEquipment(id: string) {
-    setLoading(true);
-    setError(null);
-
-    const { error } = await supabase
-      .from('equipment')
-      .delete()
-      .eq('id', id);
-
-    if (error) setError(error.message);
-
-    setLoading(false);
-  }
-
-  return { deleteEquipment, loading, error };
-}
+      i
