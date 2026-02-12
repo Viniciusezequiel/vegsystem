@@ -18,14 +18,8 @@ export function useHealthCheck(autoCheck = true): HealthCheckResult {
     setStatus('checking')
 
     try {
-      // Operação leve e segura
       const { error } = await supabase.auth.getSession()
-
-      if (error) {
-        setStatus('offline')
-      } else {
-        setStatus('online')
-      }
+      setStatus(error ? 'offline' : 'online')
     } catch {
       setStatus('offline')
     } finally {
