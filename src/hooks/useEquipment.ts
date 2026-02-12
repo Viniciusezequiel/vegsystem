@@ -2,10 +2,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
-// Lista de equipamentos
+// ------------------- LISTAGEM ------------------- //
+
+// Lista de todos os equipamentos
 export const useEquipmentList = () => {
   return useQuery(['equipmentList'], async () => {
     const { data, error } = await supabase.from('equipment').select('*');
+    if (error) throw error;
+    return data;
+  });
+};
+
+// Buscar equipamento específico pelo id
+export const useEquipment = (id: string) => {
+  return useQuery(['equipment', id], async () => {
+    const { data, error } = await supabase.from('equipment').select('*').eq('id', id).single();
     if (error) throw error;
     return data;
   });
@@ -20,20 +31,21 @@ export const useEquipmentLoans = () => {
   });
 };
 
-// Criação de equipamento
+// ------------------- MUTATIONS ------------------- //
+
+// Criar equipamento
 export const useCreateEquipment = () => {
-  // Aqui você coloca a lógica de create, por exemplo com mutateAsync do react-query
   return {
     mutateAsync: async (newEquipment: any) => {
       const { data, error } = await supabase.from('equipment').insert([newEquipment]);
       if (error) throw error;
       return data;
     },
-    isPending: false, // ajuste se usar useMutation
+    isPending: false,
   };
 };
 
-// Atualização de equipamento
+// Atualizar equipamento
 export const useUpdateEquipment = () => {
   return {
     mutateAsync: async (equipment: any) => {
@@ -46,11 +58,14 @@ export const useUpdateEquipment = () => {
   };
 };
 
-// ✅ Buscar equipamento específico (para edição)
-export const useEquipment = (id: string) => {
-  return useQuery(['equipment', id], async () => {
-    const { data, error } = await supabase.from('equipment').select('*').eq('id', id).single();
-    if (error) throw error;
-    return data;
-  });
+// Deletar equipamento
+export const useDeleteEquipment = () => {
+  return {
+    mutateAsync: async (id: string) => {
+      const { data, error } = await supabase.from('equipment').delete().eq('id', id);
+      if (error) throw error;
+      return data;
+    },
+    isPending: false,
+  };
 };
