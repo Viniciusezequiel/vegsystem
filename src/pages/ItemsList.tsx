@@ -58,7 +58,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { generatePdf } from '@/lib/pdfService';
 import * as XLSX from 'xlsx';
 import type { Database } from '@/integrations/supabase/types';
