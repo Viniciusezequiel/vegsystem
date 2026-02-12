@@ -1,45 +1,39 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../supabase/client'
+import { useState, useEffect } from 'react';
+import { supabase } from '../supabase/client';
 
-// Lista equipamentos (não empréstimos)
+// Lista de equipamentos
 export function useEquipmentList() {
-  const [equipment, setEquipment] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchEquipment() {
-      setLoading(true)
-      setError(null)
-
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
       const { data, error } = await supabase
-        .from('equipment') // sua tabela de equipamentos
+        .from('equipment')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        setError(error.message)
-        setEquipment([])
-      } else {
-        setEquipment(data || [])
-      }
-
-      setLoading(false)
+      if (error) setError(error.message);
+      else setData(data || []);
+      setLoading(false);
     }
 
-    fetchEquipment()
-  }, [])
+    fetchData();
+  }, []);
 
-  return { equipment, loading, error }
+  return { data, loading, error };
 }
 
-// Lista empréstimos
-export function useEquipmentLoans() {
-  const [loans, setLoans] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+// Empréstimos de equipamentos
+export function useEquipmentLoans(status?: 'active' | 'returned') {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchLoans() {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
