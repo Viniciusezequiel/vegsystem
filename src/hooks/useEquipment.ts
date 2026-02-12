@@ -1,10 +1,8 @@
 // src/hooks/useEquipment.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
-// =======================
-// LISTA DE EQUIPAMENTOS
-// =======================
+// Lista de equipamentos
 export const useEquipmentList = () => {
   return useQuery(['equipmentList'], async () => {
     const { data, error } = await supabase.from('equipment').select('*');
@@ -13,9 +11,7 @@ export const useEquipmentList = () => {
   });
 };
 
-// =======================
-// LISTA DE EMPRÉSTIMOS DE EQUIPAMENTOS
-// =======================
+// Lista de empréstimos de equipamentos
 export const useEquipmentLoans = () => {
   return useQuery(['equipmentLoans'], async () => {
     const { data, error } = await supabase.from('equipment_loans').select('*');
@@ -24,66 +20,37 @@ export const useEquipmentLoans = () => {
   });
 };
 
-// =======================
-// CRIAR EQUIPAMENTO
-// =======================
+// Criação de equipamento
 export const useCreateEquipment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation(
-    async (newEquipment: any) => {
-      const { data, error } = await supabase.from('equipment').insert(newEquipment);
+  // Aqui você coloca a lógica de create, por exemplo com mutateAsync do react-query
+  return {
+    mutateAsync: async (newEquipment: any) => {
+      const { data, error } = await supabase.from('equipment').insert([newEquipment]);
       if (error) throw error;
       return data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['equipmentList']);
-      },
-    }
-  );
+    isPending: false, // ajuste se usar useMutation
+  };
 };
 
-// =======================
-// ATUALIZAR EQUIPAMENTO
-// =======================
+// Atualização de equipamento
 export const useUpdateEquipment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation(
-    async (updatedEquipment: any) => {
-      const { id, ...rest } = updatedEquipment;
-      const { data, error } = await supabase
-        .from('equipment')
-        .update(rest)
-        .eq('id', id);
+  return {
+    mutateAsync: async (equipment: any) => {
+      const { id, ...rest } = equipment;
+      const { data, error } = await supabase.from('equipment').update(rest).eq('id', id);
       if (error) throw error;
       return data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['equipmentList']);
-      },
-    }
-  );
+    isPending: false,
+  };
 };
 
-// =======================
-// DELETAR EQUIPAMENTO
-// =======================
-export const useDeleteEquipment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation(
-    async (id: string) => {
-      const { data, error } = await supabase.from('equipment').delete().eq('id', id);
-      if (error) throw error;
-      return data;
-    },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['equipmentList']);
-      },
-    }
-  );
+// ✅ Buscar equipamento específico (para edição)
+export const useEquipment = (id: string) => {
+  return useQuery(['equipment', id], async () => {
+    const { data, error } = await supabase.from('equipment').select('*').eq('id', id).single();
+    if (error) throw error;
+    return data;
+  });
 };
