@@ -45,7 +45,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useLostItem, useUpdateLostItem, useDeliverLostItem, useDeleteLostItem } from '@/hooks/useLostItems';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { useQuery } from '@tanstack/react-query';
 import { Constants } from '@/integrations/supabase/types';
 import { SignaturePad } from '@/components/ui/SignaturePad';
