@@ -27,7 +27,7 @@ import { ArrowLeft, Package, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateEquipment, useUpdateEquipment, useEquipment } from '@/hooks/useEquipment';
+import { useCreateEquipment, useUpdateEquipment } from '@/hooks/useEquipment.ts';
 
 const equipmentSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
