@@ -19,7 +19,6 @@ export function useHealthCheck(autoCheck = true): HealthCheckResult {
     setStatus('checking')
 
     try {
-      // Pega a sessão atual do usuário
       const { data, error } = await supabase.auth.getSession()
 
       if (error) {
@@ -41,8 +40,8 @@ export function useHealthCheck(autoCheck = true): HealthCheckResult {
   useEffect(() => {
     if (autoCheck) {
       checkHealth()
-      // Opcional: você pode fazer checagens periódicas
-      const interval = setInterval(checkHealth, 60000) // checa a cada 60s
+      // opcional: checagem periódica a cada 60 segundos
+      const interval = setInterval(checkHealth, 60000)
       return () => clearInterval(interval)
     }
   }, [autoCheck, checkHealth])
