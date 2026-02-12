@@ -37,3 +37,22 @@ export function useEquipmentLoans(status?: 'active' | 'returned') {
     async function fetchLoans() {
       setLoading(true);
       setError(null);
+
+      let query = supabase
+        .from('equipment_loans')
+        .select('*, equipment(*)')
+        .order('created_at', { ascending: false });
+
+      if (status) query = query.eq('status', status);
+
+      const { data, error } = await query;
+      if (error) setError(error.message);
+      else setData(data || []);
+      setLoading(false);
+    }
+
+    fetchLoans();
+  }, [status]);
+
+  return { data, loading, error };
+}
