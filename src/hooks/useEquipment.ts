@@ -1,174 +1,123 @@
 // src/hooks/useEquipment.ts
-import { useState, useEffect } from 'react';
-import { supabase } from '../supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase'; // ajuste o caminho se necessário
 
-// --------------------
-// LISTAGEM DE EQUIPAMENTOS
-// --------------------
-export function useEquipmentList() {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      setError(null);
-
-      const { data, error } = await supabase
-        .from('equipment')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) setError(error.message);
-      else setData(data || []);
-
-      setLoading(false);
-    }
-
-    fetchData();
-  }, []);
-
-  return { data, loading, error };
-}
-
-// --------------------
-// EMPRÉSTIMOS DE EQUIPAMENTOS
-// --------------------
-export function useEquipmentLoans(status?: 'active' | 'returned') {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchLoans() {
-      setLoading(true);
-      setError(null);
-
-      let query = supabase
-        .from('equipment_loans')
-        .select('*, equipment(*)')
-        .order('created_at', { ascending: false });
-
-      if (status) query = query.eq('status', status);
-
-      const { data, error } = await query;
-      if (error) setError(error.message);
-      else setData(data || []);
-
-      setLoading(false);
-    }
-
-    fetchLoans();
-  }, [status]);
-
-  return { data, loading, error };
-}
-
-// --------------------
-// CRIAR EMPRÉSTIMO DE EQUIPAMENTO
-// --------------------
-export function useCreateEquipmentLoan() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function createLoan(payload: any) {
-    setLoading(true);
-    setError(null);
-
-    const { data, error } = await supabase
-      .from('equipment_loans')
-      .insert([payload]);
-
-    if (error) setError(error.message);
-    setLoading(false);
-    return { data, error };
-  }
-
-  return { createLoan, loading, error };
-}
-
-// --------------------
-// CRIAR EQUIPAMENTO
-// --------------------
-export function useCreateEquipment() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function createEquipment(payload: any) {
-    setLoading(true);
-    setError(null);
-
-    const { data, error } = await supabase
-      .from('equipment')
-      .insert([payload]);
-
-    if (error) setError(error.message);
-    setLoading(false);
-    return { data, error };
-  }
-
-  return { createEquipment, loading, error };
-}
-
-// --------------------
-// ATUALIZAR EQUIPAMENTO
-// --------------------
-export function useUpdateEquipment() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function updateEquipment(id: string, payload: any) {
-    setLoading(true);
-    setError(null);
-
-    const { data, error } = await supabase
-      .from('equipment')
-      .update(payload)
-      .eq('id', id);
-
-    if (error) setError(error.message);
-    setLoading(false);
-    return { data, error };
-  }
-
-  return { updateEquipment, loading, error };
-}
-
-// --------------------
-// DELETAR EQUIPAMENTO
-// --------------------
-export function useDeleteEquipment() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function deleteEquipment(id: string) {
-    setLoading(true);
-    setError(null);
-
-    const { data, error } = await supabase
-      .from('equipment')
-      .delete()
-      .eq('id', id);
-
-    if (error) setError(error.message);
-    setLoading(false);
-    return { data, error };
-  }
-
-  return { deleteEquipment, loading, error };
-}
-
-// --------------------
-// TIPO EQUIPMENT
-// --------------------
-export type Equipment = {
+export interface Equipment {
   id: string;
   name: string;
-  patrimony_code: string;
-  campus: string;
-  location: string;
+  patrimony_code: string | null;
+  patrimony_type: 'unique' | 'quantity';
   quantity: number;
   available_quantity: number;
-  status: 'available' | 'borrowed' | 'maintenance';
-};
+  location: string;
+  campus: string;
+  category: string | null;
+  description: string | null;
+  status: 'available' | 'loaned';
+  allow_external_loan: boolean;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// --------------------
+// List all equipment
+// --------------------
+export function useEquipmentList() {
+  return useQuery<Equipment[], Error>(['equipmentList'], async () => {
+    const { data, error } = await supabase
+      .from<Equipment>('equipment')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  });
+}
+
+// --------------------
+// Get equipment by ID
+// --------------------
+export function useEquipmentById(id: string) {
+  return useQuery<Equipment | null, Error>(
+    ['equipment', id],
+    async () => {
+      const { data, error } = await supabase
+        .from<Equipment>('equipment')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data || null;
+    },
+    { enabled: !!id }
+  );
+}
+
+// --------------------
+// Create equipment
+// --------------------
+export function useCreateEquipment() {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    async (newEquipment: Partial<Equipment>) => {
+      const { data, error } = await supabase
+        .from<Equipment>('equipment')
+        .insert(newEquipment)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['equipmentList']);
+      },
+    }
+  );
+}
+
+// --------------------
+// Update equipment
+// --------------------
+export function useUpdateEquipment() {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    async (updatedEquipment: Partial<Equipment> & { id: string }) => {
+      const { id, ...rest } = updatedEquipment;
+      const { data, error } = await supabase
+        .from<Equipment>('equipment')
+        .update(rest)
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries(['equipmentList']);
+        queryClient.invalidateQueries(['equipment', variables.id]);
+      },
+    }
+  );
+}
+
+// --------------------
+// Delete equipment
+// --------------------
+export function useDeleteEquipment() {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    async (id: string) => {
+      const { error } = await supabase.from('equipment').delete().eq('id', id);
+      if (error) throw error;
+      return id;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['equipmentList']);
+      },
+    }
+  );
+}
