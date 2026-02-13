@@ -161,9 +161,12 @@ export default function ItemsList() {
   const bulkCreate = useBulkCreateLostItems();
 
   // Flatten all pages into a single array
-  const filteredItems = useMemo(() => {
-    return data?.pages.flatMap(page => page.items) || [];
-  }, [data]);
+const filteredItems = useMemo(() => {
+  if (!data?.pages) return [];
+
+  return data.pages.flatMap(page => page?.items ?? []);
+}, [data]);
+
 
   const totalCount = data?.pages[0]?.totalCount ?? 0;
 
