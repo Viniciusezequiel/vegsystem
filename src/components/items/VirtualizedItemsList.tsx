@@ -1,5 +1,4 @@
 import { memo, useRef, useEffect, useState } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -11,9 +10,9 @@ import { cn } from '@/lib/utils';
 import { LostItem } from '@/hooks/useLostItems';
 
 interface VirtualizedItemsListProps {
-  items: LostItem[];
+  items?: LostItem[];
   isSelectionMode: boolean;
-  selectedItems: string[];
+  selectedItems?: string[];
   onItemClick: (item: LostItem) => void;
   onToggleSelection: (id: string) => void;
   hasNextPage?: boolean;
@@ -24,7 +23,10 @@ interface VirtualizedItemsListProps {
 const ITEM_HEIGHT = 148;
 const GAP = 16;
 
-// Individual item card component
+/* ============================
+   Item Card
+============================ */
+
 const ItemCard = memo(function ItemCard({
   item,
   isSelectionMode,
@@ -55,12 +57,14 @@ const ItemCard = memo(function ItemCard({
           />
         </div>
       )}
+
       <div className="flex gap-4">
         <LazyItemImage 
           itemId={item.id}
           alt={item.description}
           className="w-24 h-24 rounded-lg flex-shrink-0"
         />
+
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
@@ -71,19 +75,31 @@ const ItemCard = memo(function ItemCard({
             </div>
             <StatusBadge status={item.status} />
           </div>
+
           <div className="mt-2 space-y-0.5">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate font-medium text-primary">{item.campus}</span>
+              <span className="truncate font-medium text-primary">
+                {item.campus}
+              </span>
             </div>
+
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="truncate">{item.found_location}</span>
             </div>
+
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>{format(new Date(item.found_date + 'T00:00:00'), "dd 'de' MMM", { locale: ptBR })}</span>
+              <span>
+                {format(
+                  new Date(item.found_date + 'T00:00:00'),
+                  "dd 'de' MMM",
+                  { locale: ptBR }
+                )}
+              </span>
             </div>
+
             {item.box_number && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Package className="w-3.5 h-3.5 flex-shrink-0" />
@@ -97,23 +113,30 @@ const ItemCard = memo(function ItemCard({
   );
 });
 
+/* ============================
+   Virtualized List
+============================ */
+
 export const VirtualizedItemsList = memo(function VirtualizedItemsList({
-  items,
+  items = [],
   isSelectionMode,
-  selectedItems,
+  selectedItems = [],
   onItemClick,
   onToggleSelection,
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
 }: VirtualizedItemsListProps) {
+
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeSelected = Array.isArray(selectedItems) ? selectedItems : [];
+
   const listRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(2);
 
-  // Update column count based on window width
+  /* Responsive columns */
   useEffect(() => {
     const updateColumnCount = () => {
-      // 2 columns for md screens (768px+), 1 column otherwise
       setColumnCount(window.innerWidth >= 768 ? 2 : 1);
     };
 
@@ -122,9 +145,8 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
     return () => window.removeEventListener('resize', updateColumnCount);
   }, []);
 
-  const rowCount = Math.ceil(items.length / columnCount);
+  const rowCount = Math.ceil(safeItems.length / columnCount);
 
-  // Use window virtualizer for page-level scrolling
   const virtualizer = useWindowVirtualizer({
     count: rowCount + (hasNextPage ? 1 : 0),
     estimateSize: () => ITEM_HEIGHT + GAP,
@@ -134,12 +156,17 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
 
   const virtualRows = virtualizer.getVirtualItems();
 
-  // Infinite scroll: load more when reaching bottom
+  /* Infinite Scroll */
   useEffect(() => {
     const lastItem = virtualRows[virtualRows.length - 1];
     if (!lastItem) return;
 
-    if (lastItem.index >= rowCount && hasNextPage && !isFetchingNextPage && fetchNextPage) {
+    if (
+      lastItem.index >= rowCount &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      fetchNextPage
+    ) {
       fetchNextPage();
     }
   }, [virtualRows, rowCount, hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -155,7 +182,7 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
       >
         {virtualRows.map((virtualRow) => {
           const isLoaderRow = virtualRow.index >= rowCount;
-          
+
           if (isLoaderRow) {
             return (
               <div
@@ -166,7 +193,9 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                   left: 0,
                   width: '100%',
                   height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                  transform: `translateY(${
+                    virtualRow.start - virtualizer.options.scrollMargin
+                  }px)`,
                 }}
                 className="flex items-center justify-center"
               >
@@ -181,7 +210,10 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
           }
 
           const startIndex = virtualRow.index * columnCount;
-          const rowItems = items.slice(startIndex, startIndex + columnCount);
+          const rowItems = safeItems.slice(
+            startIndex,
+            startIndex + columnCount
+          );
 
           return (
             <div
@@ -191,7 +223,9 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                 top: 0,
                 left: 0,
                 width: '100%',
-                transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                transform: `translateY(${
+                  virtualRow.start - virtualizer.options.scrollMargin
+                }px)`,
                 display: 'grid',
                 gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
                 gap: `${GAP}px`,
@@ -203,7 +237,7 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                   key={item.id}
                   item={item}
                   isSelectionMode={isSelectionMode}
-                  isSelected={selectedItems.includes(item.id)}
+                  isSelected={safeSelected.includes(item.id)}
                   onItemClick={onItemClick}
                   onToggleSelection={onToggleSelection}
                 />
