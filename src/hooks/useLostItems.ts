@@ -8,9 +8,9 @@ export interface LostItem {
   created_at?: string
 }
 
-/* ================================
-   LISTAR ITENS
-================================ */
+/* =====================================================
+   LISTAR TODOS
+===================================================== */
 
 export function useLostItems() {
   const [lostItems, setLostItems] = useState<LostItem[]>([])
@@ -23,7 +23,7 @@ export function useLostItems() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Erro ao buscar lost_items:', error)
+      console.error(error)
       setLostItems([])
     } else {
       setLostItems(data ?? [])
@@ -40,9 +40,7 @@ export function useLostItems() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'lost_items' },
-        () => {
-          fetchLostItems()
-        }
+        fetchLostItems
       )
       .subscribe()
 
@@ -54,9 +52,43 @@ export function useLostItems() {
   return { lostItems, loading }
 }
 
-/* ================================
-   CRIAR ITEM INDIVIDUAL
-================================ */
+/* =====================================================
+   BUSCAR UM ITEM POR ID
+===================================================== */
+
+export function useLostItem(id?: number) {
+  const [lostItem, setLostItem] = useState<LostItem | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!id) return
+
+    const fetchItem = async () => {
+      const { data, error } = await supabase
+        .from('lost_items')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) {
+        console.error(error)
+        setLostItem(null)
+      } else {
+        setLostItem(data)
+      }
+
+      setLoading(false)
+    }
+
+    fetchItem()
+  }, [id])
+
+  return { lostItem, loading }
+}
+
+/* =====================================================
+   CRIAR
+===================================================== */
 
 export function useCreateLostItem() {
   const [loading, setLoading] = useState(false)
@@ -74,10 +106,7 @@ export function useCreateLostItem() {
 
     setLoading(false)
 
-    if (error) {
-      console.error('Erro ao criar lost_item:', error)
-      throw error
-    }
+    if (error) throw error
 
     return data
   }
@@ -85,9 +114,76 @@ export function useCreateLostItem() {
   return { createLostItem, loading }
 }
 
-/* ================================
-   CRIAÇÃO EM LOTE
-================================ */
+/* =====================================================
+   ATUALIZAR
+===================================================== */
+
+export function useUpdateLostItem() {
+  const [loading, setLoading] = useState(false)
+
+  const updateLostItem = async (
+    id: number,
+    updates: Partial<LostItem>
+  ) => {
+    setLoading(true)
+
+    const { data, error } = await supabase
+      .from('lost_items')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    setLoading(false)
+
+    if (error) throw error
+
+    return data
+  }
+
+  return { updateLostItem, loading }
+}
+
+/* =====================================================
+   ENTREGAR ITEM
+===================================================== */
+
+export function useDeliverLostItem() {
+  const { updateLostItem } = useUpdateLostItem()
+
+  const deliverLostItem = async (id: number) => {
+    return updateLostItem(id, { status: 'delivered' })
+  }
+
+  return { deliverLostItem }
+}
+
+/* =====================================================
+   DELETAR
+===================================================== */
+
+export function useDeleteLostItem() {
+  const [loading, setLoading] = useState(false)
+
+  const deleteLostItem = async (id: number) => {
+    setLoading(true)
+
+    const { error } = await supabase
+      .from('lost_items')
+      .delete()
+      .eq('id', id)
+
+    setLoading(false)
+
+    if (error) throw error
+  }
+
+  return { deleteLostItem, loading }
+}
+
+/* =====================================================
+   BULK CREATE
+===================================================== */
 
 export function useBulkCreateLostItems() {
   const [loading, setLoading] = useState(false)
@@ -104,10 +200,7 @@ export function useBulkCreateLostItems() {
 
     setLoading(false)
 
-    if (error) {
-      console.error('Erro ao criar itens em lote:', error)
-      throw error
-    }
+    if (error) throw error
 
     return data
   }
@@ -115,9 +208,9 @@ export function useBulkCreateLostItems() {
   return { bulkCreate, loading }
 }
 
-/* ================================
-   ENTREGAR EM LOTE (mudar status)
-================================ */
+/* =====================================================
+   BULK DELIVER
+===================================================== */
 
 export function useBulkDeliverLostItems() {
   const [loading, setLoading] = useState(false)
@@ -133,10 +226,7 @@ export function useBulkDeliverLostItems() {
 
     setLoading(false)
 
-    if (error) {
-      console.error('Erro ao entregar itens em lote:', error)
-      throw error
-    }
+    if (error) throw error
 
     return data
   }
