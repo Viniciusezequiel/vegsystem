@@ -77,7 +77,7 @@ const compressImage = (file: File, maxWidth: number, quality: number): Promise<F
 export default function RegisterItem() {
   const navigate = useNavigate();
   const createLostItem = useCreateLostItem();
-  const { data: existingItems } = useLostItems();
+  const existingItems = useLostItems();
   const { data: storageConfig } = useStorageConfig();
   
   const [imagePreview, setImagePreview] = useState<string | null>(null);
