@@ -176,7 +176,7 @@ export default function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="h-[250px]">
-              {lostItemsPieData.length > 0 ? (
+              {(lostItemsPieData ?? []).length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
