@@ -5,7 +5,6 @@ export interface LostItem {
   id: number
   name?: string
   created_at?: string
-  // outros campos do seu esquema
 }
 
 export function useLostItems() {
@@ -20,15 +19,14 @@ export function useLostItems() {
 
       if (error) {
         console.error('Erro ao buscar lost_items:', error)
-        setLostItems([])
+        setLostItems([]) // garante array vazio
       } else {
-        setLostItems(data ?? [])
+        setLostItems(data ?? []) // evita undefined
       }
     }
 
     fetchLostItems()
 
-    // Subscription Realtime
     const subscription = supabase
       .from<LostItem>('lost_items')
       .on('*', payload => {
