@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../supabaseClient' // caminho corrigido
+import { supabase } from '../supabaseClient'
 
 export interface LostItem {
   id: number
   name?: string
   created_at?: string
+  // outros campos do seu esquema
 }
 
 export function useLostItems() {
@@ -27,11 +28,12 @@ export function useLostItems() {
 
     fetchLostItems()
 
+    // Subscription Realtime
     const subscription = supabase
       .from<LostItem>('lost_items')
       .on('*', payload => {
         console.log('Realtime lost_items:', payload)
-        fetchLostItems()
+        fetchLostItems() // atualiza automaticamente
       })
       .subscribe()
 
