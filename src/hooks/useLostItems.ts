@@ -14,7 +14,7 @@ export interface LostItem {
 }
 
 /* ============================
-   GET ITEMS
+   GET ALL
 ============================ */
 
 export function useLostItems() {
@@ -33,7 +33,28 @@ export function useLostItems() {
 }
 
 /* ============================
-   CREATE ITEM
+   GET ONE
+============================ */
+
+export function useLostItem(id?: string) {
+  return useQuery({
+    queryKey: ['lost_item', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lost_items')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+/* ============================
+   CREATE
 ============================ */
 
 export function useCreateLostItem() {
@@ -52,6 +73,77 @@ export function useCreateLostItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lost_items'] })
+    },
+  })
+}
+
+/* ============================
+   UPDATE
+============================ */
+
+export function useUpdateLostItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (item: Partial<LostItem> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('lost_items')
+        .update(item)
+        .eq('id', item.id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
+      queryClient.invalidateQueries({ queryKey: ['lost_item', variables.id] })
+    },
+  })
+}
+
+/* ============================
+   DELETE
+============================ */
+
+export function useDeleteLostItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('lost_items')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
+    },
+  })
+}
+
+/* ============================
+   DELIVER (single)
+============================ */
+
+export function useDeliverLostItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('lost_items')
+        .update({ status: 'delivered' })
+        .eq('id', id)
+
+      if (error) throw error
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
+      queryClient.invalidateQueries({ queryKey: ['lost_item', id] })
     },
   })
 }
