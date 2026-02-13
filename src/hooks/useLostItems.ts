@@ -4,12 +4,14 @@ import { supabase } from '@/integrations/supabase/client'
 export interface LostItem {
   id: number
   name?: string
+  status?: string
   created_at?: string
 }
 
-/**
- * Hook para listar itens perdidos
- */
+/* ================================
+   LISTAR ITENS
+================================ */
+
 export function useLostItems() {
   const [lostItems, setLostItems] = useState<LostItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,7 +35,6 @@ export function useLostItems() {
   useEffect(() => {
     fetchLostItems()
 
-    // Realtime (API nova do Supabase)
     const channel = supabase
       .channel('lost_items_changes')
       .on(
@@ -53,13 +54,16 @@ export function useLostItems() {
   return { lostItems, loading }
 }
 
-/**
- * Hook para criar item perdido
- */
+/* ================================
+   CRIAR ITEM INDIVIDUAL
+================================ */
+
 export function useCreateLostItem() {
   const [loading, setLoading] = useState(false)
 
-  const createLostItem = async (item: Omit<LostItem, 'id' | 'created_at'>) => {
+  const createLostItem = async (
+    item: Omit<LostItem, 'id' | 'created_at'>
+  ) => {
     setLoading(true)
 
     const { data, error } = await supabase
@@ -79,4 +83,63 @@ export function useCreateLostItem() {
   }
 
   return { createLostItem, loading }
+}
+
+/* ================================
+   CRIAÇÃO EM LOTE
+================================ */
+
+export function useBulkCreateLostItems() {
+  const [loading, setLoading] = useState(false)
+
+  const bulkCreate = async (
+    items: Omit<LostItem, 'id' | 'created_at'>[]
+  ) => {
+    setLoading(true)
+
+    const { data, error } = await supabase
+      .from('lost_items')
+      .insert(items)
+      .select()
+
+    setLoading(false)
+
+    if (error) {
+      console.error('Erro ao criar itens em lote:', error)
+      throw error
+    }
+
+    return data
+  }
+
+  return { bulkCreate, loading }
+}
+
+/* ================================
+   ENTREGAR EM LOTE (mudar status)
+================================ */
+
+export function useBulkDeliverLostItems() {
+  const [loading, setLoading] = useState(false)
+
+  const bulkDeliver = async (ids: number[]) => {
+    setLoading(true)
+
+    const { data, error } = await supabase
+      .from('lost_items')
+      .update({ status: 'delivered' })
+      .in('id', ids)
+      .select()
+
+    setLoading(false)
+
+    if (error) {
+      console.error('Erro ao entregar itens em lote:', error)
+      throw error
+    }
+
+    return data
+  }
+
+  return { bulkDeliver, loading }
 }
