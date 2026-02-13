@@ -30,10 +30,17 @@ export default function DashboardStats() {
   useLostItemsGlobalPrefetch();
 
   const { data: lostItemsStats } = useLostItemsCounts();
-  const { data: equipment } = useEquipmentList();
-  const { data: activeLoans } = useEquipmentLoans('active');
-  const { data: lockers } = useLockersList();
-  const { data: lockerLoans } = useLockerLoans('active');
+  const { data: equipmentData } = useEquipmentList();
+  const { data: activeLoansData } = useEquipmentLoans('active');
+  const { data: lockersData } = useLockersList();
+  const { data: lockerLoansData } = useLockerLoans('active');
+
+// 🔥 GARANTIA ABSOLUTA DE ARRAY
+const equipment = Array.isArray(equipmentData) ? equipmentData : [];
+const activeLoans = Array.isArray(activeLoansData) ? activeLoansData : [];
+const lockers = Array.isArray(lockersData) ? lockersData : [];
+const lockerLoans = Array.isArray(lockerLoansData) ? lockerLoansData : [];
+
 
   const equipmentStats = {
     total: equipment?.length || 0,
