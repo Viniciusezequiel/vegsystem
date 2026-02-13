@@ -174,7 +174,7 @@ export function useOverdueLockerLoans() {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('locker_loans')
-        .select('*, locker:lockers(*)')
+        .select('*, lockers!locker_loans_locker_id_fkey(*)')
         .eq('status', 'active')
         .lt('expected_return_date', today);
       if (error) throw error;
