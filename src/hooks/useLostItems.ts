@@ -20,16 +20,18 @@ export interface LostItem {
 export function useLostItems() {
   return useQuery<LostItem[]>({
     queryKey: ['lost_items'],
-    queryFn: async () => {
+    queryFn: async (): Promise<LostItem[]> => {
       const { data, error } = await supabase
         .from('lost_items')
         .select('*')
         .order('created_at', { ascending: false })
 
       if (error) throw error
+
       return data ?? []
     },
-    initialData: [], // 🔥 nunca será undefined
+    initialData: [],          // nunca undefined
+    staleTime: 1000 * 60 * 2, // 2 minutos (melhora performance)
   })
 }
 
@@ -41,7 +43,7 @@ export function useLostItem(id?: string) {
   return useQuery<LostItem | null>({
     queryKey: ['lost_item', id],
     enabled: !!id,
-    queryFn: async () => {
+    queryFn: async (): Promise<LostItem | null> => {
       const { data, error } = await supabase
         .from('lost_items')
         .select('*')
@@ -49,6 +51,7 @@ export function useLostItem(id?: string) {
         .single()
 
       if (error) throw error
+
       return data
     },
   })
@@ -62,7 +65,7 @@ export function useCreateLostItem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (newItem: Omit<LostItem, 'id'>) => {
+    mutationFn: async (newItem: Omit<LostItem, 'id'>): Promise<LostItem> => {
       const { data, error } = await supabase
         .from('lost_items')
         .insert(newItem)
@@ -70,6 +73,7 @@ export function useCreateLostItem() {
         .single()
 
       if (error) throw error
+
       return data
     },
     onSuccess: () => {
@@ -86,7 +90,9 @@ export function useUpdateLostItem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (item: Partial<LostItem> & { id: string }) => {
+    mutationFn: async (
+      item: Partial<LostItem> & { id: string }
+    ): Promise<LostItem> => {
       const { data, error } = await supabase
         .from('lost_items')
         .update(item)
@@ -95,11 +101,14 @@ export function useUpdateLostItem() {
         .single()
 
       if (error) throw error
+
       return data
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['lost_items'] })
-      queryClient.invalidateQueries({ queryKey: ['lost_item', variables.id] })
+      queryClient.invalidateQueries({
+        queryKey: ['lost_item', variables.id],
+      })
     },
   })
 }
@@ -112,7 +121,7 @@ export function useDeleteLostItem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: string): Promise<void> => {
       const { error } = await supabase
         .from('lost_items')
         .delete()
@@ -134,7 +143,7 @@ export function useDeliverLostItem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: string): Promise<void> => {
       const { error } = await supabase
         .from('lost_items')
         .update({ status: 'delivered' })
@@ -157,14 +166,17 @@ export function useBulkCreateLostItems() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (items: Omit<LostItem, 'id'>[]) => {
+    mutationFn: async (
+      items: Omit<LostItem, 'id'>[]
+    ): Promise<LostItem[]> => {
       const { data, error } = await supabase
         .from('lost_items')
         .insert(items)
         .select()
 
       if (error) throw error
-      return data
+
+      return data ?? []
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lost_items'] })
@@ -180,7 +192,7 @@ export function useBulkDeliverLostItems() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async (ids: string): Promise<void> => {
       const { error } = await supabase
         .from('lost_items')
         .update({ status: 'delivered' })
