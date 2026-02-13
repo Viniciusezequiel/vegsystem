@@ -26,24 +26,24 @@ import {
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'];
 
 export default function DashboardStats() {
-  // Prefetch lost items data for instant loading when navigating
   useLostItemsGlobalPrefetch();
 
   const { data: lostItemsStats } = useLostItemsCounts();
+
   const { data: equipmentData } = useEquipmentList();
   const { data: activeLoansData } = useEquipmentLoans('active');
   const { data: lockersData } = useLockersList();
   const { data: lockerLoansData } = useLockerLoans('active');
 
-// 🔥 GARANTIA ABSOLUTA DE ARRAY
-const equipment = Array.isArray(equipmentData) ? equipmentData : [];
-const activeLoans = Array.isArray(activeLoansData) ? activeLoansData : [];
-const lockers = Array.isArray(lockersData) ? lockersData : [];
-const lockerLoans = Array.isArray(lockerLoansData) ? lockerLoansData : [];
+  // 🛡️ BLINDAGEM TOTAL
+  const equipment = Array.isArray(equipmentData) ? equipmentData : [];
+  const activeLoans = Array.isArray(activeLoansData) ? activeLoansData : [];
+  const lockers = Array.isArray(lockersData) ? lockersData : [];
+  const lockerLoans = Array.isArray(lockerLoansData) ? lockerLoansData : [];
 
 
   const equipmentStats = {
-    total: equipment?.length || 0,
+    total: equipment.length,
     available: equipment?.filter(e => e.status === 'available').length || 0,
     borrowed: equipment?.filter(e => e.status === 'borrowed').length || 0,
     maintenance: equipment?.filter(e => e.status === 'maintenance').length || 0,
@@ -103,7 +103,7 @@ const lockerLoans = Array.isArray(lockerLoansData) ? lockerLoansData : [];
             <div className="flex gap-2 mt-2 text-xs">
               <span className="text-green-500">{equipmentStats.available} disponíveis</span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-yellow-500">{activeLoans?.length || 0} emprestados</span>
+              <span className="text-yellow-500">{activeLoans.length} emprestados</span>
             </div>
           </CardContent>
         </Card>
@@ -240,7 +240,7 @@ const lockerLoans = Array.isArray(lockerLoansData) ? lockerLoansData : [];
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{lockerLoans?.length || 0}</div>
+            <div className="text-2xl font-bold">{lockerLoans.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Escaninhos atualmente em uso
             </p>
