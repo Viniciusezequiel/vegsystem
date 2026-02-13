@@ -153,7 +153,7 @@ export function useLockerLoans(status?: 'active' | 'returned' | 'overdue') {
     queryFn: async () => {
       let query = supabase
         .from('locker_loans')
-        .select('*, locker:lockers(*)')
+       .select('*, lockers!locker_loans_locker_id_fkey(*)')
         .order('created_at', { ascending: false });
 
       if (status) {
