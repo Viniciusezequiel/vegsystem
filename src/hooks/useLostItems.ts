@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../supabaseClient' // caminho corrigido
+import { supabase } from '@/integrations/supabase/client' // caminho corrigido
 
 export interface LostItem {
   id: number
