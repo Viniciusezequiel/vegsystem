@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../supabaseClient'
+import { supabase } from '../supabaseClient' // caminho corrigido
 
 export interface LostItem {
   id: number
@@ -19,9 +19,9 @@ export function useLostItems() {
 
       if (error) {
         console.error('Erro ao buscar lost_items:', error)
-        setLostItems([]) // garante array vazio
+        setLostItems([])
       } else {
-        setLostItems(data ?? []) // evita undefined
+        setLostItems(data ?? [])
       }
     }
 
@@ -31,7 +31,7 @@ export function useLostItems() {
       .from<LostItem>('lost_items')
       .on('*', payload => {
         console.log('Realtime lost_items:', payload)
-        fetchLostItems() // atualiza automaticamente
+        fetchLostItems()
       })
       .subscribe()
 
