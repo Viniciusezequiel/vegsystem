@@ -18,7 +18,7 @@ export interface LostItem {
 ============================ */
 
 export function useLostItems() {
-  return useQuery({
+  return useQuery<LostItem[]>({
     queryKey: ['lost_items'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -29,6 +29,7 @@ export function useLostItems() {
       if (error) throw error
       return data ?? []
     },
+    initialData: [], // 🔥 nunca será undefined
   })
 }
 
@@ -37,7 +38,7 @@ export function useLostItems() {
 ============================ */
 
 export function useLostItem(id?: string) {
-  return useQuery({
+  return useQuery<LostItem | null>({
     queryKey: ['lost_item', id],
     enabled: !!id,
     queryFn: async () => {
