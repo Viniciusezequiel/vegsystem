@@ -48,7 +48,7 @@ const ItemCard = memo(function ItemCard({
       )}
       onClick={() => onItemClick(item)}
     >
-      {isSelectionMode && item.status === 'expired' && (
+      {isSelectionMode && item?.status === 'expired' && (
         <div className="absolute top-2 right-2 z-10">
           <Checkbox
             checked={isSelected}
@@ -61,46 +61,54 @@ const ItemCard = memo(function ItemCard({
       <div className="flex gap-4">
         <LazyItemImage 
           itemId={item.id}
-          alt={item.description}
+          alt={item?.description ?? ''}
           className="w-24 h-24 rounded-lg flex-shrink-0"
         />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-mono text-muted-foreground">{item.code}</p>
+              <p className="text-xs font-mono text-muted-foreground">
+                {item?.code ?? '-'}
+              </p>
               <h3 className="font-medium text-foreground mt-1 line-clamp-2">
-                {item.description}
+                {item?.description ?? 'Sem descrição'}
               </h3>
             </div>
-            <StatusBadge status={item.status} />
+            <StatusBadge status={item?.status} />
           </div>
 
           <div className="mt-2 space-y-0.5">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate font-medium text-primary">
-                {item.campus}
-              </span>
-            </div>
+            {item?.campus && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate font-medium text-primary">
+                  {item.campus}
+                </span>
+              </div>
+            )}
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{item.found_location}</span>
-            </div>
+            {item?.found_location && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{item.found_location}</span>
+              </div>
+            )}
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>
-                {format(
-                  new Date(item.found_date + 'T00:00:00'),
-                  "dd 'de' MMM",
-                  { locale: ptBR }
-                )}
-              </span>
-            </div>
+            {item?.found_date && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>
+                  {format(
+                    new Date(item.found_date + 'T00:00:00'),
+                    "dd 'de' MMM",
+                    { locale: ptBR }
+                  )}
+                </span>
+              </div>
+            )}
 
-            {item.box_number && (
+            {item?.box_number && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Package className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="truncate">Caixa {item.box_number}</span>
@@ -154,10 +162,12 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
     scrollMargin: listRef.current?.offsetTop ?? 0,
   });
 
-  const virtualRows = virtualizer.getVirtualItems();
+  const virtualRows = virtualizer.getVirtualItems() ?? [];
 
   /* Infinite Scroll */
   useEffect(() => {
+    if (!Array.isArray(virtualRows) || virtualRows.length === 0) return;
+
     const lastItem = virtualRows[virtualRows.length - 1];
     if (!lastItem) return;
 
@@ -165,7 +175,7 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
       lastItem.index >= rowCount &&
       hasNextPage &&
       !isFetchingNextPage &&
-      fetchNextPage
+      typeof fetchNextPage === 'function'
     ) {
       fetchNextPage();
     }
@@ -180,7 +190,7 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
           position: 'relative',
         }}
       >
-        {virtualRows.map((virtualRow) => {
+        {(virtualRows ?? []).map((virtualRow) => {
           const isLoaderRow = virtualRow.index >= rowCount;
 
           if (isLoaderRow) {
@@ -194,7 +204,7 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                   width: '100%',
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${
-                    virtualRow.start - virtualizer.options.scrollMargin
+                    virtualRow.start - (virtualizer.options.scrollMargin ?? 0)
                   }px)`,
                 }}
                 className="flex items-center justify-center"
@@ -224,7 +234,7 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                 left: 0,
                 width: '100%',
                 transform: `translateY(${
-                  virtualRow.start - virtualizer.options.scrollMargin
+                  virtualRow.start - (virtualizer.options.scrollMargin ?? 0)
                 }px)`,
                 display: 'grid',
                 gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
