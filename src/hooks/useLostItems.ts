@@ -1,207 +1,193 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/integrations/supabase/client'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabaseClient';
 
 export interface LostItem {
-  id: string
-  code: string
-  description: string
-  status: string
-  campus: string
-  found_location: string
-  found_date: string
-  box_number?: string | null
-  created_at?: string
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  campus?: string;
+  created_at: string;
+  image_url?: string;
 }
 
-/* ============================
-   GET ALL
-============================ */
+/* ============================= */
+/* LISTAR TODOS */
+/* ============================= */
 
 export function useLostItems() {
-  return useQuery<LostItem[]>({
-    queryKey: ['lost_items'],
-    queryFn: async (): Promise<LostItem[]> => {
+  return useQuery({
+    queryKey: ['lost-items'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('lost_items')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false });
 
-      if (error) throw error
-
-      return data ?? []
-    },
-    initialData: [],          // nunca undefined
-    staleTime: 1000 * 60 * 2, // 2 minutos (melhora performance)
-  })
+      if (error) throw error;
+      return data ?? [];
+    }
+  });
 }
 
-/* ============================
-   GET ONE
-============================ */
+/* ============================= */
+/* BUSCAR POR ID */
+/* ============================= */
 
 export function useLostItem(id?: string) {
-  return useQuery<LostItem | null>({
-    queryKey: ['lost_item', id],
+  return useQuery({
+    queryKey: ['lost-item', id],
     enabled: !!id,
-    queryFn: async (): Promise<LostItem | null> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('lost_items')
         .select('*')
         .eq('id', id)
-        .single()
+        .single();
 
-      if (error) throw error
-
-      return data
-    },
-  })
+      if (error) throw error;
+      return data;
+    }
+  });
 }
 
-/* ============================
-   CREATE
-============================ */
+/* ============================= */
+/* CRIAR */
+/* ============================= */
 
 export function useCreateLostItem() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (newItem: Omit<LostItem, 'id'>): Promise<LostItem> => {
+    mutationFn: async (item: Partial<LostItem>) => {
       const { data, error } = await supabase
         .from('lost_items')
-        .insert(newItem)
+        .insert(item)
         .select()
-        .single()
+        .single();
 
-      if (error) throw error
-
-      return data
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
-    },
-  })
+      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+    }
+  });
 }
 
-/* ============================
-   UPDATE
-============================ */
+/* ============================= */
+/* ATUALIZAR */
+/* ============================= */
 
 export function useUpdateLostItem() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (
-      item: Partial<LostItem> & { id: string }
-    ): Promise<LostItem> => {
+    mutationFn: async ({ id, ...updates }: Partial<LostItem> & { id: string }) => {
       const { data, error } = await supabase
         .from('lost_items')
-        .update(item)
-        .eq('id', item.id)
+        .update(updates)
+        .eq('id', id)
         .select()
-        .single()
+        .single();
 
-      if (error) throw error
-
-      return data
+      if (error) throw error;
+      return data;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
-      queryClient.invalidateQueries({
-        queryKey: ['lost_item', variables.id],
-      })
-    },
-  })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+    }
+  });
 }
 
-/* ============================
-   DELETE
-============================ */
+/* ============================= */
+/* ENTREGAR */
+/* ============================= */
 
-export function useDeleteLostItem() {
-  const queryClient = useQueryClient()
+export function useDeliverLostItem() {
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string): Promise<void> => {
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('lost_items')
+        .update({ status: 'delivered' })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+    }
+  });
+}
+
+/* ============================= */
+/* DELETAR */
+/* ============================= */
+
+export function useDeleteLostItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('lost_items')
         .delete()
-        .eq('id', id)
+        .eq('id', id);
 
-      if (error) throw error
+      if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
-    },
-  })
+      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+    }
+  });
 }
 
-/* ============================
-   DELIVER (single)
-============================ */
+/* ============================= */
+/* BULK ENTREGAR */
+/* ============================= */
 
-export function useDeliverLostItem() {
-  const queryClient = useQueryClient()
+export function useBulkDeliverLostItems() {
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string): Promise<void> => {
+    mutationFn: async (ids: string[]) => {
       const { error } = await supabase
         .from('lost_items')
         .update({ status: 'delivered' })
-        .eq('id', id)
+        .in('id', ids);
 
-      if (error) throw error
+      if (error) throw error;
     },
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
-      queryClient.invalidateQueries({ queryKey: ['lost_item', id] })
-    },
-  })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+    }
+  });
 }
 
-/* ============================
-   BULK CREATE
-============================ */
+/* ============================= */
+/* BULK CRIAR */
+/* ============================= */
 
 export function useBulkCreateLostItems() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (
-      items: Omit<LostItem, 'id'>[]
-    ): Promise<LostItem[]> => {
+    mutationFn: async (items: Partial<LostItem>[]) => {
       const { data, error } = await supabase
         .from('lost_items')
         .insert(items)
-        .select()
+        .select();
 
-      if (error) throw error
-
-      return data ?? []
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
-    },
-  })
-}
-
-/* ============================
-   BULK DELIVER
-============================ */
-
-export function useBulkDeliverLostItems() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (ids: string): Promise<void> => {
-      const { error } = await supabase
-        .from('lost_items')
-        .update({ status: 'delivered' })
-        .in('id', ids)
-
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost_items'] })
-    },
-  })
+      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+    }
+  });
 }
