@@ -109,12 +109,13 @@ export default function ItemsList() {
   });
 
   const {
-    data,
-    isLoading,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage
-  } = useInfiniteLostItems({
+  data,
+  isLoading,
+  error,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage
+} = useInfiniteLostItems({
     status: statusFilter === 'all' ? undefined : statusFilter,
     search: searchQuery || undefined,
     campus: campusFilter !== 'all' ? campusFilter : undefined,
@@ -125,6 +126,24 @@ export default function ItemsList() {
 
   const bulkDeliver = useBulkDeliverLostItems();
   const bulkCreate = useBulkCreateLostItems();
+  if (error) {
+  console.error("Erro ao buscar itens:", error);
+
+  return (
+    <MainLayout>
+      <div className="flex flex-col items-center justify-center py-16">
+        <h2 className="text-lg font-semibold text-red-600">
+          Erro ao carregar itens
+        </h2>
+        <p className="text-muted-foreground mt-2 text-center max-w-md">
+          Verifique se a tabela <strong>lost_items</strong> existe no Supabase
+          e se as políticas RLS estão configuradas corretamente.
+        </p>
+      </div>
+    </MainLayout>
+  );
+}
+
 
   // 🔒 PROTEÇÃO TOTAL CONTRA UNDEFINED
   const filteredItems = useMemo<LostItem[]>(() => {
