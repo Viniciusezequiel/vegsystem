@@ -23,7 +23,6 @@ export function VirtualizedItemsList({
   fetchNextPage
 }: Props) {
 
-  // 🛡 GARANTIA ABSOLUTA
   const safeItems = Array.isArray(items) ? items : [];
 
   if (!safeItems.length) {
@@ -38,9 +37,12 @@ export function VirtualizedItemsList({
           className="p-4 border rounded cursor-pointer hover:bg-muted/40"
           onClick={() => onItemClick(item)}
         >
-          <div className="font-medium">{item.title}</div>
+          <div className="font-medium">
+            {item.name ?? 'Sem nome'}
+          </div>
+
           <div className="text-sm text-muted-foreground">
-            {item.status}
+            {item.status ?? 'Sem status'}
           </div>
         </div>
       ))}
