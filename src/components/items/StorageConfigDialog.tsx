@@ -23,11 +23,22 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Plus, Trash2, Save, Loader2, Package } from 'lucide-react';
-import { useStorageConfig, useUpdateStorageConfig, StorageConfigData, CampusStorageConfig, ShelfConfig, BoxConfig } from '@/hooks/useStorageConfig';
+import {
+  useStorageConfig,
+  useUpdateStorageConfig,
+  StorageConfigData,
+  ShelfConfig,
+} from '@/hooks/useStorageConfig';
 import type { Database } from '@/integrations/supabase/types';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
-const allCampuses: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
+
+const allCampuses: CampusEnum[] = [
+  'Campus I',
+  'Campus II',
+  'Campus IV',
+  'Campus HUCM Adm',
+];
 
 interface StorageConfigDialogProps {
   open: boolean;
@@ -36,31 +47,64 @@ interface StorageConfigDialogProps {
 
 const genId = () => Math.random().toString(36).substring(2, 9);
 
-export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogProps) {
+export function StorageConfigDialog({
+  open,
+  onOpenChange,
+}: StorageConfigDialogProps) {
   const { data: config, isLoading } = useStorageConfig();
   const updateConfig = useUpdateStorageConfig();
-  const [localConfig, setLocalConfig] = useState<StorageConfigData | null>(null);
+
+  const [localConfig, setLocalConfig] =
+    useState<StorageConfigData | null>(null);
   const [selectedCampus, setSelectedCampus] = useState<string>('');
 
+  /* ===========================
+     SAFE INITIAL LOAD
+  ============================*/
   useEffect(() => {
-    if (config && !localConfig) {
-      setLocalConfig(JSON.parse(JSON.stringify(config)));
-      if (config.campuses.length > 0) {
-        setSelectedCampus(config.campuses[0].campus);
-      }
-    }
-  }, [config, localConfig]);
+    if (!config) return;
 
-  // Reset local config when dialog opens
-  useEffect(() => {
-    if (open && config) {
-      setLocalConfig(JSON.parse(JSON.stringify(config)));
-      if (config.campuses.length > 0 && !selectedCampus) {
-        setSelectedCampus(config.campuses[0].campus);
-      }
+    const safeCampuses = Array.isArray(config.campuses)
+      ? config.campuses
+      : [];
+
+    const safeConfig: StorageConfigData = {
+      ...config,
+      campuses: safeCampuses,
+    };
+
+    setLocalConfig(JSON.parse(JSON.stringify(safeConfig)));
+
+    if (safeCampuses.length > 0) {
+      setSelectedCampus(safeCampuses[0].campus);
     }
+  }, [config]);
+
+  /* ===========================
+     RESET WHEN OPEN
+  ============================*/
+  useEffect(() => {
     if (!open) {
       setLocalConfig(null);
+      setSelectedCampus('');
+      return;
+    }
+
+    if (!config) return;
+
+    const safeCampuses = Array.isArray(config.campuses)
+      ? config.campuses
+      : [];
+
+    const safeConfig: StorageConfigData = {
+      ...config,
+      campuses: safeCampuses,
+    };
+
+    setLocalConfig(JSON.parse(JSON.stringify(safeConfig)));
+
+    if (safeCampuses.length > 0) {
+      setSelectedCampus(safeCampuses[0].campus);
     }
   }, [open, config]);
 
@@ -76,65 +120,131 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
     );
   }
 
-  const currentCampusConfig = localConfig.campuses.find(c => c.campus === selectedCampus);
+  const safeCampuses = Array.isArray(localConfig.campuses)
+    ? localConfig.campuses
+    : [];
+
+  const currentCampusConfig = safeCampuses.find(
+    (c) => c.campus === selectedCampus
+  );
+
+  /* ===========================
+     ACTIONS
+  ============================*/
 
   const addCampusConfig = (campus: string) => {
-    if (localConfig.campuses.find(c => c.campus === campus)) return;
+    if (safeCampuses.find((c) => c.campus === campus)) return;
+
     setLocalConfig({
       ...localConfig,
-      campuses: [...localConfig.campuses, { campus, shelves: [] }],
+      campuses: [...safeCampuses, { campus, shelves: [] }],
     });
+
     setSelectedCampus(campus);
   };
 
   const addShelf = () => {
     if (!currentCampusConfig) return;
+
     const updated = { ...localConfig };
-    const campusIdx = updated.campuses.findIndex(c => c.campus === selectedCampus);
+    const campusIdx = updated.campuses.findIndex(
+      (c) => c.campus === selectedCampus
+    );
+
+    if (campusIdx === -1) return;
+
+    updated.campuses[campusIdx].shelves =
+      updated.campuses[campusIdx].shelves || [];
+
     updated.campuses[campusIdx].shelves.push({
       id: genId(),
       code: '',
       label: '',
       boxes: [],
     });
+
     setLocalConfig({ ...updated });
   };
 
-  const updateShelf = (shelfIdx: number, field: keyof ShelfConfig, value: string) => {
+  const updateShelf = (
+    shelfIdx: number,
+    field: keyof ShelfConfig,
+    value: string
+  ) => {
     const updated = { ...localConfig };
-    const campusIdx = updated.campuses.findIndex(c => c.campus === selectedCampus);
+    const campusIdx = updated.campuses.findIndex(
+      (c) => c.campus === selectedCampus
+    );
+
+    if (campusIdx === -1) return;
+
     (updated.campuses[campusIdx].shelves[shelfIdx] as any)[field] = value;
+
     setLocalConfig({ ...updated });
   };
 
   const removeShelf = (shelfIdx: number) => {
     const updated = { ...localConfig };
-    const campusIdx = updated.campuses.findIndex(c => c.campus === selectedCampus);
+    const campusIdx = updated.campuses.findIndex(
+      (c) => c.campus === selectedCampus
+    );
+
+    if (campusIdx === -1) return;
+
     updated.campuses[campusIdx].shelves.splice(shelfIdx, 1);
     setLocalConfig({ ...updated });
   };
 
   const addBox = (shelfIdx: number) => {
     const updated = { ...localConfig };
-    const campusIdx = updated.campuses.findIndex(c => c.campus === selectedCampus);
+    const campusIdx = updated.campuses.findIndex(
+      (c) => c.campus === selectedCampus
+    );
+
+    if (campusIdx === -1) return;
+
+    updated.campuses[campusIdx].shelves[shelfIdx].boxes =
+      updated.campuses[campusIdx].shelves[shelfIdx].boxes || [];
+
     updated.campuses[campusIdx].shelves[shelfIdx].boxes.push({
       id: genId(),
       label: '',
     });
+
     setLocalConfig({ ...updated });
   };
 
-  const updateBox = (shelfIdx: number, boxIdx: number, value: string) => {
+  const updateBox = (
+    shelfIdx: number,
+    boxIdx: number,
+    value: string
+  ) => {
     const updated = { ...localConfig };
-    const campusIdx = updated.campuses.findIndex(c => c.campus === selectedCampus);
-    updated.campuses[campusIdx].shelves[shelfIdx].boxes[boxIdx].label = value;
+    const campusIdx = updated.campuses.findIndex(
+      (c) => c.campus === selectedCampus
+    );
+
+    if (campusIdx === -1) return;
+
+    updated.campuses[campusIdx].shelves[shelfIdx].boxes[boxIdx].label =
+      value;
+
     setLocalConfig({ ...updated });
   };
 
   const removeBox = (shelfIdx: number, boxIdx: number) => {
     const updated = { ...localConfig };
-    const campusIdx = updated.campuses.findIndex(c => c.campus === selectedCampus);
-    updated.campuses[campusIdx].shelves[shelfIdx].boxes.splice(boxIdx, 1);
+    const campusIdx = updated.campuses.findIndex(
+      (c) => c.campus === selectedCampus
+    );
+
+    if (campusIdx === -1) return;
+
+    updated.campuses[campusIdx].shelves[shelfIdx].boxes.splice(
+      boxIdx,
+      1
+    );
+
     setLocalConfig({ ...updated });
   };
 
@@ -144,7 +254,13 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
     });
   };
 
-  const unusedCampuses = allCampuses.filter(c => !localConfig.campuses.find(cc => cc.campus === c));
+  const unusedCampuses = allCampuses.filter(
+    (c) => !safeCampuses.find((cc) => cc.campus === c)
+  );
+
+  /* ===========================
+     UI
+  ============================*/
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -155,145 +271,136 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
             Configurar Armazenamento
           </DialogTitle>
           <DialogDescription>
-            Configure as prateleiras e caixas para cada campus. A estante é derivada do primeiro número da prateleira.
+            Configure as prateleiras e caixas para cada campus.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Campus selector */}
+          {/* Campus Buttons */}
           <div className="flex gap-2 flex-wrap">
-            {localConfig.campuses.map(c => (
+            {safeCampuses.map((c) => (
               <Button
                 key={c.campus}
                 type="button"
-                variant={selectedCampus === c.campus ? 'default' : 'outline'}
+                variant={
+                  selectedCampus === c.campus
+                    ? 'default'
+                    : 'outline'
+                }
                 size="sm"
                 onClick={() => setSelectedCampus(c.campus)}
               >
                 {c.campus}
               </Button>
             ))}
+
             {unusedCampuses.length > 0 && (
               <Select onValueChange={addCampusConfig}>
                 <SelectTrigger className="w-[180px] h-8">
                   <SelectValue placeholder="+ Adicionar campus" />
                 </SelectTrigger>
                 <SelectContent>
-                  {unusedCampuses.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  {unusedCampuses.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           </div>
 
-          {/* Shelves for selected campus */}
+          {/* Shelves */}
           {currentCampusConfig && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-sm">Prateleiras - {selectedCampus}</h4>
-                <Button type="button" variant="outline" size="sm" onClick={addShelf}>
+              <div className="flex justify-between">
+                <h4 className="font-medium text-sm">
+                  Prateleiras - {selectedCampus}
+                </h4>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addShelf}
+                >
                   <Plus className="w-4 h-4 mr-1" />
                   Prateleira
                 </Button>
               </div>
 
-              {currentCampusConfig.shelves.length === 0 && (
+              {(currentCampusConfig.shelves || []).length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-6 border border-dashed rounded-lg">
-                  Nenhuma prateleira configurada. Clique em "+ Prateleira" para começar.
+                  Nenhuma prateleira configurada.
                 </p>
               )}
 
               <Accordion type="multiple" className="space-y-2">
-                {currentCampusConfig.shelves.map((shelf, shelfIdx) => (
-                  <AccordionItem key={shelf.id} value={shelf.id} className="border rounded-lg px-3">
-                    <AccordionTrigger className="hover:no-underline py-3">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-mono font-bold">{shelf.code || '?'}</span>
-                        <span className="text-muted-foreground">
-                          {shelf.label || 'Sem nome'} ({shelf.boxes.length} caixas)
-                        </span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-3">
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Código (ex: 1.3)</Label>
-                            <Input
-                              value={shelf.code}
-                              onChange={e => updateShelf(shelfIdx, 'code', e.target.value)}
-                              placeholder="1.3"
-                              className="mt-1 h-8 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Descrição</Label>
-                            <Input
-                              value={shelf.label}
-                              onChange={e => updateShelf(shelfIdx, 'label', e.target.value)}
-                              placeholder="Variados"
-                              className="mt-1 h-8 text-sm"
-                            />
-                          </div>
+                {(currentCampusConfig.shelves || []).map(
+                  (shelf, shelfIdx) => (
+                    <AccordionItem
+                      key={shelf.id}
+                      value={shelf.id}
+                      className="border rounded-lg px-3"
+                    >
+                      <AccordionTrigger>
+                        <div className="flex gap-2 text-sm">
+                          <span className="font-mono font-bold">
+                            {shelf.code || '?'}
+                          </span>
+                          <span>
+                            {shelf.label || 'Sem nome'} (
+                            {(shelf.boxes || []).length} caixas)
+                          </span>
                         </div>
+                      </AccordionTrigger>
 
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <Label className="text-xs">Caixas</Label>
-                            <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={() => addBox(shelfIdx)}>
-                              <Plus className="w-3 h-3 mr-1" />
-                              Caixa
-                            </Button>
-                          </div>
-                          {shelf.boxes.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">Nenhuma caixa</p>
-                          ) : (
-                            <div className="flex flex-wrap gap-2">
-                              {shelf.boxes.map((box, boxIdx) => (
-                                <div key={box.id} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
-                                  <Input
-                                    value={box.label}
-                                    onChange={e => updateBox(shelfIdx, boxIdx, e.target.value)}
-                                    placeholder="Nº"
-                                    className="h-6 w-16 text-xs border-0 bg-transparent p-0"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => removeBox(shelfIdx, boxIdx)}
-                                    className="text-muted-foreground hover:text-destructive"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-3">
+                          <Input
+                            value={shelf.code}
+                            onChange={(e) =>
+                              updateShelf(
+                                shelfIdx,
+                                'code',
+                                e.target.value
+                              )
+                            }
+                            placeholder="Código"
+                          />
+
+                          <Input
+                            value={shelf.label}
+                            onChange={(e) =>
+                              updateShelf(
+                                shelfIdx,
+                                'label',
+                                e.target.value
+                              )
+                            }
+                            placeholder="Descrição"
+                          />
                         </div>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive h-7 text-xs"
-                          onClick={() => removeShelf(shelfIdx)}
-                        >
-                          <Trash2 className="w-3 h-3 mr-1" />
-                          Remover prateleira
-                        </Button>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
+                      </AccordionContent>
+                    </AccordionItem>
+                  )
+                )}
               </Accordion>
             </div>
           )}
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={updateConfig.isPending}>
+
+            <Button
+              onClick={handleSave}
+              disabled={updateConfig.isPending}
+            >
               {updateConfig.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
