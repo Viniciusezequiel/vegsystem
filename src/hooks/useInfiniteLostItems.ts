@@ -15,7 +15,15 @@ const PAGE_SIZE = 20;
 
 export function useInfiniteLostItems(filters: Filters) {
   return useInfiniteQuery({
-    queryKey: ['lost-items', filters],
+    queryKey: [
+  'lost-items',
+  filters?.status ?? null,
+  filters?.search ?? null,
+  filters?.campus ?? null,
+  filters?.dateFrom ?? null,
+  filters?.dateTo ?? null,
+  filters?.destination ?? null,
+],
 
     queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
