@@ -28,7 +28,7 @@ export function useInfiniteLostItems(filters: Filters) {
       }
 
       if (filters.search) {
-        query = query.ilike('title', `%${filters.search}%`);
+        query = query.ilike('name', `%${filters.search}%`);
       }
 
       const { data, error, count } = await query;
@@ -38,16 +38,21 @@ export function useInfiniteLostItems(filters: Filters) {
         throw error;
       }
 
-      // 🔒 GARANTIA TOTAL
+      const safeData = Array.isArray(data) ? data : [];
+
       return {
-        items: Array.isArray(data) ? data : [],
+        items: safeData,
         totalCount: typeof count === 'number' ? count : 0,
-        nextPage: (pageParam + PAGE_SIZE) < (count || 0)
-          ? pageParam + PAGE_SIZE
-          : undefined
+        nextPage:
+          (pageParam + PAGE_SIZE) < (count ?? 0)
+            ? pageParam + PAGE_SIZE
+            : undefined
       };
     },
 
-    getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage) return undefined;
+      return lastPage.nextPage ?? undefined;
+    },
   });
 }
