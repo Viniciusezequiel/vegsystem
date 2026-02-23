@@ -66,7 +66,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <GlobalPrefetch />
+       {/* <GlobalPrefetch /> */}
         <BrowserRouter>
           <AuthProvider>
             <OfflineProvider>
