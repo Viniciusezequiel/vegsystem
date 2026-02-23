@@ -58,9 +58,7 @@ export function StorageConfigDialog({
     useState<StorageConfigData | null>(null);
   const [selectedCampus, setSelectedCampus] = useState<string>('');
 
-  /* ===========================
-     SAFE INITIAL LOAD
-  ============================*/
+  /* ================= SAFE LOAD ================= */
   useEffect(() => {
     if (!config) return;
 
@@ -80,9 +78,7 @@ export function StorageConfigDialog({
     }
   }, [config]);
 
-  /* ===========================
-     RESET WHEN OPEN
-  ============================*/
+  /* ================= RESET WHEN OPEN ================= */
   useEffect(() => {
     if (!open) {
       setLocalConfig(null);
@@ -128,9 +124,7 @@ export function StorageConfigDialog({
     (c) => c.campus === selectedCampus
   );
 
-  /* ===========================
-     ACTIONS
-  ============================*/
+  /* ================= ACTIONS ================= */
 
   const addCampusConfig = (campus: string) => {
     if (safeCampuses.find((c) => c.campus === campus)) return;
@@ -258,9 +252,7 @@ export function StorageConfigDialog({
     (c) => !safeCampuses.find((cc) => cc.campus === c)
   );
 
-  /* ===========================
-     UI
-  ============================*/
+  /* ================= UI ================= */
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -271,12 +263,11 @@ export function StorageConfigDialog({
             Configurar Armazenamento
           </DialogTitle>
           <DialogDescription>
-            Configure as prateleiras e caixas para cada campus.
+            Configure as prateleiras e caixas para cada campus. A estante é derivada do primeiro número da prateleira.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Campus Buttons */}
           <div className="flex gap-2 flex-wrap">
             {safeCampuses.map((c) => (
               <Button
@@ -310,10 +301,9 @@ export function StorageConfigDialog({
             )}
           </div>
 
-          {/* Shelves */}
           {currentCampusConfig && (
             <div className="space-y-3">
-              <div className="flex justify-between">
+              <div className="flex items-center justify-between">
                 <h4 className="font-medium text-sm">
                   Prateleiras - {selectedCampus}
                 </h4>
@@ -330,7 +320,7 @@ export function StorageConfigDialog({
 
               {(currentCampusConfig.shelves || []).length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-6 border border-dashed rounded-lg">
-                  Nenhuma prateleira configurada.
+                  Nenhuma prateleira configurada. Clique em "+ Prateleira" para começar.
                 </p>
               )}
 
@@ -342,12 +332,12 @@ export function StorageConfigDialog({
                       value={shelf.id}
                       className="border rounded-lg px-3"
                     >
-                      <AccordionTrigger>
-                        <div className="flex gap-2 text-sm">
+                      <AccordionTrigger className="hover:no-underline py-3">
+                        <div className="flex items-center gap-2 text-sm">
                           <span className="font-mono font-bold">
                             {shelf.code || '?'}
                           </span>
-                          <span>
+                          <span className="text-muted-foreground">
                             {shelf.label || 'Sem nome'} (
                             {(shelf.boxes || []).length} caixas)
                           </span>
@@ -356,29 +346,118 @@ export function StorageConfigDialog({
 
                       <AccordionContent className="pb-3">
                         <div className="space-y-3">
-                          <Input
-                            value={shelf.code}
-                            onChange={(e) =>
-                              updateShelf(
-                                shelfIdx,
-                                'code',
-                                e.target.value
-                              )
-                            }
-                            placeholder="Código"
-                          />
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">
+                                Código (ex: 1.3)
+                              </Label>
+                              <Input
+                                value={shelf.code}
+                                onChange={(e) =>
+                                  updateShelf(
+                                    shelfIdx,
+                                    'code',
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="1.3"
+                                className="mt-1 h-8 text-sm"
+                              />
+                            </div>
 
-                          <Input
-                            value={shelf.label}
-                            onChange={(e) =>
-                              updateShelf(
-                                shelfIdx,
-                                'label',
-                                e.target.value
-                              )
+                            <div>
+                              <Label className="text-xs">
+                                Descrição
+                              </Label>
+                              <Input
+                                value={shelf.label}
+                                onChange={(e) =>
+                                  updateShelf(
+                                    shelfIdx,
+                                    'label',
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Variados"
+                                className="mt-1 h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <Label className="text-xs">
+                                Caixas
+                              </Label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-xs"
+                                onClick={() =>
+                                  addBox(shelfIdx)
+                                }
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Caixa
+                              </Button>
+                            </div>
+
+                            {(shelf.boxes || []).length === 0 ? (
+                              <p className="text-xs text-muted-foreground">
+                                Nenhuma caixa
+                              </p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {(shelf.boxes || []).map(
+                                  (box, boxIdx) => (
+                                    <div
+                                      key={box.id}
+                                      className="flex items-center gap-1 bg-muted rounded-md px-2 py-1"
+                                    >
+                                      <Input
+                                        value={box.label}
+                                        onChange={(e) =>
+                                          updateBox(
+                                            shelfIdx,
+                                            boxIdx,
+                                            e.target.value
+                                          )
+                                        }
+                                        placeholder="Nº"
+                                        className="h-6 w-16 text-xs border-0 bg-transparent p-0"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeBox(
+                                            shelfIdx,
+                                            boxIdx
+                                          )
+                                        }
+                                        className="text-muted-foreground hover:text-destructive"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive h-7 text-xs"
+                            onClick={() =>
+                              removeShelf(shelfIdx)
                             }
-                            placeholder="Descrição"
-                          />
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Remover prateleira
+                          </Button>
                         </div>
                       </AccordionContent>
                     </AccordionItem>
