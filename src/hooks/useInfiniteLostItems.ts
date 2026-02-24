@@ -26,8 +26,8 @@ export function useInfiniteLostItems(filters: Filters) {
       filters?.destination ?? null,
     ],
     initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      const from = pageParam as number;
+    queryFn: async ({ pageParam = 0 }) => {
+      const from = typeof pageParam === 'number' ? pageParam : 0;
       let query = supabase
         .from('lost_items')
         .select(LOST_ITEMS_LIST_SELECT, { count: 'exact' })
