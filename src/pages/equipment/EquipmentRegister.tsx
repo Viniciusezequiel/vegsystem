@@ -135,7 +135,7 @@ export default function EquipmentRegister() {
     navigate('/equipment');
   };
 
-  const isPending = createEquipment.isLoading || updateEquipment.isLoading;
+  const isPending = createEquipment.isPending || updateEquipment.isPending;
 
   if (isEditing && loadingEquipment) {
     return (

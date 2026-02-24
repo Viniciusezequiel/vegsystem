@@ -1,15 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
-export interface LostItem {
-  id: number;
-  name?: string;
-  description?: string;
-  status?: string;
-  campus?: string;
-  created_at?: string;
-  image_url?: string;
-}
+type LostItemRow = Database['public']['Tables']['lost_items']['Row'];
+
+export type LostItem = LostItemRow;
 
 /* LISTAR TODOS */
 export function useLostItems() {
@@ -28,7 +23,7 @@ export function useLostItems() {
 }
 
 /* BUSCAR POR ID */
-export function useLostItem(id?: number) {
+export function useLostItem(id?: string) {
   return useQuery({
     queryKey: ['lost-item', id],
     enabled: !!id,
@@ -36,7 +31,7 @@ export function useLostItem(id?: number) {
       const { data, error } = await supabase
         .from('lost_items')
         .select('*')
-        .eq('id', id)
+        .eq('id', id!)
         .single();
 
       if (error) throw error;
@@ -50,7 +45,7 @@ export function useCreateLostItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (item: Partial<LostItem>) => {
+    mutationFn: async (item: Database['public']['Tables']['lost_items']['Insert']) => {
       const { data, error } = await supabase
         .from('lost_items')
         .insert(item)
@@ -71,7 +66,7 @@ export function useUpdateLostItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<LostItem> & { id: number }) => {
+    mutationFn: async ({ id, ...updates }: Database['public']['Tables']['lost_items']['Update'] & { id: string }) => {
       const { data, error } = await supabase
         .from('lost_items')
         .update(updates)
@@ -93,7 +88,7 @@ export function useDeleteLostItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('lost_items')
         .delete()
@@ -112,10 +107,10 @@ export function useDeliverLostItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async ({ id, ...delivery }: { id: string; owner_name?: string; owner_email?: string; owner_phone?: string; owner_signature?: string }) => {
       const { data, error } = await supabase
         .from('lost_items')
-        .update({ status: 'delivered' })
+        .update({ status: 'delivered', delivered_at: new Date().toISOString(), ...delivery })
         .eq('id', id)
         .select()
         .single();
@@ -134,7 +129,7 @@ export function useBulkCreateLostItems() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (items: Partial<LostItem>[]) => {
+    mutationFn: async (items: Database['public']['Tables']['lost_items']['Insert'][]) => {
       const { data, error } = await supabase
         .from('lost_items')
         .insert(items)
@@ -154,7 +149,7 @@ export function useBulkDeliverLostItems() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (ids: number[]) => {
+    mutationFn: async (ids: string[]) => {
       const { error } = await supabase
         .from('lost_items')
         .update({ status: 'delivered' })
