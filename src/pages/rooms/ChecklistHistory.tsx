@@ -56,7 +56,10 @@ function useProfileName(userId: string) {
 
 export default function ChecklistHistory() {
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>('all');
+  const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [selectedChecklist, setSelectedChecklist] = useState<string | null>(null);
   
   const { data: rooms } = useRoomsList();
@@ -70,17 +73,39 @@ export default function ChecklistHistory() {
     return format(parseISO(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   };
 
-  // Filter checklists by search query (room name)
   const filteredChecklists = useMemo(() => {
     if (!checklists) return [];
-    if (!searchQuery.trim()) return checklists;
     
-    const query = searchQuery.toLowerCase();
-    return checklists.filter((checklist) => 
-      checklist.room?.name?.toLowerCase().includes(query) ||
-      checklist.room?.building?.toLowerCase().includes(query)
-    );
-  }, [checklists, searchQuery]);
+    return checklists.filter((checklist) => {
+      // Search by room name/building
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          checklist.room?.name?.toLowerCase().includes(query) ||
+          checklist.room?.building?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+
+      // Filter by shift
+      if (selectedShiftFilter !== 'all' && checklist.shift !== selectedShiftFilter) {
+        return false;
+      }
+
+      // Filter by date range
+      if (startDate) {
+        const checklistDate = parseISO(checklist.filled_at);
+        const start = new Date(startDate + 'T00:00:00');
+        if (checklistDate < start) return false;
+      }
+      if (endDate) {
+        const checklistDate = parseISO(checklist.filled_at);
+        const end = new Date(endDate + 'T23:59:59');
+        if (checklistDate > end) return false;
+      }
+
+      return true;
+    });
+  }, [checklists, searchQuery, selectedShiftFilter, startDate, endDate]);
 
   const groupedAnswers = checklistDetail?.answers?.reduce((acc, a) => {
     const category = a.question?.category || 'Geral';
@@ -141,8 +166,19 @@ export default function ChecklistHistory() {
                   <ClipboardCheck className="h-5 w-5" />
                   Checklists
                 </CardTitle>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="relative sm:col-span-2 lg:col-span-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Pesquisar sala..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
                 <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger>
                     <SelectValue placeholder="Filtrar por sala" />
                   </SelectTrigger>
                   <SelectContent>
@@ -154,16 +190,54 @@ export default function ChecklistHistory() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={selectedShiftFilter} onValueChange={setSelectedShiftFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por turno" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os turnos</SelectItem>
+                    <SelectItem value="Manhã">Manhã</SelectItem>
+                    <SelectItem value="Tarde">Tarde</SelectItem>
+                    <SelectItem value="Noite">Noite</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    placeholder="Data início"
+                    className="flex-1"
+                  />
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    placeholder="Data fim"
+                    className="flex-1"
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Pesquisar por nome ou número da sala..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 max-w-md"
-                />
-              </div>
+              {(searchQuery || selectedRoomFilter !== 'all' || selectedShiftFilter !== 'all' || startDate || endDate) && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {filteredChecklists.length} resultado(s) encontrado(s)
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedRoomFilter('all');
+                      setSelectedShiftFilter('all');
+                      setStartDate('');
+                      setEndDate('');
+                    }}
+                  >
+                    Limpar filtros
+                  </Button>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
