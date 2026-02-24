@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Shield, ShieldCheck, ShieldX } from 'lucide-react';
+import { Eye, Loader2, Shield, ShieldCheck, ShieldX } from 'lucide-react';
 import { 
   useRolePermissions, 
   useUpdatePermission,
@@ -31,7 +31,7 @@ const MODULES: Module[] = [
 ];
 
 const ACTIONS: Action[] = ['view', 'create', 'edit', 'delete', 'approve'];
-const ROLES: AppRole[] = ['admin', 'supervisor', 'analista', 'assistente'];
+const ROLES: AppRole[] = ['admin', 'supervisor', 'analista', 'assistente', 'visualizador'];
 
 export default function Permissions() {
   const { data: permissions, isLoading } = useRolePermissions();
@@ -46,6 +46,7 @@ export default function Permissions() {
       supervisor: {},
       analista: {},
       assistente: {},
+      visualizador: {},
     };
 
     permissions.forEach(p => {
@@ -115,6 +116,7 @@ export default function Permissions() {
                       {role === 'supervisor' && <Shield className="h-5 w-5 text-purple-500" />}
                       {role === 'analista' && <Shield className="h-5 w-5 text-blue-500" />}
                       {role === 'assistente' && <ShieldX className="h-5 w-5 text-orange-500" />}
+                      {role === 'visualizador' && <Eye className="h-5 w-5 text-gray-500" />}
                       {ROLE_LABELS[role]}
                     </CardTitle>
                     <Badge variant={role === 'admin' ? 'default' : 'secondary'}>
@@ -131,7 +133,8 @@ export default function Permissions() {
                       className={`h-full transition-all ${
                         role === 'admin' ? 'bg-green-500' : 
                         role === 'supervisor' ? 'bg-purple-500' :
-                        role === 'analista' ? 'bg-blue-500' : 'bg-orange-500'
+                        role === 'analista' ? 'bg-blue-500' : 
+                        role === 'assistente' ? 'bg-orange-500' : 'bg-gray-500'
                       }`}
                       style={{ width: `${percentage}%` }}
                     />

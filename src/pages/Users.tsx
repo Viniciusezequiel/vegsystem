@@ -46,6 +46,7 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ElementType; colo
   supervisor: { label: 'Supervisor', icon: Shield, color: 'text-warning' },
   analista: { label: 'Analista', icon: BarChart3, color: 'text-primary' },
   assistente: { label: 'Assistente', icon: Eye, color: 'text-muted-foreground' },
+  visualizador: { label: 'Visualizador', icon: Eye, color: 'text-muted-foreground' },
 };
 
 export default function Users() {
@@ -348,6 +349,7 @@ export default function Users() {
                     <SelectItem value="supervisor">Supervisor - Gerenciar e aprovar</SelectItem>
                     <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
                     <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
+                    <SelectItem value="visualizador">Visualizador - Somente leitura</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -376,7 +378,7 @@ export default function Users() {
           </Button>
         </Link>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {Object.entries(roleLabels).map(([key, config]) => {
           const Icon = config.icon;
           return (
@@ -390,6 +392,7 @@ export default function Users() {
                 {key === 'supervisor' && 'Supervisiona equipes e processos - pode aprovar e gerenciar conforme permissões'}
                 {key === 'analista' && 'Acesso configurável por módulo - pode criar, editar e aprovar, sem acesso a exclusão'}
                 {key === 'assistente' && 'Acesso limitado configurável - principalmente visualização e criação básica'}
+                {key === 'visualizador' && 'Somente leitura - pode visualizar informações de módulos específicos'}
               </p>
             </div>
           );
@@ -603,6 +606,7 @@ export default function Users() {
                   <SelectItem value="supervisor">Supervisor - Gerenciar e aprovar</SelectItem>
                   <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
                   <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
+                  <SelectItem value="visualizador">Visualizador - Somente leitura</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -78,12 +78,12 @@ export default function ItemsList() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { role } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'all'>('available');
-  const [campusFilter, setCampusFilter] = useState<CampusEnum | 'all'>('all');
-  const [destinationFilter, setDestinationFilter] = useState<'all' | 'donation' | 'disposal'>('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => sessionStorage.getItem('lostItems_search') || '');
+  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'all'>(() => (sessionStorage.getItem('lostItems_status') as ItemStatus | 'all') || 'available');
+  const [campusFilter, setCampusFilter] = useState<CampusEnum | 'all'>(() => (sessionStorage.getItem('lostItems_campus') as CampusEnum | 'all') || 'all');
+  const [destinationFilter, setDestinationFilter] = useState<'all' | 'donation' | 'disposal'>(() => (sessionStorage.getItem('lostItems_destination') as 'all' | 'donation' | 'disposal') || 'all');
+  const [dateFrom, setDateFrom] = useState(() => sessionStorage.getItem('lostItems_dateFrom') || '');
+  const [dateTo, setDateTo] = useState(() => sessionStorage.getItem('lostItems_dateTo') || '');
   
   
   // Filter status options based on user role
@@ -170,26 +170,32 @@ export default function ItemsList() {
   // Filter change handlers (no page reset needed with infinite scroll)
   const handleStatusFilterChange = (value: ItemStatus | 'all') => {
     setStatusFilter(value);
+    sessionStorage.setItem('lostItems_status', value);
   };
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
+    sessionStorage.setItem('lostItems_search', value);
   };
 
   const handleCampusFilterChange = (value: CampusEnum | 'all') => {
     setCampusFilter(value);
+    sessionStorage.setItem('lostItems_campus', value);
   };
 
   const handleDateFromChange = (value: string) => {
     setDateFrom(value);
+    sessionStorage.setItem('lostItems_dateFrom', value);
   };
 
   const handleDateToChange = (value: string) => {
     setDateTo(value);
+    sessionStorage.setItem('lostItems_dateTo', value);
   };
 
   const handleDestinationFilterChange = (value: 'all' | 'donation' | 'disposal') => {
     setDestinationFilter(value);
+    sessionStorage.setItem('lostItems_destination', value);
   };
 
   // Get expired items for bulk actions
@@ -509,6 +515,12 @@ export default function ItemsList() {
                 setDestinationFilter('all');
                 setDateFrom('');
                 setDateTo('');
+                sessionStorage.removeItem('lostItems_search');
+                sessionStorage.removeItem('lostItems_status');
+                sessionStorage.removeItem('lostItems_campus');
+                sessionStorage.removeItem('lostItems_destination');
+                sessionStorage.removeItem('lostItems_dateFrom');
+                sessionStorage.removeItem('lostItems_dateTo');
               }}
               className="text-muted-foreground hover:text-foreground"
             >
