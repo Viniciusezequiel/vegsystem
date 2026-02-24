@@ -5,6 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface CreateUserRequest {
   email: string;
   password: string;
@@ -15,13 +18,11 @@ interface CreateUserRequest {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -30,7 +31,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create Supabase client with the user's token to verify they're an admin
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -39,7 +39,6 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Verify the requesting user exists and get their ID
     const { data: { user: requestingUser }, error: userError } = await userClient.auth.getUser();
     if (userError || !requestingUser) {
       return new Response(
@@ -48,7 +47,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if requesting user is an admin using service role client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     
     const { data: roleData, error: roleError } = await adminClient
@@ -64,7 +62,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse request body
     const body: CreateUserRequest = await req.json();
     const { email, password, full_name, position, department, role } = body;
 
@@ -76,41 +73,84 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create the new user with admin client
+    // Email format validation
+    if (typeof email !== 'string' || !EMAIL_REGEX.test(email) || email.length > 255) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid email format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Password strength validation
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      return new Response(
+        JSON.stringify({ error: 'Password must be between 8 and 128 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Name validation
+    if (typeof full_name !== 'string' || full_name.trim().length < 2 || full_name.length > 200) {
+      return new Response(
+        JSON.stringify({ error: 'Full name must be between 2 and 200 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Role validation
+    const validRoles = ['admin', 'analista', 'assistente'];
+    if (!validRoles.includes(role)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid role' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Optional field length validation
+    if (position && (typeof position !== 'string' || position.length > 200)) {
+      return new Response(
+        JSON.stringify({ error: 'Position must be less than 200 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (department && (typeof department !== 'string' || department.length > 200)) {
+      return new Response(
+        JSON.stringify({ error: 'Department must be less than 200 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
+      email: email.trim().toLowerCase(),
       password,
       email_confirm: true,
     });
 
     if (createError) {
       return new Response(
-        JSON.stringify({ error: createError.message }),
+        JSON.stringify({ error: 'Failed to create user' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create profile for the new user
     const { error: profileError } = await adminClient
       .from('profiles')
       .insert({
         user_id: newUser.user.id,
-        full_name,
-        email,
-        position: position || '',
-        department: department || '',
+        full_name: full_name.trim(),
+        email: email.trim().toLowerCase(),
+        position: position?.trim() || '',
+        department: department?.trim() || '',
       });
 
     if (profileError) {
-      // Rollback: delete the created user
       await adminClient.auth.admin.deleteUser(newUser.user.id);
       return new Response(
-        JSON.stringify({ error: 'Failed to create profile: ' + profileError.message }),
+        JSON.stringify({ error: 'Failed to create profile' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create role for the new user
     const { error: roleInsertError } = await adminClient
       .from('user_roles')
       .insert({
@@ -119,11 +159,10 @@ Deno.serve(async (req) => {
       });
 
     if (roleInsertError) {
-      // Rollback: delete profile and user
       await adminClient.from('profiles').delete().eq('user_id', newUser.user.id);
       await adminClient.auth.admin.deleteUser(newUser.user.id);
       return new Response(
-        JSON.stringify({ error: 'Failed to assign role: ' + roleInsertError.message }),
+        JSON.stringify({ error: 'Failed to assign role' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -134,7 +173,7 @@ Deno.serve(async (req) => {
         user: { 
           id: newUser.user.id, 
           email: newUser.user.email,
-          full_name,
+          full_name: full_name.trim(),
           role 
         } 
       }),
@@ -143,7 +182,7 @@ Deno.serve(async (req) => {
 
   } catch (error: any) {
     return new Response(
-      JSON.stringify({ error: error?.message || 'Unknown error' }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

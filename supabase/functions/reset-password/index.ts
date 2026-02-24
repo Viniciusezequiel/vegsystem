@@ -6,8 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,16 +25,25 @@ serve(async (req) => {
 
     const { user_id, new_password, force_password_change = false } = await req.json();
 
-    if (!user_id || !new_password) {
+    // Validate user_id format
+    if (!user_id || typeof user_id !== 'string' || !UUID_REGEX.test(user_id)) {
       return new Response(
-        JSON.stringify({ error: 'user_id e new_password são obrigatórios' }),
+        JSON.stringify({ error: 'Invalid user ID format' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (new_password.length < 6) {
+    // Validate password
+    if (!new_password || typeof new_password !== 'string') {
       return new Response(
-        JSON.stringify({ error: 'A senha deve ter no mínimo 6 caracteres' }),
+        JSON.stringify({ error: 'Password is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (new_password.length < 8 || new_password.length > 128) {
+      return new Response(
+        JSON.stringify({ error: 'A senha deve ter entre 8 e 128 caracteres' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -57,7 +67,6 @@ serve(async (req) => {
       );
     }
 
-    // Check if requesting user is admin
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -71,7 +80,6 @@ serve(async (req) => {
       );
     }
 
-    // Update the user's password
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user_id,
       { password: new_password }
@@ -80,12 +88,11 @@ serve(async (req) => {
     if (updateError) {
       console.error('Error updating password:', updateError);
       return new Response(
-        JSON.stringify({ error: updateError.message }),
+        JSON.stringify({ error: 'Failed to update password' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // If force_password_change is true, update the profile
     if (force_password_change) {
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -94,11 +101,10 @@ serve(async (req) => {
       
       if (profileError) {
         console.error('Error updating force_password_change:', profileError);
-        // Don't fail the request, password was already updated
       }
     }
 
-    console.log(`Password reset for user ${user_id} by admin ${requestingUser.id}, force_change: ${force_password_change}`);
+    console.log(`Password reset for user ${user_id} by admin ${requestingUser.id}`);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Senha redefinida com sucesso' }),
@@ -106,9 +112,8 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     console.error('Error in reset-password function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -6,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -15,15 +18,9 @@ serve(async (req) => {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Require JWT authentication - no hardcoded keys allowed
     const authHeader = req.headers.get('Authorization');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -43,7 +40,6 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is admin
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -59,41 +55,49 @@ serve(async (req) => {
 
     const { userId, newEmail } = await req.json();
 
-    if (!userId || !newEmail) {
+    // Validate userId format
+    if (!userId || typeof userId !== 'string' || !UUID_REGEX.test(userId)) {
       return new Response(
-        JSON.stringify({ error: 'userId and newEmail are required' }),
+        JSON.stringify({ error: 'Invalid user ID format' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    // Update email in auth.users
+    // Validate email format
+    if (!newEmail || typeof newEmail !== 'string' || !EMAIL_REGEX.test(newEmail) || newEmail.length > 255) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid email format' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    const sanitizedEmail = newEmail.trim().toLowerCase();
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
-      { email: newEmail, email_confirm: true }
+      { email: sanitizedEmail, email_confirm: true }
     );
 
     if (authError) {
       console.error('Auth error:', authError);
       return new Response(
-        JSON.stringify({ error: authError.message }),
+        JSON.stringify({ error: 'Failed to update email' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
-    // Update email in profiles table if exists
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .update({ email: newEmail })
+      .update({ email: sanitizedEmail })
       .eq('user_id', userId);
 
     if (profileError) {
       console.error('Profile update error:', profileError);
     }
 
-    // Update email in external_users table if exists
     const { error: externalError } = await supabaseAdmin
       .from('external_users')
-      .update({ email: newEmail })
+      .update({ email: sanitizedEmail })
       .eq('user_id', userId);
 
     if (externalError) {
@@ -106,9 +110,8 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     console.error('Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: 'Internal server error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
