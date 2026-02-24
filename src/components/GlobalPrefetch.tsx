@@ -105,7 +105,7 @@ export function GlobalPrefetch() {
           ]);
 
         if (!itemsResult.error && Array.isArray(itemsResult.data)) {
-          const items = itemsResult.data as LostItem[];
+          const items = itemsResult.data as unknown as LostItem[];
 
           const itemsData = {
             items,

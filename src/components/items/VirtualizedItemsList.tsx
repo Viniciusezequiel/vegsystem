@@ -38,7 +38,7 @@ export function VirtualizedItemsList({
               {item.image_url ? (
                 <img
                   src={item.image_url}
-                  alt={item.name}
+                  alt={item.description}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -54,7 +54,7 @@ export function VirtualizedItemsList({
               {/* TÍTULO + STATUS */}
               <div className="flex justify-between items-start">
                 <h3 className="font-semibold text-lg">
-                  {item.name ?? 'Sem nome'}
+                  {item.description ?? 'Sem descrição'}
                 </h3>
 
                 <span
@@ -82,10 +82,10 @@ export function VirtualizedItemsList({
               )}
 
               {/* LOCAL */}
-              {item.location && (
+              {item.found_location && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="w-4 h-4" />
-                  {item.location}
+                  {item.found_location}
                 </div>
               )}
 

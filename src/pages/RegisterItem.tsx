@@ -55,8 +55,8 @@ export default function RegisterItem() {
   const { data: existingItems } = useLostItems();
   const { data: storageConfig } = useStorageConfig();
 
-  const safeExistingItems = Array.isArray(existingItems?.items)
-    ? existingItems.items
+  const safeExistingItems = Array.isArray(existingItems)
+    ? existingItems
     : [];
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
