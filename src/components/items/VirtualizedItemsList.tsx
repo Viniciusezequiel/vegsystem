@@ -1,5 +1,5 @@
 import { LostItem } from '@/hooks/useLostItems';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MapPin, Calendar } from 'lucide-react';
 
 interface Props {
   items?: LostItem[];
@@ -14,10 +14,7 @@ interface Props {
 
 export function VirtualizedItemsList({
   items = [],
-  isSelectionMode = false,
-  selectedItems = [],
   onItemClick,
-  onToggleSelection,
   hasNextPage = false,
   isFetchingNextPage = false,
   fetchNextPage
@@ -25,34 +22,91 @@ export function VirtualizedItemsList({
 
   const safeItems = Array.isArray(items) ? items : [];
 
-  if (!safeItems.length) {
-    return null;
-  }
+  if (!safeItems.length) return null;
 
   return (
-    <div className="space-y-2">
-      {safeItems.map((item) => (
-        <div
-          key={item.id}
-          className="p-4 border rounded cursor-pointer hover:bg-muted/40"
-          onClick={() => onItemClick(item)}
-        >
-          <div className="font-medium">
-            {item.name ?? 'Sem nome'}
-          </div>
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {safeItems.map((item) => (
+          <div
+            key={item.id}
+            onClick={() => onItemClick(item)}
+            className="bg-card border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer"
+          >
+            {/* IMAGEM */}
+            <div className="h-48 bg-muted flex items-center justify-center">
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-muted-foreground text-sm">
+                  Sem imagem
+                </span>
+              )}
+            </div>
 
-          <div className="text-sm text-muted-foreground">
-            {item.status ?? 'Sem status'}
+            {/* CONTEÚDO */}
+            <div className="p-4 space-y-3">
+
+              {/* TÍTULO + STATUS */}
+              <div className="flex justify-between items-start">
+                <h3 className="font-semibold text-lg">
+                  {item.name ?? 'Sem nome'}
+                </h3>
+
+                <span
+                  className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    item.status === 'available'
+                      ? 'bg-green-100 text-green-700'
+                      : item.status === 'delivered'
+                      ? 'bg-gray-200 text-gray-700'
+                      : 'bg-yellow-100 text-yellow-700'
+                  }`}
+                >
+                  {item.status === 'available'
+                    ? 'Disponível'
+                    : item.status === 'delivered'
+                    ? 'Entregue'
+                    : 'Expirado'}
+                </span>
+              </div>
+
+              {/* CAMPUS */}
+              {item.campus && (
+                <div className="text-xs font-medium text-purple-600 bg-purple-100 inline-block px-2 py-1 rounded">
+                  {item.campus}
+                </div>
+              )}
+
+              {/* LOCAL */}
+              {item.location && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MapPin className="w-4 h-4" />
+                  {item.location}
+                </div>
+              )}
+
+              {/* DATA */}
+              {item.created_at && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  {new Date(item.created_at).toLocaleDateString('pt-BR')}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
       {hasNextPage && (
-        <div className="flex justify-center py-4">
+        <div className="flex justify-center py-6">
           <button
             onClick={fetchNextPage}
             disabled={isFetchingNextPage}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-sm"
           >
             {isFetchingNextPage && (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -61,6 +115,6 @@ export function VirtualizedItemsList({
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
