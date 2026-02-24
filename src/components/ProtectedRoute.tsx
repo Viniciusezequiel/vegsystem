@@ -32,24 +32,13 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   // This prevents external users from accessing admin panel
   if (!role) {
     // If user exists but no role, they don't have access to the admin area
-    // Offer retry in case it was a transient network/timeout failure
-    const handleRetry = () => {
-      window.location.reload();
-    };
-
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center p-8 max-w-md">
           <h1 className="text-2xl font-bold text-destructive mb-2">Acesso Negado</h1>
-          <p className="text-muted-foreground mb-4">
-            Sua conta não possui permissões para acessar o sistema. Se isso parece um erro, tente novamente ou contate o administrador.
+          <p className="text-muted-foreground">
+            Sua conta não possui permissões para acessar o sistema. Contate o administrador.
           </p>
-          <button
-            onClick={handleRetry}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Tentar Novamente
-          </button>
         </div>
       </div>
     );

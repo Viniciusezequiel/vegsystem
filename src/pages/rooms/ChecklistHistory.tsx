@@ -32,7 +32,7 @@ import { ArrowLeft, ClipboardCheck, Eye, Check, X, Plus, Search, User, Calendar,
 import { useRoomChecklists, useChecklistWithAnswers, useRoomsList, RoomChecklist } from '@/hooks/useRooms';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
 // Custom hook to get profile name for checklist

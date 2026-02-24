@@ -1,4 +1,3 @@
-// src/pages/equipment/EquipmentRegister.tsx
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -55,7 +54,7 @@ export default function EquipmentRegister() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEditing = !!id;
-
+  
   const { data: existingEquipment, isLoading: loadingEquipment } = useEquipment(id || '');
   const createEquipment = useCreateEquipment();
   const updateEquipment = useUpdateEquipment();
@@ -76,12 +75,14 @@ export default function EquipmentRegister() {
 
   const patrimonyType = form.watch('patrimony_type');
 
+  // When patrimony type changes to unique, force quantity to 1
   useEffect(() => {
     if (patrimonyType === 'unique') {
       form.setValue('quantity', 1);
     }
   }, [patrimonyType, form]);
 
+  // Populate form when editing
   useEffect(() => {
     if (existingEquipment && isEditing) {
       const isUnique = existingEquipment.quantity === 1;
@@ -100,10 +101,10 @@ export default function EquipmentRegister() {
 
   const onSubmit = async (data: EquipmentFormData) => {
     const finalQuantity = data.patrimony_type === 'unique' ? 1 : data.quantity;
-    const finalPatrimonyCode = data.patrimony_type === 'quantity'
+    const finalPatrimonyCode = data.patrimony_type === 'quantity' 
       ? `QTD-${Date.now().toString(36).toUpperCase()}`
       : data.patrimony_code || '';
-
+    
     if (isEditing && id) {
       await updateEquipment.mutateAsync({
         id,
@@ -131,7 +132,6 @@ export default function EquipmentRegister() {
         allow_external_loan: false,
       });
     }
-
     navigate('/equipment');
   };
 
@@ -188,6 +188,7 @@ export default function EquipmentRegister() {
                   )}
                 />
 
+                {/* Patrimony Type Selection */}
                 <FormField
                   control={form.control}
                   name="patrimony_type"
@@ -195,7 +196,11 @@ export default function EquipmentRegister() {
                     <FormItem className="space-y-3">
                       <FormLabel>Tipo de Controle *</FormLabel>
                       <FormControl>
-                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col sm:flex-row gap-4">
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex flex-col sm:flex-row gap-4"
+                        >
                           <div className="flex items-center space-x-2 rounded-md border p-3 flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
                             <RadioGroupItem value="unique" id="unique" />
                             <Label htmlFor="unique" className="cursor-pointer flex-1">
@@ -217,6 +222,7 @@ export default function EquipmentRegister() {
                   )}
                 />
 
+                {/* Patrimony code - only for unique type */}
                 {patrimonyType === 'unique' && (
                   <FormField
                     control={form.control}
@@ -233,6 +239,7 @@ export default function EquipmentRegister() {
                   />
                 )}
 
+                {/* Quantity field - only visible when type is 'quantity' */}
                 {patrimonyType === 'quantity' && (
                   <FormField
                     control={form.control}
@@ -241,7 +248,11 @@ export default function EquipmentRegister() {
                       <FormItem>
                         <FormLabel>Quantidade Disponível *</FormLabel>
                         <FormControl>
-                          <Input type="number" min={1} {...field} />
+                          <Input 
+                            type="number" 
+                            min={1} 
+                            {...field} 
+                          />
                         </FormControl>
                         <FormDescription>
                           Informe a quantidade total de unidades disponíveis para empréstimo
@@ -313,15 +324,24 @@ export default function EquipmentRegister() {
                     <FormItem>
                       <FormLabel>Descrição</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Informações adicionais sobre o equipamento..." rows={4} {...field} />
+                        <Textarea
+                          placeholder="Informações adicionais sobre o equipamento..."
+                          rows={4}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
+
                 <div className="flex justify-end gap-4">
-                  <Button type="button" variant="outline" onClick={() => navigate('/equipment')}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate('/equipment')}
+                  >
                     Cancelar
                   </Button>
                   <Button type="submit" disabled={isPending}>

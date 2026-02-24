@@ -153,7 +153,7 @@ export function useLockerLoans(status?: 'active' | 'returned' | 'overdue') {
     queryFn: async () => {
       let query = supabase
         .from('locker_loans')
-       .select('*, lockers!locker_loans_locker_id_fkey(*)')
+        .select('*, locker:lockers(*)')
         .order('created_at', { ascending: false });
 
       if (status) {
@@ -174,7 +174,7 @@ export function useOverdueLockerLoans() {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('locker_loans')
-        .select('*, lockers!locker_loans_locker_id_fkey(*)')
+        .select('*, locker:lockers(*)')
         .eq('status', 'active')
         .lt('expected_return_date', today);
       if (error) throw error;

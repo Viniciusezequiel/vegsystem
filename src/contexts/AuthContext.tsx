@@ -6,6 +6,7 @@ type AppRole = 'admin' | 'supervisor' | 'analista' | 'assistente';
 
 interface Profile {
   id: string;
+  user_id: string;
   full_name: string;
   position: string;
   department: string;

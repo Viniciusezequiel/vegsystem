@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, Mail, Shield, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { useHealthCheck } from '@/hooks/useHealthCheck';
