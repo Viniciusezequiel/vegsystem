@@ -106,8 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fetch profile and role in parallel for better performance (bounded by timeout)
       const [profileResult, roleResult] = await withTimeout(
         Promise.all([
-          supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-          supabase.from('user_roles').select('role').eq('id', userId).maybeSingle(),
+          supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
+          supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle(),
         ]),
         USERDATA_TIMEOUT_MS,
         'fetchUserData'
