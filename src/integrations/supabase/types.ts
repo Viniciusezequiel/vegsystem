@@ -1794,7 +1794,12 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
-      app_role: "admin" | "analista" | "assistente" | "supervisor"
+      app_role:
+        | "admin"
+        | "analista"
+        | "assistente"
+        | "supervisor"
+        | "visualizador"
       campus_enum: "Campus I" | "Campus II" | "Campus IV" | "Campus HUCM Adm"
       equipment_status: "available" | "borrowed" | "maintenance"
       loan_status: "active" | "returned" | "overdue"
@@ -1926,7 +1931,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "analista", "assistente", "supervisor"],
+      app_role: [
+        "admin",
+        "analista",
+        "assistente",
+        "supervisor",
+        "visualizador",
+      ],
       campus_enum: ["Campus I", "Campus II", "Campus IV", "Campus HUCM Adm"],
       equipment_status: ["available", "borrowed", "maintenance"],
       loan_status: ["active", "returned", "overdue"],
