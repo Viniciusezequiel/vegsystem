@@ -93,13 +93,23 @@ export const SignaturePad = ({
     
     if (container) {
       let lastWidth = 0;
+      let initialised = false;
       resizeObserver = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (entry) {
           const newWidth = entry.contentRect.width;
-          // Only re-init if width changed significantly and canvas exists with wrong size
+          // Only re-init on first meaningful width or if width changed significantly while canvas is still empty
+          if (!initialised && newWidth > 50) {
+            initialised = true;
+            lastWidth = newWidth;
+            return; // skip — the setTimeout init will handle first render
+          }
           if (Math.abs(newWidth - lastWidth) > 10 && lastWidth > 0 && fabricCanvasRef.current) {
-            initCanvas();
+            // Only re-init if canvas is empty to avoid losing a signature
+            const objects = fabricCanvasRef.current.getObjects();
+            if (objects.length === 0) {
+              initCanvas();
+            }
           }
           lastWidth = newWidth;
         }

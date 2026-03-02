@@ -579,7 +579,7 @@ export default function ItemDetail() {
                         placeholder="Nome completo"
                         className="mt-1.5"
                         value={deliveryData.owner_name}
-                        onChange={(e) => setDeliveryData({ ...deliveryData, owner_name: e.target.value })}
+                        onChange={(e) => setDeliveryData(prev => ({ ...prev, owner_name: e.target.value }))}
                         required
                       />
                     </div>
@@ -590,7 +590,7 @@ export default function ItemDetail() {
                         placeholder="(11) 99999-9999"
                         className="mt-1.5"
                         value={deliveryData.owner_phone}
-                        onChange={(e) => setDeliveryData({ ...deliveryData, owner_phone: e.target.value })}
+                        onChange={(e) => setDeliveryData(prev => ({ ...prev, owner_phone: e.target.value }))}
                         required
                       />
                     </div>
@@ -612,7 +612,7 @@ export default function ItemDetail() {
                         O proprietário deve assinar abaixo para confirmar o recebimento do item.
                       </p>
                       <SignaturePad 
-                        onSignatureChange={(signature) => setDeliveryData({ ...deliveryData, owner_signature: signature })}
+                        onSignatureChange={(signature) => setDeliveryData(prev => ({ ...prev, owner_signature: signature }))}
                       />
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
