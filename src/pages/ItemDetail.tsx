@@ -38,7 +38,9 @@ import {
   Pencil,
   Loader2,
   PenLine,
-  Trash2
+  Trash2,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -80,6 +82,7 @@ export default function ItemDetail() {
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [deliveryData, setDeliveryData] = useState({
     owner_name: '',
     owner_phone: '',
@@ -98,6 +101,81 @@ export default function ItemDetail() {
     delivered_by_name: '',
     delivered_by_contact: '',
   });
+
+  // Compress image helper
+  const compressImage = (file: File, maxWidth: number, quality: number): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('No canvas context')); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { reject(new Error('No blob')); return; }
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          quality,
+        );
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !item) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      // Compress if > 2MB
+      let uploadFile = file;
+      if (file.size > 2 * 1024 * 1024) {
+        uploadFile = await compressImage(file, 1200, 0.7);
+      }
+
+      const ext = uploadFile.name.split('.').pop() || 'jpg';
+      const filePath = `${item.code}-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('lost-items')
+        .upload(filePath, uploadFile, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('lost-items')
+        .getPublicUrl(filePath);
+
+      updateItem.mutate({ id: item.id, image_url: publicUrl });
+
+      toast({
+        title: 'Foto atualizada',
+        description: 'A foto do item foi atualizada com sucesso.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao atualizar foto',
+        description: err.message || 'Não foi possível fazer upload da foto.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+      // Reset the input so the same file can be selected again
+      e.target.value = '';
+    }
+  };
 
   // Admin, analista e assistente podem dar baixa em itens disponíveis
   // Admin e analista podem editar itens entregues/expirados
@@ -213,16 +291,74 @@ export default function ItemDetail() {
         {/* Image and Status */}
         <div className="lg:col-span-1">
           <div className="bg-card rounded-xl border border-border overflow-hidden animate-fade-in">
-            <div className="aspect-square">
+            <div className="aspect-square relative group">
               {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt={item.description}
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <img
+                    src={item.image_url}
+                    alt={item.description}
+                    className="w-full h-full object-cover"
+                  />
+                  {canEdit && (
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      {isUploadingPhoto ? (
+                        <Loader2 className="w-8 h-8 text-white animate-spin" />
+                      ) : (
+                        <>
+                          <label className="cursor-pointer">
+                            <Button type="button" variant="secondary" size="sm" asChild>
+                              <span>
+                                <Camera className="w-4 h-4 mr-2" />
+                                Câmera
+                                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="hidden" />
+                              </span>
+                            </Button>
+                          </label>
+                          <label className="cursor-pointer">
+                            <Button type="button" variant="secondary" size="sm" asChild>
+                              <span>
+                                <ImageIcon className="w-4 h-4 mr-2" />
+                                Galeria
+                                <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                              </span>
+                            </Button>
+                          </label>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-muted">
+                <div className="w-full h-full flex flex-col items-center justify-center bg-muted gap-3">
                   <Package className="w-16 h-16 text-muted-foreground/50" />
+                  {canEdit && (
+                    <div className="flex gap-2">
+                      {isUploadingPhoto ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <label className="cursor-pointer">
+                            <Button type="button" variant="outline" size="sm" asChild>
+                              <span>
+                                <Camera className="w-4 h-4 mr-2" />
+                                Câmera
+                                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="hidden" />
+                              </span>
+                            </Button>
+                          </label>
+                          <label className="cursor-pointer">
+                            <Button type="button" variant="outline" size="sm" asChild>
+                              <span>
+                                <ImageIcon className="w-4 h-4 mr-2" />
+                                Galeria
+                                <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                              </span>
+                            </Button>
+                          </label>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -85,7 +85,7 @@ export function useEquipmentList(search?: string) {
 
   return useQuery({
     queryKey: ['equipment', search],
-    initialData: cachedData ?? undefined,
+    initialData: !search ? (cachedData ?? undefined) : undefined,
     queryFn: async () => {
       // OFFLINE: serve from cache
       if (!navigator.onLine) {
