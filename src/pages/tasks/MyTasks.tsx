@@ -47,7 +47,6 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TaskFormDialog from '@/components/tasks/TaskFormDialog';
 import { toast } from 'sonner';
 
@@ -337,9 +336,9 @@ export default function MyTasks() {
         </CardContent>
       </Card>
 
-      {/* Task Detail Dialog */}
+      {/* Task Detail Dialog - Single Page (no tabs) */}
       <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{selectedTask?.title}</DialogTitle>
             <div className="flex gap-2 mt-2">
@@ -351,174 +350,200 @@ export default function MyTasks() {
                   <Badge className={getPriorityColor(selectedTask.priority)} variant="outline">
                     {getPriorityLabel(selectedTask.priority)}
                   </Badge>
+                  {selectedTask.category && (
+                    <Badge variant="secondary">{selectedTask.category}</Badge>
+                  )}
                 </>
               )}
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="details" className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="details">Detalhes</TabsTrigger>
-              <TabsTrigger value="comments" className="gap-1">
-                <MessageSquare className="w-4 h-4" />
-                Comentários
-              </TabsTrigger>
-            </TabsList>
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-4">
+              {/* Description */}
+              {selectedTask?.description && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h4>
+                  <p className="text-sm whitespace-pre-wrap">{selectedTask.description}</p>
+                </div>
+              )}
 
-            <TabsContent value="details" className="flex-1 overflow-auto mt-4">
-              <div className="space-y-4">
-                {selectedTask?.description && (
+              <Separator />
+
+              {/* Info Grid */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h4>
-                    <p className="text-sm whitespace-pre-wrap">{selectedTask.description}</p>
+                    <p className="text-muted-foreground">Criado por</p>
+                    <p className="font-medium">{selectedTask?.created_by_name}</p>
                   </div>
-                )}
+                </div>
 
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Prazo</p>
-                      <p className="font-medium">
-                        {selectedTask?.due_date 
-                          ? format(parseISO(selectedTask.due_date), 'dd/MM/yyyy', { locale: ptBR })
-                          : 'Não definido'}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Responsável</p>
+                    <p className="font-medium">{selectedTask?.assigned_to_name || 'Não atribuído'}</p>
                   </div>
+                </div>
 
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Prazo</p>
+                    <p className="font-medium">
+                      {selectedTask?.due_date 
+                        ? format(parseISO(selectedTask.due_date), 'dd/MM/yyyy', { locale: ptBR })
+                        : 'Não definido'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Criado em</p>
+                    <p className="font-medium">
+                      {selectedTask ? format(parseISO(selectedTask.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedTask?.started_at && (
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-muted-foreground" />
                     <div>
-                      <p className="text-muted-foreground">Horas Estimadas</p>
-                      <p className="font-medium">{selectedTask?.estimated_hours || '-'}h</p>
+                      <p className="text-muted-foreground">Iniciado em</p>
+                      <p className="font-medium">
+                        {format(parseISO(selectedTask.started_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
                     </div>
                   </div>
-
-                  {selectedTask?.actual_hours && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Horas Trabalhadas</p>
-                        <p className="font-medium">{selectedTask.actual_hours}h</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedTask?.started_at && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Iniciado em</p>
-                        <p className="font-medium">
-                          {format(parseISO(selectedTask.started_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedTask?.completed_at && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Concluído em</p>
-                        <p className="font-medium">
-                          {format(parseISO(selectedTask.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {selectedTask?.notes && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Observações</h4>
-                      <p className="text-sm whitespace-pre-wrap">{selectedTask.notes}</p>
-                    </div>
-                  </>
                 )}
 
-                {/* Event datetime info for acompanhamento */}
-                {(() => {
-                  const taskAny = selectedTask as Record<string, unknown> | null;
-                  if (taskAny?.event_start_datetime || taskAny?.event_end_datetime) {
-                    return (
-                      <>
-                        <Separator />
-                        <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                          <h4 className="text-sm font-medium flex items-center gap-1">
-                            <CalendarClock className="w-4 h-4" />
-                            Evento/Acompanhamento
-                          </h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            {taskAny.event_start_datetime && (
-                              <div>
-                                <p className="text-muted-foreground">Início</p>
-                                <p className="font-medium">{format(parseISO(taskAny.event_start_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                              </div>
-                            )}
-                            {taskAny.event_end_datetime && (
-                              <div>
-                                <p className="text-muted-foreground">Término</p>
-                                <p className="font-medium">{format(parseISO(taskAny.event_end_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                              </div>
-                            )}
+                {selectedTask?.completed_at && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-muted-foreground">Concluído em</p>
+                      <p className="font-medium">
+                        {format(parseISO(selectedTask.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Event / Acompanhamento info */}
+              {(() => {
+                const taskAny = selectedTask as Record<string, unknown> | null;
+                if (taskAny?.event_start_datetime || taskAny?.event_end_datetime) {
+                  return (
+                    <>
+                      <Separator />
+                      <div className="bg-muted/30 rounded-lg p-4 space-y-3">
+                        <h4 className="text-sm font-medium flex items-center gap-2">
+                          <CalendarClock className="w-4 h-4 text-primary" />
+                          Dados do Evento/Acompanhamento
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          {taskAny.event_start_datetime && (
+                            <div>
+                              <p className="text-muted-foreground">Início do Evento</p>
+                              <p className="font-medium">{format(parseISO(taskAny.event_start_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                            </div>
+                          )}
+                          {taskAny.event_end_datetime && (
+                            <div>
+                              <p className="text-muted-foreground">Término do Evento</p>
+                              <p className="font-medium">{format(parseISO(taskAny.event_end_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-muted-foreground">Responsável pelo acompanhamento</p>
+                            <p className="font-medium">{selectedTask?.assigned_to_name || 'Não definido'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Status</p>
+                            <p className="font-medium">
+                              {taskAny.event_end_datetime && new Date() >= new Date(taskAny.event_end_datetime as string)
+                                ? '✅ Evento encerrado'
+                                : taskAny.event_start_datetime && new Date() >= new Date(taskAny.event_start_datetime as string)
+                                  ? '🔵 Em andamento'
+                                  : '⏳ Aguardando início'}
+                            </p>
                           </div>
                         </div>
-                      </>
-                    );
-                  }
-                  return null;
-                })()}
+                      </div>
+                    </>
+                  );
+                }
+                return null;
+              })()}
 
-                <Separator />
+              {selectedTask?.notes && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Observações</h4>
+                    <p className="text-sm whitespace-pre-wrap">{selectedTask.notes}</p>
+                  </div>
+                </>
+              )}
 
-                {/* Actions */}
-                <div className="flex gap-2">
-                  {selectedTask?.status === 'pending' && (
-                    <Button
-                      className="flex-1"
-                      onClick={() => {
-                        setStartDialogTask(selectedTask);
-                        setSelectedTask(null);
-                      }}
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      Iniciar Demanda
-                    </Button>
+              {/* Actions */}
+              {(selectedTask?.status === 'pending' || selectedTask?.status === 'in_progress') && (
+                <>
+                  <Separator />
+                  <div className="flex gap-2">
+                    {selectedTask?.status === 'pending' && (
+                      <Button
+                        className="flex-1"
+                        onClick={() => {
+                          setStartDialogTask(selectedTask);
+                          setSelectedTask(null);
+                        }}
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Iniciar Demanda
+                      </Button>
+                    )}
+                    {selectedTask?.status === 'in_progress' && (
+                      <Button
+                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        onClick={() => {
+                          setCompleteDialogTask(selectedTask);
+                          setSelectedTask(null);
+                        }}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Concluir Demanda
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Comments Section */}
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Comentários e Histórico
+                  {comments && comments.length > 0 && (
+                    <Badge variant="secondary" className="h-5 px-1.5">{comments.length}</Badge>
                   )}
-                  {selectedTask?.status === 'in_progress' && (
-                    <Button
-                      className="flex-1 bg-green-600 hover:bg-green-700"
-                      onClick={() => {
-                        setCompleteDialogTask(selectedTask);
-                        setSelectedTask(null);
-                      }}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Concluir Demanda
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
+                </h4>
 
-            <TabsContent value="comments" className="flex-1 flex flex-col mt-4 overflow-hidden">
-              <ScrollArea className="flex-1 pr-4">
                 {loadingComments ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : !comments || comments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhum comentário ainda
-                  </div>
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum comentário ainda</p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {comments.map((c) => (
                       <div key={c.id} className="bg-muted/50 rounded-lg p-3">
                         <div className="flex items-center gap-2 mb-1">
@@ -532,31 +557,31 @@ export default function MyTasks() {
                     ))}
                   </div>
                 )}
-              </ScrollArea>
 
-              <div className="flex gap-2 mt-4 pt-4 border-t flex-shrink-0">
-                <Textarea
-                  placeholder="Adicionar comentário ou atualização..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={2}
-                  className="resize-none"
-                />
-                <Button 
-                  onClick={handleAddComment} 
-                  disabled={!comment.trim() || addCommentMutation.isPending}
-                  size="icon"
-                  className="h-auto"
-                >
-                  {addCommentMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
+                <div className="flex gap-2 mt-3 pt-3 border-t">
+                  <Textarea
+                    placeholder="Adicionar comentário..."
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    rows={2}
+                    className="resize-none"
+                  />
+                  <Button 
+                    onClick={handleAddComment} 
+                    disabled={!comment.trim() || addCommentMutation.isPending}
+                    size="icon"
+                    className="h-auto"
+                  >
+                    {addCommentMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
