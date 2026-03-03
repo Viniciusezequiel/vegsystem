@@ -91,8 +91,7 @@ export function useMyTasks() {
       let query = supabase
         .from('tasks')
         .select('*')
-        .not('status', 'in', '("completed","cancelled")')
-        .order('due_date', { ascending: true, nullsFirst: false });
+        .order('created_at', { ascending: false });
 
       // Build OR condition
       const conditions = [`assigned_to.eq.${user.id}`, `created_by.eq.${user.id}`];
