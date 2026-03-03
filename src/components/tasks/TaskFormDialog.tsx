@@ -18,10 +18,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, CalendarClock } from 'lucide-react';
 import { useCreateTask, useUpdateTask, Task } from '@/hooks/useTasks';
 import { useUsersList } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';
+
+const CATEGORY_OPTIONS = [
+  'Acompanhamento',
+  'Manutenção',
+  'TI',
+  'RH',
+  'Administrativo',
+  'Limpeza',
+  'Segurança',
+  'Outro',
+];
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -37,9 +48,14 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
     priority: 'normal',
     category: '',
     due_date: '',
+    due_time: '',
     assigned_to: '',
     estimated_hours: '',
     notes: '',
+    event_start_datetime: '',
+    event_start_time: '',
+    event_end_datetime: '',
+    event_end_time: '',
   });
 
   const { data: users } = useUsersList();
@@ -47,20 +63,29 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
   const updateMutation = useUpdateTask();
 
   const isEditing = !!task;
-  // Only admin can change the assignee when editing
   const canChangeAssignee = !isEditing || isAdmin;
+  const isAcompanhamento = formData.category.toLowerCase() === 'acompanhamento';
 
   useEffect(() => {
     if (task) {
+      const taskAny = task as Record<string, unknown>;
+      const eventStart = taskAny.event_start_datetime ? new Date(taskAny.event_start_datetime as string) : null;
+      const eventEnd = taskAny.event_end_datetime ? new Date(taskAny.event_end_datetime as string) : null;
+
       setFormData({
         title: task.title || '',
         description: task.description || '',
         priority: task.priority || 'normal',
         category: task.category || '',
         due_date: task.due_date || '',
+        due_time: '',
         assigned_to: task.assigned_to || '',
         estimated_hours: task.estimated_hours?.toString() || '',
         notes: task.notes || '',
+        event_start_datetime: eventStart ? eventStart.toISOString().split('T')[0] : '',
+        event_start_time: eventStart ? eventStart.toTimeString().slice(0, 5) : '',
+        event_end_datetime: eventEnd ? eventEnd.toISOString().split('T')[0] : '',
+        event_end_time: eventEnd ? eventEnd.toTimeString().slice(0, 5) : '',
       });
     } else {
       setFormData({
@@ -69,9 +94,14 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         priority: 'normal',
         category: '',
         due_date: '',
+        due_time: '',
         assigned_to: '',
         estimated_hours: '',
         notes: '',
+        event_start_datetime: '',
+        event_start_time: '',
+        event_end_datetime: '',
+        event_end_time: '',
       });
     }
   }, [task, open]);
@@ -81,7 +111,19 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
 
     const assignedUser = users?.find(u => u.user_id === formData.assigned_to);
     
-    const data = {
+    let eventStartISO: string | undefined;
+    let eventEndISO: string | undefined;
+
+    if (isAcompanhamento) {
+      if (formData.event_start_datetime && formData.event_start_time) {
+        eventStartISO = new Date(`${formData.event_start_datetime}T${formData.event_start_time}:00`).toISOString();
+      }
+      if (formData.event_end_datetime && formData.event_end_time) {
+        eventEndISO = new Date(`${formData.event_end_datetime}T${formData.event_end_time}:00`).toISOString();
+      }
+    }
+
+    const data: Record<string, unknown> = {
       title: formData.title,
       description: formData.description || undefined,
       priority: formData.priority,
@@ -91,12 +133,14 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       assigned_to_name: assignedUser?.full_name || undefined,
       estimated_hours: formData.estimated_hours ? parseFloat(formData.estimated_hours) : undefined,
       notes: formData.notes || undefined,
+      event_start_datetime: eventStartISO || null,
+      event_end_datetime: eventEndISO || null,
     };
 
     if (isEditing) {
       await updateMutation.mutateAsync({ id: task.id, data, oldTask: task });
     } else {
-      await createMutation.mutateAsync(data);
+      await createMutation.mutateAsync(data as any);
     }
 
     onOpenChange(false);
@@ -120,7 +164,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               placeholder="Título da demanda"
               required
             />
@@ -131,7 +175,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               placeholder="Descreva a demanda em detalhes..."
               rows={3}
             />
@@ -142,7 +186,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
               <Label htmlFor="priority">Prioridade</Label>
               <Select
                 value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -158,12 +202,20 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
 
             <div className="space-y-2">
               <Label htmlFor="category">Categoria</Label>
-              <Input
-                id="category"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                placeholder="Ex: Manutenção, TI, RH..."
-              />
+              <Select
+                value={formData.category || '_none'}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value === '_none' ? '' : value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Sem categoria</SelectItem>
+                  {CATEGORY_OPTIONS.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -172,7 +224,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
               <Label htmlFor="assigned_to">Responsável</Label>
               <Select
                 value={formData.assigned_to || '_none'}
-                onValueChange={(value) => setFormData({ ...formData, assigned_to: value === '_none' ? '' : value })}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, assigned_to: value === '_none' ? '' : value }))}
                 disabled={!canChangeAssignee}
               >
                 <SelectTrigger className={!canChangeAssignee ? 'opacity-60' : ''}>
@@ -196,21 +248,84 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
 
             <div className="space-y-2">
               <Label htmlFor="due_date">Prazo</Label>
-              <DatePickerInput
-                value={formData.due_date}
-                onChange={(value) => setFormData({ ...formData, due_date: value })}
-                placeholder="Selecione a data"
-              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <DatePickerInput
+                    value={formData.due_date}
+                    onChange={(value) => setFormData(prev => ({ ...prev, due_date: value }))}
+                    placeholder="Data"
+                  />
+                </div>
+                <Input
+                  type="time"
+                  value={formData.due_time}
+                  onChange={(e) => setFormData(prev => ({ ...prev, due_time: e.target.value }))}
+                  className="w-[110px]"
+                  placeholder="Hora"
+                />
+              </div>
             </div>
           </div>
 
+          {/* Event datetime fields for Acompanhamento */}
+          {isAcompanhamento && (
+            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <CalendarClock className="w-4 h-4" />
+                Dados do Evento/Acompanhamento
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Início do Evento *</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={formData.event_start_datetime}
+                      onChange={(e) => setFormData(prev => ({ ...prev, event_start_datetime: e.target.value }))}
+                      required={isAcompanhamento}
+                      className="flex-1"
+                    />
+                    <Input
+                      type="time"
+                      value={formData.event_start_time}
+                      onChange={(e) => setFormData(prev => ({ ...prev, event_start_time: e.target.value }))}
+                      required={isAcompanhamento}
+                      className="w-[110px]"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Término do Evento *</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={formData.event_end_datetime}
+                      onChange={(e) => setFormData(prev => ({ ...prev, event_end_datetime: e.target.value }))}
+                      required={isAcompanhamento}
+                      className="flex-1"
+                    />
+                    <Input
+                      type="time"
+                      value={formData.event_end_time}
+                      onChange={(e) => setFormData(prev => ({ ...prev, event_end_time: e.target.value }))}
+                      required={isAcompanhamento}
+                      className="w-[110px]"
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A demanda só poderá ser concluída após o horário de término do evento.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="notes">Observações</Label>
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="Observações adicionais..."
               rows={2}
             />

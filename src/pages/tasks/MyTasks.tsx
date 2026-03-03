@@ -40,6 +40,7 @@ import {
   Send,
   AlertCircle,
   Plus,
+  CalendarClock,
 } from 'lucide-react';
 import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -105,6 +106,17 @@ export default function MyTasks() {
       return;
     }
     if (!completeDialogTask) return;
+
+    // Block completion before event end time for "acompanhamento" tasks
+    const taskAny = completeDialogTask as Record<string, unknown>;
+    if (taskAny.event_end_datetime) {
+      const eventEnd = new Date(taskAny.event_end_datetime as string);
+      if (new Date() < eventEnd) {
+        toast.error('Esta demanda só pode ser concluída após o término do evento (' + 
+          format(eventEnd, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) + ')');
+        return;
+      }
+    }
 
     await updateMutation.mutateAsync({
       id: completeDialogTask.id,
@@ -431,6 +443,39 @@ export default function MyTasks() {
                     </div>
                   </>
                 )}
+
+                {/* Event datetime info for acompanhamento */}
+                {(() => {
+                  const taskAny = selectedTask as Record<string, unknown> | null;
+                  if (taskAny?.event_start_datetime || taskAny?.event_end_datetime) {
+                    return (
+                      <>
+                        <Separator />
+                        <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                          <h4 className="text-sm font-medium flex items-center gap-1">
+                            <CalendarClock className="w-4 h-4" />
+                            Evento/Acompanhamento
+                          </h4>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            {taskAny.event_start_datetime && (
+                              <div>
+                                <p className="text-muted-foreground">Início</p>
+                                <p className="font-medium">{format(parseISO(taskAny.event_start_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                              </div>
+                            )}
+                            {taskAny.event_end_datetime && (
+                              <div>
+                                <p className="text-muted-foreground">Término</p>
+                                <p className="font-medium">{format(parseISO(taskAny.event_end_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
 
                 <Separator />
 

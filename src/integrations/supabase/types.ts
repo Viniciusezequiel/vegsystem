@@ -1640,6 +1640,8 @@ export type Database = {
           description: string | null
           due_date: string | null
           estimated_hours: number | null
+          event_end_datetime: string | null
+          event_start_datetime: string | null
           id: string
           notes: string | null
           priority: string
@@ -1662,6 +1664,8 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           estimated_hours?: number | null
+          event_end_datetime?: string | null
+          event_start_datetime?: string | null
           id?: string
           notes?: string | null
           priority?: string
@@ -1684,6 +1688,8 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           estimated_hours?: number | null
+          event_end_datetime?: string | null
+          event_start_datetime?: string | null
           id?: string
           notes?: string | null
           priority?: string
