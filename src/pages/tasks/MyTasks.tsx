@@ -3,6 +3,8 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -16,6 +18,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Table,
@@ -38,19 +41,30 @@ import {
   AlertCircle,
   Plus,
 } from 'lucide-react';
-import { useMyTasks, useUpdateTask, useTaskComments, useAddTaskComment, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
+import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TaskFormDialog from '@/components/tasks/TaskFormDialog';
+import { toast } from 'sonner';
 
 export default function MyTasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [comment, setComment] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+
+  // Start dialog state
+  const [startDialogTask, setStartDialogTask] = useState<Task | null>(null);
+  const [startNote, setStartNote] = useState('');
+
+  // Complete dialog state
+  const [completeDialogTask, setCompleteDialogTask] = useState<Task | null>(null);
+  const [completeNote, setCompleteNote] = useState('');
+  const [completeHours, setCompleteHours] = useState('');
+  const [completeDate, setCompleteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const { data: tasks, isLoading } = useMyTasks();
   const updateMutation = useUpdateTask();
@@ -62,12 +76,55 @@ export default function MyTasks() {
     return task.status === statusFilter;
   });
 
-  const handleStatusChange = async (task: Task, newStatus: string) => {
+  const handleStartTask = async () => {
+    if (!startNote.trim()) {
+      toast.error('Preencha a observação de início');
+      return;
+    }
+    if (!startDialogTask) return;
+
     await updateMutation.mutateAsync({
-      id: task.id,
-      data: { status: newStatus },
-      oldTask: task,
+      id: startDialogTask.id,
+      data: { status: 'in_progress' },
+      oldTask: startDialogTask,
     });
+
+    // Add the start note as a comment
+    await addCommentMutation.mutateAsync({
+      taskId: startDialogTask.id,
+      content: `📋 **Início da demanda:** ${startNote}`,
+    });
+
+    setStartDialogTask(null);
+    setStartNote('');
+  };
+
+  const handleCompleteTask = async () => {
+    if (!completeNote.trim()) {
+      toast.error('Preencha as informações de conclusão');
+      return;
+    }
+    if (!completeDialogTask) return;
+
+    await updateMutation.mutateAsync({
+      id: completeDialogTask.id,
+      data: {
+        status: 'completed',
+        actual_hours: completeHours ? parseFloat(completeHours) : undefined,
+        completed_at: completeDate ? new Date(completeDate + 'T23:59:59').toISOString() : new Date().toISOString(),
+      },
+      oldTask: completeDialogTask,
+    });
+
+    await addCommentMutation.mutateAsync({
+      taskId: completeDialogTask.id,
+      content: `✅ **Conclusão da demanda:** ${completeNote}${completeHours ? `\n⏱️ Horas trabalhadas: ${completeHours}h` : ''}`,
+    });
+
+    setCompleteDialogTask(null);
+    setCompleteNote('');
+    setCompleteHours('');
+    setCompleteDate(format(new Date(), 'yyyy-MM-dd'));
   };
 
   const handleAddComment = async () => {
@@ -239,7 +296,7 @@ export default function MyTasks() {
                               <Button
                                 variant="default"
                                 size="sm"
-                                onClick={() => handleStatusChange(task, 'in_progress')}
+                                onClick={() => setStartDialogTask(task)}
                                 disabled={updateMutation.isPending}
                               >
                                 <Play className="w-4 h-4 mr-1" />
@@ -251,7 +308,7 @@ export default function MyTasks() {
                                 variant="default"
                                 size="sm"
                                 className="bg-green-600 hover:bg-green-700"
-                                onClick={() => handleStatusChange(task, 'completed')}
+                                onClick={() => setCompleteDialogTask(task)}
                                 disabled={updateMutation.isPending}
                               >
                                 <CheckCircle className="w-4 h-4 mr-1" />
@@ -329,6 +386,40 @@ export default function MyTasks() {
                       <p className="font-medium">{selectedTask?.estimated_hours || '-'}h</p>
                     </div>
                   </div>
+
+                  {selectedTask?.actual_hours && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-muted-foreground">Horas Trabalhadas</p>
+                        <p className="font-medium">{selectedTask.actual_hours}h</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTask?.started_at && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-muted-foreground">Iniciado em</p>
+                        <p className="font-medium">
+                          {format(parseISO(selectedTask.started_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTask?.completed_at && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-muted-foreground">Concluído em</p>
+                        <p className="font-medium">
+                          {format(parseISO(selectedTask.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {selectedTask?.notes && (
@@ -349,10 +440,9 @@ export default function MyTasks() {
                     <Button
                       className="flex-1"
                       onClick={() => {
-                        handleStatusChange(selectedTask, 'in_progress');
+                        setStartDialogTask(selectedTask);
                         setSelectedTask(null);
                       }}
-                      disabled={updateMutation.isPending}
                     >
                       <Play className="w-4 h-4 mr-2" />
                       Iniciar Demanda
@@ -362,10 +452,9 @@ export default function MyTasks() {
                     <Button
                       className="flex-1 bg-green-600 hover:bg-green-700"
                       onClick={() => {
-                        handleStatusChange(selectedTask, 'completed');
+                        setCompleteDialogTask(selectedTask);
                         setSelectedTask(null);
                       }}
-                      disabled={updateMutation.isPending}
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Concluir Demanda
@@ -428,10 +517,114 @@ export default function MyTasks() {
         </DialogContent>
       </Dialog>
 
+      {/* START TASK Dialog */}
+      <Dialog open={!!startDialogTask} onOpenChange={(open) => { if (!open) { setStartDialogTask(null); setStartNote(''); } }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Play className="w-5 h-5 text-blue-600" />
+              Iniciar Demanda
+            </DialogTitle>
+            <DialogDescription>
+              {startDialogTask?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="start-note">Observação de Início *</Label>
+              <Textarea
+                id="start-note"
+                placeholder="Descreva como pretende tratar essa demanda, aceitando a tarefa ou informando a tratativa..."
+                value={startNote}
+                onChange={(e) => setStartNote(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">Campo obrigatório. Informe como está aceitando ou qual tratativa será dada.</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setStartDialogTask(null); setStartNote(''); }}>
+                Cancelar
+              </Button>
+              <Button onClick={handleStartTask} disabled={!startNote.trim() || updateMutation.isPending || addCommentMutation.isPending}>
+                {(updateMutation.isPending || addCommentMutation.isPending) ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Iniciando...</>
+                ) : (
+                  <><Play className="w-4 h-4 mr-2" /> Confirmar Início</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* COMPLETE TASK Dialog */}
+      <Dialog open={!!completeDialogTask} onOpenChange={(open) => { if (!open) { setCompleteDialogTask(null); setCompleteNote(''); setCompleteHours(''); setCompleteDate(format(new Date(), 'yyyy-MM-dd')); } }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              Concluir Demanda
+            </DialogTitle>
+            <DialogDescription>
+              {completeDialogTask?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="complete-note">Informações da Conclusão *</Label>
+              <Textarea
+                id="complete-note"
+                placeholder="Informe se ocorreu tudo certo, se a demanda foi realizada por completo, observações finais..."
+                value={completeNote}
+                onChange={(e) => setCompleteNote(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">Campo obrigatório. Detalhe o resultado da demanda.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="complete-hours">Horas Trabalhadas</Label>
+                <Input
+                  id="complete-hours"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="Ex: 2.5"
+                  value={completeHours}
+                  onChange={(e) => setCompleteHours(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="complete-date">Data de Conclusão</Label>
+                <Input
+                  id="complete-date"
+                  type="date"
+                  value={completeDate}
+                  onChange={(e) => setCompleteDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setCompleteDialogTask(null); setCompleteNote(''); setCompleteHours(''); setCompleteDate(format(new Date(), 'yyyy-MM-dd')); }}>
+                Cancelar
+              </Button>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={handleCompleteTask} disabled={!completeNote.trim() || updateMutation.isPending || addCommentMutation.isPending}>
+                {(updateMutation.isPending || addCommentMutation.isPending) ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Concluindo...</>
+                ) : (
+                  <><CheckCircle className="w-4 h-4 mr-2" /> Confirmar Conclusão</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <TaskFormDialog 
         open={formOpen} 
         onOpenChange={setFormOpen}
-        task={null}
       />
     </MainLayout>
   );

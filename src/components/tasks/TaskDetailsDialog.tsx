@@ -118,6 +118,9 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
               </div>
             </div>
             {canEdit('tasks') && (
+              // After task is completed/cancelled, only admin can edit
+              (['completed', 'cancelled'].includes(task.status) ? isAdmin : true)
+            ) && (
               <Button variant="outline" size="sm" onClick={onEdit}>
                 <Edit className="w-4 h-4 mr-2" />
                 Editar
@@ -407,26 +410,70 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
                   Nenhum histórico disponível
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {history.map((h) => (
-                    <div key={h.id} className="flex items-start gap-3 text-sm">
-                      <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p>
-                          <span className="font-medium">{h.user_name}</span>{' '}
-                          <span className="text-muted-foreground">{h.action}</span>
-                          {h.field_changed && (
-                            <span className="text-muted-foreground">
-                              {' '}- {h.old_value} → {h.new_value}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(parseISO(h.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
+                <div className="space-y-1">
+                  {/* Summary header */}
+                  <div className="bg-muted/50 rounded-lg p-3 mb-4 text-sm space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Criado em:</span>
+                      <span className="font-medium">
+                        {format(parseISO(task.created_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
+                      </span>
+                      <span className="text-muted-foreground">por</span>
+                      <span className="font-medium">{task.created_by_name}</span>
                     </div>
-                  ))}
+                    {task.started_at && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-blue-500" />
+                        <span className="text-muted-foreground">Iniciado em:</span>
+                        <span className="font-medium">
+                          {format(parseISO(task.started_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
+                        </span>
+                      </div>
+                    )}
+                    {task.completed_at && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-green-500" />
+                        <span className="text-muted-foreground">Concluído em:</span>
+                        <span className="font-medium">
+                          {format(parseISO(task.completed_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
+                        </span>
+                      </div>
+                    )}
+                    {task.actual_hours && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Horas trabalhadas:</span>
+                        <span className="font-medium">{task.actual_hours}h</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-2" />
+
+                  {/* Timeline */}
+                  <div className="relative pl-4 border-l-2 border-muted space-y-4">
+                    {history.map((h) => (
+                      <div key={h.id} className="relative">
+                        <div className="absolute -left-[calc(0.5rem+1px)] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
+                        <div className="ml-4">
+                          <p className="text-sm">
+                            <span className="font-medium">{h.user_name}</span>{' '}
+                            <span className="text-muted-foreground">{h.action}</span>
+                          </p>
+                          {h.field_changed && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {h.old_value && <><Badge variant="outline" className="text-xs mr-1">{h.old_value}</Badge> → </>}
+                              <Badge variant="secondary" className="text-xs">{h.new_value}</Badge>
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {format(parseISO(h.created_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </TabsContent>

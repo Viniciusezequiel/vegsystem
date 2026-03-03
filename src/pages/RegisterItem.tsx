@@ -144,6 +144,11 @@ export default function RegisterItem() {
     e.preventDefault();
     
     if (!campus) return;
+    if (!imageFile) {
+      const { toast } = await import('sonner');
+      toast.error('É obrigatório adicionar uma foto do item');
+      return;
+    }
     if (isSubmittingRef.current || createLostItem.isPending) return;
     isSubmittingRef.current = true;
 
@@ -275,7 +280,7 @@ export default function RegisterItem() {
                       </Button>
                     </label>
                   </div>
-                  <span className="text-xs text-muted-foreground/60">JPG, PNG até 5MB</span>
+                  <span className="text-xs text-destructive font-medium">* Foto obrigatória</span>
                 </div>
               )}
             </div>

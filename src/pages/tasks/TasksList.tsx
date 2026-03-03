@@ -273,6 +273,9 @@ export default function TasksList() {
                               Ver Detalhes
                             </DropdownMenuItem>
                             {canPerformActions && canEdit('tasks') && (
+                              // After completed/cancelled, only admin can edit
+                              !(['completed', 'cancelled'].includes(task.status)) || isAdmin
+                            ) && (
                               <DropdownMenuItem onClick={() => setEditTask(task)}>
                                 <Edit className="w-4 h-4 mr-2" />
                                 Editar
