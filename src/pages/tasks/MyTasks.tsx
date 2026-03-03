@@ -64,7 +64,6 @@ export default function MyTasks() {
   // Complete dialog state
   const [completeDialogTask, setCompleteDialogTask] = useState<Task | null>(null);
   const [completeNote, setCompleteNote] = useState('');
-  const [completeHours, setCompleteHours] = useState('');
   const [completeDate, setCompleteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const { data: tasks, isLoading } = useMyTasks();
@@ -122,7 +121,6 @@ export default function MyTasks() {
       id: completeDialogTask.id,
       data: {
         status: 'completed',
-        actual_hours: completeHours ? parseFloat(completeHours) : undefined,
         completed_at: completeDate ? new Date(completeDate + 'T23:59:59').toISOString() : new Date().toISOString(),
       },
       oldTask: completeDialogTask,
@@ -130,12 +128,11 @@ export default function MyTasks() {
 
     await addCommentMutation.mutateAsync({
       taskId: completeDialogTask.id,
-      content: `✅ **Conclusão da demanda:** ${completeNote}${completeHours ? `\n⏱️ Horas trabalhadas: ${completeHours}h` : ''}`,
+      content: `✅ **Conclusão da demanda:** ${completeNote}`,
     });
 
     setCompleteDialogTask(null);
     setCompleteNote('');
-    setCompleteHours('');
     setCompleteDate(format(new Date(), 'yyyy-MM-dd'));
   };
 
@@ -218,6 +215,7 @@ export default function MyTasks() {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="pending">Pendentes</SelectItem>
                 <SelectItem value="in_progress">Em Andamento</SelectItem>
+                <SelectItem value="completed">Concluídas</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -604,7 +602,7 @@ export default function MyTasks() {
       </Dialog>
 
       {/* COMPLETE TASK Dialog */}
-      <Dialog open={!!completeDialogTask} onOpenChange={(open) => { if (!open) { setCompleteDialogTask(null); setCompleteNote(''); setCompleteHours(''); setCompleteDate(format(new Date(), 'yyyy-MM-dd')); } }}>
+      <Dialog open={!!completeDialogTask} onOpenChange={(open) => { if (!open) { setCompleteDialogTask(null); setCompleteNote(''); setCompleteDate(format(new Date(), 'yyyy-MM-dd')); } }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -628,31 +626,17 @@ export default function MyTasks() {
               />
               <p className="text-xs text-muted-foreground">Campo obrigatório. Detalhe o resultado da demanda.</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="complete-hours">Horas Trabalhadas</Label>
-                <Input
-                  id="complete-hours"
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  placeholder="Ex: 2.5"
-                  value={completeHours}
-                  onChange={(e) => setCompleteHours(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="complete-date">Data de Conclusão</Label>
-                <Input
-                  id="complete-date"
-                  type="date"
-                  value={completeDate}
-                  onChange={(e) => setCompleteDate(e.target.value)}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="complete-date">Data de Conclusão</Label>
+              <Input
+                id="complete-date"
+                type="date"
+                value={completeDate}
+                onChange={(e) => setCompleteDate(e.target.value)}
+              />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { setCompleteDialogTask(null); setCompleteNote(''); setCompleteHours(''); setCompleteDate(format(new Date(), 'yyyy-MM-dd')); }}>
+              <Button variant="outline" onClick={() => { setCompleteDialogTask(null); setCompleteNote(''); setCompleteDate(format(new Date(), 'yyyy-MM-dd')); }}>
                 Cancelar
               </Button>
               <Button className="bg-green-600 hover:bg-green-700" onClick={handleCompleteTask} disabled={!completeNote.trim() || updateMutation.isPending || addCommentMutation.isPending}>
