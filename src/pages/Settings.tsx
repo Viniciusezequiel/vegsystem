@@ -7,8 +7,10 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings, useUpdateSystemSettings, SystemSettings, ModuleSettings } from '@/hooks/useSystemSettings';
+import { useTaskCategories, useUpdateTaskCategories } from '@/hooks/useTaskCategories';
 import { 
   Settings as SettingsIcon, 
   Bell, 
@@ -22,7 +24,10 @@ import {
   FileText,
   Users,
   Eye,
-  Loader2
+  Loader2,
+  Plus,
+  X,
+  ListChecks,
 } from 'lucide-react';
 import { Constants } from '@/integrations/supabase/types';
 
@@ -97,6 +102,93 @@ function ModuleSettingsCard({
           </div>
         </CardContent>
       )}
+    </Card>
+  );
+}
+
+function TaskCategoriesSettings() {
+  const { isAdmin } = useAuth();
+  const { data: categories, isLoading } = useTaskCategories();
+  const updateCategories = useUpdateTaskCategories();
+  const [localCategories, setLocalCategories] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState('');
+
+  useEffect(() => {
+    if (categories) setLocalCategories([...categories]);
+  }, [categories]);
+
+  const handleAdd = () => {
+    const trimmed = newCategory.trim();
+    if (!trimmed || localCategories.includes(trimmed)) return;
+    setLocalCategories(prev => [...prev, trimmed]);
+    setNewCategory('');
+  };
+
+  const handleRemove = (cat: string) => {
+    setLocalCategories(prev => prev.filter(c => c !== cat));
+  };
+
+  const handleSave = () => {
+    updateCategories.mutate(localCategories);
+  };
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+
+  if (!isAdmin) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Eye className="w-5 h-5" />
+          <span>Apenas administradores podem gerenciar categorias.</span>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ListChecks className="w-5 h-5 text-primary" />
+          Categorias de Demandas
+        </CardTitle>
+        <CardDescription>Gerencie as categorias disponíveis ao criar novas demandas</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {localCategories.map((cat) => (
+            <Badge key={cat} variant="secondary" className="gap-1 text-sm py-1.5 px-3">
+              {cat}
+              <button onClick={() => handleRemove(cat)} className="ml-1 hover:text-destructive">
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))}
+          {localCategories.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhuma categoria configurada</p>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Input
+            placeholder="Nova categoria..."
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAdd())}
+          />
+          <Button variant="outline" onClick={handleAdd} disabled={!newCategory.trim()}>
+            <Plus className="w-4 h-4 mr-1" />
+            Adicionar
+          </Button>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button onClick={handleSave} disabled={updateCategories.isPending}>
+            {updateCategories.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Salvar Categorias
+          </Button>
+        </div>
+      </CardContent>
     </Card>
   );
 }
@@ -196,10 +288,14 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="modules" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto">
           <TabsTrigger value="modules" className="gap-2 py-3">
             <Database className="w-4 h-4" />
             Módulos
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="gap-2 py-3">
+            <ListChecks className="w-4 h-4" />
+            Categorias
           </TabsTrigger>
           <TabsTrigger value="general" className="gap-2 py-3">
             <Shield className="w-4 h-4" />
@@ -241,6 +337,11 @@ export default function Settings() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* Categorias de Demandas */}
+        <TabsContent value="categories" className="space-y-4">
+          <TaskCategoriesSettings />
         </TabsContent>
 
         {/* Configurações Gerais */}

@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -23,6 +22,7 @@ import {
   Calendar,
   User,
   Clock,
+  CalendarClock,
   MessageSquare,
   History,
   Send,
@@ -63,6 +63,7 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
   if (!task) return null;
 
   const canManageTeam = isAdmin || isSupervisor;
+  const taskAny = task as Record<string, unknown>;
 
   const handleAddComment = async () => {
     if (!comment.trim()) return;
@@ -91,7 +92,6 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
     });
   };
 
-  // Filter out users who are already team members or the main assignee
   const availableUsers = users?.filter(u => 
     u.is_active && 
     u.user_id !== task.assigned_to &&
@@ -118,7 +118,6 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
               </div>
             </div>
             {canEdit('tasks') && (
-              // After task is completed/cancelled, only admin can edit
               (['completed', 'cancelled'].includes(task.status) ? isAdmin : true)
             ) && (
               <Button variant="outline" size="sm" onClick={onEdit}>
@@ -129,255 +128,218 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          <Tabs defaultValue="details" className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
-              <TabsTrigger value="details">Detalhes</TabsTrigger>
-              <TabsTrigger value="team" className="gap-1">
+        <ScrollArea className="flex-1 pr-4">
+          <div className="space-y-4">
+            {/* Description */}
+            {task.description && (
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h4>
+                <p className="text-sm whitespace-pre-wrap">{task.description}</p>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Info Grid */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-muted-foreground">Responsável</p>
+                  <p className="font-medium">{task.assigned_to_name || 'Não atribuído'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-muted-foreground">Criado por</p>
+                  <p className="font-medium">{task.created_by_name}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-muted-foreground">Prazo</p>
+                  <p className="font-medium">
+                    {task.due_date 
+                      ? format(parseISO(task.due_date), 'dd/MM/yyyy', { locale: ptBR })
+                      : 'Não definido'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-muted-foreground">Criado em</p>
+                  <p className="font-medium">
+                    {format(parseISO(task.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                </div>
+              </div>
+
+              {task.started_at && (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Iniciado em</p>
+                    <p className="font-medium">
+                      {format(parseISO(task.started_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {task.completed_at && (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Concluído em</p>
+                    <p className="font-medium">
+                      {format(parseISO(task.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Event / Acompanhamento info */}
+            {(taskAny.event_start_datetime || taskAny.event_end_datetime) && (
+              <>
+                <Separator />
+                <div className="bg-muted/30 rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <CalendarClock className="w-4 h-4 text-primary" />
+                    Dados do Evento/Acompanhamento
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {taskAny.event_start_datetime && (
+                      <div>
+                        <p className="text-muted-foreground">Início do Evento</p>
+                        <p className="font-medium">{format(parseISO(taskAny.event_start_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                      </div>
+                    )}
+                    {taskAny.event_end_datetime && (
+                      <div>
+                        <p className="text-muted-foreground">Término do Evento</p>
+                        <p className="font-medium">{format(parseISO(taskAny.event_end_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-muted-foreground">Responsável pelo acompanhamento</p>
+                      <p className="font-medium">{task.assigned_to_name || 'Não definido'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Status do Evento</p>
+                      <p className="font-medium">
+                        {taskAny.event_end_datetime && new Date() >= new Date(taskAny.event_end_datetime as string)
+                          ? '✅ Evento encerrado'
+                          : taskAny.event_start_datetime && new Date() >= new Date(taskAny.event_start_datetime as string)
+                            ? '🔵 Em andamento'
+                            : '⏳ Aguardando início'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {task.notes && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-1">Observações</h4>
+                  <p className="text-sm whitespace-pre-wrap">{task.notes}</p>
+                </div>
+              </>
+            )}
+
+            {/* Team Section */}
+            <Separator />
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Equipe
                 {teamMembers && teamMembers.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 justify-center">
-                    {teamMembers.length}
-                  </Badge>
+                  <Badge variant="secondary" className="h-5 px-1.5">{teamMembers.length}</Badge>
                 )}
-              </TabsTrigger>
-              <TabsTrigger value="comments" className="gap-1">
+              </h4>
+              {loadingTeam ? (
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              ) : !teamMembers || teamMembers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum membro adicional</p>
+              ) : (
+                <div className="space-y-2">
+                  {teamMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{member.user_name}</span>
+                      </div>
+                      {canManageTeam && (
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveTeamMember(member.id, member.user_name)} disabled={removeTeamMemberMutation.isPending}>
+                          <X className="w-4 h-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {canManageTeam && availableUsers && availableUsers.length > 0 && (
+                <div className="flex gap-2 mt-2">
+                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Adicionar membro..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUsers.map((user) => (
+                        <SelectItem key={user.user_id} value={user.user_id}>
+                          {user.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleAddTeamMember} disabled={!selectedUserId || addTeamMemberMutation.isPending} size="icon">
+                    {addTeamMemberMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Comments Section */}
+            <Separator />
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                 <MessageSquare className="w-4 h-4" />
                 Comentários
                 {comments && comments.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 justify-center">
-                    {comments.length}
-                  </Badge>
+                  <Badge variant="secondary" className="h-5 px-1.5">{comments.length}</Badge>
                 )}
-              </TabsTrigger>
-              <TabsTrigger value="history">
-                <History className="w-4 h-4 mr-1" />
-                Histórico
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="details" className="flex-1 overflow-auto mt-4">
-              <div className="space-y-4">
-                {task.description && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h4>
-                    <p className="text-sm whitespace-pre-wrap">{task.description}</p>
-                  </div>
-                )}
-
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Responsável</p>
-                      <p className="font-medium">{task.assigned_to_name || 'Não atribuído'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Criado por</p>
-                      <p className="font-medium">{task.created_by_name}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Prazo</p>
-                      <p className="font-medium">
-                        {task.due_date 
-                          ? format(parseISO(task.due_date), 'dd/MM/yyyy', { locale: ptBR })
-                          : 'Não definido'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Criado em</p>
-                      <p className="font-medium">
-                        {format(parseISO(task.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                      </p>
-                    </div>
-                  </div>
-
-                  {task.estimated_hours && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Horas Estimadas</p>
-                        <p className="font-medium">{task.estimated_hours}h</p>
+              </h4>
+              {loadingComments ? (
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              ) : !comments || comments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum comentário ainda</p>
+              ) : (
+                <div className="space-y-3">
+                  {comments.map((c) => (
+                    <div key={c.id} className="bg-muted/50 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-sm">{c.user_name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {format(parseISO(c.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                        </span>
                       </div>
+                      <p className="text-sm whitespace-pre-wrap">{c.content}</p>
                     </div>
-                  )}
-
-                  {task.actual_hours && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Horas Trabalhadas</p>
-                        <p className="font-medium">{task.actual_hours}h</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {task.started_at && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Iniciado em</p>
-                        <p className="font-medium">
-                          {format(parseISO(task.started_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {task.completed_at && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Concluído em</p>
-                        <p className="font-medium">
-                          {format(parseISO(task.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
+              )}
 
-                {task.notes && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Observações</h4>
-                      <p className="text-sm whitespace-pre-wrap">{task.notes}</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="team" className="flex-1 flex flex-col mt-4 overflow-hidden">
-              <div className="space-y-4">
-                {/* Main Assignee */}
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Responsável Principal</h4>
-                  {task.assigned_to_name ? (
-                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{task.assigned_to_name}</span>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Não atribuído</p>
-                  )}
-                </div>
-
-                <Separator />
-
-                {/* Team Members */}
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Equipe Envolvida</h4>
-                  {loadingTeam ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : !teamMembers || teamMembers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum membro adicional na equipe</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {teamMembers.map((member) => (
-                        <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-muted-foreground" />
-                            <span>{member.user_name}</span>
-                          </div>
-                          {canManageTeam && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveTeamMember(member.id, member.user_name)}
-                              disabled={removeTeamMemberMutation.isPending}
-                            >
-                              <X className="w-4 h-4 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Add Team Member */}
-                {canManageTeam && availableUsers && availableUsers.length > 0 && (
-                  <>
-                    <Separator />
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Adicionar Membro</h4>
-                      <div className="flex gap-2">
-                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Selecione um usuário..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableUsers.map((user) => (
-                              <SelectItem key={user.user_id} value={user.user_id}>
-                                {user.full_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          onClick={handleAddTeamMember}
-                          disabled={!selectedUserId || addTeamMemberMutation.isPending}
-                        >
-                          {addTeamMemberMutation.isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <UserPlus className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="comments" className="flex-1 flex flex-col mt-4 overflow-hidden">
-              <ScrollArea className="flex-1 pr-4">
-                {loadingComments ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : !comments || comments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhum comentário ainda
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {comments.map((c) => (
-                      <div key={c.id} className="bg-muted/50 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm">{c.user_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(parseISO(c.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
-                          </span>
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap">{c.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-
-              <div className="flex gap-2 mt-4 pt-4 border-t flex-shrink-0">
+              <div className="flex gap-2 mt-3 pt-3 border-t">
                 <Textarea
                   placeholder="Adicionar comentário..."
                   value={comment}
@@ -385,100 +347,50 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
                   rows={2}
                   className="resize-none"
                 />
-                <Button 
-                  onClick={handleAddComment} 
-                  disabled={!comment.trim() || addCommentMutation.isPending}
-                  size="icon"
-                  className="h-auto"
-                >
-                  {addCommentMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
+                <Button onClick={handleAddComment} disabled={!comment.trim() || addCommentMutation.isPending} size="icon" className="h-auto">
+                  {addCommentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </Button>
               </div>
-            </TabsContent>
+            </div>
 
-            <TabsContent value="history" className="flex-1 overflow-auto mt-4">
+            {/* History Section */}
+            <Separator />
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <History className="w-4 h-4" />
+                Histórico
+              </h4>
               {loadingHistory ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                </div>
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               ) : !history || history.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhum histórico disponível
-                </div>
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum histórico disponível</p>
               ) : (
-                <div className="space-y-1">
-                  {/* Summary header */}
-                  <div className="bg-muted/50 rounded-lg p-3 mb-4 text-sm space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Criado em:</span>
-                      <span className="font-medium">
-                        {format(parseISO(task.created_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
-                      </span>
-                      <span className="text-muted-foreground">por</span>
-                      <span className="font-medium">{task.created_by_name}</span>
+                <div className="relative pl-4 border-l-2 border-muted space-y-4">
+                  {history.map((h) => (
+                    <div key={h.id} className="relative">
+                      <div className="absolute -left-[calc(0.5rem+1px)] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
+                      <div className="ml-4">
+                        <p className="text-sm">
+                          <span className="font-medium">{h.user_name}</span>{' '}
+                          <span className="text-muted-foreground">{h.action}</span>
+                        </p>
+                        {h.field_changed && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {h.old_value && <><Badge variant="outline" className="text-xs mr-1">{h.old_value}</Badge> → </>}
+                            <Badge variant="secondary" className="text-xs">{h.new_value}</Badge>
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {format(parseISO(h.created_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
+                        </p>
+                      </div>
                     </div>
-                    {task.started_at && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-blue-500" />
-                        <span className="text-muted-foreground">Iniciado em:</span>
-                        <span className="font-medium">
-                          {format(parseISO(task.started_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
-                        </span>
-                      </div>
-                    )}
-                    {task.completed_at && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-green-500" />
-                        <span className="text-muted-foreground">Concluído em:</span>
-                        <span className="font-medium">
-                          {format(parseISO(task.completed_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
-                        </span>
-                      </div>
-                    )}
-                    {task.actual_hours && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Horas trabalhadas:</span>
-                        <span className="font-medium">{task.actual_hours}h</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-2" />
-
-                  {/* Timeline */}
-                  <div className="relative pl-4 border-l-2 border-muted space-y-4">
-                    {history.map((h) => (
-                      <div key={h.id} className="relative">
-                        <div className="absolute -left-[calc(0.5rem+1px)] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
-                        <div className="ml-4">
-                          <p className="text-sm">
-                            <span className="font-medium">{h.user_name}</span>{' '}
-                            <span className="text-muted-foreground">{h.action}</span>
-                          </p>
-                          {h.field_changed && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {h.old_value && <><Badge variant="outline" className="text-xs mr-1">{h.old_value}</Badge> → </>}
-                              <Badge variant="secondary" className="text-xs">{h.new_value}</Badge>
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {format(parseISO(h.created_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  ))}
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
-        </div>
+            </div>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

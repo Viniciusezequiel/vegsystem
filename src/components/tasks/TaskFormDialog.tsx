@@ -22,17 +22,7 @@ import { Loader2, Save, CalendarClock } from 'lucide-react';
 import { useCreateTask, useUpdateTask, Task } from '@/hooks/useTasks';
 import { useUsersList } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';
-
-const CATEGORY_OPTIONS = [
-  'Acompanhamento',
-  'Manutenção',
-  'TI',
-  'RH',
-  'Administrativo',
-  'Limpeza',
-  'Segurança',
-  'Outro',
-];
+import { useTaskCategories } from '@/hooks/useTaskCategories';
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -59,6 +49,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
   });
 
   const { data: users } = useUsersList();
+  const { data: categoryOptions } = useTaskCategories();
   const createMutation = useCreateTask();
   const updateMutation = useUpdateTask();
 
@@ -211,7 +202,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">Sem categoria</SelectItem>
-                  {CATEGORY_OPTIONS.map((cat) => (
+                  {(categoryOptions || []).map((cat) => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
                 </SelectContent>
