@@ -240,35 +240,107 @@ export default function ItemsList() {
     setBulkActionDialog(null);
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Fetch ALL items matching current filters (bypasses pagination)
+  const fetchAllFilteredItems = async () => {
+    const BATCH_SIZE = 1000;
+    const allData: any[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      let query = supabase
+        .from('lost_items')
+        .select('id,code,description,campus,found_location,found_date,received_date,shelf,box,seal_number,delivered_by_name,delivered_by_contact,registered_by,status,owner_name,owner_email,owner_phone,delivered_at,delivered_by_team_member,created_at,updated_at')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + BATCH_SIZE - 1);
+
+      if (statusFilter && statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+      if (searchQuery) {
+        query = query.or(`code.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,found_location.ilike.%${searchQuery}%`);
+      }
+      if (campusFilter && campusFilter !== 'all') {
+        query = query.eq('campus', campusFilter);
+      }
+      if (dateFrom) {
+        query = query.gte('received_date', dateFrom);
+      }
+      if (dateTo) {
+        query = query.lte('received_date', dateTo);
+      }
+      if (statusFilter === 'all' && destinationFilter && destinationFilter !== 'all') {
+        if (destinationFilter === 'donation') {
+          query = query.eq('owner_name', 'DOAÇÃO');
+        } else if (destinationFilter === 'disposal') {
+          query = query.eq('owner_name', 'DESCARTE');
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        allData.push(...data);
+        offset += BATCH_SIZE;
+        hasMore = data.length === BATCH_SIZE;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return allData;
+  };
+
+  const getAppliedFilters = () => {
+    const appliedFilters: string[] = [];
+    appliedFilters.push(`Status: ${statusFilter === 'all' ? 'Todos' : statusFilters.find(f => f.value === statusFilter)?.label}`);
+    if (campusFilter !== 'all') appliedFilters.push(`Campus: ${campusFilter}`);
+    if (dateFrom) appliedFilters.push(`De: ${format(new Date(dateFrom), 'dd/MM/yyyy')}`);
+    if (dateTo) appliedFilters.push(`Até: ${format(new Date(dateTo), 'dd/MM/yyyy')}`);
+    if (statusFilter === 'all' && destinationFilter !== 'all') {
+      appliedFilters.push(`Destino: ${destinationFilter === 'donation' ? 'Doação' : 'Descarte'}`);
+    }
+    return appliedFilters;
+  };
+
+  const formatStatus = (status: string) => {
+    switch (status) {
+      case 'available': return 'Disponível';
+      case 'pending': return 'Pendente';
+      case 'delivered': return 'Entregue';
+      case 'expired': return 'Expirado';
+      default: return status;
+    }
+  };
+
   const exportToPDF = async () => {
+    setIsExporting(true);
     try {
-      // Build filters list
-      const appliedFilters: string[] = [];
-      appliedFilters.push(`Status: ${statusFilter === 'all' ? 'Todos' : statusFilters.find(f => f.value === statusFilter)?.label}`);
-      if (campusFilter !== 'all') appliedFilters.push(`Campus: ${campusFilter}`);
-      if (dateFrom) appliedFilters.push(`De: ${format(new Date(dateFrom), 'dd/MM/yyyy')}`);
-      if (dateTo) appliedFilters.push(`Até: ${format(new Date(dateTo), 'dd/MM/yyyy')}`);
+      const allItems = await fetchAllFilteredItems();
 
       await generatePdf({
         title: 'Relatório de Achados e Perdidos',
         columns: [
           { header: 'Código', accessor: 'code' },
-          { header: 'Descrição', accessor: (row) => row.description.substring(0, 40) + (row.description.length > 40 ? '...' : '') },
+          { header: 'Descrição', accessor: (row: any) => row.description.substring(0, 40) + (row.description.length > 40 ? '...' : '') },
           { header: 'Campus', accessor: 'campus' },
-          { header: 'Local', accessor: (row) => row.found_location.substring(0, 25) + (row.found_location.length > 25 ? '...' : '') },
-          { header: 'Recebido', accessor: (row) => format(new Date(row.received_date + 'T00:00:00'), 'dd/MM/yyyy') },
-          { header: 'Status', accessor: (row) => row.status === 'available' ? 'Disponível' : row.status === 'pending' ? 'Pendente' : row.status === 'delivered' ? 'Entregue' : 'Expirado' },
-          { header: 'Prateleira', accessor: (row) => row.shelf || '-' },
-          { header: 'Caixa', accessor: (row) => row.box || '-' },
+          { header: 'Local', accessor: (row: any) => row.found_location.substring(0, 25) + (row.found_location.length > 25 ? '...' : '') },
+          { header: 'Recebido', accessor: (row: any) => format(new Date(row.received_date + 'T00:00:00'), 'dd/MM/yyyy') },
+          { header: 'Status', accessor: (row: any) => formatStatus(row.status) },
+          { header: 'Prateleira', accessor: (row: any) => row.shelf || '-' },
+          { header: 'Caixa', accessor: (row: any) => row.box || '-' },
         ],
-        data: filteredItems,
-        filters: appliedFilters,
+        data: allItems,
+        filters: getAppliedFilters(),
         filename: 'achados-perdidos',
       });
 
       toast({
         title: 'PDF gerado',
-        description: 'O relatório foi exportado com sucesso.',
+        description: `${allItems.length} itens exportados com sucesso.`,
       });
     } catch (error: any) {
       toast({
@@ -276,6 +348,61 @@ export default function ItemsList() {
         description: error.message || 'Falha ao exportar o relatório.',
         variant: 'destructive',
       });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportToExcel = async () => {
+    setIsExporting(true);
+    try {
+      const allItems = await fetchAllFilteredItems();
+
+      const excelData = allItems.map((item: any) => ({
+        'Código': item.code || '',
+        'Descrição': item.description || '',
+        'Campus': item.campus || '',
+        'Local Encontrado': item.found_location || '',
+        'Data Encontrado': item.found_date ? format(new Date(item.found_date + 'T00:00:00'), 'dd/MM/yyyy') : '',
+        'Data Recebido': item.received_date ? format(new Date(item.received_date + 'T00:00:00'), 'dd/MM/yyyy') : '',
+        'Status': formatStatus(item.status),
+        'Prateleira': item.shelf || '',
+        'Caixa': item.box || '',
+        'Lacre': item.seal_number || '',
+        'Entregue por': item.delivered_by_name || '',
+        'Contato': item.delivered_by_contact || '',
+        'Proprietário': item.owner_name || '',
+        'Tel. Proprietário': item.owner_phone || '',
+        'Email Proprietário': item.owner_email || '',
+        'Data Entrega': item.delivered_at ? format(new Date(item.delivered_at), 'dd/MM/yyyy HH:mm') : '',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      worksheet['!cols'] = [
+        { wch: 12 }, { wch: 35 }, { wch: 18 }, { wch: 25 },
+        { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
+        { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 18 },
+        { wch: 20 }, { wch: 16 }, { wch: 25 }, { wch: 18 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Achados e Perdidos');
+      
+      const filename = `achados-perdidos_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`;
+      XLSX.writeFile(workbook, filename);
+
+      toast({
+        title: 'Excel gerado',
+        description: `${allItems.length} itens exportados com sucesso.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao gerar Excel',
+        description: error.message || 'Falha ao exportar o relatório.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -590,9 +717,13 @@ export default function ItemsList() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="bg-popover border shadow-md z-50">
-              <DropdownMenuItem onClick={exportToPDF} disabled={filteredItems.length === 0}>
+              <DropdownMenuItem onClick={exportToExcel} disabled={isExporting || filteredItems.length === 0}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                {isExporting ? 'Exportando...' : 'Exportar Excel'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPDF} disabled={isExporting || filteredItems.length === 0}>
                 <FileDown className="w-4 h-4 mr-2" />
-                Exportar PDF
+                {isExporting ? 'Exportando...' : 'Exportar PDF'}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={downloadTemplate}>
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
