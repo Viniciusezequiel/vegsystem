@@ -73,6 +73,18 @@ const mainNav: NavItem[] = [
 
 const moduleGroups: NavGroup[] = [
   {
+    name: 'Demandas',
+    icon: ClipboardCheck,
+    basePath: '/tasks',
+    gradient: 'from-teal-500 to-cyan-500',
+    module: 'tasks',
+    items: [
+      { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck, adminOnly: true },
+      { name: 'Minhas Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck, hasBadge: true },
+      { name: 'Dashboard', href: '/tasks/dashboard', icon: BarChart3, adminOnly: true },
+    ],
+  },
+  {
     name: 'Achados e Perdidos',
     icon: Package,
     basePath: '/lost-found',
@@ -138,18 +150,6 @@ const moduleGroups: NavGroup[] = [
     module: 'classroomCalls',
     items: [
       { name: 'Chamados', href: '/classroom-calls', icon: Bell },
-    ],
-  },
-  {
-    name: 'Demandas',
-    icon: ClipboardCheck,
-    basePath: '/tasks',
-    gradient: 'from-teal-500 to-cyan-500',
-    module: 'tasks',
-    items: [
-      { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck, adminOnly: true },
-      { name: 'Minhas Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck, hasBadge: true },
-      { name: 'Dashboard', href: '/tasks/dashboard', icon: BarChart3, adminOnly: true },
     ],
   },
 ];

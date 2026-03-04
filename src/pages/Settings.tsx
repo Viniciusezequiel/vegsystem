@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings, useUpdateSystemSettings, SystemSettings, ModuleSettings } from '@/hooks/useSystemSettings';
-import { useTaskCategories, useUpdateTaskCategories } from '@/hooks/useTaskCategories';
+import { useTaskCategories, useUpdateTaskCategories, AVAILABLE_FIELDS, type TaskCategoryConfig } from '@/hooks/useTaskCategories';
 import { 
   Settings as SettingsIcon, 
   Bell, 
@@ -110,8 +110,9 @@ function TaskCategoriesSettings() {
   const { isAdmin } = useAuth();
   const { data: categories, isLoading } = useTaskCategories();
   const updateCategories = useUpdateTaskCategories();
-  const [localCategories, setLocalCategories] = useState<string[]>([]);
+  const [localCategories, setLocalCategories] = useState<TaskCategoryConfig[]>([]);
   const [newCategory, setNewCategory] = useState('');
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
   useEffect(() => {
     if (categories) setLocalCategories([...categories]);
@@ -119,13 +120,28 @@ function TaskCategoriesSettings() {
 
   const handleAdd = () => {
     const trimmed = newCategory.trim();
-    if (!trimmed || localCategories.includes(trimmed)) return;
-    setLocalCategories(prev => [...prev, trimmed]);
+    if (!trimmed || localCategories.some(c => c.name === trimmed)) return;
+    setLocalCategories(prev => [...prev, { name: trimmed, requiredFields: [] }]);
     setNewCategory('');
   };
 
-  const handleRemove = (cat: string) => {
-    setLocalCategories(prev => prev.filter(c => c !== cat));
+  const handleRemove = (name: string) => {
+    setLocalCategories(prev => prev.filter(c => c.name !== name));
+  };
+
+  const toggleRequiredField = (categoryName: string, fieldKey: string) => {
+    setLocalCategories(prev =>
+      prev.map(c => {
+        if (c.name !== categoryName) return c;
+        const has = c.requiredFields.includes(fieldKey);
+        return {
+          ...c,
+          requiredFields: has
+            ? c.requiredFields.filter(f => f !== fieldKey)
+            : [...c.requiredFields, fieldKey],
+        };
+      })
+    );
   };
 
   const handleSave = () => {
@@ -152,17 +168,47 @@ function TaskCategoriesSettings() {
           <ListChecks className="w-5 h-5 text-primary" />
           Categorias de Demandas
         </CardTitle>
-        <CardDescription>Gerencie as categorias disponíveis ao criar novas demandas</CardDescription>
+        <CardDescription>Gerencie as categorias e seus campos obrigatórios</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-3">
           {localCategories.map((cat) => (
-            <Badge key={cat} variant="secondary" className="gap-1 text-sm py-1.5 px-3">
-              {cat}
-              <button onClick={() => handleRemove(cat)} className="ml-1 hover:text-destructive">
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
+            <div key={cat.name} className="border rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="text-sm py-1.5 px-3">
+                  {cat.name}
+                </Badge>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingCategory(editingCategory === cat.name ? null : cat.name)}
+                    className="text-xs"
+                  >
+                    {editingCategory === cat.name ? 'Fechar' : 'Configurar campos'}
+                  </Button>
+                  <button onClick={() => handleRemove(cat.name)} className="hover:text-destructive p-1">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {editingCategory === cat.name && (
+                <div className="pl-2 pt-2 space-y-2 border-t">
+                  <p className="text-xs text-muted-foreground font-medium">Campos obrigatórios:</p>
+                  {AVAILABLE_FIELDS.map(field => (
+                    <label key={field.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cat.requiredFields.includes(field.key)}
+                        onChange={() => toggleRequiredField(cat.name, field.key)}
+                        className="rounded"
+                      />
+                      {field.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
           {localCategories.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhuma categoria configurada</p>
