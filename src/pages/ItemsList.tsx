@@ -929,6 +929,20 @@ export default function ItemsList() {
           {/* Expired Items Selection Mode */}
           {statusFilter === 'expired' && expiredItems.length > 0 && (
             <>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={prepareAutoProcess}
+                disabled={isAutoProcessing}
+                className="gap-2"
+              >
+                {isAutoProcessing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                Baixa Automática
+              </Button>
               {isSelectionMode ? (
                 <>
                   <Button 
