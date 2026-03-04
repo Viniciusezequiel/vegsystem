@@ -430,9 +430,6 @@ export default function ItemsList() {
   };
 
   // Auto-process expired items: classify all and batch-deliver
-  const [isAutoProcessing, setIsAutoProcessing] = useState(false);
-  const [autoProcessDialog, setAutoProcessDialog] = useState(false);
-  const [autoProcessPreview, setAutoProcessPreview] = useState<{ donation: number; disposal: number; items: any[] }>({ donation: 0, disposal: 0, items: [] });
 
   const prepareAutoProcess = async () => {
     setIsAutoProcessing(true);
