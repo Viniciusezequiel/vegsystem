@@ -1150,6 +1150,99 @@ export default function ItemsList() {
         open={storageConfigDialog}
         onOpenChange={setStorageConfigDialog}
       />
+
+      {/* Auto-Process Expired Items Dialog */}
+      <Dialog open={autoProcessDialog} onOpenChange={setAutoProcessDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              Baixa Automática de Expirados
+            </DialogTitle>
+            <DialogDescription>
+              Os itens expirados serão classificados automaticamente com base na descrição.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg border bg-green-500/10 border-green-500/20 text-center">
+                <Gift className="w-6 h-6 mx-auto mb-2 text-green-600" />
+                <p className="text-2xl font-bold text-green-600">{autoProcessPreview.donation}</p>
+                <p className="text-sm text-muted-foreground">Doação</p>
+                <p className="text-xs text-muted-foreground mt-1">Roupas, mochilas, objetos comuns</p>
+              </div>
+              <div className="p-4 rounded-lg border bg-red-500/10 border-red-500/20 text-center">
+                <Trash2 className="w-6 h-6 mx-auto mb-2 text-red-600" />
+                <p className="text-2xl font-bold text-red-600">{autoProcessPreview.disposal}</p>
+                <p className="text-sm text-muted-foreground">Descarte</p>
+                <p className="text-xs text-muted-foreground mt-1">Higiene, documentos, chaves</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Total: <strong>{autoProcessPreview.items.length}</strong> itens serão processados. 
+              A classificação é feita com base em palavras-chave da descrição do item.
+            </p>
+
+            {autoProcessPreview.items.length > 0 && (
+              <div className="max-h-[200px] overflow-auto border rounded-lg">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="p-2 text-left">Código</th>
+                      <th className="p-2 text-left">Descrição</th>
+                      <th className="p-2 text-left">Destino</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {autoProcessPreview.items.slice(0, 20).map((item: any) => (
+                      <tr key={item.id} className="border-t">
+                        <td className="p-2 font-mono">{item.code}</td>
+                        <td className="p-2 truncate max-w-[200px]">{item.description}</td>
+                        <td className="p-2">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-xs font-medium",
+                            item.autoDestination === 'donation' 
+                              ? "bg-green-500/10 text-green-700" 
+                              : "bg-red-500/10 text-red-700"
+                          )}>
+                            {item.autoDestination === 'donation' ? 'Doação' : 'Descarte'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {autoProcessPreview.items.length > 20 && (
+                      <tr className="border-t bg-muted/50">
+                        <td colSpan={3} className="p-2 text-center text-muted-foreground">
+                          ... e mais {autoProcessPreview.items.length - 20} item(ns)
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAutoProcessDialog(false)} disabled={isAutoProcessing}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={executeAutoProcess} 
+              disabled={isAutoProcessing || autoProcessPreview.items.length === 0}
+            >
+              {isAutoProcessing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Zap className="w-4 h-4 mr-2" />
+              )}
+              Confirmar Baixa ({autoProcessPreview.items.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
