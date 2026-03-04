@@ -105,6 +105,9 @@ export default function ItemsList() {
   const [archiveDeliveredDialog, setArchiveDeliveredDialog] = useState(false);
   const [storageConfigDialog, setStorageConfigDialog] = useState(false);
   const [isMigratingImages, setIsMigratingImages] = useState(false);
+  const [isAutoProcessing, setIsAutoProcessing] = useState(false);
+  const [autoProcessDialog, setAutoProcessDialog] = useState(false);
+  const [autoProcessPreview, setAutoProcessPreview] = useState<{ donation: number; disposal: number; items: any[] }>({ donation: 0, disposal: 0, items: [] });
 
   const handleMigrateAllImages = async () => {
     setIsMigratingImages(true);
