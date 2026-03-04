@@ -598,6 +598,81 @@ export default function MyTasks() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Task details summary */}
+            {startDialogTask && (
+              <div className="bg-muted/30 rounded-lg p-4 space-y-3 text-sm">
+                {startDialogTask.description && (
+                  <div>
+                    <p className="text-muted-foreground font-medium">Descrição</p>
+                    <p className="whitespace-pre-wrap">{startDialogTask.description}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-muted-foreground">Responsável</p>
+                    <p className="font-medium">{startDialogTask.assigned_to_name || 'Não atribuído'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Prioridade</p>
+                    <Badge className={getPriorityColor(startDialogTask.priority)} variant="outline">
+                      {getPriorityLabel(startDialogTask.priority)}
+                    </Badge>
+                  </div>
+                  {startDialogTask.category && (
+                    <div>
+                      <p className="text-muted-foreground">Categoria</p>
+                      <Badge variant="secondary">{startDialogTask.category}</Badge>
+                    </div>
+                  )}
+                  {startDialogTask.due_date && (
+                    <div>
+                      <p className="text-muted-foreground">Prazo</p>
+                      <p className="font-medium">{format(parseISO(startDialogTask.due_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-muted-foreground">Criado por</p>
+                    <p className="font-medium">{startDialogTask.created_by_name}</p>
+                  </div>
+                </div>
+                {/* Event info for Acompanhamento */}
+                {(() => {
+                  const tAny = startDialogTask as Record<string, unknown>;
+                  if (tAny.event_start_datetime || tAny.event_end_datetime) {
+                    return (
+                      <div className="border-t pt-3 mt-2 space-y-2">
+                        <p className="font-medium flex items-center gap-1">
+                          <CalendarClock className="w-4 h-4 text-primary" />
+                          Dados do Evento
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {tAny.event_start_datetime && (
+                            <div>
+                              <p className="text-muted-foreground">Início</p>
+                              <p className="font-medium">{format(parseISO(tAny.event_start_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                            </div>
+                          )}
+                          {tAny.event_end_datetime && (
+                            <div>
+                              <p className="text-muted-foreground">Término</p>
+                              <p className="font-medium">{format(parseISO(tAny.event_end_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                {startDialogTask.notes && (
+                  <div className="border-t pt-3 mt-2">
+                    <p className="text-muted-foreground font-medium">Observações</p>
+                    <p className="whitespace-pre-wrap">{startDialogTask.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="start-note">Observação de Início *</Label>
               <Textarea
@@ -639,6 +714,62 @@ export default function MyTasks() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Task details summary */}
+            {completeDialogTask && (
+              <div className="bg-muted/30 rounded-lg p-4 space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-muted-foreground">Responsável</p>
+                    <p className="font-medium">{completeDialogTask.assigned_to_name || 'Não atribuído'}</p>
+                  </div>
+                  {completeDialogTask.category && (
+                    <div>
+                      <p className="text-muted-foreground">Categoria</p>
+                      <Badge variant="secondary">{completeDialogTask.category}</Badge>
+                    </div>
+                  )}
+                </div>
+                {(() => {
+                  const tAny = completeDialogTask as Record<string, unknown>;
+                  if (tAny.event_start_datetime || tAny.event_end_datetime) {
+                    return (
+                      <div className="border-t pt-3 mt-2 space-y-2">
+                        <p className="font-medium flex items-center gap-1">
+                          <CalendarClock className="w-4 h-4 text-primary" />
+                          Dados do Evento
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {tAny.event_start_datetime && (
+                            <div>
+                              <p className="text-muted-foreground">Início</p>
+                              <p className="font-medium">{format(parseISO(tAny.event_start_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                            </div>
+                          )}
+                          {tAny.event_end_datetime && (
+                            <div>
+                              <p className="text-muted-foreground">Término</p>
+                              <p className="font-medium">{format(parseISO(tAny.event_end_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-muted-foreground">Status</p>
+                            <p className="font-medium">
+                              {tAny.event_end_datetime && new Date() >= new Date(tAny.event_end_datetime as string)
+                                ? '✅ Evento encerrado'
+                                : tAny.event_start_datetime && new Date() >= new Date(tAny.event_start_datetime as string)
+                                  ? '🔵 Em andamento'
+                                  : '⏳ Aguardando início'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="complete-note">Informações da Conclusão *</Label>
               <Textarea
