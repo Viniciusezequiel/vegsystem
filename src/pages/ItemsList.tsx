@@ -62,6 +62,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { generatePdf } from '@/lib/pdfService';
 import * as XLSX from 'xlsx';
 import type { Database } from '@/integrations/supabase/types';
+import { classifyExpiredItem, getDestinationLabel } from '@/lib/expiredItemsDestination';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
