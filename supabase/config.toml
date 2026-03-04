@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.update-user-email]
 verify_jwt = false
+
+[functions.notify-task-assignment]
+verify_jwt = false

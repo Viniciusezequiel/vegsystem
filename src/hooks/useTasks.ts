@@ -207,6 +207,39 @@ export function useCreateTask() {
         action: 'Criou a demanda',
       });
 
+      // Send email notification if assigned to someone
+      if (data.assigned_to && data.assigned_to_name) {
+        try {
+          // Get assignee email from profiles
+          const { data: assigneeProfile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('user_id', data.assigned_to)
+            .single();
+
+          if (assigneeProfile?.email) {
+            const taskAny = taskData as Record<string, unknown>;
+            await supabase.functions.invoke('notify-task-assignment', {
+              body: {
+                taskTitle: taskData.title,
+                taskDescription: taskData.description,
+                taskCategory: taskData.category,
+                taskPriority: taskData.priority,
+                assignedToEmail: assigneeProfile.email,
+                assignedToName: data.assigned_to_name,
+                createdByName: profile?.full_name || user?.email || 'Sistema',
+                dueDate: taskData.due_date,
+                eventStart: taskAny.event_start_datetime,
+                eventEnd: taskAny.event_end_datetime,
+              },
+            });
+          }
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+          // Don't fail the task creation if email fails
+        }
+      }
+
       return taskData;
     },
     onSuccess: () => {

@@ -22,7 +22,7 @@ import { Loader2, Save, CalendarClock } from 'lucide-react';
 import { useCreateTask, useUpdateTask, Task } from '@/hooks/useTasks';
 import { useUsersList } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTaskCategories } from '@/hooks/useTaskCategories';
+import { useTaskCategories, type TaskCategoryConfig } from '@/hooks/useTaskCategories';
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -49,13 +49,16 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
   });
 
   const { data: users } = useUsersList();
-  const { data: categoryOptions } = useTaskCategories();
+  const { data: categoryConfigs } = useTaskCategories();
   const createMutation = useCreateTask();
   const updateMutation = useUpdateTask();
 
   const isEditing = !!task;
   const canChangeAssignee = !isEditing || isAdmin;
+  
+  const currentCategoryConfig = categoryConfigs?.find(c => c.name.toLowerCase() === formData.category.toLowerCase());
   const isAcompanhamento = formData.category.toLowerCase() === 'acompanhamento';
+  const requiredFields = currentCategoryConfig?.requiredFields || [];
 
   useEffect(() => {
     if (task) {
@@ -98,6 +101,21 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
   }, [task, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate required fields for category
+    if (requiredFields.includes('description') && !formData.description.trim()) {
+      return;
+    }
+    if (requiredFields.includes('assigned_to') && !formData.assigned_to) {
+      return;
+    }
+    if (requiredFields.includes('due_date') && !formData.due_date) {
+      return;
+    }
+    if (requiredFields.includes('notes') && !formData.notes.trim()) {
+      return;
+    }
     e.preventDefault();
 
     const assignedUser = users?.find(u => u.user_id === formData.assigned_to);
@@ -162,13 +180,14 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Descrição</Label>
+            <Label htmlFor="description">Descrição {requiredFields.includes('description') && '*'}</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               placeholder="Descreva a demanda em detalhes..."
               rows={3}
+              required={requiredFields.includes('description')}
             />
           </div>
 
@@ -202,8 +221,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">Sem categoria</SelectItem>
-                  {(categoryOptions || []).map((cat) => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  {(categoryConfigs || []).map((cat) => (
+                    <SelectItem key={cat.name} value={cat.name}>{cat.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -212,7 +231,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="assigned_to">Responsável</Label>
+              <Label htmlFor="assigned_to">Responsável {requiredFields.includes('assigned_to') && '*'}</Label>
               <Select
                 value={formData.assigned_to || '_none'}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, assigned_to: value === '_none' ? '' : value }))}
@@ -238,7 +257,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="due_date">Prazo</Label>
+              <Label htmlFor="due_date">Prazo {requiredFields.includes('due_date') && '*'}</Label>
               <div className="flex gap-2">
                 <div className="flex-1">
                   <DatePickerInput
@@ -258,8 +277,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             </div>
           </div>
 
-          {/* Event datetime fields for Acompanhamento */}
-          {isAcompanhamento && (
+          {/* Event datetime fields - show when category requires it or is Acompanhamento */}
+          {(isAcompanhamento || requiredFields.includes('event_datetime')) && (
             <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
               <div className="flex items-center gap-2 text-sm font-medium text-primary">
                 <CalendarClock className="w-4 h-4" />
@@ -312,13 +331,14 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Observações</Label>
+            <Label htmlFor="notes">Observações {requiredFields.includes('notes') && '*'}</Label>
             <Textarea
               id="notes"
               value={formData.notes}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="Observações adicionais..."
               rows={2}
+              required={requiredFields.includes('notes')}
             />
           </div>
 
