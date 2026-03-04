@@ -717,10 +717,13 @@ export default function ItemsList() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="bg-popover border shadow-md z-50">
-              <DropdownMenuItem onClick={exportToPDF} disabled={filteredItems.length === 0}>
-                <FileDown className="w-4 h-4 mr-2" />
-                Exportar PDF
+              <DropdownMenuItem onClick={exportToExcel} disabled={isExporting || filteredItems.length === 0}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                {isExporting ? 'Exportando...' : 'Exportar Excel'}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPDF} disabled={isExporting || filteredItems.length === 0}>
+                <FileDown className="w-4 h-4 mr-2" />
+                {isExporting ? 'Exportando...' : 'Exportar PDF'}
               <DropdownMenuItem onClick={downloadTemplate}>
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Baixar Modelo Excel
