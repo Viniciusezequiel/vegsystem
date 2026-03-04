@@ -724,6 +724,7 @@ export default function ItemsList() {
               <DropdownMenuItem onClick={exportToPDF} disabled={isExporting || filteredItems.length === 0}>
                 <FileDown className="w-4 h-4 mr-2" />
                 {isExporting ? 'Exportando...' : 'Exportar PDF'}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={downloadTemplate}>
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Baixar Modelo Excel
