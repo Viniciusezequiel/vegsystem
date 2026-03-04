@@ -358,33 +358,52 @@ export default function ItemsList() {
     setIsExporting(true);
     try {
       const allItems = await fetchAllFilteredItems();
+      const isExpiredExport = statusFilter === 'expired';
 
-      const excelData = allItems.map((item: any) => ({
-        'Código': item.code || '',
-        'Descrição': item.description || '',
-        'Campus': item.campus || '',
-        'Local Encontrado': item.found_location || '',
-        'Data Encontrado': item.found_date ? format(new Date(item.found_date + 'T00:00:00'), 'dd/MM/yyyy') : '',
-        'Data Recebido': item.received_date ? format(new Date(item.received_date + 'T00:00:00'), 'dd/MM/yyyy') : '',
-        'Status': formatStatus(item.status),
-        'Prateleira': item.shelf || '',
-        'Caixa': item.box || '',
-        'Lacre': item.seal_number || '',
-        'Entregue por': item.delivered_by_name || '',
-        'Contato': item.delivered_by_contact || '',
-        'Proprietário': item.owner_name || '',
-        'Tel. Proprietário': item.owner_phone || '',
-        'Email Proprietário': item.owner_email || '',
-        'Data Entrega': item.delivered_at ? format(new Date(item.delivered_at), 'dd/MM/yyyy HH:mm') : '',
-      }));
+      const excelData = allItems.map((item: any) => {
+        const base: Record<string, string> = {
+          'Código': item.code || '',
+          'Descrição': item.description || '',
+          'Campus': item.campus || '',
+          'Local Encontrado': item.found_location || '',
+          'Data Encontrado': item.found_date ? format(new Date(item.found_date + 'T00:00:00'), 'dd/MM/yyyy') : '',
+          'Data Recebido': item.received_date ? format(new Date(item.received_date + 'T00:00:00'), 'dd/MM/yyyy') : '',
+          'Status': formatStatus(item.status),
+          'Prateleira': item.shelf || '',
+          'Caixa': item.box || '',
+          'Lacre': item.seal_number || '',
+          'Entregue por': item.delivered_by_name || '',
+          'Contato': item.delivered_by_contact || '',
+        };
+
+        if (isExpiredExport) {
+          const dest = classifyExpiredItem(item.description || '');
+          base['Destino Sugerido'] = getDestinationLabel(dest);
+        } else {
+          base['Proprietário'] = item.owner_name || '';
+          base['Tel. Proprietário'] = item.owner_phone || '';
+          base['Email Proprietário'] = item.owner_email || '';
+          base['Data Entrega'] = item.delivered_at ? format(new Date(item.delivered_at), 'dd/MM/yyyy HH:mm') : '';
+        }
+
+        return base;
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
-      worksheet['!cols'] = [
-        { wch: 12 }, { wch: 35 }, { wch: 18 }, { wch: 25 },
-        { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
-        { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 18 },
-        { wch: 20 }, { wch: 16 }, { wch: 25 }, { wch: 18 },
-      ];
+      const colWidths = isExpiredExport
+        ? [
+            { wch: 12 }, { wch: 35 }, { wch: 18 }, { wch: 25 },
+            { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
+            { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 18 },
+            { wch: 18 }, // Destino Sugerido
+          ]
+        : [
+            { wch: 12 }, { wch: 35 }, { wch: 18 }, { wch: 25 },
+            { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
+            { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 18 },
+            { wch: 20 }, { wch: 16 }, { wch: 25 }, { wch: 18 },
+          ];
+      worksheet['!cols'] = colWidths;
 
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Achados e Perdidos');
@@ -394,7 +413,7 @@ export default function ItemsList() {
 
       toast({
         title: 'Excel gerado',
-        description: `${allItems.length} itens exportados com sucesso.`,
+        description: `${allItems.length} itens exportados com sucesso.${isExpiredExport ? ' Coluna "Destino Sugerido" incluída.' : ''}`,
       });
     } catch (error: any) {
       toast({
@@ -404,6 +423,124 @@ export default function ItemsList() {
       });
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  // Auto-process expired items: classify all and batch-deliver
+  const [isAutoProcessing, setIsAutoProcessing] = useState(false);
+  const [autoProcessDialog, setAutoProcessDialog] = useState(false);
+  const [autoProcessPreview, setAutoProcessPreview] = useState<{ donation: number; disposal: number; items: any[] }>({ donation: 0, disposal: 0, items: [] });
+
+  const prepareAutoProcess = async () => {
+    setIsAutoProcessing(true);
+    try {
+      const allExpired = await fetchAllFilteredItems();
+      
+      let donationCount = 0;
+      let disposalCount = 0;
+      const classifiedItems = allExpired.map((item: any) => {
+        const dest = classifyExpiredItem(item.description || '');
+        if (dest === 'donation') donationCount++;
+        else disposalCount++;
+        return { ...item, autoDestination: dest };
+      });
+
+      setAutoProcessPreview({ donation: donationCount, disposal: disposalCount, items: classifiedItems });
+      setAutoProcessDialog(true);
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Falha ao preparar processamento.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAutoProcessing(false);
+    }
+  };
+
+  const executeAutoProcess = async () => {
+    setIsAutoProcessing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const donationIds = autoProcessPreview.items
+        .filter((i: any) => i.autoDestination === 'donation')
+        .map((i: any) => i.id);
+      const disposalIds = autoProcessPreview.items
+        .filter((i: any) => i.autoDestination === 'disposal')
+        .map((i: any) => i.id);
+
+      // Process donations
+      if (donationIds.length > 0) {
+        const CHUNK = 200;
+        for (let i = 0; i < donationIds.length; i += CHUNK) {
+          const chunk = donationIds.slice(i, i + CHUNK);
+          const { error } = await supabase
+            .from('lost_items')
+            .update({
+              status: 'delivered',
+              owner_name: 'DOAÇÃO',
+              delivered_at: new Date().toISOString(),
+              delivered_by_team_member: user?.id,
+            })
+            .in('id', chunk);
+          if (error) throw error;
+        }
+      }
+
+      // Process disposals
+      if (disposalIds.length > 0) {
+        const CHUNK = 200;
+        for (let i = 0; i < disposalIds.length; i += CHUNK) {
+          const chunk = disposalIds.slice(i, i + CHUNK);
+          const { error } = await supabase
+            .from('lost_items')
+            .update({
+              status: 'delivered',
+              owner_name: 'DESCARTE',
+              delivered_at: new Date().toISOString(),
+              delivered_by_team_member: user?.id,
+            })
+            .in('id', chunk);
+          if (error) throw error;
+        }
+      }
+
+      // Log activity
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user?.id || '')
+        .maybeSingle();
+
+      await supabase.from('activity_logs').insert({
+        user_id: user?.id || null,
+        user_name: profile?.full_name || user?.email || 'Sistema',
+        module: 'lost-items',
+        action: 'bulk-auto-deliver',
+        entity_id: null,
+        entity_description: 'Baixa automática de expirados',
+        details: `Processou ${autoProcessPreview.items.length} itens expirados automaticamente (${autoProcessPreview.donation} doação, ${autoProcessPreview.disposal} descarte)`,
+      });
+
+      toast({
+        title: 'Baixa automática concluída',
+        description: `${autoProcessPreview.donation} para doação, ${autoProcessPreview.disposal} para descarte.`,
+      });
+
+      setAutoProcessDialog(false);
+      setAutoProcessPreview({ donation: 0, disposal: 0, items: [] });
+      
+      // Refresh data
+      window.location.reload();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Falha ao processar itens.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAutoProcessing(false);
     }
   };
 
