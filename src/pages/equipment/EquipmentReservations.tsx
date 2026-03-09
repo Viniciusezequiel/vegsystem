@@ -153,6 +153,9 @@ export default function EquipmentReservations() {
                       )}
                     </div>
                   </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {reservation.expected_return_date ? formatDate(reservation.expected_return_date) : '—'}
+                  </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <Badge variant={overdue ? 'destructive' : statusLabels[reservation.status as keyof typeof statusLabels]?.variant || 'default'}>
                       <StatusIcon className="h-3 w-3 mr-1" />
