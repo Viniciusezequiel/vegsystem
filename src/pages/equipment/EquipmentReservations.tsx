@@ -102,6 +102,7 @@ export default function EquipmentReservations() {
               <TableHead className="hidden md:table-cell">Setor</TableHead>
               <TableHead className="hidden lg:table-cell">Telefone</TableHead>
               <TableHead>Data Retirada</TableHead>
+              <TableHead className="hidden md:table-cell">Data Devolução</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
               {showActions && <TableHead className="text-right">Ações</TableHead>}
             </TableRow>
