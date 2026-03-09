@@ -75,6 +75,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
     setRequesterType('aluno');
     setPurpose('');
     setScheduledDate('');
+    setExpectedReturnDate('');
     setNotes('');
   };
 
