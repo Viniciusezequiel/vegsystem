@@ -75,6 +75,7 @@ export function useCreateEquipmentReservation() {
       requester_type: string;
       purpose?: string;
       scheduled_pickup_date: string;
+      expected_return_date?: string;
       notes?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
