@@ -47,6 +47,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
   const [requesterType, setRequesterType] = useState('aluno');
   const [purpose, setPurpose] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
+  const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [notes, setNotes] = useState('');
 
   const { data: equipment } = useEquipmentList();
@@ -74,6 +75,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
     setRequesterType('aluno');
     setPurpose('');
     setScheduledDate('');
+    setExpectedReturnDate('');
     setNotes('');
   };
 
@@ -93,6 +95,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
         requester_type: requesterType,
         purpose: purpose || undefined,
         scheduled_pickup_date: scheduledDate,
+        expected_return_date: expectedReturnDate || undefined,
         notes: notes || undefined,
       });
       resetForm();
@@ -252,9 +255,15 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Data Prevista para Retirada *</Label>
-            <DatePickerInput value={scheduledDate} onChange={setScheduledDate} placeholder="Selecionar data" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Data Prevista para Retirada *</Label>
+              <DatePickerInput value={scheduledDate} onChange={setScheduledDate} placeholder="Selecionar data" />
+            </div>
+            <div className="space-y-2">
+              <Label>Data Prevista para Devolução</Label>
+              <DatePickerInput value={expectedReturnDate} onChange={setExpectedReturnDate} placeholder="Selecionar data" />
+            </div>
           </div>
 
           <div className="space-y-2">

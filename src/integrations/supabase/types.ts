@@ -357,6 +357,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           equipment_id: string
+          expected_return_date: string | null
           id: string
           notes: string | null
           purpose: string | null
@@ -373,6 +374,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           equipment_id: string
+          expected_return_date?: string | null
           id?: string
           notes?: string | null
           purpose?: string | null
@@ -389,6 +391,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           equipment_id?: string
+          expected_return_date?: string | null
           id?: string
           notes?: string | null
           purpose?: string | null

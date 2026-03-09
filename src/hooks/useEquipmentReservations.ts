@@ -14,6 +14,7 @@ export type EquipmentReservation = {
   requester_type: string;
   purpose: string | null;
   scheduled_pickup_date: string;
+  expected_return_date: string | null;
   status: 'awaiting_pickup' | 'picked_up' | 'cancelled';
   notes: string | null;
   created_by: string | null;
@@ -74,6 +75,7 @@ export function useCreateEquipmentReservation() {
       requester_type: string;
       purpose?: string;
       scheduled_pickup_date: string;
+      expected_return_date?: string;
       notes?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();

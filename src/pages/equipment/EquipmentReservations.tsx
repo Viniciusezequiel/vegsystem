@@ -102,6 +102,7 @@ export default function EquipmentReservations() {
               <TableHead className="hidden md:table-cell">Setor</TableHead>
               <TableHead className="hidden lg:table-cell">Telefone</TableHead>
               <TableHead>Data Retirada</TableHead>
+              <TableHead className="hidden md:table-cell">Data Devolução</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
               {showActions && <TableHead className="text-right">Ações</TableHead>}
             </TableRow>
@@ -151,6 +152,9 @@ export default function EquipmentReservations() {
                         <span className="text-xs text-primary font-medium">(Hoje)</span>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {reservation.expected_return_date ? formatDate(reservation.expected_return_date) : '—'}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <Badge variant={overdue ? 'destructive' : statusLabels[reservation.status as keyof typeof statusLabels]?.variant || 'default'}>
