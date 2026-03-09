@@ -1,0 +1,1 @@
+ALTER TABLE public.equipment_reservations ADD COLUMN expected_return_date date;
