@@ -47,6 +47,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
   const [requesterType, setRequesterType] = useState('aluno');
   const [purpose, setPurpose] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
+  const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [notes, setNotes] = useState('');
 
   const { data: equipment } = useEquipmentList();
