@@ -261,7 +261,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
               <DatePickerInput value={scheduledDate} onChange={setScheduledDate} placeholder="Selecionar data" />
             </div>
             <div className="space-y-2">
-              <Label>Data Prevista para Devolução</Label>
+              <Label>Data Prevista para Devolução *</Label>
               <DatePickerInput value={expectedReturnDate} onChange={setExpectedReturnDate} placeholder="Selecionar data" />
             </div>
           </div>
