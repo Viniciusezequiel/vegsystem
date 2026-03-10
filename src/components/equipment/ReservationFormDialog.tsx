@@ -54,7 +54,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
   const createReservation = useCreateEquipmentReservation();
 
   const availableEquipment = useMemo(() => {
-    return equipment?.filter(e => e.available_quantity > 0) || [];
+    return equipment?.filter(e => e.status !== 'maintenance') || [];
   }, [equipment]);
 
   const filteredEquipment = useMemo(() => {
