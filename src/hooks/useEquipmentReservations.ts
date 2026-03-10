@@ -80,19 +80,6 @@ export function useCreateEquipmentReservation() {
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Check availability
-      const { data: equipment, error: eqError } = await supabase
-        .from('equipment')
-        .select('available_quantity')
-        .eq('id', reservation.equipment_id)
-        .single();
-
-      if (eqError) throw eqError;
-
-      if (equipment.available_quantity < reservation.quantity_reserved) {
-        throw new Error(`Quantidade indisponível. Disponível: ${equipment.available_quantity}`);
-      }
-
       const { data, error } = await supabase
         .from('equipment_reservations')
         .insert({
@@ -104,15 +91,8 @@ export function useCreateEquipmentReservation() {
 
       if (error) throw error;
 
-      // Deduzir do estoque imediatamente
-      const newAvailable = equipment.available_quantity - reservation.quantity_reserved;
-      await supabase
-        .from('equipment')
-        .update({
-          available_quantity: newAvailable,
-          status: newAvailable === 0 ? 'borrowed' : 'available',
-        })
-        .eq('id', reservation.equipment_id);
+      // Estoque NÃO é deduzido na pré-reserva.
+      // A dedução ocorre apenas quando o empréstimo é efetivado (retirada).
 
       return data;
     },
