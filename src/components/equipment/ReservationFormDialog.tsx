@@ -80,8 +80,8 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
   };
 
   const handleSubmit = async () => {
-    if (!selectedEquipment || !requesterName || !requesterPhone || !requesterSector || !scheduledDate) {
-      toast.error('Preencha todos os campos obrigatórios');
+    if (!selectedEquipment || !requesterName || !requesterPhone || !requesterSector || !scheduledDate || !expectedReturnDate) {
+      toast.error('Preencha todos os campos obrigatórios (incluindo data de devolução)');
       return;
     }
 
@@ -95,7 +95,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
         requester_type: requesterType,
         purpose: purpose || undefined,
         scheduled_pickup_date: scheduledDate,
-        expected_return_date: expectedReturnDate || undefined,
+        expected_return_date: expectedReturnDate,
         notes: notes || undefined,
       });
       resetForm();
@@ -261,7 +261,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
               <DatePickerInput value={scheduledDate} onChange={setScheduledDate} placeholder="Selecionar data" />
             </div>
             <div className="space-y-2">
-              <Label>Data Prevista para Devolução</Label>
+              <Label>Data Prevista para Devolução *</Label>
               <DatePickerInput value={expectedReturnDate} onChange={setExpectedReturnDate} placeholder="Selecionar data" />
             </div>
           </div>
@@ -277,7 +277,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={createReservation.isPending || !selectedEquipment || !requesterName || !scheduledDate}
+              disabled={createReservation.isPending || !selectedEquipment || !requesterName || !scheduledDate || !expectedReturnDate}
             >
               {createReservation.isPending ? 'Registrando...' : 'Registrar Pré-Reserva'}
             </Button>
