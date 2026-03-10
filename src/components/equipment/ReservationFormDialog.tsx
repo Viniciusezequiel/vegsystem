@@ -95,7 +95,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
         requester_type: requesterType,
         purpose: purpose || undefined,
         scheduled_pickup_date: scheduledDate,
-        expected_return_date: expectedReturnDate || undefined,
+        expected_return_date: expectedReturnDate,
         notes: notes || undefined,
       });
       resetForm();
