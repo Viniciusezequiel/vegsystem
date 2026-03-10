@@ -14,7 +14,7 @@ export type EquipmentReservation = {
   requester_type: string;
   purpose: string | null;
   scheduled_pickup_date: string;
-  expected_return_date: string | null;
+  expected_return_date: string;
   status: 'awaiting_pickup' | 'picked_up' | 'cancelled';
   notes: string | null;
   created_by: string | null;
@@ -62,6 +62,98 @@ export function useEquipmentReservations(status?: string) {
   });
 }
 
+/**
+ * Verifica se há conflito de datas para o mesmo equipamento.
+ * Regra: Se o item será devolvido no dia X, a próxima reserva só pode começar no dia X+1 (buffer de 24h).
+ * Verifica sobreposição entre [pickup, return] considerando o buffer.
+ */
+async function checkDateConflict(
+  equipmentId: string,
+  scheduledPickupDate: string,
+  expectedReturnDate: string,
+  quantityRequested: number,
+  excludeReservationId?: string
+): Promise<{ hasConflict: boolean; message: string }> {
+  // Buscar todas as reservas ativas (awaiting_pickup) para este equipamento
+  let query = supabase
+    .from('equipment_reservations')
+    .select('id, scheduled_pickup_date, expected_return_date, quantity_reserved')
+    .eq('equipment_id', equipmentId)
+    .eq('status', 'awaiting_pickup');
+
+  if (excludeReservationId) {
+    query = query.neq('id', excludeReservationId);
+  }
+
+  const { data: existingReservations, error } = await query;
+  if (error) throw error;
+
+  // Buscar empréstimos ativos para este equipamento
+  const { data: activeLoans, error: loansError } = await supabase
+    .from('equipment_loans')
+    .select('id, expected_return_date, quantity_borrowed')
+    .eq('equipment_id', equipmentId)
+    .eq('status', 'active');
+
+  if (loansError) throw loansError;
+
+  // Para cada reserva/empréstimo existente, verificar sobreposição com buffer de 24h
+  const newPickup = new Date(scheduledPickupDate);
+  const newReturn = new Date(expectedReturnDate);
+
+  // Check against existing reservations
+  for (const res of (existingReservations || [])) {
+    if (!res.expected_return_date) continue;
+
+    const existingPickup = new Date(res.scheduled_pickup_date);
+    const existingReturn = new Date(res.expected_return_date);
+
+    // Add 1 day buffer after existing return
+    const existingReturnPlusBuffer = new Date(existingReturn);
+    existingReturnPlusBuffer.setDate(existingReturnPlusBuffer.getDate() + 1);
+
+    // Add 1 day buffer after new return
+    const newReturnPlusBuffer = new Date(newReturn);
+    newReturnPlusBuffer.setDate(newReturnPlusBuffer.getDate() + 1);
+
+    // Check overlap with buffer:
+    // New reservation starts before existing return+buffer AND new return+buffer is after existing pickup
+    const hasOverlap = newPickup < existingReturnPlusBuffer && newReturnPlusBuffer > existingPickup;
+
+    if (hasOverlap) {
+      const returnDateFormatted = existingReturn.toLocaleDateString('pt-BR');
+      const nextAvailable = existingReturnPlusBuffer.toLocaleDateString('pt-BR');
+      return {
+        hasConflict: true,
+        message: `Este equipamento já possui uma pré-reserva para esse período (devolução em ${returnDateFormatted}). A próxima data disponível para retirada é ${nextAvailable}.`,
+      };
+    }
+  }
+
+  // Check against active loans
+  for (const loan of (activeLoans || [])) {
+    if (!loan.expected_return_date) continue;
+
+    const loanReturn = new Date(loan.expected_return_date);
+
+    // Add 1 day buffer after loan return
+    const loanReturnPlusBuffer = new Date(loanReturn);
+    loanReturnPlusBuffer.setDate(loanReturnPlusBuffer.getDate() + 1);
+
+    // New reservation pickup must be after loan return + buffer
+    if (newPickup < loanReturnPlusBuffer) {
+      const returnDateFormatted = loanReturn.toLocaleDateString('pt-BR');
+      const nextAvailable = loanReturnPlusBuffer.toLocaleDateString('pt-BR');
+      return {
+        hasConflict: true,
+        message: `Este equipamento está emprestado com devolução prevista em ${returnDateFormatted}. A próxima data disponível para retirada é ${nextAvailable}.`,
+      };
+    }
+  }
+
+  return { hasConflict: false, message: '' };
+}
+
 export function useCreateEquipmentReservation() {
   const queryClient = useQueryClient();
 
@@ -75,9 +167,26 @@ export function useCreateEquipmentReservation() {
       requester_type: string;
       purpose?: string;
       scheduled_pickup_date: string;
-      expected_return_date?: string;
+      expected_return_date: string;
       notes?: string;
     }) => {
+      // Validar data de devolução
+      if (!reservation.expected_return_date) {
+        throw new Error('A data prevista para devolução é obrigatória');
+      }
+
+      // Verificar conflito de datas com buffer de 24h
+      const conflict = await checkDateConflict(
+        reservation.equipment_id,
+        reservation.scheduled_pickup_date,
+        reservation.expected_return_date,
+        reservation.quantity_reserved
+      );
+
+      if (conflict.hasConflict) {
+        throw new Error(conflict.message);
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
 
       const { data, error } = await supabase
@@ -91,8 +200,19 @@ export function useCreateEquipmentReservation() {
 
       if (error) throw error;
 
-      // Estoque NÃO é deduzido na pré-reserva.
-      // A dedução ocorre apenas quando o empréstimo é efetivado (retirada).
+      // Deduzir do estoque ao criar pré-reserva
+      const { error: stockError } = await supabase
+        .from('equipment')
+        .update({
+          available_quantity: (data.equipment as any).available_quantity - reservation.quantity_reserved,
+        })
+        .eq('id', reservation.equipment_id);
+
+      if (stockError) {
+        // Rollback: remover a reserva
+        await supabase.from('equipment_reservations').delete().eq('id', data.id);
+        throw new Error('Erro ao atualizar estoque: ' + stockError.message);
+      }
 
       return data;
     },
@@ -102,7 +222,7 @@ export function useCreateEquipmentReservation() {
       toast.success('Pré-reserva registrada com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error('Erro ao registrar pré-reserva: ' + error.message);
+      toast.error(error.message);
     },
   });
 }
@@ -125,12 +245,25 @@ export function useCancelReservation() {
         throw new Error('Apenas reservas aguardando retirada podem ser canceladas');
       }
 
-      // Cancelar reserva (estoque não precisa ser restaurado pois não foi deduzido)
+      // Cancelar reserva
       const { error } = await supabase
         .from('equipment_reservations')
         .update({ status: 'cancelled' })
         .eq('id', id);
       if (error) throw error;
+
+      // Restaurar estoque
+      const currentAvailable = (reservation.equipment as any)?.available_quantity ?? 0;
+      const { error: stockError } = await supabase
+        .from('equipment')
+        .update({
+          available_quantity: currentAvailable + reservation.quantity_reserved,
+        })
+        .eq('id', reservation.equipment_id);
+
+      if (stockError) {
+        console.error('Erro ao restaurar estoque:', stockError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-reservations'] });

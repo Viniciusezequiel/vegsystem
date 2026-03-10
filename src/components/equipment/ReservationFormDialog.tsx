@@ -80,8 +80,8 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
   };
 
   const handleSubmit = async () => {
-    if (!selectedEquipment || !requesterName || !requesterPhone || !requesterSector || !scheduledDate) {
-      toast.error('Preencha todos os campos obrigatórios');
+    if (!selectedEquipment || !requesterName || !requesterPhone || !requesterSector || !scheduledDate || !expectedReturnDate) {
+      toast.error('Preencha todos os campos obrigatórios (incluindo data de devolução)');
       return;
     }
 
