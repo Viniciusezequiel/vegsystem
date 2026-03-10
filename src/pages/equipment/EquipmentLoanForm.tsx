@@ -110,7 +110,7 @@ export default function EquipmentLoanForm() {
   }, [reservationData, equipment]);
 
   const availableEquipment = useMemo(() => {
-    return equipment?.filter(e => e.available_quantity > 0) || [];
+    return equipment?.filter(e => e.status !== 'maintenance') || [];
   }, [equipment]);
 
   const filteredEquipment = useMemo(() => {
