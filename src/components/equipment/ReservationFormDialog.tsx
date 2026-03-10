@@ -277,7 +277,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={createReservation.isPending || !selectedEquipment || !requesterName || !scheduledDate}
+              disabled={createReservation.isPending || !selectedEquipment || !requesterName || !scheduledDate || !expectedReturnDate}
             >
               {createReservation.isPending ? 'Registrando...' : 'Registrar Pré-Reserva'}
             </Button>
