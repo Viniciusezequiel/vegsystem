@@ -198,7 +198,6 @@ export default function EquipmentLoanForm() {
           authorizer_name: data.authorizer_name || undefined,
           authorizer_contact: data.authorizer_contact || undefined,
           collaborator_name: profile?.full_name || undefined,
-          skip_stock_deduction: !!reservationData, // Estoque já deduzido na reserva
         });
       }
       

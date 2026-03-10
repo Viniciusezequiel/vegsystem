@@ -165,6 +165,22 @@ export function useCreateTask() {
 
   return useMutation({
     mutationFn: async (data: CreateTaskData) => {
+      // Buscar dados frescos do usuário para garantir o nome correto
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const userId = currentUser?.id || user?.id;
+
+      let creatorName = profile?.full_name || user?.email || 'Sistema';
+      if (userId) {
+        const { data: freshProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (freshProfile?.full_name) {
+          creatorName = freshProfile.full_name;
+        }
+      }
+
       const { data: task, error } = await supabase
         .from('tasks')
         .insert({
@@ -178,8 +194,8 @@ export function useCreateTask() {
           estimated_hours: data.estimated_hours || null,
           tags: data.tags || null,
           notes: data.notes || null,
-          created_by: user?.id || null,
-          created_by_name: profile?.full_name || user?.email || 'Sistema',
+          created_by: userId || null,
+          created_by_name: creatorName,
         })
         .select()
         .single();

@@ -125,22 +125,12 @@ export function useCancelReservation() {
         throw new Error('Apenas reservas aguardando retirada podem ser canceladas');
       }
 
-      // Cancelar reserva
+      // Cancelar reserva (estoque não precisa ser restaurado pois não foi deduzido)
       const { error } = await supabase
         .from('equipment_reservations')
         .update({ status: 'cancelled' })
         .eq('id', id);
       if (error) throw error;
-
-      // Restaurar estoque
-      const equip = reservation.equipment as any;
-      await supabase
-        .from('equipment')
-        .update({
-          available_quantity: equip.available_quantity + reservation.quantity_reserved,
-          status: 'available',
-        })
-        .eq('id', reservation.equipment_id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-reservations'] });
