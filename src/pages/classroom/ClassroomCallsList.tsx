@@ -30,7 +30,7 @@ export default function ClassroomCallsList() {
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');

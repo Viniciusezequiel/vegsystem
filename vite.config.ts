@@ -14,5 +14,25 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: [
+      "react",
+      "react-dom",
+      "react/jsx-runtime",
+      "@tanstack/react-query",
+      "react-router-dom",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-label",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-radio-group",
+      "@radix-ui/react-select",
+      "@supabase/supabase-js",
+    ],
+  },
+  optimizeDeps: {
+    include: [
+      "@tanstack/react-query",
+      "react-router-dom",
+      "@supabase/supabase-js",
+    ],
   },
 }));
