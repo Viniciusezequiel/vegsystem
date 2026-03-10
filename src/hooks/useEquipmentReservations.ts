@@ -175,6 +175,19 @@ export function useCreateEquipmentReservation() {
         throw new Error('A data prevista para devolução é obrigatória');
       }
 
+      // Verificar estoque disponível antes de criar
+      const { data: currentEquipment, error: equipError } = await supabase
+        .from('equipment')
+        .select('available_quantity, name')
+        .eq('id', reservation.equipment_id)
+        .single();
+
+      if (equipError) throw equipError;
+
+      if (currentEquipment.available_quantity < reservation.quantity_reserved) {
+        throw new Error(`Estoque insuficiente para "${currentEquipment.name}". Disponível: ${currentEquipment.available_quantity}, Solicitado: ${reservation.quantity_reserved}`);
+      }
+
       // Verificar conflito de datas com buffer de 24h
       const conflict = await checkDateConflict(
         reservation.equipment_id,
