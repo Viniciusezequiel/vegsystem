@@ -206,8 +206,8 @@ export function useCreateTask() {
 
       // Log activity
       await supabase.from('activity_logs').insert({
-        user_id: user?.id,
-        user_name: profile?.full_name || user?.email || 'Sistema',
+        user_id: userId,
+        user_name: creatorName,
         module: 'tasks',
         action: 'create',
         entity_id: taskData.id,
@@ -218,8 +218,8 @@ export function useCreateTask() {
       // Log task history
       await supabase.from('task_history').insert({
         task_id: taskData.id,
-        user_id: user?.id,
-        user_name: profile?.full_name || user?.email || 'Sistema',
+        user_id: userId,
+        user_name: creatorName,
         action: 'Criou a demanda',
       });
 
