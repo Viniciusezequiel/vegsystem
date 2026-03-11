@@ -114,8 +114,8 @@ export function useCreateMaterialRequest() {
       const { data: result, error } = await supabase
         .from('material_requests')
         .insert({
-          requester_id: user.id,
-          requester_name: profile.full_name,
+          requester_id: userId,
+          requester_name: requesterName,
           title: data.title,
           description: data.description,
           items: data.items as unknown as any,
