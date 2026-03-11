@@ -165,21 +165,23 @@ export function useCreateTask() {
 
   return useMutation({
     mutationFn: async (data: CreateTaskData) => {
-      // Buscar dados frescos do usuário para garantir o nome correto
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      const userId = currentUser?.id || user?.id;
-
-      let creatorName = profile?.full_name || user?.email || 'Sistema';
-      if (userId) {
-        const { data: freshProfile } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('user_id', userId)
-          .maybeSingle();
-        if (freshProfile?.full_name) {
-          creatorName = freshProfile.full_name;
-        }
+      // SEMPRE buscar o usuário autenticado direto do servidor (não usar cache)
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !currentUser?.id) {
+        throw new Error('Não foi possível verificar sua identidade. Faça login novamente.');
       }
+      
+      const userId = currentUser.id;
+
+      // Buscar nome FRESCO do banco usando o ID verificado do servidor
+      const { data: freshProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      const creatorName = freshProfile?.full_name || currentUser.email || 'Sistema';
 
       const { data: task, error } = await supabase
         .from('tasks')
