@@ -213,11 +213,12 @@ export function useCreateEquipmentReservation() {
 
       if (error) throw error;
 
-      // Deduzir do estoque ao criar pré-reserva
+      // Deduzir do estoque ao criar pré-reserva (usar valor já validado)
+      const newAvailable = currentEquipment.available_quantity - reservation.quantity_reserved;
       const { error: stockError } = await supabase
         .from('equipment')
         .update({
-          available_quantity: (data.equipment as any).available_quantity - reservation.quantity_reserved,
+          available_quantity: newAvailable,
         })
         .eq('id', reservation.equipment_id);
 
