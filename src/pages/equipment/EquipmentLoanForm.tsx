@@ -184,6 +184,10 @@ export default function EquipmentLoanForm() {
     
     try {
       for (const item of selectedItems) {
+        const isReservedPickupItem =
+          Boolean(reservationData?.reservationId) &&
+          item.equipment.id === reservationData?.equipmentId;
+
         await createLoan.mutateAsync({
           equipment_id: item.equipment.id,
           quantity_borrowed: item.quantity,
@@ -198,6 +202,7 @@ export default function EquipmentLoanForm() {
           authorizer_name: data.authorizer_name || undefined,
           authorizer_contact: data.authorizer_contact || undefined,
           collaborator_name: profile?.full_name || undefined,
+          skip_stock_deduction: isReservedPickupItem,
         });
       }
       
