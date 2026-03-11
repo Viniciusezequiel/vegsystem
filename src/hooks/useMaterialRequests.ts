@@ -93,9 +93,23 @@ export function useCreateMaterialRequest() {
       assigned_to?: string;
       assigned_to_name?: string;
     }) => {
-      if (!user?.id || !profile?.full_name) {
-        throw new Error('Usuário não autenticado');
+      // SEMPRE buscar o usuário autenticado direto do servidor
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !currentUser?.id) {
+        throw new Error('Não foi possível verificar sua identidade. Faça login novamente.');
       }
+      
+      const userId = currentUser.id;
+      
+      // Buscar nome fresco do banco
+      const { data: freshProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      const requesterName = freshProfile?.full_name || currentUser.email || 'Sistema';
       
       const { data: result, error } = await supabase
         .from('material_requests')
