@@ -161,28 +161,9 @@ export function useTaskHistory(taskId: string) {
 
 export function useCreateTask() {
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async (data: CreateTaskData) => {
-      // SEMPRE buscar o usuário autenticado direto do servidor (não usar cache)
-      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !currentUser?.id) {
-        throw new Error('Não foi possível verificar sua identidade. Faça login novamente.');
-      }
-      
-      const userId = currentUser.id;
-
-      // Buscar nome FRESCO do banco usando o ID verificado do servidor
-      const { data: freshProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      const creatorName = freshProfile?.full_name || currentUser.email || 'Sistema';
-
       const { data: task, error } = await supabase
         .from('tasks')
         .insert({
@@ -196,8 +177,7 @@ export function useCreateTask() {
           estimated_hours: data.estimated_hours || null,
           tags: data.tags || null,
           notes: data.notes || null,
-          created_by: userId || null,
-          created_by_name: creatorName,
+          created_by_name: 'Sistema',
         })
         .select()
         .single();
@@ -205,25 +185,27 @@ export function useCreateTask() {
       if (error) throw error;
 
       const taskData = task as Task;
+      const actorId = taskData.created_by;
+      const actorName = taskData.created_by_name || 'Sistema';
 
-      // Log activity
-      await supabase.from('activity_logs').insert({
-        user_id: userId,
-        user_name: creatorName,
-        module: 'tasks',
-        action: 'create',
-        entity_id: taskData.id,
-        entity_description: taskData.title,
-        details: data.assigned_to_name ? `Designada para ${data.assigned_to_name}` : 'Sem designação',
-      });
-
-      // Log task history
-      await supabase.from('task_history').insert({
-        task_id: taskData.id,
-        user_id: userId,
-        user_name: creatorName,
-        action: 'Criou a demanda',
-      });
+      // Log activity + history using persisted creator fields from DB
+      await Promise.all([
+        supabase.from('activity_logs').insert({
+          user_id: actorId,
+          user_name: actorName,
+          module: 'tasks',
+          action: 'create',
+          entity_id: taskData.id,
+          entity_description: taskData.title,
+          details: data.assigned_to_name ? `Designada para ${data.assigned_to_name}` : 'Sem designação',
+        }),
+        supabase.from('task_history').insert({
+          task_id: taskData.id,
+          user_id: actorId,
+          user_name: actorName,
+          action: 'Criou a demanda',
+        }),
+      ]);
 
       // Send email notification if assigned to someone (fire-and-forget)
       if (data.assigned_to && data.assigned_to_name) {
@@ -245,7 +227,7 @@ export function useCreateTask() {
                   taskPriority: taskData.priority,
                   assignedToEmail: assigneeProfile.email,
                   assignedToName: data.assigned_to_name,
-                  createdByName: creatorName,
+                  createdByName: actorName,
                   dueDate: taskData.due_date,
                   eventStart: taskAny.event_start_datetime,
                   eventEnd: taskAny.event_end_datetime,
