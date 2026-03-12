@@ -177,6 +177,7 @@ export function useCreateTask() {
           estimated_hours: data.estimated_hours || null,
           tags: data.tags || null,
           notes: data.notes || null,
+          created_by_name: 'Sistema',
         })
         .select()
         .single();
