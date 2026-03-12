@@ -227,7 +227,7 @@ export function useCreateTask() {
                   taskPriority: taskData.priority,
                   assignedToEmail: assigneeProfile.email,
                   assignedToName: data.assigned_to_name,
-                  createdByName: creatorName,
+                  createdByName: actorName,
                   dueDate: taskData.due_date,
                   eventStart: taskAny.event_start_datetime,
                   eventEnd: taskAny.event_end_datetime,
