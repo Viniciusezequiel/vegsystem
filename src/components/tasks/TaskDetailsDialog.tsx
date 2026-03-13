@@ -63,7 +63,7 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
   if (!task) return null;
 
   const canManageTeam = isAdmin || isSupervisor;
-  const taskAny = task as Record<string, unknown>;
+  
 
   const handleAddComment = async () => {
     if (!comment.trim()) return;
