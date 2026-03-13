@@ -19,6 +19,8 @@ export interface CreateTaskData {
   estimated_hours?: number;
   tags?: string[];
   notes?: string;
+  event_start_datetime?: string | null;
+  event_end_datetime?: string | null;
 }
 
 export interface UpdateTaskData extends Partial<CreateTaskData> {
