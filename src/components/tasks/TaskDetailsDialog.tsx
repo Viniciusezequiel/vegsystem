@@ -206,37 +206,41 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
             </div>
 
             {/* Event / Acompanhamento info */}
-            {(taskAny.event_start_datetime || taskAny.event_end_datetime) && (
+            {(task.event_start_datetime || task.event_end_datetime) && (
               <>
                 <Separator />
-                <div className="bg-muted/30 rounded-lg p-4 space-y-3">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <CalendarClock className="w-4 h-4 text-primary" />
-                    Dados do Evento/Acompanhamento
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                    <CalendarClock className="w-4 h-4" />
+                    Dados do Evento / Acompanhamento
                   </h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    {taskAny.event_start_datetime && (
-                      <div>
-                        <p className="text-muted-foreground">Início do Evento</p>
-                        <p className="font-medium">{format(parseISO(taskAny.event_start_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {task.event_start_datetime && (
+                      <div className="space-y-0.5">
+                        <p className="text-muted-foreground text-xs">Data de Início</p>
+                        <p className="font-medium">{format(parseISO(task.event_start_datetime), "dd/MM/yyyy", { locale: ptBR })}</p>
+                        <p className="text-muted-foreground text-xs mt-1">Horário de Início</p>
+                        <p className="font-medium">{format(parseISO(task.event_start_datetime), "HH:mm", { locale: ptBR })}</p>
                       </div>
                     )}
-                    {taskAny.event_end_datetime && (
-                      <div>
-                        <p className="text-muted-foreground">Término do Evento</p>
-                        <p className="font-medium">{format(parseISO(taskAny.event_end_datetime as string), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                    {task.event_end_datetime && (
+                      <div className="space-y-0.5">
+                        <p className="text-muted-foreground text-xs">Data de Término</p>
+                        <p className="font-medium">{format(parseISO(task.event_end_datetime), "dd/MM/yyyy", { locale: ptBR })}</p>
+                        <p className="text-muted-foreground text-xs mt-1">Horário de Término</p>
+                        <p className="font-medium">{format(parseISO(task.event_end_datetime), "HH:mm", { locale: ptBR })}</p>
                       </div>
                     )}
                     <div>
-                      <p className="text-muted-foreground">Responsável pelo acompanhamento</p>
+                      <p className="text-muted-foreground text-xs">Responsável pelo Acompanhamento</p>
                       <p className="font-medium">{task.assigned_to_name || 'Não definido'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Status do Evento</p>
+                      <p className="text-muted-foreground text-xs">Status do Evento</p>
                       <p className="font-medium">
-                        {taskAny.event_end_datetime && new Date() >= new Date(taskAny.event_end_datetime as string)
+                        {task.event_end_datetime && new Date() >= new Date(task.event_end_datetime)
                           ? '✅ Evento encerrado'
-                          : taskAny.event_start_datetime && new Date() >= new Date(taskAny.event_start_datetime as string)
+                          : task.event_start_datetime && new Date() >= new Date(task.event_start_datetime)
                             ? '🔵 Em andamento'
                             : '⏳ Aguardando início'}
                       </p>
