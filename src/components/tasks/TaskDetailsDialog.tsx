@@ -206,49 +206,61 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
             </div>
 
             {/* Event / Acompanhamento info */}
-            {(task.event_start_datetime || task.event_end_datetime) && (
-              <>
-                <Separator />
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-3">
-                  <h4 className="text-sm font-semibold flex items-center gap-2 text-primary">
-                    <CalendarClock className="w-4 h-4" />
-                    Dados do Evento / Acompanhamento
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    {task.event_start_datetime && (
+            {(() => {
+              const isAcompanhamentoTask = task.category?.toLowerCase() === 'acompanhamento';
+              const eventStart = task.event_start_datetime ? parseISO(task.event_start_datetime) : null;
+              const eventEnd = task.event_end_datetime ? parseISO(task.event_end_datetime) : null;
+
+              if (!isAcompanhamentoTask && !eventStart && !eventEnd) {
+                return null;
+              }
+
+              return (
+                <>
+                  <Separator />
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-3">
+                    <h4 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                      <CalendarClock className="w-4 h-4" />
+                      Dados do Evento / Acompanhamento
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
                       <div className="space-y-0.5">
                         <p className="text-muted-foreground text-xs">Data de Início</p>
-                        <p className="font-medium">{format(parseISO(task.event_start_datetime), "dd/MM/yyyy", { locale: ptBR })}</p>
-                        <p className="text-muted-foreground text-xs mt-1">Horário de Início</p>
-                        <p className="font-medium">{format(parseISO(task.event_start_datetime), "HH:mm", { locale: ptBR })}</p>
+                        <p className="font-medium">{eventStart ? format(eventStart, 'dd/MM/yyyy', { locale: ptBR }) : 'Não informado'}</p>
                       </div>
-                    )}
-                    {task.event_end_datetime && (
+                      <div className="space-y-0.5">
+                        <p className="text-muted-foreground text-xs">Horário de Início</p>
+                        <p className="font-medium">{eventStart ? format(eventStart, 'HH:mm', { locale: ptBR }) : 'Não informado'}</p>
+                      </div>
                       <div className="space-y-0.5">
                         <p className="text-muted-foreground text-xs">Data de Término</p>
-                        <p className="font-medium">{format(parseISO(task.event_end_datetime), "dd/MM/yyyy", { locale: ptBR })}</p>
-                        <p className="text-muted-foreground text-xs mt-1">Horário de Término</p>
-                        <p className="font-medium">{format(parseISO(task.event_end_datetime), "HH:mm", { locale: ptBR })}</p>
+                        <p className="font-medium">{eventEnd ? format(eventEnd, 'dd/MM/yyyy', { locale: ptBR }) : 'Não informado'}</p>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-muted-foreground text-xs">Responsável pelo Acompanhamento</p>
-                      <p className="font-medium">{task.assigned_to_name || 'Não definido'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Status do Evento</p>
-                      <p className="font-medium">
-                        {task.event_end_datetime && new Date() >= new Date(task.event_end_datetime)
-                          ? '✅ Evento encerrado'
-                          : task.event_start_datetime && new Date() >= new Date(task.event_start_datetime)
-                            ? '🔵 Em andamento'
-                            : '⏳ Aguardando início'}
-                      </p>
+                      <div className="space-y-0.5">
+                        <p className="text-muted-foreground text-xs">Horário de Término</p>
+                        <p className="font-medium">{eventEnd ? format(eventEnd, 'HH:mm', { locale: ptBR }) : 'Não informado'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">Responsável pelo Acompanhamento</p>
+                        <p className="font-medium">{task.assigned_to_name || 'Não definido'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">Status do Evento</p>
+                        <p className="font-medium">
+                          {eventEnd && new Date() >= eventEnd
+                            ? '✅ Evento encerrado'
+                            : eventStart && new Date() >= eventStart
+                              ? '🔵 Em andamento'
+                              : eventStart || eventEnd
+                                ? '⏳ Aguardando início'
+                                : '⏳ Horários não informados'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              );
+            })()}
 
             {task.notes && (
               <>
