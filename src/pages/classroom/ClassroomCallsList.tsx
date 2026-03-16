@@ -59,7 +59,7 @@ export default function ClassroomCallsList() {
     return unique;
   }, [roomsConfig]);
 
-  const campusFilter = selectedCampus || undefined;
+  const campusFilter = selectedCampus && selectedCampus !== 'all' ? selectedCampus : undefined;
   
   const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab, campusFilter);
   const { data: pendingCount } = usePendingCallsCount(campusFilter);
