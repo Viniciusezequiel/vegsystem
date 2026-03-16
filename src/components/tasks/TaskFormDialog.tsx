@@ -93,6 +93,10 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         is_recurring: !!recurrence,
         recurrence_type: recurrence,
       });
+      // Load existing team members
+      if (existingTeamMembers) {
+        setAdditionalAssignees(existingTeamMembers.map(m => ({ userId: m.user_id, name: m.user_name })));
+      }
     } else {
       setFormData({
         title: '',
@@ -111,8 +115,9 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         is_recurring: false,
         recurrence_type: '',
       });
+      setAdditionalAssignees([]);
     }
-  }, [task, open]);
+  }, [task, open, existingTeamMembers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
