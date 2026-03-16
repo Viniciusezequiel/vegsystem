@@ -142,22 +142,36 @@ export default function ClassroomCallForm() {
     
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-classroom-call', {
-        body: {
-          room_name: `${selectedRoom.name} (${selectedRoom.campus})`,
-          reason: additionalInfo,
-          issue_description: selectedIssue?.description,
-        },
-      });
-
-      if (error || !data?.success) {
-        throw new Error(data?.error || error?.message || 'Erro ao criar chamado');
+      const roomName = `${selectedRoom.name} (${selectedRoom.campus})`;
+      let reason = '';
+      if (selectedIssue?.description) {
+        reason = selectedIssue.description;
+        if (additionalInfo.trim()) {
+          reason += ' — ' + additionalInfo.trim();
+        }
+      } else {
+        reason = additionalInfo.trim();
       }
 
-      setSubmittedRoomName(`${selectedRoom.name} (${selectedRoom.campus})`);
-      setSubmittedCallId(data.data.id);
-      setCallStatus({ status: data.data.status as 'pending' });
+      const { data, error } = await supabase
+        .from('classroom_calls')
+        .insert({
+          room_name: roomName,
+          reason: reason,
+          status: 'pending',
+        })
+        .select('id, status')
+        .single();
+
+      if (error) {
+        throw new Error(error.message || 'Erro ao criar chamado');
+      }
+
+      setSubmittedRoomName(roomName);
+      setSubmittedCallId(data.id);
+      setCallStatus({ status: data.status as 'pending' });
     } catch (error: any) {
+      console.error('Error creating call:', error);
       createCall.mutate({ room_name: selectedRoom.name, reason: selectedIssue?.description || additionalInfo });
     } finally {
       setIsSubmitting(false);
