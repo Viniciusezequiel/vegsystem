@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import CommentWithAttachments from './CommentWithAttachments';
+import CommentAttachmentDisplay from './CommentAttachmentDisplay';
 import {
   Dialog,
   DialogContent,
