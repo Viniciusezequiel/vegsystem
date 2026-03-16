@@ -270,10 +270,6 @@ export default function ClassroomCallsList() {
           </CardContent>
         </Card>
       )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="space-y-6">
         {/* Header */}
