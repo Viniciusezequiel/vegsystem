@@ -37,30 +37,52 @@ export default function ClassroomCallForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch rooms config from edge function (no auth needed)
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-classroom-call-config');
-        if (!error && data?.rooms) {
-          setRooms(data.rooms);
-          
-          // Auto-select room from URL param
-          const urlRoom = searchParams.get('sala') || searchParams.get('room');
-          if (urlRoom) {
-            const found = data.rooms.find((r: RoomConfig) => 
-              r.name.toLowerCase() === urlRoom.toLowerCase()
-            );
-            if (found) setSelectedRoomId(found.id);
-          }
+  const fetchConfig = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-classroom-call-config');
+      if (!error && data?.rooms) {
+        setRooms(data.rooms);
+        
+        // Auto-select room from URL param
+        const urlRoom = searchParams.get('sala') || searchParams.get('room');
+        if (urlRoom) {
+          const found = data.rooms.find((r: RoomConfig) => 
+            r.name.toLowerCase() === urlRoom.toLowerCase()
+          );
+          if (found) setSelectedRoomId(found.id);
         }
-      } catch (e) {
-        console.error('Failed to load config:', e);
-      } finally {
-        setIsLoadingConfig(false);
       }
-    };
+    } catch (e) {
+      console.error('Failed to load config:', e);
+    } finally {
+      setIsLoadingConfig(false);
+    }
+  };
+
+  useEffect(() => {
     fetchConfig();
   }, [searchParams]);
+
+  // Subscribe to realtime updates on rooms and issues config
+  useEffect(() => {
+    const roomsChannel = supabase
+      .channel('classroom-call-rooms-config')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'classroom_call_rooms' },
+        () => { fetchConfig(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'classroom_call_room_issues' },
+        () => { fetchConfig(); }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(roomsChannel);
+    };
+  }, []);
 
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
   const selectedIssue = selectedRoom?.issues.find(i => i.id === selectedIssueId);
