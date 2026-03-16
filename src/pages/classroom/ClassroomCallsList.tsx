@@ -109,40 +109,6 @@ export default function ClassroomCallsList() {
     }, 3000);
   }, [stopAlarm]);
 
-  // Auto-unlock audio on ANY user interaction (click, touch, keypress)
-  useEffect(() => {
-    if (audioUnlocked) return;
-
-    const unlock = () => {
-      if (!audioRef.current) return;
-      // Play and immediately pause to unlock the audio element
-      const p = audioRef.current.play();
-      if (p) {
-        p.then(() => {
-          audioRef.current?.pause();
-          audioRef.current!.currentTime = 0;
-          setAudioUnlocked(true);
-          // If there are already pending calls, start alarm
-          if (pendingCountRef.current > 0 && soundEnabledRef.current) {
-            startAlarm();
-          }
-        }).catch(() => {
-          // Still blocked, will retry on next interaction
-        });
-      }
-    };
-
-    document.addEventListener('click', unlock, { once: false, capture: true });
-    document.addEventListener('touchstart', unlock, { once: false, capture: true });
-    document.addEventListener('keydown', unlock, { once: false, capture: true });
-
-    return () => {
-      document.removeEventListener('click', unlock, true);
-      document.removeEventListener('touchstart', unlock, true);
-      document.removeEventListener('keydown', unlock, true);
-    };
-  }, [audioUnlocked, startAlarm]);
-
   // Start/stop alarm based on pending calls
   useEffect(() => {
     if (!audioUnlocked) return;
