@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { ptBR } from 'date-fns/locale';
@@ -18,6 +18,9 @@ import { useUserPermissions } from '@/hooks/usePermissions';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClassroomCallValidationDialog from '@/components/classroom/ClassroomCallValidationDialog';
 
+// Online notification sound URL (short alert beep)
+const ALARM_SOUND_URL = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg';
+
 const statusConfig = {
   pending: { label: 'Pendente', variant: 'destructive' as const, icon: BellRing },
   accepted: { label: 'Em Atendimento', variant: 'secondary' as const, icon: Clock },
@@ -30,20 +33,16 @@ export default function ClassroomCallsList() {
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const isTouchDevice =
-    typeof window !== 'undefined' &&
-    (navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)').matches);
-  const [audioActivated, setAudioActivated] = useState(() => !isTouchDevice);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorRef = useRef<OscillatorNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
-  const isAlarmActiveRef = useRef(false);
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const loopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingCountRef = useRef(0);
   const soundEnabledRef = useRef(true);
+  const audioUnlockedRef = useRef(false);
 
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
@@ -58,156 +57,118 @@ export default function ClassroomCallsList() {
   const resolveCall = useResolveClassroomCall();
   const deleteCall = useDeleteClassroomCall();
 
-  const clearAlarmInterval = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
+  // Create audio element once
+  useEffect(() => {
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audio.src = ALARM_SOUND_URL;
+    audioRef.current = audio;
 
-  const stopAlarm = () => {
-    clearAlarmInterval();
-
-    if (gainNodeRef.current && audioContextRef.current?.state === 'running') {
-      const now = audioContextRef.current.currentTime;
-      gainNodeRef.current.gain.cancelScheduledValues(now);
-      gainNodeRef.current.gain.setValueAtTime(0, now);
-    }
-
-    if (oscillatorRef.current) {
-      try {
-        oscillatorRef.current.stop();
-      } catch (_) {
-        // no-op
-      }
-      oscillatorRef.current.disconnect();
-      oscillatorRef.current = null;
-    }
-
-    if (gainNodeRef.current) {
-      gainNodeRef.current.disconnect();
-      gainNodeRef.current = null;
-    }
-
-    isAlarmActiveRef.current = false;
-  };
-
-  const ensureAudioContextRunning = async () => {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return false;
-
-    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-      audioContextRef.current = new AudioContextClass();
-    }
-
-    const ctx = audioContextRef.current;
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-      } catch (_) {
-        return false;
-      }
-    }
-
-    return ctx.state === 'running';
-  };
-
-  const startAlarm = async () => {
-    if (isAlarmActiveRef.current) return;
-
-    const canPlay = await ensureAudioContextRunning();
-    if (!canPlay || !audioContextRef.current) return;
-
-    const ctx = audioContextRef.current;
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(800, ctx.currentTime);
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-
-    oscillator.start();
-
-    oscillatorRef.current = oscillator;
-    gainNodeRef.current = gainNode;
-    isAlarmActiveRef.current = true;
-
-    const pulseAlarm = () => {
-      if (!audioContextRef.current || !gainNodeRef.current) return;
-      if (audioContextRef.current.state !== 'running') return;
-
-      const now = audioContextRef.current.currentTime;
-      gainNodeRef.current.gain.cancelScheduledValues(now);
-      gainNodeRef.current.gain.setValueAtTime(0.23, now);
-      gainNodeRef.current.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+    return () => {
+      audio.pause();
+      audio.src = '';
+      audioRef.current = null;
     };
+  }, []);
 
-    pulseAlarm();
-    intervalRef.current = setInterval(pulseAlarm, 450);
-  };
-
+  // Keep refs in sync
   useEffect(() => {
     pendingCountRef.current = pendingCount ?? 0;
     soundEnabledRef.current = soundEnabled;
-  }, [pendingCount, soundEnabled]);
+    audioUnlockedRef.current = audioUnlocked;
+  }, [pendingCount, soundEnabled, audioUnlocked]);
 
-  // Activate audio on explicit user gesture (required by mobile browsers)
-  const handleActivateAudio = async () => {
-    const unlocked = await ensureAudioContextRunning();
-    if (unlocked) {
-      // Play a tiny silent burst to fully unlock audio on iOS/Safari
-      const ctx = audioContextRef.current!;
-      const silentOsc = ctx.createOscillator();
-      const silentGain = ctx.createGain();
-      silentOsc.connect(silentGain);
-      silentGain.connect(ctx.destination);
-      silentGain.gain.setValueAtTime(0, ctx.currentTime);
-      silentOsc.start();
-      silentOsc.stop(ctx.currentTime + 0.05);
-
-      setAudioActivated(true);
-
-      // If there are already pending calls, start alarm immediately
-      if (pendingCountRef.current > 0 && soundEnabledRef.current) {
-        await startAlarm();
-      }
+  const stopAlarm = useCallback(() => {
+    if (loopIntervalRef.current) {
+      clearInterval(loopIntervalRef.current);
+      loopIntervalRef.current = null;
     }
-  };
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, []);
 
-  // Start/stop alarm based on pending calls (only if audio is activated)
+  const startAlarm = useCallback(() => {
+    if (loopIntervalRef.current) return; // already playing
+    if (!audioRef.current) return;
+
+    const playOnce = () => {
+      if (!audioRef.current) return;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {
+        // Audio blocked – will retry on next interval
+      });
+    };
+
+    playOnce();
+    // Repeat the beep every 3 seconds
+    loopIntervalRef.current = setInterval(() => {
+      if (!pendingCountRef.current || !soundEnabledRef.current) {
+        stopAlarm();
+        return;
+      }
+      playOnce();
+    }, 3000);
+  }, [stopAlarm]);
+
+  // Auto-unlock audio on ANY user interaction (click, touch, keypress)
   useEffect(() => {
-    if (!audioActivated) return;
+    if (audioUnlocked) return;
+
+    const unlock = () => {
+      if (!audioRef.current) return;
+      // Play and immediately pause to unlock the audio element
+      const p = audioRef.current.play();
+      if (p) {
+        p.then(() => {
+          audioRef.current?.pause();
+          audioRef.current!.currentTime = 0;
+          setAudioUnlocked(true);
+          // If there are already pending calls, start alarm
+          if (pendingCountRef.current > 0 && soundEnabledRef.current) {
+            startAlarm();
+          }
+        }).catch(() => {
+          // Still blocked, will retry on next interaction
+        });
+      }
+    };
+
+    document.addEventListener('click', unlock, { once: false, capture: true });
+    document.addEventListener('touchstart', unlock, { once: false, capture: true });
+    document.addEventListener('keydown', unlock, { once: false, capture: true });
+
+    return () => {
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('touchstart', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
+  }, [audioUnlocked, startAlarm]);
+
+  // Start/stop alarm based on pending calls
+  useEffect(() => {
+    if (!audioUnlocked) return;
 
     if (pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
-      void startAlarm();
+      startAlarm();
     } else {
       stopAlarm();
     }
-  }, [pendingCount, soundEnabled, audioActivated]);
+  }, [pendingCount, soundEnabled, audioUnlocked, startAlarm, stopAlarm]);
 
-  // Cleanup on unmount, page close, and visibility change
+  // Cleanup on unmount and page lifecycle
   useEffect(() => {
     const cleanup = () => {
       stopAlarm();
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
-      }
-      audioContextRef.current = null;
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         stopAlarm();
-        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-          audioContextRef.current.suspend();
-        }
       } else if (document.visibilityState === 'visible') {
-        // Resume alarm if there are still pending calls
-        if (pendingCountRef.current > 0 && soundEnabledRef.current && audioActivated) {
-          void ensureAudioContextRunning().then(() => startAlarm());
+        if (pendingCountRef.current > 0 && soundEnabledRef.current && audioUnlockedRef.current) {
+          startAlarm();
         }
       }
     };
@@ -222,7 +183,7 @@ export default function ClassroomCallsList() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       cleanup();
     };
-  }, [audioActivated]);
+  }, [stopAlarm, startAlarm]);
 
   const handleOpenAcceptDialog = (id: string) => {
     setSelectedCallId(id);
