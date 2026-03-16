@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -18,12 +19,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
-import { Loader2, Save, CalendarClock, Repeat } from 'lucide-react';
+import { Loader2, Save, CalendarClock, Repeat, X, UserPlus } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useCreateTask, useUpdateTask, Task } from '@/hooks/useTasks';
 import { useUsersList } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCategories, type TaskCategoryConfig } from '@/hooks/useTaskCategories';
+import { useTaskTeamMembers, useAddTaskTeamMember, useRemoveTaskTeamMember } from '@/hooks/useTaskTeamMembers';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TaskFormDialogProps {
   open: boolean;
