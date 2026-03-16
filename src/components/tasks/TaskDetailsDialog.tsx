@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import CommentWithAttachments from './CommentWithAttachments';
+import CommentAttachmentDisplay from './CommentAttachmentDisplay';
 import {
   Dialog,
   DialogContent,
@@ -47,7 +49,6 @@ interface TaskDetailsDialogProps {
 }
 
 export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: TaskDetailsDialogProps) {
-  const [comment, setComment] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   
   const { data: comments, isLoading: loadingComments } = useTaskComments(task?.id || '');
@@ -63,12 +64,13 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
   if (!task) return null;
 
   const canManageTeam = isAdmin || isSupervisor;
-  
 
-  const handleAddComment = async () => {
-    if (!comment.trim()) return;
-    await addCommentMutation.mutateAsync({ taskId: task.id, content: comment });
-    setComment('');
+  const handleAddCommentWithAttachments = async (content: string, attachmentUrls: string[]) => {
+    await addCommentMutation.mutateAsync({
+      taskId: task.id,
+      content,
+      attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
+    });
   };
 
   const handleAddTeamMember = async () => {
@@ -341,32 +343,29 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhum comentário ainda</p>
               ) : (
                 <div className="space-y-3">
-                  {comments.map((c) => (
-                    <div key={c.id} className="bg-muted/50 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm">{c.user_name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {format(parseISO(c.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
-                        </span>
+                  {comments.map((c) => {
+                    const commentAny = c as Record<string, unknown>;
+                    const attachmentUrls = (commentAny.attachment_urls as string[]) || [];
+                    return (
+                      <div key={c.id} className="bg-muted/50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm">{c.user_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(parseISO(c.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                        <CommentAttachmentDisplay urls={attachmentUrls} />
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{c.content}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
-              <div className="flex gap-2 mt-3 pt-3 border-t">
-                <Textarea
-                  placeholder="Adicionar comentário..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={2}
-                  className="resize-none"
-                />
-                <Button onClick={handleAddComment} disabled={!comment.trim() || addCommentMutation.isPending} size="icon" className="h-auto">
-                  {addCommentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                </Button>
-              </div>
+              <CommentWithAttachments
+                onSubmit={handleAddCommentWithAttachments}
+                isPending={addCommentMutation.isPending}
+              />
             </div>
 
             {/* History Section */}

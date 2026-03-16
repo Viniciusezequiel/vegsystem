@@ -373,15 +373,19 @@ export function useAddTaskComment() {
   const { user, profile } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ taskId, content }: { taskId: string; content: string }) => {
+    mutationFn: async ({ taskId, content, attachmentUrls }: { taskId: string; content: string; attachmentUrls?: string[] }) => {
+      const insertData: Record<string, unknown> = {
+        task_id: taskId,
+        user_id: user?.id || null,
+        user_name: profile?.full_name || user?.email || 'Sistema',
+        content: content || (attachmentUrls && attachmentUrls.length > 0 ? '📎 Anexo(s) adicionado(s)' : ''),
+      };
+      if (attachmentUrls && attachmentUrls.length > 0) {
+        insertData.attachment_urls = attachmentUrls;
+      }
       const { data, error } = await supabase
         .from('task_comments')
-        .insert({
-          task_id: taskId,
-          user_id: user?.id || null,
-          user_name: profile?.full_name || user?.email || 'Sistema',
-          content,
-        })
+        .insert(insertData as any)
         .select()
         .single();
 

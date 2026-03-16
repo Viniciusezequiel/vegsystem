@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -18,12 +19,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
-import { Loader2, Save, CalendarClock, Repeat } from 'lucide-react';
+import { Loader2, Save, CalendarClock, Repeat, X, UserPlus } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useCreateTask, useUpdateTask, Task } from '@/hooks/useTasks';
 import { useUsersList } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCategories, type TaskCategoryConfig } from '@/hooks/useTaskCategories';
+import { useTaskTeamMembers, useAddTaskTeamMember, useRemoveTaskTeamMember } from '@/hooks/useTaskTeamMembers';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -50,9 +53,12 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
     is_recurring: false,
     recurrence_type: '',
   });
+  const [additionalAssignees, setAdditionalAssignees] = useState<{ userId: string; name: string }[]>([]);
+  const [newAssigneeId, setNewAssigneeId] = useState('');
 
   const { data: users } = useUsersList();
   const { data: categoryConfigs } = useTaskCategories();
+  const { data: existingTeamMembers } = useTaskTeamMembers(task?.id || '');
   const createMutation = useCreateTask();
   const updateMutation = useUpdateTask();
 
@@ -87,6 +93,10 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         is_recurring: !!recurrence,
         recurrence_type: recurrence,
       });
+      // Load existing team members
+      if (existingTeamMembers) {
+        setAdditionalAssignees(existingTeamMembers.map(m => ({ userId: m.user_id, name: m.user_name })));
+      }
     } else {
       setFormData({
         title: '',
@@ -105,8 +115,9 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         is_recurring: false,
         recurrence_type: '',
       });
+      setAdditionalAssignees([]);
     }
-  }, [task, open]);
+  }, [task, open, existingTeamMembers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,11 +166,36 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       recurrence_type: formData.is_recurring && formData.recurrence_type ? formData.recurrence_type : null,
     };
 
+    let taskId: string;
     if (isEditing) {
-      await updateMutation.mutateAsync({ id: task.id, data, oldTask: task });
+      const result = await updateMutation.mutateAsync({ id: task.id, data, oldTask: task });
+      taskId = task.id;
     } else {
-      await createMutation.mutateAsync(data as any);
+      const result = await createMutation.mutateAsync(data as any);
+      taskId = result.id;
     }
+
+    // Sync team members
+    const existingIds = (existingTeamMembers || []).map(m => m.user_id);
+    const newIds = additionalAssignees.map(a => a.userId);
+
+    // Add new team members
+    const toAdd = additionalAssignees.filter(a => !existingIds.includes(a.userId));
+    // Remove old team members
+    const toRemove = (existingTeamMembers || []).filter(m => !newIds.includes(m.user_id));
+
+    await Promise.all([
+      ...toAdd.map(a =>
+        supabase.from('task_team_members').insert({
+          task_id: taskId,
+          user_id: a.userId,
+          user_name: a.name,
+        })
+      ),
+      ...toRemove.map(m =>
+        supabase.from('task_team_members').delete().eq('id', m.id)
+      ),
+    ]);
 
     onOpenChange(false);
   };
@@ -265,6 +301,63 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
               )}
             </div>
 
+            <div className="space-y-2">
+              <Label>Responsáveis Adicionais</Label>
+              {additionalAssignees.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-1">
+                  {additionalAssignees.map((a, i) => (
+                    <Badge key={a.userId} variant="secondary" className="gap-1 pr-1">
+                      <span className="text-xs">{a.name}</span>
+                      <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setAdditionalAssignees(prev => prev.filter((_, idx) => idx !== i))}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Select
+                  value={newAssigneeId || '_none'}
+                  onValueChange={(v) => setNewAssigneeId(v === '_none' ? '' : v)}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Adicionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Selecione...</SelectItem>
+                    {users?.filter(u =>
+                      u.is_active &&
+                      u.user_id !== formData.assigned_to &&
+                      !additionalAssignees.some(a => a.userId === u.user_id)
+                    ).map((user) => (
+                      <SelectItem key={user.user_id} value={user.user_id}>
+                        {user.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => {
+                    if (newAssigneeId) {
+                      const user = users?.find(u => u.user_id === newAssigneeId);
+                      if (user) {
+                        setAdditionalAssignees(prev => [...prev, { userId: user.user_id, name: user.full_name }]);
+                        setNewAssigneeId('');
+                      }
+                    }
+                  }}
+                  disabled={!newAssigneeId}
+                >
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="due_date">Prazo {requiredFields.includes('due_date') && '*'}</Label>
               <div className="flex gap-2">

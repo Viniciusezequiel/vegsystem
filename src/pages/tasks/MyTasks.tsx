@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import CommentAttachmentDisplay from '@/components/tasks/CommentAttachmentDisplay';
+import CommentWithAttachments from '@/components/tasks/CommentWithAttachments';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -75,7 +77,6 @@ import { toast } from 'sonner';
 export default function MyTasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [comment, setComment] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [deleteTaskDialog, setDeleteTaskDialog] = useState<Task | null>(null);
@@ -161,10 +162,13 @@ export default function MyTasks() {
     setCompleteDate(format(new Date(), 'yyyy-MM-dd'));
   };
 
-  const handleAddComment = async () => {
-    if (!comment.trim() || !selectedTask) return;
-    await addCommentMutation.mutateAsync({ taskId: selectedTask.id, content: comment });
-    setComment('');
+  const handleAddCommentWithAttachments = async (content: string, attachmentUrls: string[]) => {
+    if (!selectedTask) return;
+    await addCommentMutation.mutateAsync({
+      taskId: selectedTask.id,
+      content,
+      attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
+    });
   };
 
   const getDueDateInfo = (dueDate: string | null) => {
@@ -607,41 +611,29 @@ export default function MyTasks() {
                   <p className="text-sm text-muted-foreground text-center py-4">Nenhum comentário ainda</p>
                 ) : (
                   <div className="space-y-3">
-                    {comments.map((c) => (
-                      <div key={c.id} className="bg-muted/50 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm">{c.user_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(parseISO(c.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
-                          </span>
+                    {comments.map((c) => {
+                      const commentAny = c as Record<string, unknown>;
+                      const attachmentUrls = (commentAny.attachment_urls as string[]) || [];
+                      return (
+                        <div key={c.id} className="bg-muted/50 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm">{c.user_name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(parseISO(c.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                          <CommentAttachmentDisplay urls={attachmentUrls} />
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">{c.content}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
-                <div className="flex gap-2 mt-3 pt-3 border-t">
-                  <Textarea
-                    placeholder="Adicionar comentário..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    rows={2}
-                    className="resize-none"
-                  />
-                  <Button 
-                    onClick={handleAddComment} 
-                    disabled={!comment.trim() || addCommentMutation.isPending}
-                    size="icon"
-                    className="h-auto"
-                  >
-                    {addCommentMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
+                <CommentWithAttachments
+                  onSubmit={handleAddCommentWithAttachments}
+                  isPending={addCommentMutation.isPending}
+                />
               </div>
             </div>
           </ScrollArea>
