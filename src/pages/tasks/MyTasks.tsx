@@ -29,6 +29,23 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   ClipboardCheck,
   Loader2,
   Calendar,
@@ -41,8 +58,13 @@ import {
   AlertCircle,
   Plus,
   CalendarClock,
+  MoreVertical,
+  Edit,
+  Trash2,
+  User,
 } from 'lucide-react';
-import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
+import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, useDeleteTask, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,6 +77,8 @@ export default function MyTasks() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [comment, setComment] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [deleteTaskDialog, setDeleteTaskDialog] = useState<Task | null>(null);
 
   // Start dialog state
   const [startDialogTask, setStartDialogTask] = useState<Task | null>(null);
@@ -66,7 +90,9 @@ export default function MyTasks() {
   const [completeDate, setCompleteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const { data: tasks, isLoading } = useMyTasks();
+  const { isAdmin } = useAuth();
   const updateMutation = useUpdateTask();
+  const deleteMutation = useDeleteTask();
   const { data: comments, isLoading: loadingComments } = useTaskComments(selectedTask?.id || '');
   const addCommentMutation = useAddTaskComment();
 
@@ -250,6 +276,7 @@ export default function MyTasks() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Demanda</TableHead>
+                    <TableHead>Responsável</TableHead>
                     <TableHead>Prioridade</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Prazo</TableHead>
@@ -272,6 +299,16 @@ export default function MyTasks() {
                           </div>
                         </TableCell>
                         <TableCell>
+                          {task.assigned_to_name ? (
+                            <div className="flex items-center gap-1">
+                              <User className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm">{task.assigned_to_name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Badge className={getPriorityColor(task.priority)} variant="outline">
                             {getPriorityLabel(task.priority)}
                           </Badge>
@@ -292,39 +329,55 @@ export default function MyTasks() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSelectedTask(task)}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              Ver
-                            </Button>
-                            {task.status === 'pending' && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => setStartDialogTask(task)}
-                                disabled={updateMutation.isPending}
-                              >
-                                <Play className="w-4 h-4 mr-1" />
-                                Iniciar
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="w-4 h-4" />
                               </Button>
-                            )}
-                            {task.status === 'in_progress' && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => setCompleteDialogTask(task)}
-                                disabled={updateMutation.isPending}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Concluir
-                              </Button>
-                            )}
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setSelectedTask(task)}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Ver Detalhes
+                              </DropdownMenuItem>
+                              {(!['completed', 'cancelled'].includes(task.status) || isAdmin) && (
+                                <DropdownMenuItem onClick={() => setEditTask(task)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                              )}
+                              {task.status === 'pending' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setStartDialogTask(task)}>
+                                    <Play className="w-4 h-4 mr-2 text-blue-500" />
+                                    Iniciar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {task.status === 'in_progress' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setCompleteDialogTask(task)}>
+                                    <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                                    Concluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {isAdmin && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setDeleteTaskDialog(task)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
@@ -818,9 +871,40 @@ export default function MyTasks() {
       </Dialog>
 
       <TaskFormDialog 
-        open={formOpen} 
-        onOpenChange={setFormOpen}
+        open={formOpen || !!editTask} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setFormOpen(false);
+            setEditTask(null);
+          }
+        }}
+        task={editTask}
       />
+
+      <AlertDialog open={!!deleteTaskDialog} onOpenChange={(open) => !open && setDeleteTaskDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Demanda</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a demanda "{deleteTaskDialog?.title}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTaskDialog) {
+                  deleteMutation.mutate({ id: deleteTaskDialog.id, title: deleteTaskDialog.title });
+                  setDeleteTaskDialog(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
