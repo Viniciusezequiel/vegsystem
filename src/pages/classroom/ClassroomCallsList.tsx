@@ -280,7 +280,9 @@ export default function ClassroomCallsList() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              onClick={() => {
+                void handleToggleSound();
+              }}
               className={soundEnabled ? '' : 'text-muted-foreground'}
             >
               {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
