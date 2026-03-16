@@ -29,6 +29,7 @@ export default function ClassroomCallsList() {
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [audioActivated, setAudioActivated] = useState(false);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
@@ -37,7 +38,6 @@ export default function ClassroomCallsList() {
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const isAlarmActiveRef = useRef(false);
-
   const pendingCountRef = useRef(0);
   const soundEnabledRef = useRef(true);
 
