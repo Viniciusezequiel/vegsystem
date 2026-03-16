@@ -64,12 +64,13 @@ export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: 
   if (!task) return null;
 
   const canManageTeam = isAdmin || isSupervisor;
-  
 
-  const handleAddComment = async () => {
-    if (!comment.trim()) return;
-    await addCommentMutation.mutateAsync({ taskId: task.id, content: comment });
-    setComment('');
+  const handleAddCommentWithAttachments = async (content: string, attachmentUrls: string[]) => {
+    await addCommentMutation.mutateAsync({
+      taskId: task.id,
+      content,
+      attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
+    });
   };
 
   const handleAddTeamMember = async () => {
