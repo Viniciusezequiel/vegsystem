@@ -638,12 +638,12 @@ export default function Users() {
               <Input 
                 id="new-password" 
                 type="password"
-                placeholder="Mínimo 6 caracteres" 
+                placeholder="Mínimo 8 caracteres" 
                 className="mt-1.5" 
                 value={newPasswordValue}
                 onChange={(e) => setNewPasswordValue(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
             <div className="flex items-center space-x-2">
