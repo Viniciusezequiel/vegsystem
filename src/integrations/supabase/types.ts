@@ -146,6 +146,92 @@ export type Database = {
         }
         Relationships: []
       }
+      classroom_call_responses: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          message: string
+          order_index: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          message: string
+          order_index?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          message?: string
+          order_index?: number
+        }
+        Relationships: []
+      }
+      classroom_call_room_issues: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          order_index: number
+          room_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          room_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_call_room_issues_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "classroom_call_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classroom_call_rooms: {
+        Row: {
+          campus: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          campus?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          campus?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       classroom_calls: {
         Row: {
           accepted_at: string | null
@@ -156,6 +242,7 @@ export type Database = {
           is_valid: boolean | null
           reason: string
           resolved_at: string | null
+          response_message: string | null
           room_name: string
           status: string
           treatment: string | null
@@ -170,6 +257,7 @@ export type Database = {
           is_valid?: boolean | null
           reason: string
           resolved_at?: string | null
+          response_message?: string | null
           room_name: string
           status?: string
           treatment?: string | null
@@ -184,6 +272,7 @@ export type Database = {
           is_valid?: boolean | null
           reason?: string
           resolved_at?: string | null
+          response_message?: string | null
           room_name?: string
           status?: string
           treatment?: string | null

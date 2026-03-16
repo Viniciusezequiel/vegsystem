@@ -150,6 +150,7 @@ const moduleGroups: NavGroup[] = [
     module: 'classroomCalls',
     items: [
       { name: 'Chamados', href: '/classroom-calls', icon: Bell },
+      { name: 'Configurações', href: '/classroom-calls/settings', icon: Settings, adminOnly: true },
     ],
   },
 ];

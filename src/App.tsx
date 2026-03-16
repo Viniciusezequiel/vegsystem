@@ -52,6 +52,7 @@ import MyMaterialRequests from "./pages/materials/MyMaterialRequests";
 // Classroom Calls Module
 import ClassroomCallForm from "./pages/classroom/ClassroomCallForm";
 import ClassroomCallsList from "./pages/classroom/ClassroomCallsList";
+import ClassroomCallSettings from "./pages/classroom/ClassroomCallSettings";
 
 // Tasks Module
 import TasksList from "./pages/tasks/TasksList";
@@ -220,6 +221,11 @@ const App = () => (
               <Route path="/classroom-calls" element={
                 <ProtectedRoute>
                   <ClassroomCallsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/classroom-calls/settings" element={
+                <ProtectedRoute requireAdmin>
+                  <ClassroomCallSettings />
                 </ProtectedRoute>
               } />
               

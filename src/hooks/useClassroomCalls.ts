@@ -17,6 +17,7 @@ export interface ClassroomCall {
   is_valid?: boolean;
   validation_reason?: string;
   treatment?: string;
+  response_message?: string;
 }
 
 export function useClassroomCalls(status?: string) {
@@ -140,7 +141,7 @@ export function useAcceptClassroomCall() {
   const { user, profile } = useAuth();
   
   return useMutation({
-    mutationFn: async ({ id, isValid, validationReason }: { id: string; isValid?: boolean; validationReason?: string }) => {
+    mutationFn: async ({ id, responseMessage }: { id: string; responseMessage?: string }) => {
       // Only accept if still pending
       const { data, error } = await supabase
         .from('classroom_calls')
@@ -149,8 +150,7 @@ export function useAcceptClassroomCall() {
           accepted_by: user?.id,
           accepted_by_name: profile?.full_name,
           accepted_at: new Date().toISOString(),
-          is_valid: isValid ?? null,
-          validation_reason: validationReason ?? null,
+          response_message: responseMessage ?? null,
         })
         .eq('id', id)
         .eq('status', 'pending')

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { ptBR } from 'date-fns/locale';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react';
+import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2 } from 'lucide-react';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions } from '@/hooks/usePermissions';
@@ -23,6 +24,7 @@ const statusConfig = {
 };
 
 export default function ClassroomCallsList() {
+  const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
@@ -135,14 +137,13 @@ export default function ClassroomCallsList() {
     setValidationDialogOpen(true);
   };
 
-  const handleValidationConfirm = async (data: { isValid?: boolean; validationReason?: string; treatment?: string }) => {
+  const handleValidationConfirm = async (data: { responseMessage?: string; treatment?: string }) => {
     if (!selectedCallId) return;
     
     if (dialogMode === 'accept') {
       await acceptCall.mutateAsync({ 
         id: selectedCallId, 
-        isValid: data.isValid, 
-        validationReason: data.validationReason 
+        responseMessage: data.responseMessage 
       });
     } else {
       await resolveCall.mutateAsync({ 
@@ -206,6 +207,16 @@ export default function ClassroomCallsList() {
             >
               {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/classroom-calls/settings')}
+              >
+                <Settings2 className="h-4 w-4 mr-2" />
+                Configurações
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

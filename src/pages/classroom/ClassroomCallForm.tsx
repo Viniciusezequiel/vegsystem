@@ -2,60 +2,68 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Bell, CheckCircle, Loader2, Navigation, Clock, Settings, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Bell, CheckCircle, Loader2, Navigation, Clock, MessageSquare } from 'lucide-react';
 import { useCreateClassroomCall } from '@/hooks/useClassroomCalls';
 
 interface CallStatus {
   status: 'pending' | 'accepted' | 'resolved';
   accepted_by_name?: string;
   accepted_at?: string;
+  response_message?: string;
 }
 
-const ROOM_NAME_STORAGE_KEY = 'classroom_call_room_name';
+interface RoomConfig {
+  id: string;
+  name: string;
+  campus: string;
+  issues: { id: string; description: string }[];
+}
 
 export default function ClassroomCallForm() {
   const [searchParams] = useSearchParams();
   const createCall = useCreateClassroomCall();
-  const [roomName, setRoomName] = useState('');
-  const [reason, setReason] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState('');
+  const [selectedIssueId, setSelectedIssueId] = useState('');
+  const [additionalInfo, setAdditionalInfo] = useState('');
   const [submittedCallId, setSubmittedCallId] = useState<string | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus | null>(null);
-  const [isRoomLocked, setIsRoomLocked] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [rooms, setRooms] = useState<RoomConfig[]>([]);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [submittedRoomName, setSubmittedRoomName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize room name from URL param or localStorage
+  // Fetch rooms config from edge function (no auth needed)
   useEffect(() => {
-    const urlRoom = searchParams.get('sala') || searchParams.get('room');
-    const savedRoom = localStorage.getItem(ROOM_NAME_STORAGE_KEY);
-    
-    if (urlRoom) {
-      setRoomName(urlRoom);
-      setIsRoomLocked(true);
-      localStorage.setItem(ROOM_NAME_STORAGE_KEY, urlRoom);
-    } else if (savedRoom) {
-      setRoomName(savedRoom);
-      setIsRoomLocked(true);
-    }
+    const fetchConfig = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-classroom-call-config');
+        if (!error && data?.rooms) {
+          setRooms(data.rooms);
+          
+          // Auto-select room from URL param
+          const urlRoom = searchParams.get('sala') || searchParams.get('room');
+          if (urlRoom) {
+            const found = data.rooms.find((r: RoomConfig) => 
+              r.name.toLowerCase() === urlRoom.toLowerCase()
+            );
+            if (found) setSelectedRoomId(found.id);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load config:', e);
+      } finally {
+        setIsLoadingConfig(false);
+      }
+    };
+    fetchConfig();
   }, [searchParams]);
 
-  const handleSaveRoom = () => {
-    if (roomName.trim()) {
-      localStorage.setItem(ROOM_NAME_STORAGE_KEY, roomName.trim());
-      setIsRoomLocked(true);
-      setShowSettings(false);
-    }
-  };
-
-  const handleClearRoom = () => {
-    localStorage.removeItem(ROOM_NAME_STORAGE_KEY);
-    setIsRoomLocked(false);
-    setRoomName('');
-    setShowSettings(false);
-  };
+  const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+  const selectedIssue = selectedRoom?.issues.find(i => i.id === selectedIssueId);
 
   // Subscribe to real-time updates for the submitted call
   useEffect(() => {
@@ -77,6 +85,7 @@ export default function ClassroomCallForm() {
             status: newData.status,
             accepted_by_name: newData.accepted_by_name,
             accepted_at: newData.accepted_at,
+            response_message: newData.response_message,
           });
         }
       )
@@ -89,13 +98,15 @@ export default function ClassroomCallForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedRoom) return;
     
+    setIsSubmitting(true);
     try {
-      // Use edge function to create call (allows unauthenticated access)
       const { data, error } = await supabase.functions.invoke('create-classroom-call', {
         body: {
-          room_name: roomName,
-          reason: reason,
+          room_name: `${selectedRoom.name} (${selectedRoom.campus})`,
+          reason: additionalInfo,
+          issue_description: selectedIssue?.description,
         },
       });
 
@@ -103,19 +114,26 @@ export default function ClassroomCallForm() {
         throw new Error(data?.error || error?.message || 'Erro ao criar chamado');
       }
 
+      setSubmittedRoomName(`${selectedRoom.name} (${selectedRoom.campus})`);
       setSubmittedCallId(data.data.id);
       setCallStatus({ status: data.data.status as 'pending' });
     } catch (error: any) {
-      createCall.mutate({ room_name: roomName, reason }); // Use mutation for error handling/toast
+      createCall.mutate({ room_name: selectedRoom.name, reason: selectedIssue?.description || additionalInfo });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleNewCall = () => {
     setSubmittedCallId(null);
     setCallStatus(null);
-    setReason('');
-    // Keep room name if locked
+    setSelectedIssueId('');
+    setAdditionalInfo('');
   };
+
+  // Determine if form can be submitted
+  const hasIssues = selectedRoom && selectedRoom.issues.length > 0;
+  const canSubmit = selectedRoomId && (hasIssues ? selectedIssueId : additionalInfo.trim());
 
   if (submittedCallId && callStatus) {
     return (
@@ -139,12 +157,12 @@ export default function ClassroomCallForm() {
                 <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
                   <Navigation className="h-8 w-8 text-blue-600 animate-bounce" />
                 </div>
-                <CardTitle className="text-2xl text-blue-600">Estamos a Caminho!</CardTitle>
+                <CardTitle className="text-2xl text-blue-600">Chamado Aceito!</CardTitle>
                 <CardDescription className="text-base">
                   {callStatus.accepted_by_name ? (
-                    <span><strong>{callStatus.accepted_by_name}</strong> aceitou seu chamado e está indo até você.</span>
+                    <span><strong>{callStatus.accepted_by_name}</strong> aceitou seu chamado.</span>
                   ) : (
-                    <span>Um colaborador aceitou seu chamado e está a caminho.</span>
+                    <span>Um colaborador aceitou seu chamado.</span>
                   )}
                 </CardDescription>
               </>
@@ -166,8 +184,19 @@ export default function ClassroomCallForm() {
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Sala</p>
-                <p className="font-semibold">{roomName}</p>
+                <p className="font-semibold">{submittedRoomName}</p>
               </div>
+
+              {/* Show response message from collaborator */}
+              {callStatus.status === 'accepted' && callStatus.response_message && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                    <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Mensagem do Colaborador</p>
+                  </div>
+                  <p className="text-blue-800 dark:text-blue-300 font-semibold">{callStatus.response_message}</p>
+                </div>
+              )}
               
               {/* Status indicator */}
               <div className="flex items-center justify-center gap-2 py-2">
@@ -178,7 +207,7 @@ export default function ClassroomCallForm() {
                 }`} />
                 <span className="text-sm text-muted-foreground">
                   {callStatus.status === 'pending' && 'Aguardando...'}
-                  {callStatus.status === 'accepted' && 'A caminho...'}
+                  {callStatus.status === 'accepted' && 'Em atendimento...'}
                   {callStatus.status === 'resolved' && 'Concluído'}
                 </span>
               </div>
@@ -200,16 +229,7 @@ export default function ClassroomCallForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-4 top-4"
-            onClick={() => setShowSettings(!showSettings)}
-            title="Configurar sala"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+        <CardHeader className="text-center">
           <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
             <Bell className="h-8 w-8 text-primary" />
           </div>
@@ -219,81 +239,61 @@ export default function ClassroomCallForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {showSettings ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg space-y-3">
-                <h3 className="font-medium text-sm">Configurar Sala Fixa</h3>
-                <p className="text-xs text-muted-foreground">
-                  Configure o nome da sala para não precisar digitar novamente. 
-                  Você também pode acessar via URL: <code className="bg-background px-1 rounded">/classroom-calls?sala=Nome</code>
-                </p>
-                <div className="space-y-2">
-                  <Label htmlFor="config-room">Nome da Sala</Label>
-                  <Input
-                    id="config-room"
-                    placeholder="Ex: Sala 101, Laboratório 3..."
-                    value={roomName}
-                    onChange={(e) => setRoomName(e.target.value)}
-                    maxLength={100}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleSaveRoom} disabled={!roomName.trim()} className="flex-1">
-                    Salvar
-                  </Button>
-                  {isRoomLocked && (
-                    <Button onClick={handleClearRoom} variant="outline">
-                      <X className="h-4 w-4 mr-1" />
-                      Limpar
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <Button variant="ghost" className="w-full" onClick={() => setShowSettings(false)}>
-                Voltar
-              </Button>
+          {isLoadingConfig ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Room Selection */}
               <div className="space-y-2">
-                <Label htmlFor="room">Sala *</Label>
-                {isRoomLocked ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 p-3 bg-muted rounded-md font-medium">
-                      {roomName}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setShowSettings(true)}
-                      title="Alterar sala"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Input
-                    id="room"
-                    placeholder="Ex: Sala 101, Laboratório 3..."
-                    value={roomName}
-                    onChange={(e) => setRoomName(e.target.value)}
-                    required
-                    maxLength={100}
-                  />
-                )}
+                <Label>Sala *</Label>
+                <Select value={selectedRoomId} onValueChange={(v) => { setSelectedRoomId(v); setSelectedIssueId(''); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a sala..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.name} ({room.campus})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              
+
+              {/* Issue Selection (if room has issues) */}
+              {selectedRoom && selectedRoom.issues.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Tipo do Problema *</Label>
+                  <Select value={selectedIssueId} onValueChange={setSelectedIssueId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o problema..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedRoom.issues.map((issue) => (
+                        <SelectItem key={issue.id} value={issue.id}>
+                          {issue.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Additional Info (optional if has issues, required if no issues) */}
               <div className="space-y-2">
-                <Label htmlFor="reason">Motivo do Chamado *</Label>
+                <Label htmlFor="additionalInfo">
+                  {hasIssues ? 'Informações adicionais (opcional)' : 'Motivo do Chamado *'}
+                </Label>
                 <Textarea
-                  id="reason"
-                  placeholder="Descreva brevemente o motivo do chamado..."
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  required
+                  id="additionalInfo"
+                  placeholder={hasIssues ? 'Descreva detalhes adicionais...' : 'Descreva o motivo do chamado...'}
+                  value={additionalInfo}
+                  onChange={(e) => setAdditionalInfo(e.target.value)}
+                  required={!hasIssues}
                   maxLength={500}
-                  rows={4}
+                  rows={3}
                 />
               </div>
               
@@ -301,9 +301,9 @@ export default function ClassroomCallForm() {
                 type="submit" 
                 className="w-full" 
                 size="lg"
-                disabled={createCall.isPending || !roomName.trim() || !reason.trim()}
+                disabled={isSubmitting || !canSubmit}
               >
-                {createCall.isPending ? (
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Enviando...
