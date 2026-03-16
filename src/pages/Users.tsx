@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History, Search } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History, Search, Bell } from 'lucide-react';
 import { UserActivityDialog } from '@/components/users/UserActivityDialog';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';

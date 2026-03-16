@@ -47,6 +47,7 @@ export default function Permissions() {
       analista: {},
       assistente: {},
       visualizador: {},
+      atendente: {},
     };
 
     permissions.forEach(p => {
