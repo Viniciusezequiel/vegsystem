@@ -166,11 +166,36 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       recurrence_type: formData.is_recurring && formData.recurrence_type ? formData.recurrence_type : null,
     };
 
+    let taskId: string;
     if (isEditing) {
-      await updateMutation.mutateAsync({ id: task.id, data, oldTask: task });
+      const result = await updateMutation.mutateAsync({ id: task.id, data, oldTask: task });
+      taskId = task.id;
     } else {
-      await createMutation.mutateAsync(data as any);
+      const result = await createMutation.mutateAsync(data as any);
+      taskId = result.id;
     }
+
+    // Sync team members
+    const existingIds = (existingTeamMembers || []).map(m => m.user_id);
+    const newIds = additionalAssignees.map(a => a.userId);
+
+    // Add new team members
+    const toAdd = additionalAssignees.filter(a => !existingIds.includes(a.userId));
+    // Remove old team members
+    const toRemove = (existingTeamMembers || []).filter(m => !newIds.includes(m.user_id));
+
+    await Promise.all([
+      ...toAdd.map(a =>
+        supabase.from('task_team_members').insert({
+          task_id: taskId,
+          user_id: a.userId,
+          user_name: a.name,
+        })
+      ),
+      ...toRemove.map(m =>
+        supabase.from('task_team_members').delete().eq('id', m.id)
+      ),
+    ]);
 
     onOpenChange(false);
   };
