@@ -49,7 +49,6 @@ interface TaskDetailsDialogProps {
 }
 
 export default function TaskDetailsDialog({ open, onOpenChange, task, onEdit }: TaskDetailsDialogProps) {
-  const [comment, setComment] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   
   const { data: comments, isLoading: loadingComments } = useTaskComments(task?.id || '');
