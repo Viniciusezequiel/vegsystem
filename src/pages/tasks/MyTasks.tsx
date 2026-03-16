@@ -162,10 +162,13 @@ export default function MyTasks() {
     setCompleteDate(format(new Date(), 'yyyy-MM-dd'));
   };
 
-  const handleAddComment = async () => {
-    if (!comment.trim() || !selectedTask) return;
-    await addCommentMutation.mutateAsync({ taskId: selectedTask.id, content: comment });
-    setComment('');
+  const handleAddCommentWithAttachments = async (content: string, attachmentUrls: string[]) => {
+    if (!selectedTask) return;
+    await addCommentMutation.mutateAsync({
+      taskId: selectedTask.id,
+      content,
+      attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
+    });
   };
 
   const getDueDateInfo = (dueDate: string | null) => {
