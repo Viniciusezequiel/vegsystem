@@ -41,6 +41,7 @@ export default function ClassroomCallsList() {
   const loopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingCountRef = useRef(0);
   const soundEnabledRef = useRef(true);
+  const audioUnlockedRef = useRef(false);
 
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
