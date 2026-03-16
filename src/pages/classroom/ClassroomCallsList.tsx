@@ -73,8 +73,7 @@ export default function ClassroomCallsList() {
   useEffect(() => {
     pendingCountRef.current = pendingCount ?? 0;
     soundEnabledRef.current = soundEnabled;
-    audioUnlockedRef.current = audioUnlocked;
-  }, [pendingCount, soundEnabled, audioUnlocked]);
+  }, [pendingCount, soundEnabled]);
 
   const stopAlarm = useCallback(() => {
     if (loopIntervalRef.current) {
