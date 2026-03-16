@@ -220,17 +220,6 @@ export default function ClassroomCallsList() {
 
   return (
     <MainLayout>
-      {/* Audio auto-unlocks on first interaction - show subtle indicator if not yet unlocked */}
-      {!audioUnlocked && (
-        <Card className="border-primary bg-primary/5 mb-4">
-          <CardContent className="flex items-center justify-center py-3 gap-2">
-            <Volume2 className="h-4 w-4 text-primary" />
-            <p className="text-sm text-muted-foreground">
-              Toque em qualquer lugar da tela para ativar os alertas sonoros.
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="space-y-6">
         {/* Header */}
