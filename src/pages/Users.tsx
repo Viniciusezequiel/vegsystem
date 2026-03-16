@@ -308,7 +308,7 @@ export default function Users() {
                 <Input 
                   id="password" 
                   type="password" 
-                  placeholder="Senha do usuário" 
+                  placeholder="Mínimo 8 caracteres" 
                   className="mt-1.5"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
