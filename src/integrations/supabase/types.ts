@@ -1737,6 +1737,7 @@ export type Database = {
           id: string
           notes: string | null
           priority: string
+          recurrence_type: string | null
           started_at: string | null
           status: string
           tags: string[] | null
@@ -1761,6 +1762,7 @@ export type Database = {
           id?: string
           notes?: string | null
           priority?: string
+          recurrence_type?: string | null
           started_at?: string | null
           status?: string
           tags?: string[] | null
@@ -1785,6 +1787,7 @@ export type Database = {
           id?: string
           notes?: string | null
           priority?: string
+          recurrence_type?: string | null
           started_at?: string | null
           status?: string
           tags?: string[] | null

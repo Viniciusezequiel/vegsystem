@@ -18,7 +18,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
-import { Loader2, Save, CalendarClock } from 'lucide-react';
+import { Loader2, Save, CalendarClock, Repeat } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useCreateTask, useUpdateTask, Task } from '@/hooks/useTasks';
 import { useUsersList } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,6 +47,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
     event_start_time: '',
     event_end_datetime: '',
     event_end_time: '',
+    is_recurring: false,
+    recurrence_type: '',
   });
 
   const { data: users } = useUsersList();
@@ -65,6 +68,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       const taskAny = task as Record<string, unknown>;
       const eventStart = taskAny.event_start_datetime ? new Date(taskAny.event_start_datetime as string) : null;
       const eventEnd = taskAny.event_end_datetime ? new Date(taskAny.event_end_datetime as string) : null;
+      const recurrence = (taskAny.recurrence_type as string) || '';
 
       setFormData({
         title: task.title || '',
@@ -80,6 +84,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         event_start_time: eventStart ? eventStart.toTimeString().slice(0, 5) : '',
         event_end_datetime: eventEnd ? eventEnd.toISOString().split('T')[0] : '',
         event_end_time: eventEnd ? eventEnd.toTimeString().slice(0, 5) : '',
+        is_recurring: !!recurrence,
+        recurrence_type: recurrence,
       });
     } else {
       setFormData({
@@ -96,6 +102,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         event_start_time: '',
         event_end_datetime: '',
         event_end_time: '',
+        is_recurring: false,
+        recurrence_type: '',
       });
     }
   }, [task, open]);
@@ -144,6 +152,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       notes: formData.notes || undefined,
       event_start_datetime: eventStartISO || null,
       event_end_datetime: eventEndISO || null,
+      recurrence_type: formData.is_recurring && formData.recurrence_type ? formData.recurrence_type : null,
     };
 
     if (isEditing) {
@@ -329,6 +338,45 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
               </p>
             </div>
           )}
+
+          {/* Recurrence fields */}
+          <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Repeat className="w-4 h-4 text-primary" />
+                Repetir Demanda
+              </div>
+              <Switch
+                checked={formData.is_recurring}
+                onCheckedChange={(checked) => setFormData(prev => ({ 
+                  ...prev, 
+                  is_recurring: checked, 
+                  recurrence_type: checked ? prev.recurrence_type || 'weekly' : '' 
+                }))}
+              />
+            </div>
+            {formData.is_recurring && (
+              <div className="space-y-2">
+                <Label>Frequência *</Label>
+                <Select
+                  value={formData.recurrence_type || 'weekly'}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, recurrence_type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a frequência" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                    <SelectItem value="semiannual">Semestral</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  A demanda será recriada automaticamente na frequência selecionada.
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="notes">Observações {requiredFields.includes('notes') && '*'}</Label>
