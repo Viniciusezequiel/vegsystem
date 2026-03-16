@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import CommentAttachmentDisplay from '@/components/tasks/CommentAttachmentDisplay';
+import CommentWithAttachments from '@/components/tasks/CommentWithAttachments';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
