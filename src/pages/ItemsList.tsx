@@ -1007,6 +1007,7 @@ export default function ItemsList() {
             </>
           )}
         </div>
+        )}
       </div>
 
       {/* Results */}
