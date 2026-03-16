@@ -27,7 +27,7 @@ async function sendCallNotification(count: number) {
     return;
   }
 
-  await sendWebNotification(count);
+  // Web notifications disabled – in-app audio alarm handles alerts
 }
 
 async function sendNativeNotification(count: number) {
