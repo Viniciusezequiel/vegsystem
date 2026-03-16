@@ -143,9 +143,12 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
     });
   };
 
-  const unusedCampuses = allCampuses.filter(c => !localConfig.campuses.find(cc => cc.campus === c));
+  // Combine default campuses with any custom ones already in config
+  const existingCampusNames = localConfig.campuses.map(c => c.campus);
+  const allAvailableCampuses = [...new Set([...defaultCampuses, ...existingCampusNames])];
+  const unusedCampuses = allAvailableCampuses.filter(c => !localConfig.campuses.find(cc => cc.campus === c));
 
-  return (
+  const [newCampusName, setNewCampusName] = useState('');
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
