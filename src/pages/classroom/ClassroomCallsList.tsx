@@ -18,8 +18,8 @@ import { useUserPermissions } from '@/hooks/usePermissions';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClassroomCallValidationDialog from '@/components/classroom/ClassroomCallValidationDialog';
 
-// Online notification sound URL (short alert beep)
-const ALARM_SOUND_URL = 'https://actions.google.com/sounds/v1/emergency/emergency_siren.ogg';
+// Online notification sound URL (continuous siren)
+const ALARM_SOUND_URL = '/alert-siren.ogg';
 
 const statusConfig = {
   pending: { label: 'Pendente', variant: 'destructive' as const, icon: BellRing },
@@ -56,59 +56,12 @@ export default function ClassroomCallsList() {
   const resolveCall = useResolveClassroomCall();
   const deleteCall = useDeleteClassroomCall();
 
-  // Create audio element once
-  useEffect(() => {
-    const audio = new Audio();
-    audio.preload = 'auto';
-    audio.loop = false;
-    audio.src = ALARM_SOUND_URL;
-    audioRef.current = audio;
-
-    // Auto-unlock audio on any user interaction (required by browsers)
-    const unlock = () => {
-      if (audioUnlockedRef.current || !audioRef.current) return;
-      const a = audioRef.current;
-      a.volume = 0;
-      a.play().then(() => {
-        a.pause();
-        a.currentTime = 0;
-        a.volume = 1;
-        audioUnlockedRef.current = true;
-        // If there are pending calls, start alarm now that audio is unlocked
-        if (pendingCountRef.current > 0 && soundEnabledRef.current) {
-          startAlarm();
-        }
-      }).catch(() => {});
-      document.removeEventListener('click', unlock, true);
-      document.removeEventListener('touchstart', unlock, true);
-      document.removeEventListener('keydown', unlock, true);
-    };
-
-    document.addEventListener('click', unlock, { capture: true });
-    document.addEventListener('touchstart', unlock, { capture: true });
-    document.addEventListener('keydown', unlock, { capture: true });
-
-    return () => {
-      audio.pause();
-      audio.src = '';
-      audioRef.current = null;
-      document.removeEventListener('click', unlock, true);
-      document.removeEventListener('touchstart', unlock, true);
-      document.removeEventListener('keydown', unlock, true);
-    };
-  }, []);
-
-  // Keep refs in sync
-  useEffect(() => {
-    pendingCountRef.current = pendingCount ?? 0;
-    soundEnabledRef.current = soundEnabled;
-  }, [pendingCount, soundEnabled]);
-
   const stopAlarm = useCallback(() => {
     if (loopIntervalRef.current) {
       clearInterval(loopIntervalRef.current);
       loopIntervalRef.current = null;
     }
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -116,27 +69,82 @@ export default function ClassroomCallsList() {
   }, []);
 
   const startAlarm = useCallback(() => {
-    if (loopIntervalRef.current) return; // already playing
+    if (loopIntervalRef.current) return;
     if (!audioRef.current) return;
 
-    const playOnce = () => {
-      if (!audioRef.current) return;
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {
-        // Audio blocked – will retry on next interval
+    const tryPlay = () => {
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      audio.loop = true;
+      audio.play().catch(() => {
+        // Browser may block autoplay; retry loop below keeps trying
       });
     };
 
-    playOnce();
-    // Repeat the beep every 3 seconds
+    tryPlay();
+
+    // Retry playback every 2s while pending exists
     loopIntervalRef.current = setInterval(() => {
       if (!pendingCountRef.current || !soundEnabledRef.current) {
         stopAlarm();
         return;
       }
-      playOnce();
-    }, 3000);
+
+      if (audioRef.current?.paused) {
+        tryPlay();
+      }
+    }, 2000);
   }, [stopAlarm]);
+
+  // Create audio element once
+  useEffect(() => {
+    const audio = new Audio(ALARM_SOUND_URL);
+    audio.preload = 'auto';
+    audio.loop = true;
+    audioRef.current = audio;
+
+    // Auto-unlock audio on any interaction (browser requirement)
+    const unlock = () => {
+      if (audioUnlockedRef.current || !audioRef.current) return;
+      const a = audioRef.current;
+
+      a.muted = true;
+      a.play().then(() => {
+        a.pause();
+        a.currentTime = 0;
+        a.muted = false;
+        audioUnlockedRef.current = true;
+
+        document.removeEventListener('pointerdown', unlock, true);
+        document.removeEventListener('keydown', unlock, true);
+
+        if (pendingCountRef.current > 0 && soundEnabledRef.current) {
+          startAlarm();
+        }
+      }).catch(() => {
+        a.muted = false;
+        // Keep listeners registered so next user interaction can unlock again
+      });
+    };
+
+    document.addEventListener('pointerdown', unlock, { capture: true });
+    document.addEventListener('keydown', unlock, { capture: true });
+
+    return () => {
+      stopAlarm();
+      audio.src = '';
+      audioRef.current = null;
+      document.removeEventListener('pointerdown', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
+  }, [startAlarm, stopAlarm]);
+
+  // Keep refs in sync
+  useEffect(() => {
+    pendingCountRef.current = pendingCount ?? 0;
+    soundEnabledRef.current = soundEnabled;
+  }, [pendingCount, soundEnabled]);
 
   // Start/stop alarm based on pending calls
   useEffect(() => {
