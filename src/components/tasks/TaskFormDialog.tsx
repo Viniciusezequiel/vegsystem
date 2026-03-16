@@ -53,6 +53,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
     is_recurring: false,
     recurrence_type: '',
   });
+  const [additionalAssignees, setAdditionalAssignees] = useState<{ userId: string; name: string }[]>([]);
+  const [newAssigneeId, setNewAssigneeId] = useState('');
 
   const { data: users } = useUsersList();
   const { data: categoryConfigs } = useTaskCategories();
