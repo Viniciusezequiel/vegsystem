@@ -385,7 +385,7 @@ export function useAddTaskComment() {
       }
       const { data, error } = await supabase
         .from('task_comments')
-        .insert(insertData)
+        .insert(insertData as any)
         .select()
         .single();
 
