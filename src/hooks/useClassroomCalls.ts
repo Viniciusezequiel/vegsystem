@@ -70,7 +70,7 @@ export function useClassroomCalls(status?: string, campus?: string) {
   });
 }
 
-export function usePendingCallsCount() {
+export function usePendingCallsCount(campus?: string) {
   const queryClient = useQueryClient();
   
   // Set up realtime subscription
@@ -96,18 +96,24 @@ export function usePendingCallsCount() {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ['pending-calls-count'],
+    queryKey: ['pending-calls-count', campus],
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from('classroom_calls')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
+
+      if (campus) {
+        query = query.eq('campus', campus);
+      }
+      
+      const { count, error } = await query;
       
       if (error) throw error;
       return count || 0;
     },
     staleTime: 2000,
-    refetchInterval: 2000, // Poll every 2s as fallback for realtime
+    refetchInterval: 2000,
   });
 }
 
