@@ -128,7 +128,7 @@ export default function ClassroomCallsList() {
       if (document.visibilityState === 'hidden') {
         stopAlarm();
       } else if (document.visibilityState === 'visible') {
-        if (pendingCountRef.current > 0 && soundEnabledRef.current && audioUnlockedRef.current) {
+        if (pendingCountRef.current > 0 && soundEnabledRef.current) {
           startAlarm();
         }
       }
