@@ -188,16 +188,41 @@ export default function ClassroomCallsList() {
     }
   }, [pendingCount, soundEnabled, audioActivated]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount, page close, and visibility change
   useEffect(() => {
-    return () => {
+    const cleanup = () => {
       stopAlarm();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
       audioContextRef.current = null;
     };
-  }, []);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        stopAlarm();
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.suspend();
+        }
+      } else if (document.visibilityState === 'visible') {
+        // Resume alarm if there are still pending calls
+        if (pendingCountRef.current > 0 && soundEnabledRef.current && audioActivated) {
+          void ensureAudioContextRunning().then(() => startAlarm());
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', cleanup);
+    window.addEventListener('pagehide', cleanup);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', cleanup);
+      window.removeEventListener('pagehide', cleanup);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      cleanup();
+    };
+  }, [audioActivated]);
 
   const handleOpenAcceptDialog = (id: string) => {
     setSelectedCallId(id);
