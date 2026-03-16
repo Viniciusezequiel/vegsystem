@@ -147,36 +147,39 @@ export default function ClassroomCallsList() {
     soundEnabledRef.current = soundEnabled;
   }, [pendingCount, soundEnabled]);
 
-  // Unlock audio on user gesture (tablet/mobile requirement)
+  // Activate audio on explicit user gesture (required by mobile browsers)
+  const handleActivateAudio = async () => {
+    const unlocked = await ensureAudioContextRunning();
+    if (unlocked) {
+      // Play a tiny silent burst to fully unlock audio on iOS/Safari
+      const ctx = audioContextRef.current!;
+      const silentOsc = ctx.createOscillator();
+      const silentGain = ctx.createGain();
+      silentOsc.connect(silentGain);
+      silentGain.connect(ctx.destination);
+      silentGain.gain.setValueAtTime(0, ctx.currentTime);
+      silentOsc.start();
+      silentOsc.stop(ctx.currentTime + 0.05);
+
+      setAudioActivated(true);
+
+      // If there are already pending calls, start alarm immediately
+      if (pendingCountRef.current > 0 && soundEnabledRef.current) {
+        await startAlarm();
+      }
+    }
+  };
+
+  // Start/stop alarm based on pending calls (only if audio is activated)
   useEffect(() => {
-    const handleUserGesture = () => {
-      void (async () => {
-        const unlocked = await ensureAudioContextRunning();
-        if (unlocked && pendingCountRef.current > 0 && soundEnabledRef.current) {
-          await startAlarm();
-        }
-      })();
-    };
+    if (!audioActivated) return;
 
-    document.addEventListener('pointerdown', handleUserGesture, { passive: true });
-    document.addEventListener('touchstart', handleUserGesture, { passive: true });
-    document.addEventListener('keydown', handleUserGesture);
-
-    return () => {
-      document.removeEventListener('pointerdown', handleUserGesture);
-      document.removeEventListener('touchstart', handleUserGesture);
-      document.removeEventListener('keydown', handleUserGesture);
-    };
-  }, []);
-
-  // Start/stop alarm based on pending calls
-  useEffect(() => {
     if (pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
       void startAlarm();
     } else {
       stopAlarm();
     }
-  }, [pendingCount, soundEnabled]);
+  }, [pendingCount, soundEnabled, audioActivated]);
 
   // Cleanup on unmount
   useEffect(() => {
