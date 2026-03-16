@@ -871,9 +871,40 @@ export default function MyTasks() {
       </Dialog>
 
       <TaskFormDialog 
-        open={formOpen} 
-        onOpenChange={setFormOpen}
+        open={formOpen || !!editTask} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setFormOpen(false);
+            setEditTask(null);
+          }
+        }}
+        task={editTask}
       />
+
+      <AlertDialog open={!!deleteTaskDialog} onOpenChange={(open) => !open && setDeleteTaskDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Demanda</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a demanda "{deleteTaskDialog?.title}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTaskDialog) {
+                  deleteMutation.mutate({ id: deleteTaskDialog.id, title: deleteTaskDialog.title });
+                  setDeleteTaskDialog(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
