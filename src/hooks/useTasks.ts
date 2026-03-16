@@ -21,6 +21,7 @@ export interface CreateTaskData {
   notes?: string;
   event_start_datetime?: string | null;
   event_end_datetime?: string | null;
+  recurrence_type?: string | null;
 }
 
 export interface UpdateTaskData extends Partial<CreateTaskData> {
