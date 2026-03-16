@@ -225,23 +225,14 @@ export default function ClassroomCallsList() {
     return format(new Date(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   };
 
-  const handleToggleSound = async () => {
+  const handleToggleSound = () => {
     const nextEnabled = !soundEnabled;
     setSoundEnabled(nextEnabled);
 
     if (!nextEnabled) {
       stopAlarm();
-      return;
-    }
-
-    if (!audioActivated) {
-      await handleActivateAudio();
-      return;
-    }
-
-    const unlocked = await ensureAudioContextRunning();
-    if (unlocked && (pendingCount ?? 0) > 0) {
-      await startAlarm();
+    } else if (audioUnlocked && (pendingCount ?? 0) > 0) {
+      startAlarm();
     }
   };
 
@@ -268,26 +259,17 @@ export default function ClassroomCallsList() {
 
   return (
     <MainLayout>
-      {/* Audio Activation Banner for tablets/mobile */}
-      {!audioActivated && (
-        <Card className="border-primary bg-primary/5 mb-6">
-          <CardContent className="flex flex-col items-center justify-center py-8 gap-4">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Volume2 className="h-8 w-8 text-primary" />
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold">Ativar Alertas Sonoros</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Toque no botão abaixo para ativar os alertas sonoros de chamados neste dispositivo.
-              </p>
-            </div>
-            <Button
-              size="lg"
-              onClick={() => { void handleActivateAudio(); }}
-              className="min-w-[200px]"
-            >
-              <Volume2 className="mr-2 h-5 w-5" />
-              Ativar Som
+      {/* Audio auto-unlocks on first interaction - show subtle indicator if not yet unlocked */}
+      {!audioUnlocked && (
+        <Card className="border-primary bg-primary/5 mb-4">
+          <CardContent className="flex items-center justify-center py-3 gap-2">
+            <Volume2 className="h-4 w-4 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Toque em qualquer lugar da tela para ativar os alertas sonoros.
+            </p>
+          </CardContent>
+        </Card>
+      )}
             </Button>
           </CardContent>
         </Card>
