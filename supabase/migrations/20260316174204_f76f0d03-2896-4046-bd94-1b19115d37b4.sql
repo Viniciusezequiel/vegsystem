@@ -1,0 +1,1 @@
+ALTER TABLE public.classroom_calls ADD COLUMN campus text;

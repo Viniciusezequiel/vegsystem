@@ -237,6 +237,7 @@ export type Database = {
           accepted_at: string | null
           accepted_by: string | null
           accepted_by_name: string | null
+          campus: string | null
           created_at: string
           id: string
           is_valid: boolean | null
@@ -252,6 +253,7 @@ export type Database = {
           accepted_at?: string | null
           accepted_by?: string | null
           accepted_by_name?: string | null
+          campus?: string | null
           created_at?: string
           id?: string
           is_valid?: boolean | null
@@ -267,6 +269,7 @@ export type Database = {
           accepted_at?: string | null
           accepted_by?: string | null
           accepted_by_name?: string | null
+          campus?: string | null
           created_at?: string
           id?: string
           is_valid?: boolean | null
