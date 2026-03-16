@@ -230,6 +230,20 @@ export default function ClassroomCallsList() {
     return format(new Date(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   };
 
+  const handleToggleSound = async () => {
+    const nextEnabled = !soundEnabled;
+    setSoundEnabled(nextEnabled);
+
+    if (nextEnabled) {
+      const unlocked = await ensureAudioContextRunning();
+      if (unlocked && (pendingCount ?? 0) > 0) {
+        await startAlarm();
+      }
+    } else {
+      stopAlarm();
+    }
+  };
+
   const copyExternalLink = () => {
     const link = `${window.location.origin}/chamado-sala`;
     navigator.clipboard.writeText(link);
