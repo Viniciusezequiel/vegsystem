@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import ClassroomCallValidationDialog from '@/components/classroom/ClassroomCallValidationDialog';
 
 // Online notification sound URL (short alert beep)
-const ALARM_SOUND_URL = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg';
+const ALARM_SOUND_URL = 'https://actions.google.com/sounds/v1/emergency/emergency_siren.ogg';
 
 const statusConfig = {
   pending: { label: 'Pendente', variant: 'destructive' as const, icon: BellRing },
