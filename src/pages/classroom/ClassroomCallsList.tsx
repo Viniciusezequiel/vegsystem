@@ -240,13 +240,19 @@ export default function ClassroomCallsList() {
     const nextEnabled = !soundEnabled;
     setSoundEnabled(nextEnabled);
 
-    if (nextEnabled) {
-      const unlocked = await ensureAudioContextRunning();
-      if (unlocked && (pendingCount ?? 0) > 0) {
-        await startAlarm();
-      }
-    } else {
+    if (!nextEnabled) {
       stopAlarm();
+      return;
+    }
+
+    if (!audioActivated) {
+      await handleActivateAudio();
+      return;
+    }
+
+    const unlocked = await ensureAudioContextRunning();
+    if (unlocked && (pendingCount ?? 0) > 0) {
+      await startAlarm();
     }
   };
 
