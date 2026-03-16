@@ -38,6 +38,7 @@ export default function ClassroomCallsList() {
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
+  const [selectedCampus, setSelectedCampus] = useState<string>('');
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const loopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -48,9 +49,20 @@ export default function ClassroomCallsList() {
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
   const canDeleteCalls = isAdmin || canDelete('classroomCalls');
+
+  // Fetch available campuses from rooms config
+  const { data: roomsConfig } = useClassroomCallRooms(true);
+  const campuses = useMemo(() => {
+    if (!roomsConfig) return [];
+    const unique = [...new Set(roomsConfig.map(r => r.campus))];
+    unique.sort();
+    return unique;
+  }, [roomsConfig]);
+
+  const campusFilter = selectedCampus || undefined;
   
-  const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab);
-  const { data: pendingCount } = usePendingCallsCount();
+  const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab, campusFilter);
+  const { data: pendingCount } = usePendingCallsCount(campusFilter);
   
   // Native notifications for tablets/mobile
   useNativeCallNotification(pendingCount);
