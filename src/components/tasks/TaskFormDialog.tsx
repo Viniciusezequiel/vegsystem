@@ -58,6 +58,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
 
   const { data: users } = useUsersList();
   const { data: categoryConfigs } = useTaskCategories();
+  const { data: existingTeamMembers } = useTaskTeamMembers(task?.id || '');
   const createMutation = useCreateTask();
   const updateMutation = useUpdateTask();
 
