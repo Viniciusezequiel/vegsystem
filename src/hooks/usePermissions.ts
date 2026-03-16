@@ -18,7 +18,7 @@ export type Module =
 
 export type Action = 'view' | 'create' | 'edit' | 'delete' | 'approve';
 
-export type AppRole = 'admin' | 'supervisor' | 'analista' | 'assistente' | 'visualizador';
+export type AppRole = 'admin' | 'supervisor' | 'analista' | 'assistente' | 'visualizador' | 'atendente';
 
 export interface RolePermission {
   id: string;
@@ -58,6 +58,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   analista: 'Analista',
   assistente: 'Assistente',
   visualizador: 'Visualizador',
+  atendente: 'Atendente de Chamados',
 };
 
 export function useRolePermissions() {

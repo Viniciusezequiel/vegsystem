@@ -14,7 +14,7 @@ interface CreateUserRequest {
   full_name: string;
   position: string;
   department: string;
-  role: 'admin' | 'analista' | 'assistente';
+  role: 'admin' | 'analista' | 'assistente' | 'supervisor' | 'visualizador' | 'atendente';
 }
 
 Deno.serve(async (req) => {
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     }
 
     // Role validation
-    const validRoles = ['admin', 'analista', 'assistente'];
+    const validRoles = ['admin', 'analista', 'assistente', 'supervisor', 'visualizador', 'atendente'];
     if (!validRoles.includes(role)) {
       return new Response(
         JSON.stringify({ error: 'Invalid role' }),

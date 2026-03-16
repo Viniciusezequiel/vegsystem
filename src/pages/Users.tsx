@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History, Search } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History, Search, Bell } from 'lucide-react';
 import { UserActivityDialog } from '@/components/users/UserActivityDialog';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
@@ -47,6 +47,7 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ElementType; colo
   analista: { label: 'Analista', icon: BarChart3, color: 'text-primary' },
   assistente: { label: 'Assistente', icon: Eye, color: 'text-muted-foreground' },
   visualizador: { label: 'Visualizador', icon: Eye, color: 'text-muted-foreground' },
+  atendente: { label: 'Atendente de Chamados', icon: Bell, color: 'text-orange-500' },
 };
 
 export default function Users() {
@@ -350,6 +351,7 @@ export default function Users() {
                     <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
                     <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
                     <SelectItem value="visualizador">Visualizador - Somente leitura</SelectItem>
+                    <SelectItem value="atendente">Atendente - Apenas chamados de sala</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -607,6 +609,7 @@ export default function Users() {
                   <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
                   <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
                   <SelectItem value="visualizador">Visualizador - Somente leitura</SelectItem>
+                  <SelectItem value="atendente">Atendente - Apenas chamados de sala</SelectItem>
                 </SelectContent>
               </Select>
             </div>

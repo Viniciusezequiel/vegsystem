@@ -243,6 +243,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
       case 'supervisor': return 'Supervisor';
       case 'analista': return 'Analista';
       case 'assistente': return 'Assistente';
+      case 'atendente': return 'Atendente de Chamados';
       default: return 'Usuário';
     }
   };

@@ -1896,6 +1896,7 @@ export type Database = {
         | "assistente"
         | "supervisor"
         | "visualizador"
+        | "atendente"
       campus_enum: "Campus I" | "Campus II" | "Campus IV" | "Campus HUCM Adm"
       equipment_status: "available" | "borrowed" | "maintenance"
       loan_status: "active" | "returned" | "overdue"
@@ -2033,6 +2034,7 @@ export const Constants = {
         "assistente",
         "supervisor",
         "visualizador",
+        "atendente",
       ],
       campus_enum: ["Campus I", "Campus II", "Campus IV", "Campus HUCM Adm"],
       equipment_status: ["available", "borrowed", "maintenance"],
