@@ -357,6 +357,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="due_date">Prazo {requiredFields.includes('due_date') && '*'}</Label>
               <div className="flex gap-2">
