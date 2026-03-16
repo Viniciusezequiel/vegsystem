@@ -10,15 +10,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { useClassroomCallResponses } from '@/hooks/useClassroomCallSettings';
 
 interface ClassroomCallValidationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   callId: string;
   mode: 'accept' | 'resolve';
-  onConfirm: (data: { isValid?: boolean; validationReason?: string; treatment?: string }) => void;
+  onConfirm: (data: { responseMessage?: string; treatment?: string }) => void;
   isPending: boolean;
 }
 
@@ -30,27 +31,23 @@ export default function ClassroomCallValidationDialog({
   onConfirm,
   isPending,
 }: ClassroomCallValidationDialogProps) {
-  const [isValid, setIsValid] = useState<boolean | null>(null);
-  const [validationReason, setValidationReason] = useState('');
+  const [selectedResponse, setSelectedResponse] = useState('');
   const [treatment, setTreatment] = useState('');
+
+  const { data: responses = [] } = useClassroomCallResponses(true);
 
   const handleConfirm = () => {
     if (mode === 'accept') {
-      onConfirm({ 
-        isValid: isValid ?? undefined, 
-        validationReason: validationReason || undefined 
-      });
+      onConfirm({ responseMessage: selectedResponse || undefined });
     } else {
       onConfirm({ treatment: treatment || undefined });
     }
-    // Reset form
-    setIsValid(null);
-    setValidationReason('');
+    setSelectedResponse('');
     setTreatment('');
   };
 
   const canSubmit = mode === 'accept' 
-    ? isValid !== null && (isValid || validationReason.trim().length > 0)
+    ? true // Accept is always possible, response is optional
     : treatment.trim().length > 0;
 
   return (
@@ -62,50 +59,34 @@ export default function ClassroomCallValidationDialog({
           </DialogTitle>
           <DialogDescription>
             {mode === 'accept' 
-              ? 'Informe se a intercorrência procede e, se necessário, adicione uma justificativa.'
+              ? 'Selecione uma mensagem para o solicitante (opcional).'
               : 'Descreva a tratativa realizada para resolver o chamado.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {mode === 'accept' ? (
-            <>
-              <div className="space-y-3">
-                <Label>A intercorrência procede?</Label>
-                <RadioGroup
-                  value={isValid === null ? '' : isValid ? 'yes' : 'no'}
-                  onValueChange={(value) => setIsValid(value === 'yes')}
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="valid-yes" />
-                    <Label htmlFor="valid-yes" className="font-normal cursor-pointer">
-                      Sim, procede
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="valid-no" />
-                    <Label htmlFor="valid-no" className="font-normal cursor-pointer">
-                      Não procede
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="validationReason">
-                  {isValid === false ? 'Justificativa (obrigatório)' : 'Justificativa (opcional)'}
-                </Label>
-                <Textarea
-                  id="validationReason"
-                  placeholder={isValid === false 
-                    ? 'Informe o motivo pelo qual a intercorrência não procede...'
-                    : 'Adicione observações sobre o chamado...'}
-                  value={validationReason}
-                  onChange={(e) => setValidationReason(e.target.value)}
-                  rows={3}
-                />
-              </div>
-            </>
+            <div className="space-y-2">
+              <Label>Mensagem para o solicitante</Label>
+              {responses.length > 0 ? (
+                <Select value={selectedResponse} onValueChange={setSelectedResponse}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma resposta..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {responses.map((resp) => (
+                      <SelectItem key={resp.id} value={resp.message}>
+                        {resp.message}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma resposta pré-definida cadastrada. Configure em Configurações de Chamados.
+                </p>
+              )}
+            </div>
           ) : (
             <div className="space-y-2">
               <Label htmlFor="treatment">Tratativa Realizada *</Label>
