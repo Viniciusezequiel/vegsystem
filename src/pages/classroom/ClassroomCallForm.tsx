@@ -39,8 +39,24 @@ export default function ClassroomCallForm() {
   // Fetch rooms config from edge function (no auth needed)
   const fetchConfig = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('get-classroom-call-config');
-      if (!error && data?.rooms) {
+      // Use direct fetch to avoid auth issues on public form
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/get-classroom-call-config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({}),
+      });
+      
+      if (!response.ok) {
+        console.error('Config fetch failed:', response.status, await response.text());
+        return;
+      }
+      
+      const data = await response.json();
+      if (data?.rooms) {
         setRooms(data.rooms);
         
         // Auto-select room from URL param
