@@ -192,7 +192,7 @@ export default function ClassroomCallsList() {
 
     if (!nextEnabled) {
       stopAlarm();
-    } else if (audioUnlocked && (pendingCount ?? 0) > 0) {
+    } else if ((pendingCount ?? 0) > 0) {
       startAlarm();
     }
   };
