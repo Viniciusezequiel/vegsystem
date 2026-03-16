@@ -222,10 +222,9 @@ export default function ClassroomCallsList() {
       });
     }
     
-    // Stop sound when call is accepted
-    if (dialogMode === 'accept' && intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    // Let alarm state be controlled by pending count / sound toggle
+    if (dialogMode === 'accept') {
+      stopAlarm();
     }
     
     setValidationDialogOpen(false);
