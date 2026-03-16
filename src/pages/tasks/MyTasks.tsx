@@ -90,7 +90,9 @@ export default function MyTasks() {
   const [completeDate, setCompleteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const { data: tasks, isLoading } = useMyTasks();
+  const { isAdmin } = useAuth();
   const updateMutation = useUpdateTask();
+  const deleteMutation = useDeleteTask();
   const { data: comments, isLoading: loadingComments } = useTaskComments(selectedTask?.id || '');
   const addCommentMutation = useAddTaskComment();
 
