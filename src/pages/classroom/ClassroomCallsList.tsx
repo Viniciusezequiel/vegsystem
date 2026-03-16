@@ -33,7 +33,6 @@ export default function ClassroomCallsList() {
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
@@ -42,7 +41,6 @@ export default function ClassroomCallsList() {
   const loopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingCountRef = useRef(0);
   const soundEnabledRef = useRef(true);
-  const audioUnlockedRef = useRef(false);
 
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
