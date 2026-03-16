@@ -270,6 +270,31 @@ export default function ClassroomCallsList() {
 
   return (
     <MainLayout>
+      {/* Audio Activation Banner for tablets/mobile */}
+      {!audioActivated && (
+        <Card className="border-primary bg-primary/5 mb-6">
+          <CardContent className="flex flex-col items-center justify-center py-8 gap-4">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Volume2 className="h-8 w-8 text-primary" />
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold">Ativar Alertas Sonoros</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Toque no botão abaixo para ativar os alertas sonoros de chamados neste dispositivo.
+              </p>
+            </div>
+            <Button
+              size="lg"
+              onClick={() => { void handleActivateAudio(); }}
+              className="min-w-[200px]"
+            >
+              <Volume2 className="mr-2 h-5 w-5" />
+              Ativar Som
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
