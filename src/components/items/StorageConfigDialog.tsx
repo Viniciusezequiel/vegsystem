@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/accordion';
 import { Plus, Trash2, Save, Loader2, Package } from 'lucide-react';
 import { useStorageConfig, useUpdateStorageConfig, StorageConfigData, CampusStorageConfig, ShelfConfig, BoxConfig } from '@/hooks/useStorageConfig';
-import type { Database } from '@/integrations/supabase/types';
+// Remove unused Database import - campuses are now dynamic
 
 const defaultCampuses = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
