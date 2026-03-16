@@ -147,6 +147,25 @@ export default function ClassroomCallsList() {
     soundEnabledRef.current = soundEnabled;
   }, [pendingCount, soundEnabled]);
 
+  // Auto-activate on desktop (no gesture needed)
+  useEffect(() => {
+    if (audioActivated) return;
+    const tryAutoActivate = async () => {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const testCtx = new AudioContextClass();
+      // On desktop, state is 'running' immediately
+      if (testCtx.state === 'running') {
+        testCtx.close();
+        setAudioActivated(true);
+        await ensureAudioContextRunning();
+      } else {
+        testCtx.close();
+      }
+    };
+    void tryAutoActivate();
+  }, []);
+
   // Activate audio on explicit user gesture (required by mobile browsers)
   const handleActivateAudio = async () => {
     const unlocked = await ensureAudioContextRunning();
