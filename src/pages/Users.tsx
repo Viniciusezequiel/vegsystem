@@ -351,6 +351,7 @@ export default function Users() {
                     <SelectItem value="analista">Analista - Editar, criar e apagar</SelectItem>
                     <SelectItem value="assistente">Assistente - Criar e visualizar</SelectItem>
                     <SelectItem value="visualizador">Visualizador - Somente leitura</SelectItem>
+                    <SelectItem value="atendente">Atendente - Apenas chamados de sala</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
