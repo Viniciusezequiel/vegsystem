@@ -36,7 +36,10 @@ export default function ClassroomCallsList() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
-  const audioUnlockedRef = useRef(false);
+  const isAlarmActiveRef = useRef(false);
+
+  const pendingCountRef = useRef(0);
+  const soundEnabledRef = useRef(true);
 
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
@@ -48,89 +51,143 @@ export default function ClassroomCallsList() {
   const resolveCall = useResolveClassroomCall();
   const deleteCall = useDeleteClassroomCall();
 
-  // Unlock AudioContext on first user interaction (required for tablets/mobile)
-  useEffect(() => {
-    const unlockAudio = () => {
-      if (audioUnlockedRef.current) return;
-      audioUnlockedRef.current = true;
+  const clearAlarmInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
 
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume();
+  const stopAlarm = () => {
+    clearAlarmInterval();
+
+    if (gainNodeRef.current && audioContextRef.current?.state === 'running') {
+      const now = audioContextRef.current.currentTime;
+      gainNodeRef.current.gain.cancelScheduledValues(now);
+      gainNodeRef.current.gain.setValueAtTime(0, now);
+    }
+
+    if (oscillatorRef.current) {
+      try {
+        oscillatorRef.current.stop();
+      } catch (_) {
+        // no-op
       }
+      oscillatorRef.current.disconnect();
+      oscillatorRef.current = null;
+    }
+
+    if (gainNodeRef.current) {
+      gainNodeRef.current.disconnect();
+      gainNodeRef.current = null;
+    }
+
+    isAlarmActiveRef.current = false;
+  };
+
+  const ensureAudioContextRunning = async () => {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return false;
+
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new AudioContextClass();
+    }
+
+    const ctx = audioContextRef.current;
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch (_) {
+        return false;
+      }
+    }
+
+    return ctx.state === 'running';
+  };
+
+  const startAlarm = async () => {
+    if (isAlarmActiveRef.current) return;
+
+    const canPlay = await ensureAudioContextRunning();
+    if (!canPlay || !audioContextRef.current) return;
+
+    const ctx = audioContextRef.current;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+
+    oscillator.start();
+
+    oscillatorRef.current = oscillator;
+    gainNodeRef.current = gainNode;
+    isAlarmActiveRef.current = true;
+
+    const pulseAlarm = () => {
+      if (!audioContextRef.current || !gainNodeRef.current) return;
+      if (audioContextRef.current.state !== 'running') return;
+
+      const now = audioContextRef.current.currentTime;
+      gainNodeRef.current.gain.cancelScheduledValues(now);
+      gainNodeRef.current.gain.setValueAtTime(0.23, now);
+      gainNodeRef.current.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
     };
 
-    document.addEventListener('click', unlockAudio, { once: false });
-    document.addEventListener('touchstart', unlockAudio, { once: false });
+    pulseAlarm();
+    intervalRef.current = setInterval(pulseAlarm, 450);
+  };
+
+  useEffect(() => {
+    pendingCountRef.current = pendingCount ?? 0;
+    soundEnabledRef.current = soundEnabled;
+  }, [pendingCount, soundEnabled]);
+
+  // Unlock audio on user gesture (tablet/mobile requirement)
+  useEffect(() => {
+    const handleUserGesture = () => {
+      void (async () => {
+        const unlocked = await ensureAudioContextRunning();
+        if (unlocked && pendingCountRef.current > 0 && soundEnabledRef.current) {
+          await startAlarm();
+        }
+      })();
+    };
+
+    document.addEventListener('pointerdown', handleUserGesture, { passive: true });
+    document.addEventListener('touchstart', handleUserGesture, { passive: true });
+    document.addEventListener('keydown', handleUserGesture);
 
     return () => {
-      document.removeEventListener('click', unlockAudio);
-      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('pointerdown', handleUserGesture);
+      document.removeEventListener('touchstart', handleUserGesture);
+      document.removeEventListener('keydown', handleUserGesture);
     };
   }, []);
 
-  // Play continuous alarm when there are pending calls
+  // Start/stop alarm based on pending calls
   useEffect(() => {
     if (pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = ctx;
-
-      // Attempt to resume immediately (works if user already interacted)
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillatorRef.current = oscillator;
-      gainNodeRef.current = gainNode;
-
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(800, ctx.currentTime);
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      oscillator.start();
-
-      const pulseAlarm = () => {
-        if (ctx.state === 'suspended') {
-          ctx.resume();
-        }
-        if (ctx.state === 'running') {
-          const now = ctx.currentTime;
-          gainNode.gain.cancelScheduledValues(now);
-          gainNode.gain.setValueAtTime(0.25, now);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        }
-      };
-
-      pulseAlarm();
-      intervalRef.current = setInterval(pulseAlarm, 300);
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        try { oscillator.stop(); } catch (_) {}
-        ctx.close();
-        audioContextRef.current = null;
-        oscillatorRef.current = null;
-        gainNodeRef.current = null;
-      };
+      void startAlarm();
     } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (audioContextRef.current) {
-        try { oscillatorRef.current?.stop(); } catch (_) {}
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-        oscillatorRef.current = null;
-        gainNodeRef.current = null;
-      }
+      stopAlarm();
     }
   }, [pendingCount, soundEnabled]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopAlarm();
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+      audioContextRef.current = null;
+    };
+  }, []);
 
   const handleOpenAcceptDialog = (id: string) => {
     setSelectedCallId(id);
@@ -173,6 +230,20 @@ export default function ClassroomCallsList() {
     return format(new Date(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   };
 
+  const handleToggleSound = async () => {
+    const nextEnabled = !soundEnabled;
+    setSoundEnabled(nextEnabled);
+
+    if (nextEnabled) {
+      const unlocked = await ensureAudioContextRunning();
+      if (unlocked && (pendingCount ?? 0) > 0) {
+        await startAlarm();
+      }
+    } else {
+      stopAlarm();
+    }
+  };
+
   const copyExternalLink = () => {
     const link = `${window.location.origin}/chamado-sala`;
     navigator.clipboard.writeText(link);
@@ -209,7 +280,9 @@ export default function ClassroomCallsList() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              onClick={() => {
+                void handleToggleSound();
+              }}
               className={soundEnabled ? '' : 'text-muted-foreground'}
             >
               {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
