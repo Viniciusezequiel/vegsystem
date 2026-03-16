@@ -67,10 +67,10 @@ import { classifyExpiredItem, getDestinationLabel } from '@/lib/expiredItemsDest
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
 const statusFilters: { value: ItemStatus | 'all'; label: string; restrictedRoles?: string[] }[] = [
-  { value: 'all', label: 'Todos', restrictedRoles: ['admin', 'analista', 'supervisor'] },
+  { value: 'all', label: 'Todos', restrictedRoles: ['admin', 'supervisor'] },
   { value: 'available', label: 'Disponíveis' },
-  { value: 'delivered', label: 'Entregues' },
-  { value: 'expired', label: 'Expirados', restrictedRoles: ['admin', 'analista', 'supervisor'] },
+  { value: 'delivered', label: 'Entregues', restrictedRoles: ['admin', 'supervisor'] },
+  { value: 'expired', label: 'Expirados', restrictedRoles: ['admin', 'supervisor'] },
 ];
 
 const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
