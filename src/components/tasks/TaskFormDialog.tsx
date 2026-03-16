@@ -339,6 +339,45 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             </div>
           )}
 
+          {/* Recurrence fields */}
+          <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Repeat className="w-4 h-4 text-primary" />
+                Repetir Demanda
+              </div>
+              <Switch
+                checked={formData.is_recurring}
+                onCheckedChange={(checked) => setFormData(prev => ({ 
+                  ...prev, 
+                  is_recurring: checked, 
+                  recurrence_type: checked ? prev.recurrence_type || 'weekly' : '' 
+                }))}
+              />
+            </div>
+            {formData.is_recurring && (
+              <div className="space-y-2">
+                <Label>Frequência *</Label>
+                <Select
+                  value={formData.recurrence_type || 'weekly'}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, recurrence_type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a frequência" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                    <SelectItem value="semiannual">Semestral</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  A demanda será recriada automaticamente na frequência selecionada.
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="notes">Observações {requiredFields.includes('notes') && '*'}</Label>
             <Textarea
