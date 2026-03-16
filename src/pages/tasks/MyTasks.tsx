@@ -29,6 +29,23 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   ClipboardCheck,
   Loader2,
   Calendar,
@@ -41,8 +58,13 @@ import {
   AlertCircle,
   Plus,
   CalendarClock,
+  MoreVertical,
+  Edit,
+  Trash2,
+  User,
 } from 'lucide-react';
-import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
+import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, useDeleteTask, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
