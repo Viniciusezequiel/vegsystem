@@ -47,6 +47,7 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ElementType; colo
   analista: { label: 'Analista', icon: BarChart3, color: 'text-primary' },
   assistente: { label: 'Assistente', icon: Eye, color: 'text-muted-foreground' },
   visualizador: { label: 'Visualizador', icon: Eye, color: 'text-muted-foreground' },
+  atendente: { label: 'Atendente de Chamados', icon: Bell, color: 'text-orange-500' },
 };
 
 export default function Users() {
