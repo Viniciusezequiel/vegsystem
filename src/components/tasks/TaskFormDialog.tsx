@@ -18,7 +18,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
-import { Loader2, Save, CalendarClock } from 'lucide-react';
+import { Loader2, Save, CalendarClock, Repeat } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useCreateTask, useUpdateTask, Task } from '@/hooks/useTasks';
 import { useUsersList } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';

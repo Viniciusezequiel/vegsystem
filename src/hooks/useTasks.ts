@@ -182,6 +182,7 @@ export function useCreateTask() {
           notes: data.notes || null,
           event_start_datetime: data.event_start_datetime || null,
           event_end_datetime: data.event_end_datetime || null,
+          recurrence_type: data.recurrence_type || null,
           created_by_name: 'Sistema',
         })
         .select()
