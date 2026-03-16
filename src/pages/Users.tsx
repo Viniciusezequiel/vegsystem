@@ -313,7 +313,7 @@ export default function Users() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
