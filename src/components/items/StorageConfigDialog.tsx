@@ -24,10 +24,9 @@ import {
 } from '@/components/ui/accordion';
 import { Plus, Trash2, Save, Loader2, Package } from 'lucide-react';
 import { useStorageConfig, useUpdateStorageConfig, StorageConfigData, CampusStorageConfig, ShelfConfig, BoxConfig } from '@/hooks/useStorageConfig';
-import type { Database } from '@/integrations/supabase/types';
+// Remove unused Database import - campuses are now dynamic
 
-type CampusEnum = Database['public']['Enums']['campus_enum'];
-const allCampuses: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
+const defaultCampuses = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
 interface StorageConfigDialogProps {
   open: boolean;
@@ -41,6 +40,7 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
   const updateConfig = useUpdateStorageConfig();
   const [localConfig, setLocalConfig] = useState<StorageConfigData | null>(null);
   const [selectedCampus, setSelectedCampus] = useState<string>('');
+  const [newCampusName, setNewCampusName] = useState('');
 
   useEffect(() => {
     if (config && !localConfig) {
@@ -144,7 +144,17 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
     });
   };
 
-  const unusedCampuses = allCampuses.filter(c => !localConfig.campuses.find(cc => cc.campus === c));
+  // Combine default campuses with any custom ones already in config
+  const existingCampusNames = localConfig.campuses.map(c => c.campus);
+  const allAvailableCampuses = [...new Set([...defaultCampuses, ...existingCampusNames])];
+  const unusedCampuses = allAvailableCampuses.filter(c => !localConfig.campuses.find(cc => cc.campus === c));
+
+  const addCustomCampus = () => {
+    const name = newCampusName.trim();
+    if (!name || localConfig.campuses.find(c => c.campus === name)) return;
+    addCampusConfig(name);
+    setNewCampusName('');
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -185,6 +195,18 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
                 </SelectContent>
               </Select>
             )}
+            <div className="flex items-center gap-1">
+              <Input
+                value={newCampusName}
+                onChange={e => setNewCampusName(e.target.value)}
+                placeholder="Novo campus..."
+                className="h-8 w-[150px] text-sm"
+                onKeyDown={e => e.key === 'Enter' && addCustomCampus()}
+              />
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={addCustomCampus} disabled={!newCampusName.trim()}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Shelves for selected campus */}
