@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { ptBR } from 'date-fns/locale';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
