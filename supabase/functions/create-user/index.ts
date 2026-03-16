@@ -14,7 +14,7 @@ interface CreateUserRequest {
   full_name: string;
   position: string;
   department: string;
-  role: 'admin' | 'analista' | 'assistente';
+  role: 'admin' | 'analista' | 'assistente' | 'supervisor' | 'visualizador' | 'atendente';
 }
 
 Deno.serve(async (req) => {
