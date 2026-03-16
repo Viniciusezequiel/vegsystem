@@ -207,6 +207,16 @@ export default function ClassroomCallsList() {
             >
               {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/classroom-calls/settings')}
+              >
+                <Settings2 className="h-4 w-4 mr-2" />
+                Configurações
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
