@@ -38,6 +38,9 @@ export default function ClassroomCallsList() {
   const gainNodeRef = useRef<GainNode | null>(null);
   const isAlarmActiveRef = useRef(false);
 
+  const pendingCountRef = useRef(0);
+  const soundEnabledRef = useRef(true);
+
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
   const canDeleteCalls = isAdmin || canDelete('classroomCalls');
