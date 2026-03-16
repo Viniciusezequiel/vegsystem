@@ -18,7 +18,7 @@ export type Module =
 
 export type Action = 'view' | 'create' | 'edit' | 'delete' | 'approve';
 
-export type AppRole = 'admin' | 'supervisor' | 'analista' | 'assistente' | 'visualizador';
+export type AppRole = 'admin' | 'supervisor' | 'analista' | 'assistente' | 'visualizador' | 'atendente';
 
 export interface RolePermission {
   id: string;
