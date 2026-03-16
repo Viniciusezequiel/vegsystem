@@ -818,8 +818,8 @@ export default function ItemsList() {
           ))}
         </div>
 
-        {/* Destination Filter (for "Todos" status) */}
-        {statusFilter === 'all' && (
+        {/* Destination Filter (for "Todos" status) - admin/supervisor only */}
+        {isAdvancedUser && statusFilter === 'all' && (
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-sm text-muted-foreground">Destino:</span>
             <Button
@@ -850,6 +850,7 @@ export default function ItemsList() {
           </div>
         )}
 
+        {isAdvancedUser && (
         <div className="flex flex-wrap gap-2 items-center">
           {/* Export/Import Dropdown */}
           <DropdownMenu>
