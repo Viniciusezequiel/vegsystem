@@ -135,14 +135,13 @@ export default function ClassroomCallsList() {
     setValidationDialogOpen(true);
   };
 
-  const handleValidationConfirm = async (data: { isValid?: boolean; validationReason?: string; treatment?: string }) => {
+  const handleValidationConfirm = async (data: { responseMessage?: string; treatment?: string }) => {
     if (!selectedCallId) return;
     
     if (dialogMode === 'accept') {
       await acceptCall.mutateAsync({ 
         id: selectedCallId, 
-        isValid: data.isValid, 
-        validationReason: data.validationReason 
+        responseMessage: data.responseMessage 
       });
     } else {
       await resolveCall.mutateAsync({ 
