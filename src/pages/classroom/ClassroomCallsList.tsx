@@ -33,6 +33,10 @@ export default function ClassroomCallsList() {
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorRef = useRef<OscillatorNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const audioUnlockedRef = useRef(false);
 
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
@@ -44,83 +48,86 @@ export default function ClassroomCallsList() {
   const resolveCall = useResolveClassroomCall();
   const deleteCall = useDeleteClassroomCall();
 
-  // Initialize continuous alarm audio
+  // Unlock AudioContext on first user interaction (required for tablets/mobile)
   useEffect(() => {
-    // Create oscillator-based continuous alarm
-    const createAlarmSound = () => {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      
-      // Create pulsing effect for urgency
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      
-      const pulseAlarm = () => {
-        const now = audioContext.currentTime;
-        gainNode.gain.cancelScheduledValues(now);
-        gainNode.gain.setValueAtTime(0.3, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      };
-      
-      oscillator.start();
-      
-      return { audioContext, oscillator, gainNode, pulseAlarm };
+    const unlockAudio = () => {
+      if (audioUnlockedRef.current) return;
+      audioUnlockedRef.current = true;
+
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
     };
 
+    document.addEventListener('click', unlockAudio, { once: false });
+    document.addEventListener('touchstart', unlockAudio, { once: false });
+
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
     };
   }, []);
 
   // Play continuous alarm when there are pending calls
   useEffect(() => {
     if (pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
-      // Create audio context for continuous sound
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = ctx;
+
+      // Attempt to resume immediately (works if user already interacted)
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillatorRef.current = oscillator;
+      gainNodeRef.current = gainNode;
+
       oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      gainNode.connect(ctx.destination);
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
       oscillator.start();
-      
-      // Continuous pulsing alarm
+
       const pulseAlarm = () => {
-        if (audioContext.state === 'running') {
-          const now = audioContext.currentTime;
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+        if (ctx.state === 'running') {
+          const now = ctx.currentTime;
           gainNode.gain.cancelScheduledValues(now);
           gainNode.gain.setValueAtTime(0.25, now);
           gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
         }
       };
-      
+
       pulseAlarm();
-      intervalRef.current = setInterval(pulseAlarm, 300); // Rapid pulsing for continuous effect
-      
+      intervalRef.current = setInterval(pulseAlarm, 300);
+
       return () => {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
-        oscillator.stop();
-        audioContext.close();
+        try { oscillator.stop(); } catch (_) {}
+        ctx.close();
+        audioContextRef.current = null;
+        oscillatorRef.current = null;
+        gainNodeRef.current = null;
       };
     } else {
-      // Stop sound when no pending calls or sound disabled
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+      if (audioContextRef.current) {
+        try { oscillatorRef.current?.stop(); } catch (_) {}
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+        oscillatorRef.current = null;
+        gainNodeRef.current = null;
       }
     }
   }, [pendingCount, soundEnabled]);
