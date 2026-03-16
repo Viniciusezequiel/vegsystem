@@ -36,37 +36,39 @@ export default function ClassroomCallForm() {
   const [submittedRoomName, setSubmittedRoomName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch rooms config from edge function (no auth needed)
+  // Fetch rooms config directly from database (faster than edge function)
   const fetchConfig = async () => {
     try {
-      // Use direct fetch to avoid auth issues on public form
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/get-classroom-call-config`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({}),
-      });
-      
-      if (!response.ok) {
-        console.error('Config fetch failed:', response.status, await response.text());
-        return;
-      }
-      
-      const data = await response.json();
-      if (data?.rooms) {
-        setRooms(data.rooms);
-        
-        // Auto-select room from URL param
-        const urlRoom = searchParams.get('sala') || searchParams.get('room');
-        if (urlRoom) {
-          const found = data.rooms.find((r: RoomConfig) => 
-            r.name.toLowerCase() === urlRoom.toLowerCase()
-          );
-          if (found) setSelectedRoomId(found.id);
-        }
+      const [roomsResult, issuesResult] = await Promise.all([
+        supabase
+          .from('classroom_call_rooms')
+          .select('id, name, campus')
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('classroom_call_room_issues')
+          .select('id, room_id, description')
+          .eq('is_active', true)
+          .order('order_index'),
+      ]);
+
+      if (roomsResult.error) throw roomsResult.error;
+      if (issuesResult.error) throw issuesResult.error;
+
+      const roomsWithIssues: RoomConfig[] = (roomsResult.data || []).map(room => ({
+        ...room,
+        issues: (issuesResult.data || []).filter(i => i.room_id === room.id),
+      }));
+
+      setRooms(roomsWithIssues);
+
+      // Auto-select room from URL param
+      const urlRoom = searchParams.get('sala') || searchParams.get('room');
+      if (urlRoom) {
+        const found = roomsWithIssues.find(r =>
+          r.name.toLowerCase() === urlRoom.toLowerCase()
+        );
+        if (found) setSelectedRoomId(found.id);
       }
     } catch (e) {
       console.error('Failed to load config:', e);
