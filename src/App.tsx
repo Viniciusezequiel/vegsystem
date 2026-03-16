@@ -59,6 +59,9 @@ import TasksList from "./pages/tasks/TasksList";
 import MyTasks from "./pages/tasks/MyTasks";
 import TasksDashboard from "./pages/tasks/TasksDashboard";
 
+// PWA
+import Install from "./pages/Install";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -217,6 +220,7 @@ const App = () => (
               } />
               
               {/* Classroom Calls Module */}
+              <Route path="/install" element={<Install />} />
               <Route path="/chamado-sala" element={<ClassroomCallForm />} />
               <Route path="/classroom-calls" element={
                 <ProtectedRoute>
