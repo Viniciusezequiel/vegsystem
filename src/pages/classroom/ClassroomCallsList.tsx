@@ -24,6 +24,7 @@ const statusConfig = {
 };
 
 export default function ClassroomCallsList() {
+  const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
