@@ -152,6 +152,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       notes: formData.notes || undefined,
       event_start_datetime: eventStartISO || null,
       event_end_datetime: eventEndISO || null,
+      recurrence_type: formData.is_recurring && formData.recurrence_type ? formData.recurrence_type : null,
     };
 
     if (isEditing) {
