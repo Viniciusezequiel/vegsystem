@@ -29,7 +29,10 @@ export default function ClassroomCallsList() {
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [audioActivated, setAudioActivated] = useState(false);
+  const isTouchDevice =
+    typeof window !== 'undefined' &&
+    (navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)').matches);
+  const [audioActivated, setAudioActivated] = useState(() => !isTouchDevice);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
@@ -147,25 +150,6 @@ export default function ClassroomCallsList() {
     soundEnabledRef.current = soundEnabled;
   }, [pendingCount, soundEnabled]);
 
-  // Auto-activate on desktop (no gesture needed)
-  useEffect(() => {
-    if (audioActivated) return;
-    const tryAutoActivate = async () => {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-      const testCtx = new AudioContextClass();
-      // On desktop, state is 'running' immediately
-      if (testCtx.state === 'running') {
-        testCtx.close();
-        setAudioActivated(true);
-        await ensureAudioContextRunning();
-      } else {
-        testCtx.close();
-      }
-    };
-    void tryAutoActivate();
-  }, []);
-
   // Activate audio on explicit user gesture (required by mobile browsers)
   const handleActivateAudio = async () => {
     const unlocked = await ensureAudioContextRunning();
@@ -238,10 +222,9 @@ export default function ClassroomCallsList() {
       });
     }
     
-    // Stop sound when call is accepted
-    if (dialogMode === 'accept' && intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    // Let alarm state be controlled by pending count / sound toggle
+    if (dialogMode === 'accept') {
+      stopAlarm();
     }
     
     setValidationDialogOpen(false);
@@ -256,13 +239,19 @@ export default function ClassroomCallsList() {
     const nextEnabled = !soundEnabled;
     setSoundEnabled(nextEnabled);
 
-    if (nextEnabled) {
-      const unlocked = await ensureAudioContextRunning();
-      if (unlocked && (pendingCount ?? 0) > 0) {
-        await startAlarm();
-      }
-    } else {
+    if (!nextEnabled) {
       stopAlarm();
+      return;
+    }
+
+    if (!audioActivated) {
+      await handleActivateAudio();
+      return;
+    }
+
+    const unlocked = await ensureAudioContextRunning();
+    if (unlocked && (pendingCount ?? 0) > 0) {
+      await startAlarm();
     }
   };
 
