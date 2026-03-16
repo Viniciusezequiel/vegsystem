@@ -741,33 +741,37 @@ export default function ItemsList() {
             />
           </div>
           
-          <Select value={campusFilter} onValueChange={(v) => handleCampusFilterChange(v as CampusEnum | 'all')}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Campus" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos Campus</SelectItem>
-              {campusOptions.map(campus => (
-                <SelectItem key={campus} value={campus}>{campus}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isAdvancedUser && (
+            <Select value={campusFilter} onValueChange={(v) => handleCampusFilterChange(v as CampusEnum | 'all')}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Campus" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Campus</SelectItem>
+                {campusOptions.map(campus => (
+                  <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-          <div className="flex gap-2 items-center">
-            <DatePickerInput
-              value={dateFrom}
-              onChange={handleDateFromChange}
-              placeholder="De"
-              className="w-[130px]"
-            />
-            <span className="text-muted-foreground">-</span>
-            <DatePickerInput
-              value={dateTo}
-              onChange={handleDateToChange}
-              placeholder="Até"
-              className="w-[130px]"
-            />
-          </div>
+          {isAdvancedUser && (
+            <div className="flex gap-2 items-center">
+              <DatePickerInput
+                value={dateFrom}
+                onChange={handleDateFromChange}
+                placeholder="De"
+                className="w-[130px]"
+              />
+              <span className="text-muted-foreground">-</span>
+              <DatePickerInput
+                value={dateTo}
+                onChange={handleDateToChange}
+                placeholder="Até"
+                className="w-[130px]"
+              />
+            </div>
+          )}
 
           {/* Clear Filters Button */}
           {(searchQuery || campusFilter !== 'all' || statusFilter !== 'available' || destinationFilter !== 'all' || dateFrom || dateTo) && (
