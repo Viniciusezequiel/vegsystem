@@ -68,6 +68,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       const taskAny = task as Record<string, unknown>;
       const eventStart = taskAny.event_start_datetime ? new Date(taskAny.event_start_datetime as string) : null;
       const eventEnd = taskAny.event_end_datetime ? new Date(taskAny.event_end_datetime as string) : null;
+      const recurrence = (taskAny.recurrence_type as string) || '';
 
       setFormData({
         title: task.title || '',
@@ -83,6 +84,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         event_start_time: eventStart ? eventStart.toTimeString().slice(0, 5) : '',
         event_end_datetime: eventEnd ? eventEnd.toISOString().split('T')[0] : '',
         event_end_time: eventEnd ? eventEnd.toTimeString().slice(0, 5) : '',
+        is_recurring: !!recurrence,
+        recurrence_type: recurrence,
       });
     } else {
       setFormData({
@@ -99,6 +102,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         event_start_time: '',
         event_end_datetime: '',
         event_end_time: '',
+        is_recurring: false,
+        recurrence_type: '',
       });
     }
   }, [task, open]);
