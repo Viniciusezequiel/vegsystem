@@ -17,6 +17,7 @@ export interface ClassroomCall {
   is_valid?: boolean;
   validation_reason?: string;
   treatment?: string;
+  response_message?: string;
 }
 
 export function useClassroomCalls(status?: string) {
