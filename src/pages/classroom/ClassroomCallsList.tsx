@@ -111,14 +111,12 @@ export default function ClassroomCallsList() {
 
   // Start/stop alarm based on pending calls
   useEffect(() => {
-    if (!audioUnlocked) return;
-
     if (pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
       startAlarm();
     } else {
       stopAlarm();
     }
-  }, [pendingCount, soundEnabled, audioUnlocked, startAlarm, stopAlarm]);
+  }, [pendingCount, soundEnabled, startAlarm, stopAlarm]);
 
   // Cleanup on unmount and page lifecycle
   useEffect(() => {
