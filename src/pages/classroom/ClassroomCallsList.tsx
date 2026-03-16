@@ -33,7 +33,6 @@ export default function ClassroomCallsList() {
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
@@ -42,7 +41,6 @@ export default function ClassroomCallsList() {
   const loopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingCountRef = useRef(0);
   const soundEnabledRef = useRef(true);
-  const audioUnlockedRef = useRef(false);
 
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
@@ -75,8 +73,7 @@ export default function ClassroomCallsList() {
   useEffect(() => {
     pendingCountRef.current = pendingCount ?? 0;
     soundEnabledRef.current = soundEnabled;
-    audioUnlockedRef.current = audioUnlocked;
-  }, [pendingCount, soundEnabled, audioUnlocked]);
+  }, [pendingCount, soundEnabled]);
 
   const stopAlarm = useCallback(() => {
     if (loopIntervalRef.current) {
@@ -112,50 +109,14 @@ export default function ClassroomCallsList() {
     }, 3000);
   }, [stopAlarm]);
 
-  // Auto-unlock audio on ANY user interaction (click, touch, keypress)
-  useEffect(() => {
-    if (audioUnlocked) return;
-
-    const unlock = () => {
-      if (!audioRef.current) return;
-      // Play and immediately pause to unlock the audio element
-      const p = audioRef.current.play();
-      if (p) {
-        p.then(() => {
-          audioRef.current?.pause();
-          audioRef.current!.currentTime = 0;
-          setAudioUnlocked(true);
-          // If there are already pending calls, start alarm
-          if (pendingCountRef.current > 0 && soundEnabledRef.current) {
-            startAlarm();
-          }
-        }).catch(() => {
-          // Still blocked, will retry on next interaction
-        });
-      }
-    };
-
-    document.addEventListener('click', unlock, { once: false, capture: true });
-    document.addEventListener('touchstart', unlock, { once: false, capture: true });
-    document.addEventListener('keydown', unlock, { once: false, capture: true });
-
-    return () => {
-      document.removeEventListener('click', unlock, true);
-      document.removeEventListener('touchstart', unlock, true);
-      document.removeEventListener('keydown', unlock, true);
-    };
-  }, [audioUnlocked, startAlarm]);
-
   // Start/stop alarm based on pending calls
   useEffect(() => {
-    if (!audioUnlocked) return;
-
     if (pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
       startAlarm();
     } else {
       stopAlarm();
     }
-  }, [pendingCount, soundEnabled, audioUnlocked, startAlarm, stopAlarm]);
+  }, [pendingCount, soundEnabled, startAlarm, stopAlarm]);
 
   // Cleanup on unmount and page lifecycle
   useEffect(() => {
@@ -167,7 +128,7 @@ export default function ClassroomCallsList() {
       if (document.visibilityState === 'hidden') {
         stopAlarm();
       } else if (document.visibilityState === 'visible') {
-        if (pendingCountRef.current > 0 && soundEnabledRef.current && audioUnlockedRef.current) {
+        if (pendingCountRef.current > 0 && soundEnabledRef.current) {
           startAlarm();
         }
       }
@@ -231,7 +192,7 @@ export default function ClassroomCallsList() {
 
     if (!nextEnabled) {
       stopAlarm();
-    } else if (audioUnlocked && (pendingCount ?? 0) > 0) {
+    } else if ((pendingCount ?? 0) > 0) {
       startAlarm();
     }
   };
@@ -259,17 +220,6 @@ export default function ClassroomCallsList() {
 
   return (
     <MainLayout>
-      {/* Audio auto-unlocks on first interaction - show subtle indicator if not yet unlocked */}
-      {!audioUnlocked && (
-        <Card className="border-primary bg-primary/5 mb-4">
-          <CardContent className="flex items-center justify-center py-3 gap-2">
-            <Volume2 className="h-4 w-4 text-primary" />
-            <p className="text-sm text-muted-foreground">
-              Toque em qualquer lugar da tela para ativar os alertas sonoros.
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="space-y-6">
         {/* Header */}
