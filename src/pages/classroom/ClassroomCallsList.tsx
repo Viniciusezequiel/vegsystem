@@ -311,6 +311,24 @@ export default function ClassroomCallsList() {
           </div>
         </div>
 
+        {/* Campus Filter */}
+        <div className="flex items-center gap-3">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <Select value={selectedCampus} onValueChange={setSelectedCampus}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Todos os campus" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os campus</SelectItem>
+              {campuses.map((campus) => (
+                <SelectItem key={campus} value={campus}>
+                  {campus}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Pending Calls Alert */}
         {pendingCount !== undefined && pendingCount > 0 && (
           <Card className="border-destructive bg-destructive/5 animate-pulse">
