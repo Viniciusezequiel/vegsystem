@@ -29,6 +29,7 @@ export default function ClassroomCallsList() {
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [audioActivated, setAudioActivated] = useState(false);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
@@ -37,7 +38,6 @@ export default function ClassroomCallsList() {
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const isAlarmActiveRef = useRef(false);
-
   const pendingCountRef = useRef(0);
   const soundEnabledRef = useRef(true);
 
@@ -147,36 +147,58 @@ export default function ClassroomCallsList() {
     soundEnabledRef.current = soundEnabled;
   }, [pendingCount, soundEnabled]);
 
-  // Unlock audio on user gesture (tablet/mobile requirement)
+  // Auto-activate on desktop (no gesture needed)
   useEffect(() => {
-    const handleUserGesture = () => {
-      void (async () => {
-        const unlocked = await ensureAudioContextRunning();
-        if (unlocked && pendingCountRef.current > 0 && soundEnabledRef.current) {
-          await startAlarm();
-        }
-      })();
+    if (audioActivated) return;
+    const tryAutoActivate = async () => {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const testCtx = new AudioContextClass();
+      // On desktop, state is 'running' immediately
+      if (testCtx.state === 'running') {
+        testCtx.close();
+        setAudioActivated(true);
+        await ensureAudioContextRunning();
+      } else {
+        testCtx.close();
+      }
     };
-
-    document.addEventListener('pointerdown', handleUserGesture, { passive: true });
-    document.addEventListener('touchstart', handleUserGesture, { passive: true });
-    document.addEventListener('keydown', handleUserGesture);
-
-    return () => {
-      document.removeEventListener('pointerdown', handleUserGesture);
-      document.removeEventListener('touchstart', handleUserGesture);
-      document.removeEventListener('keydown', handleUserGesture);
-    };
+    void tryAutoActivate();
   }, []);
 
-  // Start/stop alarm based on pending calls
+  // Activate audio on explicit user gesture (required by mobile browsers)
+  const handleActivateAudio = async () => {
+    const unlocked = await ensureAudioContextRunning();
+    if (unlocked) {
+      // Play a tiny silent burst to fully unlock audio on iOS/Safari
+      const ctx = audioContextRef.current!;
+      const silentOsc = ctx.createOscillator();
+      const silentGain = ctx.createGain();
+      silentOsc.connect(silentGain);
+      silentGain.connect(ctx.destination);
+      silentGain.gain.setValueAtTime(0, ctx.currentTime);
+      silentOsc.start();
+      silentOsc.stop(ctx.currentTime + 0.05);
+
+      setAudioActivated(true);
+
+      // If there are already pending calls, start alarm immediately
+      if (pendingCountRef.current > 0 && soundEnabledRef.current) {
+        await startAlarm();
+      }
+    }
+  };
+
+  // Start/stop alarm based on pending calls (only if audio is activated)
   useEffect(() => {
+    if (!audioActivated) return;
+
     if (pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
       void startAlarm();
     } else {
       stopAlarm();
     }
-  }, [pendingCount, soundEnabled]);
+  }, [pendingCount, soundEnabled, audioActivated]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -267,6 +289,31 @@ export default function ClassroomCallsList() {
 
   return (
     <MainLayout>
+      {/* Audio Activation Banner for tablets/mobile */}
+      {!audioActivated && (
+        <Card className="border-primary bg-primary/5 mb-6">
+          <CardContent className="flex flex-col items-center justify-center py-8 gap-4">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Volume2 className="h-8 w-8 text-primary" />
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold">Ativar Alertas Sonoros</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Toque no botão abaixo para ativar os alertas sonoros de chamados neste dispositivo.
+              </p>
+            </div>
+            <Button
+              size="lg"
+              onClick={() => { void handleActivateAudio(); }}
+              className="min-w-[200px]"
+            >
+              <Volume2 className="mr-2 h-5 w-5" />
+              Ativar Som
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
