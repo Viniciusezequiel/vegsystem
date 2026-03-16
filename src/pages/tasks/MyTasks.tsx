@@ -299,6 +299,16 @@ export default function MyTasks() {
                           </div>
                         </TableCell>
                         <TableCell>
+                          {task.assigned_to_name ? (
+                            <div className="flex items-center gap-1">
+                              <User className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm">{task.assigned_to_name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Badge className={getPriorityColor(task.priority)} variant="outline">
                             {getPriorityLabel(task.priority)}
                           </Badge>
@@ -319,39 +329,55 @@ export default function MyTasks() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSelectedTask(task)}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              Ver
-                            </Button>
-                            {task.status === 'pending' && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => setStartDialogTask(task)}
-                                disabled={updateMutation.isPending}
-                              >
-                                <Play className="w-4 h-4 mr-1" />
-                                Iniciar
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="w-4 h-4" />
                               </Button>
-                            )}
-                            {task.status === 'in_progress' && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => setCompleteDialogTask(task)}
-                                disabled={updateMutation.isPending}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Concluir
-                              </Button>
-                            )}
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setSelectedTask(task)}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Ver Detalhes
+                              </DropdownMenuItem>
+                              {(!['completed', 'cancelled'].includes(task.status) || isAdmin) && (
+                                <DropdownMenuItem onClick={() => setEditTask(task)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                              )}
+                              {task.status === 'pending' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setStartDialogTask(task)}>
+                                    <Play className="w-4 h-4 mr-2 text-blue-500" />
+                                    Iniciar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {task.status === 'in_progress' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setCompleteDialogTask(task)}>
+                                    <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                                    Concluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {isAdmin && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setDeleteTaskDialog(task)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
