@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2 } from 'lucide-react';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNativeCallNotification } from '@/hooks/useNativeNotifications';
 import { useUserPermissions } from '@/hooks/usePermissions';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClassroomCallValidationDialog from '@/components/classroom/ClassroomCallValidationDialog';
@@ -50,6 +51,9 @@ export default function ClassroomCallsList() {
   
   const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab);
   const { data: pendingCount } = usePendingCallsCount();
+  
+  // Native notifications for tablets/mobile
+  useNativeCallNotification(pendingCount);
   const acceptCall = useAcceptClassroomCall();
   const resolveCall = useResolveClassroomCall();
   const deleteCall = useDeleteClassroomCall();
