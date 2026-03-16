@@ -187,6 +187,7 @@ export default function ClassroomCallForm() {
           room_name: roomName,
           reason: reason,
           status: 'pending',
+          campus: selectedRoom.campus,
         })
         .select('id, status')
         .single();

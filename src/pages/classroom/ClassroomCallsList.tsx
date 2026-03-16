@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { ptBR } from 'date-fns/locale';
@@ -10,8 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2, Building2 } from 'lucide-react';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
+import { useClassroomCallRooms } from '@/hooks/useClassroomCallSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNativeCallNotification } from '@/hooks/useNativeNotifications';
 import { useUserPermissions } from '@/hooks/usePermissions';
@@ -36,6 +38,7 @@ export default function ClassroomCallsList() {
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
+  const [selectedCampus, setSelectedCampus] = useState<string>('');
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const loopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -46,9 +49,20 @@ export default function ClassroomCallsList() {
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
   const canDeleteCalls = isAdmin || canDelete('classroomCalls');
+
+  // Fetch available campuses from rooms config
+  const { data: roomsConfig } = useClassroomCallRooms(true);
+  const campuses = useMemo(() => {
+    if (!roomsConfig) return [];
+    const unique = [...new Set(roomsConfig.map(r => r.campus))];
+    unique.sort();
+    return unique;
+  }, [roomsConfig]);
+
+  const campusFilter = selectedCampus && selectedCampus !== 'all' ? selectedCampus : undefined;
   
-  const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab);
-  const { data: pendingCount } = usePendingCallsCount();
+  const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab, campusFilter);
+  const { data: pendingCount } = usePendingCallsCount(campusFilter);
   
   // Native notifications for tablets/mobile
   useNativeCallNotification(pendingCount);
@@ -295,6 +309,24 @@ export default function ClassroomCallsList() {
               Copiar Link Externo
             </Button>
           </div>
+        </div>
+
+        {/* Campus Filter */}
+        <div className="flex items-center gap-3">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <Select value={selectedCampus} onValueChange={setSelectedCampus}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Todos os campus" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os campus</SelectItem>
+              {campuses.map((campus) => (
+                <SelectItem key={campus} value={campus}>
+                  {campus}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Pending Calls Alert */}

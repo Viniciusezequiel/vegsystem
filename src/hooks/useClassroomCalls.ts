@@ -9,6 +9,7 @@ export interface ClassroomCall {
   room_name: string;
   reason: string;
   status: 'pending' | 'accepted' | 'resolved';
+  campus?: string;
   accepted_by?: string;
   accepted_by_name?: string;
   accepted_at?: string;
@@ -20,7 +21,7 @@ export interface ClassroomCall {
   response_message?: string;
 }
 
-export function useClassroomCalls(status?: string) {
+export function useClassroomCalls(status?: string, campus?: string) {
   const queryClient = useQueryClient();
   
   // Set up realtime subscription
@@ -46,7 +47,7 @@ export function useClassroomCalls(status?: string) {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ['classroom-calls', status],
+    queryKey: ['classroom-calls', status, campus],
     queryFn: async () => {
       let query = supabase
         .from('classroom_calls')
@@ -55,6 +56,10 @@ export function useClassroomCalls(status?: string) {
       
       if (status) {
         query = query.eq('status', status);
+      }
+
+      if (campus) {
+        query = query.eq('campus', campus);
       }
       
       const { data, error } = await query;
@@ -65,7 +70,7 @@ export function useClassroomCalls(status?: string) {
   });
 }
 
-export function usePendingCallsCount() {
+export function usePendingCallsCount(campus?: string) {
   const queryClient = useQueryClient();
   
   // Set up realtime subscription
@@ -91,18 +96,24 @@ export function usePendingCallsCount() {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ['pending-calls-count'],
+    queryKey: ['pending-calls-count', campus],
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from('classroom_calls')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
+
+      if (campus) {
+        query = query.eq('campus', campus);
+      }
+      
+      const { count, error } = await query;
       
       if (error) throw error;
       return count || 0;
     },
     staleTime: 2000,
-    refetchInterval: 2000, // Poll every 2s as fallback for realtime
+    refetchInterval: 2000,
   });
 }
 
