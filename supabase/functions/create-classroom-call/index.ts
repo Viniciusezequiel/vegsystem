@@ -8,25 +8,19 @@ const corsHeaders = {
 interface CreateCallRequest {
   room_name: string;
   reason: string;
+  issue_description?: string;
 }
 
-// Simple in-memory rate limiting (resets on function cold start)
-// For production, consider using a distributed store like Redis or database
+// Simple in-memory rate limiting
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_MAX_REQUESTS = 10; // Max 10 requests
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // Per minute
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 function getClientIP(req: Request): string {
-  // Try various headers that might contain the client IP
   const forwardedFor = req.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
-  }
+  if (forwardedFor) return forwardedFor.split(',')[0].trim();
   const realIP = req.headers.get('x-real-ip');
-  if (realIP) {
-    return realIP;
-  }
-  // Fallback to a hash of user-agent + some headers for basic fingerprinting
+  if (realIP) return realIP;
   const userAgent = req.headers.get('user-agent') || 'unknown';
   return `ua-${userAgent.substring(0, 50)}`;
 }
@@ -35,17 +29,13 @@ function checkRateLimit(clientIP: string): { allowed: boolean; retryAfter?: numb
   const now = Date.now();
   const entry = rateLimitMap.get(clientIP);
 
-  // Clean up expired entries periodically
   if (rateLimitMap.size > 1000) {
     for (const [key, value] of rateLimitMap.entries()) {
-      if (now > value.resetTime) {
-        rateLimitMap.delete(key);
-      }
+      if (now > value.resetTime) rateLimitMap.delete(key);
     }
   }
 
   if (!entry || now > entry.resetTime) {
-    // New window
     rateLimitMap.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
     return { allowed: true };
   }
@@ -55,20 +45,17 @@ function checkRateLimit(clientIP: string): { allowed: boolean; retryAfter?: numb
     return { allowed: false, retryAfter };
   }
 
-  // Increment count
   entry.count++;
   rateLimitMap.set(clientIP, entry);
   return { allowed: true };
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Only allow POST
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
@@ -76,28 +63,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Rate limiting check
     const clientIP = getClientIP(req);
     const rateLimitResult = checkRateLimit(clientIP);
     
     if (!rateLimitResult.allowed) {
-      console.warn(`Rate limit exceeded for IP: ${clientIP}`);
       return new Response(
         JSON.stringify({ error: 'Too many requests. Please try again later.' }),
-        { 
-          status: 429, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json',
-            'Retry-After': String(rateLimitResult.retryAfter || 60)
-          } 
-        }
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateLimitResult.retryAfter || 60) } }
       );
     }
 
     const body: CreateCallRequest = await req.json();
 
-    // Validate required fields
     if (!body.room_name || !body.reason) {
       return new Response(
         JSON.stringify({ error: 'room_name and reason are required' }),
@@ -105,9 +82,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate input length and sanitize
     const roomName = body.room_name.trim().slice(0, 100);
-    const reason = body.reason.trim().slice(0, 500);
+    // Build reason: issue_description + optional extra text
+    let reason = '';
+    if (body.issue_description) {
+      reason = body.issue_description.trim().slice(0, 200);
+      if (body.reason.trim()) {
+        reason += ' — ' + body.reason.trim().slice(0, 300);
+      }
+    } else {
+      reason = body.reason.trim().slice(0, 500);
+    }
 
     if (!roomName || !reason) {
       return new Response(
@@ -116,7 +101,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Additional validation: prevent excessive special characters (basic XSS prevention)
     const dangerousPattern = /<script|javascript:|on\w+=/i;
     if (dangerousPattern.test(roomName) || dangerousPattern.test(reason)) {
       return new Response(
@@ -125,12 +109,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Insert the classroom call
     const { data, error } = await supabase
       .from('classroom_calls')
       .insert({
