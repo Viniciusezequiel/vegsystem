@@ -223,6 +223,11 @@ const App = () => (
                   <ClassroomCallsList />
                 </ProtectedRoute>
               } />
+              <Route path="/classroom-calls/settings" element={
+                <ProtectedRoute requireAdmin>
+                  <ClassroomCallSettings />
+                </ProtectedRoute>
+              } />
               
               {/* Tasks Module */}
               <Route path="/tasks" element={
