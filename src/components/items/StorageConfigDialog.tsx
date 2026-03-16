@@ -195,6 +195,18 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
                 </SelectContent>
               </Select>
             )}
+            <div className="flex items-center gap-1">
+              <Input
+                value={newCampusName}
+                onChange={e => setNewCampusName(e.target.value)}
+                placeholder="Novo campus..."
+                className="h-8 w-[150px] text-sm"
+                onKeyDown={e => e.key === 'Enter' && addCustomCampus()}
+              />
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={addCustomCampus} disabled={!newCampusName.trim()}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Shelves for selected campus */}
