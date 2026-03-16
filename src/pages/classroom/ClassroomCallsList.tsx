@@ -142,31 +142,32 @@ export default function ClassroomCallsList() {
     intervalRef.current = setInterval(pulseAlarm, 450);
   };
 
+  useEffect(() => {
+    pendingCountRef.current = pendingCount ?? 0;
+    soundEnabledRef.current = soundEnabled;
+  }, [pendingCount, soundEnabled]);
+
   // Unlock audio on user gesture (tablet/mobile requirement)
   useEffect(() => {
-    const unlockAudio = async () => {
-      const unlocked = await ensureAudioContextRunning();
-      if (unlocked && pendingCount !== undefined && pendingCount > 0 && soundEnabled) {
-        await startAlarm();
-      }
+    const handleUserGesture = () => {
+      void (async () => {
+        const unlocked = await ensureAudioContextRunning();
+        if (unlocked && pendingCountRef.current > 0 && soundEnabledRef.current) {
+          await startAlarm();
+        }
+      })();
     };
 
-    document.addEventListener('pointerdown', () => {
-      void unlockAudio();
-    });
-    document.addEventListener('touchstart', () => {
-      void unlockAudio();
-    });
+    document.addEventListener('pointerdown', handleUserGesture, { passive: true });
+    document.addEventListener('touchstart', handleUserGesture, { passive: true });
+    document.addEventListener('keydown', handleUserGesture);
 
     return () => {
-      document.removeEventListener('pointerdown', () => {
-        void unlockAudio();
-      });
-      document.removeEventListener('touchstart', () => {
-        void unlockAudio();
-      });
+      document.removeEventListener('pointerdown', handleUserGesture);
+      document.removeEventListener('touchstart', handleUserGesture);
+      document.removeEventListener('keydown', handleUserGesture);
     };
-  }, [pendingCount, soundEnabled]);
+  }, []);
 
   // Start/stop alarm based on pending calls
   useEffect(() => {
