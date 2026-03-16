@@ -65,15 +65,15 @@ async function sendWebNotification(count: number) {
 
     if (permission !== 'granted') return;
 
-    const notification = new Notification('Novo Chamado de Sala!', {
+    const notification = new Notification('🔔 Novo Chamado de Sala!', {
       body: `Há ${count} chamado${count > 1 ? 's' : ''} pendente${count > 1 ? 's' : ''}. Abra o módulo para atender.`,
       tag: 'classroom-calls',
-      
       icon: '/pwa-192x192.png',
-      requireInteraction: false,
+      requireInteraction: true, // Keep notification visible until user interacts
+      silent: false,
     });
 
-    window.setTimeout(() => notification.close(), 8000);
+    window.setTimeout(() => notification.close(), 15000);
   } catch (e) {
     console.warn('Web notification failed:', e);
   }

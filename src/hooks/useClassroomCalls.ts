@@ -101,7 +101,8 @@ export function usePendingCallsCount() {
       if (error) throw error;
       return count || 0;
     },
-    staleTime: 30000, // 30 seconds - realtime handles updates
+    staleTime: 5000,
+    refetchInterval: 5000, // Poll every 5s as fallback for realtime
   });
 }
 

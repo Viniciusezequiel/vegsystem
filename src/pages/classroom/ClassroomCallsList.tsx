@@ -41,6 +41,7 @@ export default function ClassroomCallsList() {
   const loopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingCountRef = useRef(0);
   const soundEnabledRef = useRef(true);
+  const audioUnlockedRef = useRef(false);
 
   // Permission checks for classroom calls
   const canManageCalls = isAdmin || canApprove('classroomCalls') || canEdit('classroomCalls');
@@ -59,13 +60,41 @@ export default function ClassroomCallsList() {
   useEffect(() => {
     const audio = new Audio();
     audio.preload = 'auto';
+    audio.loop = false;
     audio.src = ALARM_SOUND_URL;
     audioRef.current = audio;
+
+    // Auto-unlock audio on any user interaction (required by browsers)
+    const unlock = () => {
+      if (audioUnlockedRef.current || !audioRef.current) return;
+      const a = audioRef.current;
+      a.volume = 0;
+      a.play().then(() => {
+        a.pause();
+        a.currentTime = 0;
+        a.volume = 1;
+        audioUnlockedRef.current = true;
+        // If there are pending calls, start alarm now that audio is unlocked
+        if (pendingCountRef.current > 0 && soundEnabledRef.current) {
+          startAlarm();
+        }
+      }).catch(() => {});
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('touchstart', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
+
+    document.addEventListener('click', unlock, { capture: true });
+    document.addEventListener('touchstart', unlock, { capture: true });
+    document.addEventListener('keydown', unlock, { capture: true });
 
     return () => {
       audio.pause();
       audio.src = '';
       audioRef.current = null;
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('touchstart', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
     };
   }, []);
 
