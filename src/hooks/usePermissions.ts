@@ -58,6 +58,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   analista: 'Analista',
   assistente: 'Assistente',
   visualizador: 'Visualizador',
+  atendente: 'Atendente de Chamados',
 };
 
 export function useRolePermissions() {
