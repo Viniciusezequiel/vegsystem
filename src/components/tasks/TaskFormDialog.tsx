@@ -302,6 +302,62 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
             </div>
 
             <div className="space-y-2">
+              <Label>Responsáveis Adicionais</Label>
+              {additionalAssignees.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-1">
+                  {additionalAssignees.map((a, i) => (
+                    <Badge key={a.userId} variant="secondary" className="gap-1 pr-1">
+                      <span className="text-xs">{a.name}</span>
+                      <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setAdditionalAssignees(prev => prev.filter((_, idx) => idx !== i))}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Select
+                  value={newAssigneeId || '_none'}
+                  onValueChange={(v) => setNewAssigneeId(v === '_none' ? '' : v)}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Adicionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Selecione...</SelectItem>
+                    {users?.filter(u =>
+                      u.is_active &&
+                      u.user_id !== formData.assigned_to &&
+                      !additionalAssignees.some(a => a.userId === u.user_id)
+                    ).map((user) => (
+                      <SelectItem key={user.user_id} value={user.user_id}>
+                        {user.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => {
+                    if (newAssigneeId) {
+                      const user = users?.find(u => u.user_id === newAssigneeId);
+                      if (user) {
+                        setAdditionalAssignees(prev => [...prev, { userId: user.user_id, name: user.full_name }]);
+                        setNewAssigneeId('');
+                      }
+                    }
+                  }}
+                  disabled={!newAssigneeId}
+                >
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+            <div className="space-y-2">
               <Label htmlFor="due_date">Prazo {requiredFields.includes('due_date') && '*'}</Label>
               <div className="flex gap-2">
                 <div className="flex-1">
