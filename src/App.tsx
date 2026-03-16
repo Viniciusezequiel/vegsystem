@@ -220,6 +220,7 @@ const App = () => (
               } />
               
               {/* Classroom Calls Module */}
+              <Route path="/install" element={<Install />} />
               <Route path="/chamado-sala" element={<ClassroomCallForm />} />
               <Route path="/classroom-calls" element={
                 <ProtectedRoute>

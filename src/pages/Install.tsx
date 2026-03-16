@@ -52,8 +52,8 @@ export default function Install() {
         <CardContent className="space-y-6">
           {isInstalled ? (
             <div className="text-center space-y-3">
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-              <p className="text-lg font-semibold text-green-700 dark:text-green-400">
+              <CheckCircle className="h-16 w-16 text-primary mx-auto" />
+              <p className="text-lg font-semibold text-primary">
                 App já instalado!
               </p>
               <p className="text-sm text-muted-foreground">
