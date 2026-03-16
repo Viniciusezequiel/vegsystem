@@ -47,6 +47,8 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
     event_start_time: '',
     event_end_datetime: '',
     event_end_time: '',
+    is_recurring: false,
+    recurrence_type: '',
   });
 
   const { data: users } = useUsersList();
