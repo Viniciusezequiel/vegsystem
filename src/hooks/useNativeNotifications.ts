@@ -68,7 +68,7 @@ async function sendWebNotification(count: number) {
     const notification = new Notification('Novo Chamado de Sala!', {
       body: `Há ${count} chamado${count > 1 ? 's' : ''} pendente${count > 1 ? 's' : ''}. Abra o módulo para atender.`,
       tag: 'classroom-calls',
-      renotify: true,
+      
       icon: '/pwa-192x192.png',
       requireInteraction: false,
     });
