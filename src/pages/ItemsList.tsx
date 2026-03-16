@@ -67,10 +67,10 @@ import { classifyExpiredItem, getDestinationLabel } from '@/lib/expiredItemsDest
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
 const statusFilters: { value: ItemStatus | 'all'; label: string; restrictedRoles?: string[] }[] = [
-  { value: 'all', label: 'Todos', restrictedRoles: ['admin', 'analista', 'supervisor'] },
+  { value: 'all', label: 'Todos', restrictedRoles: ['admin', 'supervisor'] },
   { value: 'available', label: 'Disponíveis' },
-  { value: 'delivered', label: 'Entregues' },
-  { value: 'expired', label: 'Expirados', restrictedRoles: ['admin', 'analista', 'supervisor'] },
+  { value: 'delivered', label: 'Entregues', restrictedRoles: ['admin', 'supervisor'] },
+  { value: 'expired', label: 'Expirados', restrictedRoles: ['admin', 'supervisor'] },
 ];
 
 const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
@@ -88,6 +88,7 @@ export default function ItemsList() {
   
   
   // Filter status options based on user role
+  const isAdvancedUser = role === 'admin' || role === 'supervisor';
   const availableStatusFilters = statusFilters.filter(filter => {
     if (!filter.restrictedRoles) return true;
     return filter.restrictedRoles.includes(role || '');
@@ -740,33 +741,37 @@ export default function ItemsList() {
             />
           </div>
           
-          <Select value={campusFilter} onValueChange={(v) => handleCampusFilterChange(v as CampusEnum | 'all')}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Campus" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos Campus</SelectItem>
-              {campusOptions.map(campus => (
-                <SelectItem key={campus} value={campus}>{campus}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isAdvancedUser && (
+            <Select value={campusFilter} onValueChange={(v) => handleCampusFilterChange(v as CampusEnum | 'all')}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Campus" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Campus</SelectItem>
+                {campusOptions.map(campus => (
+                  <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-          <div className="flex gap-2 items-center">
-            <DatePickerInput
-              value={dateFrom}
-              onChange={handleDateFromChange}
-              placeholder="De"
-              className="w-[130px]"
-            />
-            <span className="text-muted-foreground">-</span>
-            <DatePickerInput
-              value={dateTo}
-              onChange={handleDateToChange}
-              placeholder="Até"
-              className="w-[130px]"
-            />
-          </div>
+          {isAdvancedUser && (
+            <div className="flex gap-2 items-center">
+              <DatePickerInput
+                value={dateFrom}
+                onChange={handleDateFromChange}
+                placeholder="De"
+                className="w-[130px]"
+              />
+              <span className="text-muted-foreground">-</span>
+              <DatePickerInput
+                value={dateTo}
+                onChange={handleDateToChange}
+                placeholder="Até"
+                className="w-[130px]"
+              />
+            </div>
+          )}
 
           {/* Clear Filters Button */}
           {(searchQuery || campusFilter !== 'all' || statusFilter !== 'available' || destinationFilter !== 'all' || dateFrom || dateTo) && (
@@ -813,8 +818,8 @@ export default function ItemsList() {
           ))}
         </div>
 
-        {/* Destination Filter (for "Todos" status) */}
-        {statusFilter === 'all' && (
+        {/* Destination Filter (for "Todos" status) - admin/supervisor only */}
+        {isAdvancedUser && statusFilter === 'all' && (
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-sm text-muted-foreground">Destino:</span>
             <Button
@@ -845,6 +850,7 @@ export default function ItemsList() {
           </div>
         )}
 
+        {isAdvancedUser && (
         <div className="flex flex-wrap gap-2 items-center">
           {/* Export/Import Dropdown */}
           <DropdownMenu>
@@ -1001,6 +1007,7 @@ export default function ItemsList() {
             </>
           )}
         </div>
+        )}
       </div>
 
       {/* Results */}
