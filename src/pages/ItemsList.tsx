@@ -88,6 +88,7 @@ export default function ItemsList() {
   
   
   // Filter status options based on user role
+  const isAdvancedUser = role === 'admin' || role === 'supervisor';
   const availableStatusFilters = statusFilters.filter(filter => {
     if (!filter.restrictedRoles) return true;
     return filter.restrictedRoles.includes(role || '');
