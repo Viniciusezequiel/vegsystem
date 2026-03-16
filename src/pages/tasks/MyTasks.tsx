@@ -77,7 +77,6 @@ import { toast } from 'sonner';
 export default function MyTasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [comment, setComment] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [deleteTaskDialog, setDeleteTaskDialog] = useState<Task | null>(null);
