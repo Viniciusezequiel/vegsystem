@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2 } from 'lucide-react';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNativeCallNotification } from '@/hooks/useNativeNotifications';
 import { useUserPermissions } from '@/hooks/usePermissions';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClassroomCallValidationDialog from '@/components/classroom/ClassroomCallValidationDialog';
