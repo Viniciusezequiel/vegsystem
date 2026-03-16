@@ -26,8 +26,7 @@ import { Plus, Trash2, Save, Loader2, Package } from 'lucide-react';
 import { useStorageConfig, useUpdateStorageConfig, StorageConfigData, CampusStorageConfig, ShelfConfig, BoxConfig } from '@/hooks/useStorageConfig';
 import type { Database } from '@/integrations/supabase/types';
 
-type CampusEnum = Database['public']['Enums']['campus_enum'];
-const allCampuses: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
+const defaultCampuses = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
 interface StorageConfigDialogProps {
   open: boolean;

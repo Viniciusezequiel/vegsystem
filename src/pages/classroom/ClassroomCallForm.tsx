@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ interface RoomConfig {
 export default function ClassroomCallForm() {
   const [searchParams] = useSearchParams();
   const createCall = useCreateClassroomCall();
+  const [selectedCampus, setSelectedCampus] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [selectedIssueId, setSelectedIssueId] = useState('');
   const [additionalInfo, setAdditionalInfo] = useState('');
@@ -35,6 +36,19 @@ export default function ClassroomCallForm() {
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [submittedRoomName, setSubmittedRoomName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Derive unique campuses from rooms
+  const campuses = useMemo(() => {
+    const unique = [...new Set(rooms.map(r => r.campus))];
+    unique.sort();
+    return unique;
+  }, [rooms]);
+
+  // Filter rooms by selected campus
+  const filteredRooms = useMemo(() => {
+    if (!selectedCampus) return [];
+    return rooms.filter(r => r.campus === selectedCampus);
+  }, [rooms, selectedCampus]);
 
   // Fetch rooms config directly from database (faster than edge function)
   const fetchConfig = async () => {
@@ -68,7 +82,10 @@ export default function ClassroomCallForm() {
         const found = roomsWithIssues.find(r =>
           r.name.toLowerCase() === urlRoom.toLowerCase()
         );
-        if (found) setSelectedRoomId(found.id);
+        if (found) {
+          setSelectedCampus(found.campus);
+          setSelectedRoomId(found.id);
+        }
       }
     } catch (e) {
       console.error('Failed to load config:', e);
@@ -135,6 +152,17 @@ export default function ClassroomCallForm() {
       supabase.removeChannel(channel);
     };
   }, [submittedCallId]);
+
+  const handleCampusChange = (campus: string) => {
+    setSelectedCampus(campus);
+    setSelectedRoomId('');
+    setSelectedIssueId('');
+  };
+
+  const handleRoomChange = (roomId: string) => {
+    setSelectedRoomId(roomId);
+    setSelectedIssueId('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,22 +327,41 @@ export default function ClassroomCallForm() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Room Selection */}
+              {/* Campus Selection */}
               <div className="space-y-2">
-                <Label>Sala *</Label>
-                <Select value={selectedRoomId} onValueChange={(v) => { setSelectedRoomId(v); setSelectedIssueId(''); }}>
+                <Label>Campus *</Label>
+                <Select value={selectedCampus} onValueChange={handleCampusChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione a sala..." />
+                    <SelectValue placeholder="Selecione o campus..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {rooms.map((room) => (
-                      <SelectItem key={room.id} value={room.id}>
-                        {room.name} ({room.campus})
+                    {campuses.map((campus) => (
+                      <SelectItem key={campus} value={campus}>
+                        {campus}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Room Selection (filtered by campus) */}
+              {selectedCampus && (
+                <div className="space-y-2">
+                  <Label>Sala *</Label>
+                  <Select value={selectedRoomId} onValueChange={handleRoomChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a sala..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredRooms.map((room) => (
+                        <SelectItem key={room.id} value={room.id}>
+                          {room.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Issue Selection (if room has issues) */}
               {selectedRoom && selectedRoom.issues.length > 0 && (
@@ -336,20 +383,22 @@ export default function ClassroomCallForm() {
               )}
 
               {/* Additional Info (optional if has issues, required if no issues) */}
-              <div className="space-y-2">
-                <Label htmlFor="additionalInfo">
-                  {hasIssues ? 'Informações adicionais (opcional)' : 'Motivo do Chamado *'}
-                </Label>
-                <Textarea
-                  id="additionalInfo"
-                  placeholder={hasIssues ? 'Descreva detalhes adicionais...' : 'Descreva o motivo do chamado...'}
-                  value={additionalInfo}
-                  onChange={(e) => setAdditionalInfo(e.target.value)}
-                  required={!hasIssues}
-                  maxLength={500}
-                  rows={3}
-                />
-              </div>
+              {selectedRoomId && (
+                <div className="space-y-2">
+                  <Label htmlFor="additionalInfo">
+                    {hasIssues ? 'Informações adicionais (opcional)' : 'Motivo do Chamado *'}
+                  </Label>
+                  <Textarea
+                    id="additionalInfo"
+                    placeholder={hasIssues ? 'Descreva detalhes adicionais...' : 'Descreva o motivo do chamado...'}
+                    value={additionalInfo}
+                    onChange={(e) => setAdditionalInfo(e.target.value)}
+                    required={!hasIssues}
+                    maxLength={500}
+                    rows={3}
+                  />
+                </div>
+              )}
               
               <Button 
                 type="submit" 
