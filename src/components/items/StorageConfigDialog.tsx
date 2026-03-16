@@ -40,6 +40,7 @@ export function StorageConfigDialog({ open, onOpenChange }: StorageConfigDialogP
   const updateConfig = useUpdateStorageConfig();
   const [localConfig, setLocalConfig] = useState<StorageConfigData | null>(null);
   const [selectedCampus, setSelectedCampus] = useState<string>('');
+  const [newCampusName, setNewCampusName] = useState('');
 
   useEffect(() => {
     if (config && !localConfig) {
