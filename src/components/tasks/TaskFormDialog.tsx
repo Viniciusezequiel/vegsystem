@@ -72,8 +72,15 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
   const isAcompanhamento = formData.category.toLowerCase() === 'acompanhamento';
   const requiredFields = currentCategoryConfig?.requiredFields || [];
 
+  // Reset teamMembersLoaded when dialog opens/closes or task changes
   useEffect(() => {
-    if (task) {
+    if (!open) {
+      setTeamMembersLoaded(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (task && open) {
       const taskAny = task as Record<string, unknown>;
       const eventStart = taskAny.event_start_datetime ? new Date(taskAny.event_start_datetime as string) : null;
       const eventEnd = taskAny.event_end_datetime ? new Date(taskAny.event_end_datetime as string) : null;
@@ -96,11 +103,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         is_recurring: !!recurrence,
         recurrence_type: recurrence,
       });
-      // Load existing team members
-      if (existingTeamMembers) {
-        setAdditionalAssignees(existingTeamMembers.map(m => ({ userId: m.user_id, name: m.user_name })));
-      }
-    } else {
+    } else if (!task && open) {
       setFormData({
         title: '',
         description: '',
@@ -120,7 +123,15 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       });
       setAdditionalAssignees([]);
     }
-  }, [task, open, existingTeamMembers]);
+  }, [task, open]);
+
+  // Load existing team members only once when data arrives
+  useEffect(() => {
+    if (task && existingTeamMembers && !teamMembersLoaded) {
+      setAdditionalAssignees(existingTeamMembers.map(m => ({ userId: m.user_id, name: m.user_name })));
+      setTeamMembersLoaded(true);
+    }
+  }, [task, existingTeamMembers, teamMembersLoaded]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
