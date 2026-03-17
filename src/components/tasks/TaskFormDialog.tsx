@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCategories, type TaskCategoryConfig } from '@/hooks/useTaskCategories';
 import { useTaskTeamMembers, useAddTaskTeamMember, useRemoveTaskTeamMember } from '@/hooks/useTaskTeamMembers';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface TaskFormDialogProps {
   open: boolean;
