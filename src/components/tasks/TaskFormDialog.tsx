@@ -211,6 +211,12 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       ),
     ]);
 
+    // Invalidate relevant queries so changes reflect immediately
+    queryClient.invalidateQueries({ queryKey: ['task-team-members', taskId] });
+    queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['my-team-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+
     onOpenChange(false);
   };
 
