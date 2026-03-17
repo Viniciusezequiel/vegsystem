@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCategories, type TaskCategoryConfig } from '@/hooks/useTaskCategories';
 import { useTaskTeamMembers, useAddTaskTeamMember, useRemoveTaskTeamMember } from '@/hooks/useTaskTeamMembers';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -36,6 +37,7 @@ interface TaskFormDialogProps {
 
 export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDialogProps) {
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -54,6 +56,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
     recurrence_type: '',
   });
   const [additionalAssignees, setAdditionalAssignees] = useState<{ userId: string; name: string }[]>([]);
+  const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
   const [newAssigneeId, setNewAssigneeId] = useState('');
 
   const { data: users } = useUsersList();
@@ -69,8 +72,15 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
   const isAcompanhamento = formData.category.toLowerCase() === 'acompanhamento';
   const requiredFields = currentCategoryConfig?.requiredFields || [];
 
+  // Reset teamMembersLoaded when dialog opens/closes or task changes
   useEffect(() => {
-    if (task) {
+    if (!open) {
+      setTeamMembersLoaded(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (task && open) {
       const taskAny = task as Record<string, unknown>;
       const eventStart = taskAny.event_start_datetime ? new Date(taskAny.event_start_datetime as string) : null;
       const eventEnd = taskAny.event_end_datetime ? new Date(taskAny.event_end_datetime as string) : null;
@@ -93,11 +103,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         is_recurring: !!recurrence,
         recurrence_type: recurrence,
       });
-      // Load existing team members
-      if (existingTeamMembers) {
-        setAdditionalAssignees(existingTeamMembers.map(m => ({ userId: m.user_id, name: m.user_name })));
-      }
-    } else {
+    } else if (!task && open) {
       setFormData({
         title: '',
         description: '',
@@ -117,7 +123,15 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       });
       setAdditionalAssignees([]);
     }
-  }, [task, open, existingTeamMembers]);
+  }, [task, open]);
+
+  // Load existing team members only once when data arrives
+  useEffect(() => {
+    if (task && existingTeamMembers && !teamMembersLoaded) {
+      setAdditionalAssignees(existingTeamMembers.map(m => ({ userId: m.user_id, name: m.user_name })));
+      setTeamMembersLoaded(true);
+    }
+  }, [task, existingTeamMembers, teamMembersLoaded]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +210,12 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         supabase.from('task_team_members').delete().eq('id', m.id)
       ),
     ]);
+
+    // Invalidate relevant queries so changes reflect immediately
+    queryClient.invalidateQueries({ queryKey: ['task-team-members', taskId] });
+    queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['my-team-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
 
     onOpenChange(false);
   };
