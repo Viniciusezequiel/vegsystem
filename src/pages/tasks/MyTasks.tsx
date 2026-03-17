@@ -304,6 +304,9 @@ export default function MyTasks() {
                           </div>
                         </TableCell>
                         <TableCell>
+                          <span className="text-sm">{task.created_by_name || '-'}</span>
+                        </TableCell>
+                        <TableCell>
                           {task.assigned_to_name ? (
                             <div className="flex items-center gap-1">
                               <User className="w-4 h-4 text-muted-foreground" />
