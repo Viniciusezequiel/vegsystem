@@ -279,9 +279,10 @@ export default function MyTasks() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Demanda</TableHead>
-                    <TableHead>Responsável</TableHead>
-                    <TableHead>Prioridade</TableHead>
+                     <TableHead>Demanda</TableHead>
+                     <TableHead>Criado por</TableHead>
+                     <TableHead>Responsável</TableHead>
+                     <TableHead>Prioridade</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Prazo</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
