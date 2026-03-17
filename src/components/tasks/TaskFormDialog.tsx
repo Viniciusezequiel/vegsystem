@@ -37,6 +37,7 @@ interface TaskFormDialogProps {
 
 export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDialogProps) {
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
