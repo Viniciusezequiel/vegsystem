@@ -564,7 +564,7 @@ export default function ItemDetail() {
                     Dar Baixa / Entregar
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
                   <DialogHeader>
                     <DialogTitle>Registrar Entrega</DialogTitle>
                     <DialogDescription>
