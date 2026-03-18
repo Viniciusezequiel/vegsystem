@@ -557,7 +557,7 @@ export default function ItemDetail() {
           {/* Actions */}
           {item.status === 'available' && canDeliver && (
             <div className="flex gap-4 animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <Dialog open={isDeliverDialogOpen} onOpenChange={setIsDeliverDialogOpen}>
+              <Dialog open={isDeliverDialogOpen} onOpenChange={(open) => { if (!open && deliverItem.isPending) return; setIsDeliverDialogOpen(open); }}>
                 <DialogTrigger asChild>
                   <Button size="lg">
                     <PackageCheck className="w-5 h-5 mr-2" />
