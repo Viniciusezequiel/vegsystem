@@ -619,9 +619,12 @@ export default function ItemDetail() {
                       <Button type="button" variant="outline" onClick={() => setIsDeliverDialogOpen(false)}>
                         Cancelar
                       </Button>
-                      <Button type="submit" disabled={deliverItem.isPending}>
+                      <Button type="submit" disabled={deliverItem.isPending || !deliveryData.owner_signature}>
                         {deliverItem.isPending ? 'Registrando...' : 'Confirmar Entrega'}
                       </Button>
+                      {!deliveryData.owner_signature && (
+                        <p className="text-sm text-destructive">Assinatura obrigatória</p>
+                      )}
                     </div>
                   </form>
                 </DialogContent>
