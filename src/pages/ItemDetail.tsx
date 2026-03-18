@@ -557,14 +557,14 @@ export default function ItemDetail() {
           {/* Actions */}
           {item.status === 'available' && canDeliver && (
             <div className="flex gap-4 animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <Dialog open={isDeliverDialogOpen} onOpenChange={setIsDeliverDialogOpen}>
+              <Dialog open={isDeliverDialogOpen} onOpenChange={(open) => { if (!open && deliverItem.isPending) return; setIsDeliverDialogOpen(open); }}>
                 <DialogTrigger asChild>
                   <Button size="lg">
                     <PackageCheck className="w-5 h-5 mr-2" />
                     Dar Baixa / Entregar
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
                   <DialogHeader>
                     <DialogTitle>Registrar Entrega</DialogTitle>
                     <DialogDescription>
@@ -619,9 +619,12 @@ export default function ItemDetail() {
                       <Button type="button" variant="outline" onClick={() => setIsDeliverDialogOpen(false)}>
                         Cancelar
                       </Button>
-                      <Button type="submit" disabled={deliverItem.isPending}>
+                      <Button type="submit" disabled={deliverItem.isPending || !deliveryData.owner_signature}>
                         {deliverItem.isPending ? 'Registrando...' : 'Confirmar Entrega'}
                       </Button>
+                      {!deliveryData.owner_signature && (
+                        <p className="text-sm text-destructive">Assinatura obrigatória</p>
+                      )}
                     </div>
                   </form>
                 </DialogContent>
