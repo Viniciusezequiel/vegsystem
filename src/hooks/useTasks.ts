@@ -440,6 +440,7 @@ export function getStatusColor(status: string): string {
     completed: 'bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30',
     cancelled: 'bg-gray-500/20 text-gray-700 dark:text-gray-400 border-gray-500/30',
     on_hold: 'bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-500/30',
+    rejected: 'bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30',
   };
   return colors[status] || '';
 }
