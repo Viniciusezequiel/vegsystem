@@ -418,6 +418,7 @@ export function getStatusLabel(status: string): string {
     completed: 'Concluída',
     cancelled: 'Cancelada',
     on_hold: 'Em Espera',
+    rejected: 'Rejeitada',
   };
   return labels[status] || status;
 }
