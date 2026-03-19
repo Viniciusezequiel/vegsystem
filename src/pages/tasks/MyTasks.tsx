@@ -86,6 +86,10 @@ export default function MyTasks() {
   const [startDialogTask, setStartDialogTask] = useState<Task | null>(null);
   const [startNote, setStartNote] = useState('');
 
+  // Reject dialog state
+  const [rejectDialogTask, setRejectDialogTask] = useState<Task | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+
   // Complete dialog state
   const [completeDialogTask, setCompleteDialogTask] = useState<Task | null>(null);
   const [completeNote, setCompleteNote] = useState('');
