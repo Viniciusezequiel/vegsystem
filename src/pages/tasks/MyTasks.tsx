@@ -634,7 +634,26 @@ export default function MyTasks() {
                 </>
               )}
 
-              {/* Comments Section */}
+              {/* Reject action for creator */}
+              {selectedTask?.status === 'completed' && selectedTask?.created_by === user?.id && (
+                <>
+                  <Separator />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => {
+                        setRejectDialogTask(selectedTask);
+                        setSelectedTask(null);
+                      }}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Rejeitar Conclusão
+                    </Button>
+                  </div>
+                </>
+              )}
+
               <Separator />
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
