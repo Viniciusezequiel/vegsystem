@@ -264,7 +264,7 @@ export default function MyTasks() {
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="flex gap-4">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -273,6 +273,7 @@ export default function MyTasks() {
                 <SelectItem value="pending">Pendentes</SelectItem>
                 <SelectItem value="in_progress">Em Andamento</SelectItem>
                 <SelectItem value="completed">Concluídas</SelectItem>
+                <SelectItem value="rejected">Rejeitadas</SelectItem>
               </SelectContent>
             </Select>
           </div>
