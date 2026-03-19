@@ -400,6 +400,15 @@ export default function MyTasks() {
                                   </DropdownMenuItem>
                                 </>
                               )}
+                              {task.status === 'completed' && task.created_by === user?.id && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setRejectDialogTask(task)}>
+                                    <XCircle className="w-4 h-4 mr-2 text-red-500" />
+                                    Rejeitar Conclusão
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                               {isAdmin && (
                                 <>
                                   <DropdownMenuSeparator />
