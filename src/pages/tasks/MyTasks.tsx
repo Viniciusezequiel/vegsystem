@@ -64,6 +64,7 @@ import {
   Edit,
   Trash2,
   User,
+  XCircle,
 } from 'lucide-react';
 import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, useDeleteTask, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,13 +86,17 @@ export default function MyTasks() {
   const [startDialogTask, setStartDialogTask] = useState<Task | null>(null);
   const [startNote, setStartNote] = useState('');
 
+  // Reject dialog state
+  const [rejectDialogTask, setRejectDialogTask] = useState<Task | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+
   // Complete dialog state
   const [completeDialogTask, setCompleteDialogTask] = useState<Task | null>(null);
   const [completeNote, setCompleteNote] = useState('');
   const [completeDate, setCompleteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const { data: tasks, isLoading } = useMyTasks();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const updateMutation = useUpdateTask();
   const deleteMutation = useDeleteTask();
   const { data: comments, isLoading: loadingComments } = useTaskComments(selectedTask?.id || '');
@@ -160,6 +165,29 @@ export default function MyTasks() {
     setCompleteDialogTask(null);
     setCompleteNote('');
     setCompleteDate(format(new Date(), 'yyyy-MM-dd'));
+  };
+
+  const handleRejectTask = async () => {
+    if (!rejectNote.trim()) {
+      toast.error('Informe o motivo da rejeição');
+      return;
+    }
+    if (!rejectDialogTask) return;
+
+    await updateMutation.mutateAsync({
+      id: rejectDialogTask.id,
+      data: { status: 'in_progress', completed_at: undefined as any },
+      oldTask: rejectDialogTask,
+    });
+
+    await addCommentMutation.mutateAsync({
+      taskId: rejectDialogTask.id,
+      content: `❌ **Demanda rejeitada pelo solicitante:** ${rejectNote}`,
+    });
+
+    setRejectDialogTask(null);
+    setRejectNote('');
+    toast.info('Demanda devolvida para os responsáveis refazerem.');
   };
 
   const handleAddCommentWithAttachments = async (content: string, attachmentUrls: string[]) => {
@@ -236,7 +264,7 @@ export default function MyTasks() {
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="flex gap-4">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -245,6 +273,7 @@ export default function MyTasks() {
                 <SelectItem value="pending">Pendentes</SelectItem>
                 <SelectItem value="in_progress">Em Andamento</SelectItem>
                 <SelectItem value="completed">Concluídas</SelectItem>
+                <SelectItem value="rejected">Rejeitadas</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -369,6 +398,15 @@ export default function MyTasks() {
                                   <DropdownMenuItem onClick={() => setCompleteDialogTask(task)}>
                                     <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
                                     Concluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {task.status === 'completed' && task.created_by === user?.id && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setRejectDialogTask(task)}>
+                                    <XCircle className="w-4 h-4 mr-2 text-red-500" />
+                                    Rejeitar Conclusão
                                   </DropdownMenuItem>
                                 </>
                               )}
@@ -596,7 +634,26 @@ export default function MyTasks() {
                 </>
               )}
 
-              {/* Comments Section */}
+              {/* Reject action for creator */}
+              {selectedTask?.status === 'completed' && selectedTask?.created_by === user?.id && (
+                <>
+                  <Separator />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => {
+                        setRejectDialogTask(selectedTask);
+                        setSelectedTask(null);
+                      }}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Rejeitar Conclusão
+                    </Button>
+                  </div>
+                </>
+              )}
+
               <Separator />
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
@@ -859,6 +916,53 @@ export default function MyTasks() {
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Concluindo...</>
                 ) : (
                   <><CheckCircle className="w-4 h-4 mr-2" /> Confirmar Conclusão</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* REJECT TASK Dialog */}
+      <Dialog open={!!rejectDialogTask} onOpenChange={(open) => { if (!open) { setRejectDialogTask(null); setRejectNote(''); } }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-destructive" />
+              Rejeitar Conclusão
+            </DialogTitle>
+            <DialogDescription>
+              {rejectDialogTask?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 text-sm">
+              <p className="font-medium text-destructive">Atenção</p>
+              <p className="text-muted-foreground mt-1">
+                Ao rejeitar, a demanda voltará para o status "Em Andamento" e os responsáveis precisarão refazê-la e concluir novamente.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reject-note">Motivo da Rejeição *</Label>
+              <Textarea
+                id="reject-note"
+                placeholder="Informe o que não foi feito corretamente e o que precisa ser refeito..."
+                value={rejectNote}
+                onChange={(e) => setRejectNote(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">Campo obrigatório. Detalhe o motivo para que os responsáveis saibam o que corrigir.</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setRejectDialogTask(null); setRejectNote(''); }}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={handleRejectTask} disabled={!rejectNote.trim() || updateMutation.isPending || addCommentMutation.isPending}>
+                {(updateMutation.isPending || addCommentMutation.isPending) ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Rejeitando...</>
+                ) : (
+                  <><XCircle className="w-4 h-4 mr-2" /> Confirmar Rejeição</>
                 )}
               </Button>
             </div>

@@ -276,6 +276,11 @@ export function useUpdateTask() {
         updateData.completed_at = new Date().toISOString();
       }
 
+      // When rejecting a completed task, clear completed_at
+      if (data.status === 'in_progress' && oldTask?.status === 'completed') {
+        updateData.completed_at = null;
+      }
+
       const { data: task, error } = await supabase
         .from('tasks')
         .update(updateData)
@@ -418,6 +423,7 @@ export function getStatusLabel(status: string): string {
     completed: 'Concluída',
     cancelled: 'Cancelada',
     on_hold: 'Em Espera',
+    rejected: 'Rejeitada',
   };
   return labels[status] || status;
 }
@@ -439,6 +445,7 @@ export function getStatusColor(status: string): string {
     completed: 'bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30',
     cancelled: 'bg-gray-500/20 text-gray-700 dark:text-gray-400 border-gray-500/30',
     on_hold: 'bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-500/30',
+    rejected: 'bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30',
   };
   return colors[status] || '';
 }
