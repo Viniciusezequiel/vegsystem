@@ -64,6 +64,7 @@ import {
   Edit,
   Trash2,
   User,
+  XCircle,
 } from 'lucide-react';
 import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, useDeleteTask, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
 import { useAuth } from '@/contexts/AuthContext';
