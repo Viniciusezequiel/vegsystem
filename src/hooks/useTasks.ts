@@ -276,6 +276,11 @@ export function useUpdateTask() {
         updateData.completed_at = new Date().toISOString();
       }
 
+      // When rejecting a completed task, clear completed_at
+      if (data.status === 'in_progress' && oldTask?.status === 'completed') {
+        updateData.completed_at = null;
+      }
+
       const { data: task, error } = await supabase
         .from('tasks')
         .update(updateData)
