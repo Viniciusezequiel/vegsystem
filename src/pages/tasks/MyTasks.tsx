@@ -903,6 +903,53 @@ export default function MyTasks() {
         </DialogContent>
       </Dialog>
 
+      {/* REJECT TASK Dialog */}
+      <Dialog open={!!rejectDialogTask} onOpenChange={(open) => { if (!open) { setRejectDialogTask(null); setRejectNote(''); } }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-destructive" />
+              Rejeitar Conclusão
+            </DialogTitle>
+            <DialogDescription>
+              {rejectDialogTask?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 text-sm">
+              <p className="font-medium text-destructive">Atenção</p>
+              <p className="text-muted-foreground mt-1">
+                Ao rejeitar, a demanda voltará para o status "Em Andamento" e os responsáveis precisarão refazê-la e concluir novamente.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reject-note">Motivo da Rejeição *</Label>
+              <Textarea
+                id="reject-note"
+                placeholder="Informe o que não foi feito corretamente e o que precisa ser refeito..."
+                value={rejectNote}
+                onChange={(e) => setRejectNote(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">Campo obrigatório. Detalhe o motivo para que os responsáveis saibam o que corrigir.</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setRejectDialogTask(null); setRejectNote(''); }}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={handleRejectTask} disabled={!rejectNote.trim() || updateMutation.isPending || addCommentMutation.isPending}>
+                {(updateMutation.isPending || addCommentMutation.isPending) ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Rejeitando...</>
+                ) : (
+                  <><XCircle className="w-4 h-4 mr-2" /> Confirmar Rejeição</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <TaskFormDialog 
         open={formOpen || !!editTask} 
         onOpenChange={(open) => {
