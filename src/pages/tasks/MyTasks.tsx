@@ -167,6 +167,29 @@ export default function MyTasks() {
     setCompleteDate(format(new Date(), 'yyyy-MM-dd'));
   };
 
+  const handleRejectTask = async () => {
+    if (!rejectNote.trim()) {
+      toast.error('Informe o motivo da rejeição');
+      return;
+    }
+    if (!rejectDialogTask) return;
+
+    await updateMutation.mutateAsync({
+      id: rejectDialogTask.id,
+      data: { status: 'in_progress', completed_at: undefined as any },
+      oldTask: rejectDialogTask,
+    });
+
+    await addCommentMutation.mutateAsync({
+      taskId: rejectDialogTask.id,
+      content: `❌ **Demanda rejeitada pelo solicitante:** ${rejectNote}`,
+    });
+
+    setRejectDialogTask(null);
+    setRejectNote('');
+    toast.info('Demanda devolvida para os responsáveis refazerem.');
+  };
+
   const handleAddCommentWithAttachments = async (content: string, attachmentUrls: string[]) => {
     if (!selectedTask) return;
     await addCommentMutation.mutateAsync({
