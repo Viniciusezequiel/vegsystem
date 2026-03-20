@@ -194,10 +194,13 @@ export default function EquipmentLoanForm() {
     setIsSubmitting(true);
     
     try {
+      const reservedEquipmentIds = new Set(
+        reservationData?.items.map(i => i.equipmentId) || []
+      );
+
       for (const item of selectedItems) {
         const isReservedPickupItem =
-          Boolean(reservationData?.reservationId) &&
-          item.equipment.id === reservationData?.equipmentId;
+          Boolean(reservationData) && reservedEquipmentIds.has(item.equipment.id);
 
         await createLoan.mutateAsync({
           equipment_id: item.equipment.id,
@@ -217,9 +220,9 @@ export default function EquipmentLoanForm() {
         });
       }
       
-      // Se veio de uma reserva, marcar como retirada
-      if (reservationData?.reservationId) {
-        await markPickedUp.mutateAsync(reservationData.reservationId);
+      // Se veio de reserva(s), marcar todas como retirada
+      if (reservationData?.reservationIds?.length) {
+        await markPickedUp.mutateAsync(reservationData.reservationIds);
       }
       
       toast({ title: 'Sucesso', description: `${totalItems} empréstimo(s) registrado(s) com sucesso` });
