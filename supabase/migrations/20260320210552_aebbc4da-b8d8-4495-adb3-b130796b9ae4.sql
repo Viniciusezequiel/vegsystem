@@ -1,0 +1,1 @@
+ALTER TABLE public.equipment_reservations ADD COLUMN reservation_group_id uuid DEFAULT NULL;

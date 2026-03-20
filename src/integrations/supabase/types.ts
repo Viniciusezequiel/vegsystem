@@ -458,6 +458,7 @@ export type Database = {
           requester_phone: string
           requester_sector: string
           requester_type: string
+          reservation_group_id: string | null
           scheduled_pickup_date: string
           status: string
           updated_at: string
@@ -475,6 +476,7 @@ export type Database = {
           requester_phone: string
           requester_sector: string
           requester_type?: string
+          reservation_group_id?: string | null
           scheduled_pickup_date: string
           status?: string
           updated_at?: string
@@ -492,6 +494,7 @@ export type Database = {
           requester_phone?: string
           requester_sector?: string
           requester_type?: string
+          reservation_group_id?: string | null
           scheduled_pickup_date?: string
           status?: string
           updated_at?: string
