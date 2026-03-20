@@ -48,12 +48,17 @@ import { SignaturePad } from '@/components/ui/SignaturePad';
 import { useAuth } from '@/contexts/AuthContext';
 import { Separator } from '@/components/ui/separator';
 
-type ReservationState = {
+type ReservationItem = {
   reservationId: string;
   equipmentId: string;
   equipmentName: string;
   equipmentPatrimonyCode: string;
   quantity: number;
+};
+
+type ReservationState = {
+  reservationIds: string[];
+  items: ReservationItem[];
   borrowerName: string;
   borrowerPhone: string;
   borrowerSector: string;
