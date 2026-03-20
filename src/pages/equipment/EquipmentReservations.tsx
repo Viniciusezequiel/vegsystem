@@ -20,17 +20,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Plus, CalendarClock, Clock, CheckCircle, XCircle, Search, Phone } from 'lucide-react';
-import { useEquipmentReservations, useCancelReservation, EquipmentReservation } from '@/hooks/useEquipmentReservations';
+import { ArrowLeft, Plus, CalendarClock, Clock, CheckCircle, XCircle, Search, Phone, Package } from 'lucide-react';
+import { useEquipmentReservations, useCancelReservation, EquipmentReservation, groupReservations, GroupedReservation } from '@/hooks/useEquipmentReservations';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ReservationFormDialog } from '@/components/equipment/ReservationFormDialog';
-
-const statusLabels = {
-  awaiting_pickup: { label: 'Aguardando Retirada', variant: 'default' as const, icon: Clock },
-  picked_up: { label: 'Retirado', variant: 'secondary' as const, icon: CheckCircle },
-  cancelled: { label: 'Cancelado', variant: 'destructive' as const, icon: XCircle },
-};
 
 const borrowerTypeLabels: Record<string, string> = {
   aluno: 'Aluno',
@@ -49,7 +43,8 @@ export default function EquipmentReservations() {
   const cancelReservation = useCancelReservation();
 
   const filterReservations = (reservations: EquipmentReservation[] | undefined) => {
-    if (!reservations || !searchQuery.trim()) return reservations;
+    if (!reservations) return [];
+    if (!searchQuery.trim()) return reservations;
     const q = searchQuery.toLowerCase();
     return reservations.filter(r =>
       r.requester_name.toLowerCase().includes(q) ||
@@ -59,30 +54,25 @@ export default function EquipmentReservations() {
     );
   };
 
-  const filteredAwaiting = useMemo(() => filterReservations(awaitingReservations), [awaitingReservations, searchQuery]);
-  const filteredPickedUp = useMemo(() => filterReservations(pickedUpReservations), [pickedUpReservations, searchQuery]);
-  const filteredCancelled = useMemo(() => filterReservations(cancelledReservations), [cancelledReservations, searchQuery]);
+  const groupedAwaiting = useMemo(() => groupReservations(filterReservations(awaitingReservations)), [awaitingReservations, searchQuery]);
+  const groupedPickedUp = useMemo(() => groupReservations(filterReservations(pickedUpReservations)), [pickedUpReservations, searchQuery]);
+  const groupedCancelled = useMemo(() => groupReservations(filterReservations(cancelledReservations)), [cancelledReservations, searchQuery]);
 
   const formatDate = (date: string) => {
     return format(parseISO(date), "dd/MM/yyyy", { locale: ptBR });
   };
 
-  const isOverdue = (reservation: EquipmentReservation) => {
-    if (reservation.status !== 'awaiting_pickup') return false;
-    const pickupDate = parseISO(reservation.scheduled_pickup_date);
+  const isOverdue = (dateStr: string) => {
+    const pickupDate = parseISO(dateStr);
     return isPast(pickupDate) && !isToday(pickupDate);
   };
 
-  const handleMarkPickedUp = (id: string) => {
-    // This page is legacy - pickup now goes through the loan form
+  const handleCancelGroup = (group: GroupedReservation) => {
+    group.reservations.forEach(r => cancelReservation.mutate(r.id));
   };
 
-  const handleCancel = (id: string) => {
-    cancelReservation.mutate(id);
-  };
-
-  const renderTable = (reservations: EquipmentReservation[] | undefined, showActions = false) => {
-    if (!reservations?.length) {
+  const renderTable = (groups: GroupedReservation[], showActions = false) => {
+    if (!groups.length) {
       return (
         <div className="text-center py-8 text-muted-foreground">
           Nenhuma pré-reserva encontrada
@@ -95,8 +85,7 @@ export default function EquipmentReservations() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Equipamento</TableHead>
-              <TableHead className="hidden sm:table-cell">Qtd.</TableHead>
+              <TableHead>Equipamento(s)</TableHead>
               <TableHead>Solicitante</TableHead>
               <TableHead className="hidden md:table-cell">Tipo</TableHead>
               <TableHead className="hidden md:table-cell">Setor</TableHead>
@@ -108,71 +97,88 @@ export default function EquipmentReservations() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {reservations.map((reservation) => {
-              const overdue = isOverdue(reservation);
-              const StatusIcon = overdue ? Clock : statusLabels[reservation.status as keyof typeof statusLabels]?.icon || Clock;
+            {groups.map((group) => {
+              const overdue = group.status === 'awaiting_pickup' && isOverdue(group.scheduled_pickup_date);
+              const isGrouped = group.reservations.length > 1;
 
               return (
-                <TableRow key={reservation.id} className={overdue ? 'bg-destructive/10' : ''}>
+                <TableRow key={group.groupId} className={overdue ? 'bg-destructive/10' : ''}>
                   <TableCell className="font-medium">
-                    <div className="min-w-0">
-                      <span className="block truncate">{reservation.equipment?.name || 'N/A'}</span>
-                      <span className="text-xs text-muted-foreground block">{reservation.equipment?.patrimony_code}</span>
+                    <div className="space-y-1">
+                      {group.reservations.map(r => (
+                        <div key={r.id} className="min-w-0">
+                          <span className="block truncate text-sm">{r.equipment?.name || 'N/A'}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {r.equipment?.patrimony_code} • Qtd: {r.quantity_reserved}
+                          </span>
+                        </div>
+                      ))}
+                      {isGrouped && (
+                        <Badge variant="outline" className="text-[10px] mt-1">
+                          <Package className="h-3 w-3 mr-1" />
+                          {group.reservations.length} itens
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">{reservation.quantity_reserved}</TableCell>
                   <TableCell>
                     <div className="min-w-0">
-                      <span className="block truncate">{reservation.requester_name}</span>
-                      <span className="text-xs text-muted-foreground md:hidden">{reservation.requester_sector}</span>
+                      <span className="block truncate">{group.requester_name}</span>
+                      <span className="text-xs text-muted-foreground md:hidden">{group.requester_sector}</span>
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <Badge variant="outline" className="text-xs">
-                      {borrowerTypeLabels[reservation.requester_type] || reservation.requester_type}
+                      {borrowerTypeLabels[group.requester_type] || group.requester_type}
                     </Badge>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">{reservation.requester_sector}</TableCell>
+                  <TableCell className="hidden md:table-cell">{group.requester_sector}</TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <a
-                      href={`https://wa.me/55${reservation.requester_phone.replace(/\D/g, '')}`}
+                      href={`https://wa.me/55${group.requester_phone.replace(/\D/g, '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-primary hover:underline"
                     >
                       <Phone className="h-3 w-3" />
-                      {reservation.requester_phone}
+                      {group.requester_phone}
                     </a>
                   </TableCell>
                   <TableCell className={overdue ? 'text-destructive font-medium' : ''}>
                     <div className="min-w-0">
-                      <span className="block">{formatDate(reservation.scheduled_pickup_date)}</span>
+                      <span className="block">{formatDate(group.scheduled_pickup_date)}</span>
                       {overdue && <span className="text-xs">(Vencido)</span>}
-                      {isToday(parseISO(reservation.scheduled_pickup_date)) && !overdue && (
+                      {isToday(parseISO(group.scheduled_pickup_date)) && !overdue && (
                         <span className="text-xs text-primary font-medium">(Hoje)</span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {reservation.expected_return_date ? formatDate(reservation.expected_return_date) : '—'}
+                    {group.expected_return_date ? formatDate(group.expected_return_date) : '—'}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <Badge variant={overdue ? 'destructive' : statusLabels[reservation.status as keyof typeof statusLabels]?.variant || 'default'}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      {overdue ? 'Vencido' : statusLabels[reservation.status as keyof typeof statusLabels]?.label || reservation.status}
-                    </Badge>
+                    {group.status === 'awaiting_pickup' && (
+                      <Badge variant={overdue ? 'destructive' : 'default'}>
+                        <Clock className="h-3 w-3 mr-1" />
+                        {overdue ? 'Vencido' : 'Aguardando'}
+                      </Badge>
+                    )}
+                    {group.status === 'picked_up' && (
+                      <Badge variant="secondary">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Retirado
+                      </Badge>
+                    )}
+                    {group.status === 'cancelled' && (
+                      <Badge variant="destructive">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Cancelado
+                      </Badge>
+                    )}
                   </TableCell>
                   {showActions && (
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleMarkPickedUp(reservation.id)}
-                        >
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          <span className="hidden sm:inline">Retirado</span>
-                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="sm" className="text-destructive">
@@ -183,13 +189,13 @@ export default function EquipmentReservations() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Cancelar reserva?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Tem certeza que deseja cancelar esta pré-reserva de {reservation.equipment?.name}?
+                                Tem certeza que deseja cancelar {isGrouped ? `estas ${group.reservations.length} pré-reservas` : 'esta pré-reserva'}? O estoque será restaurado.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Voltar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleCancel(reservation.id)}>
-                                Cancelar Reserva
+                              <AlertDialogAction onClick={() => handleCancelGroup(group)}>
+                                Cancelar Reserva{isGrouped ? 's' : ''}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -250,25 +256,25 @@ export default function EquipmentReservations() {
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="awaiting_pickup" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Aguardando</span> ({filteredAwaiting?.length || 0})
+                  <span className="hidden sm:inline">Aguardando</span> ({groupedAwaiting.length})
                 </TabsTrigger>
                 <TabsTrigger value="picked_up" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Retirados</span> ({filteredPickedUp?.length || 0})
+                  <span className="hidden sm:inline">Retirados</span> ({groupedPickedUp.length})
                 </TabsTrigger>
                 <TabsTrigger value="cancelled" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <XCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Cancelados</span> ({filteredCancelled?.length || 0})
+                  <span className="hidden sm:inline">Cancelados</span> ({groupedCancelled.length})
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="awaiting_pickup" className="mt-4">
-                {renderTable(filteredAwaiting, true)}
+                {renderTable(groupedAwaiting, true)}
               </TabsContent>
               <TabsContent value="picked_up" className="mt-4">
-                {renderTable(filteredPickedUp, false)}
+                {renderTable(groupedPickedUp, false)}
               </TabsContent>
               <TabsContent value="cancelled" className="mt-4">
-                {renderTable(filteredCancelled, false)}
+                {renderTable(groupedCancelled, false)}
               </TabsContent>
             </Tabs>
           </CardContent>
