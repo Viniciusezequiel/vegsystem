@@ -184,6 +184,7 @@ export function useCreateEquipmentReservation() {
       scheduled_pickup_date: string;
       expected_return_date: string;
       notes?: string;
+      reservation_group_id?: string;
     }) => {
       // Validar data de devolução
       if (!reservation.expected_return_date) {
