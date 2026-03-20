@@ -16,16 +16,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Clock, CheckCircle, XCircle, Phone, ArrowRight } from 'lucide-react';
-import { useEquipmentReservations, useCancelReservation, EquipmentReservation } from '@/hooks/useEquipmentReservations';
+import { Clock, CheckCircle, XCircle, Phone, ArrowRight, Package } from 'lucide-react';
+import { useEquipmentReservations, useCancelReservation, EquipmentReservation, groupReservations, GroupedReservation } from '@/hooks/useEquipmentReservations';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-const statusLabels = {
-  awaiting_pickup: { label: 'Aguardando Retirada', variant: 'default' as const, icon: Clock },
-  picked_up: { label: 'Retirado', variant: 'secondary' as const, icon: CheckCircle },
-  cancelled: { label: 'Cancelado', variant: 'destructive' as const, icon: XCircle },
-};
 
 const borrowerTypeLabels: Record<string, string> = {
   aluno: 'Aluno',
@@ -43,52 +37,61 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
   const cancelReservation = useCancelReservation();
 
   const filtered = useMemo(() => {
-    if (!reservations || !searchQuery.trim()) return reservations;
-    const q = searchQuery.toLowerCase();
-    return reservations.filter(r =>
-      r.requester_name.toLowerCase().includes(q) ||
-      r.requester_sector.toLowerCase().includes(q) ||
-      r.equipment?.name?.toLowerCase().includes(q) ||
-      r.equipment?.patrimony_code?.toLowerCase().includes(q)
-    );
+    if (!reservations) return [];
+    let items = reservations;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(r =>
+        r.requester_name.toLowerCase().includes(q) ||
+        r.requester_sector.toLowerCase().includes(q) ||
+        r.equipment?.name?.toLowerCase().includes(q) ||
+        r.equipment?.patrimony_code?.toLowerCase().includes(q)
+      );
+    }
+    return items;
   }, [reservations, searchQuery]);
+
+  const grouped = useMemo(() => groupReservations(filtered), [filtered]);
 
   const formatDate = (date: string) => {
     return format(parseISO(date), "dd/MM/yyyy", { locale: ptBR });
   };
 
-  const isOverdue = (reservation: EquipmentReservation) => {
-    if (reservation.status !== 'awaiting_pickup') return false;
-    const pickupDate = parseISO(reservation.scheduled_pickup_date);
+  const isOverdue = (dateStr: string) => {
+    const pickupDate = parseISO(dateStr);
     return isPast(pickupDate) && !isToday(pickupDate);
   };
 
-  const handlePickup = (reservation: EquipmentReservation) => {
-    // Navegar para o formulário de empréstimo pré-preenchido com dados da reserva
+  const handlePickup = (group: GroupedReservation) => {
+    const reservationItems = group.reservations.map(r => ({
+      reservationId: r.id,
+      equipmentId: r.equipment_id,
+      equipmentName: r.equipment?.name || '',
+      equipmentPatrimonyCode: r.equipment?.patrimony_code || '',
+      quantity: r.quantity_reserved,
+    }));
+
     navigate('/equipment/loan/new', {
       state: {
         fromReservation: {
-          reservationId: reservation.id,
-          equipmentId: reservation.equipment_id,
-          equipmentName: reservation.equipment?.name,
-          equipmentPatrimonyCode: reservation.equipment?.patrimony_code,
-          quantity: reservation.quantity_reserved,
-          borrowerName: reservation.requester_name,
-          borrowerPhone: reservation.requester_phone,
-          borrowerSector: reservation.requester_sector,
-          borrowerType: reservation.requester_type,
-          purpose: reservation.purpose,
-          notes: reservation.notes,
+          reservationIds: group.reservations.map(r => r.id),
+          items: reservationItems,
+          borrowerName: group.requester_name,
+          borrowerPhone: group.requester_phone,
+          borrowerSector: group.requester_sector,
+          borrowerType: group.requester_type,
+          purpose: group.purpose,
+          notes: group.notes,
         },
       },
     });
   };
 
-  const handleCancel = (id: string) => {
-    cancelReservation.mutate(id);
+  const handleCancelGroup = (group: GroupedReservation) => {
+    group.reservations.forEach(r => cancelReservation.mutate(r.id));
   };
 
-  if (!filtered?.length) {
+  if (!grouped.length) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         Nenhuma pré-reserva aguardando retirada
@@ -101,8 +104,7 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Equipamento</TableHead>
-            <TableHead className="hidden sm:table-cell">Qtd.</TableHead>
+            <TableHead>Equipamento(s)</TableHead>
             <TableHead>Solicitante</TableHead>
             <TableHead className="hidden md:table-cell">Tipo</TableHead>
             <TableHead className="hidden md:table-cell">Setor</TableHead>
@@ -113,55 +115,69 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filtered.map((reservation) => {
-            const overdue = isOverdue(reservation);
-            const StatusIcon = overdue ? Clock : statusLabels[reservation.status as keyof typeof statusLabels]?.icon || Clock;
+          {grouped.map((group) => {
+            const overdue = isOverdue(group.scheduled_pickup_date);
+            const isGrouped = group.reservations.length > 1;
 
             return (
-              <TableRow key={reservation.id} className={overdue ? 'bg-destructive/10' : ''}>
+              <TableRow key={group.groupId} className={overdue ? 'bg-destructive/10' : ''}>
                 <TableCell className="font-medium">
-                  <div className="min-w-0">
-                    <span className="block truncate">{reservation.equipment?.name || 'N/A'}</span>
-                    <span className="text-xs text-muted-foreground block">{reservation.equipment?.patrimony_code}</span>
+                  <div className="space-y-1">
+                    {group.reservations.map(r => (
+                      <div key={r.id} className="min-w-0">
+                        <span className="block truncate text-sm">{r.equipment?.name || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {r.equipment?.patrimony_code} • Qtd: {r.quantity_reserved}
+                        </span>
+                      </div>
+                    ))}
+                    {isGrouped && (
+                      <Badge variant="outline" className="text-[10px] mt-1">
+                        <Package className="h-3 w-3 mr-1" />
+                        {group.reservations.length} itens
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
-                <TableCell className="hidden sm:table-cell">{reservation.quantity_reserved}</TableCell>
                 <TableCell>
                   <div className="min-w-0">
-                    <span className="block truncate">{reservation.requester_name}</span>
-                    <span className="text-xs text-muted-foreground md:hidden">{reservation.requester_sector}</span>
+                    <span className="block truncate">{group.requester_name}</span>
+                    <span className="text-xs text-muted-foreground md:hidden">{group.requester_sector}</span>
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <Badge variant="outline" className="text-xs">
-                    {borrowerTypeLabels[reservation.requester_type] || reservation.requester_type}
+                    {borrowerTypeLabels[group.requester_type] || group.requester_type}
                   </Badge>
                 </TableCell>
-                <TableCell className="hidden md:table-cell">{reservation.requester_sector}</TableCell>
+                <TableCell className="hidden md:table-cell">{group.requester_sector}</TableCell>
                 <TableCell className="hidden lg:table-cell">
                   <a
-                    href={`https://wa.me/55${reservation.requester_phone.replace(/\D/g, '')}`}
+                    href={`https://wa.me/55${group.requester_phone.replace(/\D/g, '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 text-primary hover:underline"
                   >
                     <Phone className="h-3 w-3" />
-                    {reservation.requester_phone}
+                    {group.requester_phone}
                   </a>
                 </TableCell>
                 <TableCell className={overdue ? 'text-destructive font-medium' : ''}>
                   <div className="min-w-0">
-                    <span className="block">{formatDate(reservation.scheduled_pickup_date)}</span>
+                    <span className="block">{formatDate(group.scheduled_pickup_date)}</span>
                     {overdue && <span className="text-xs">(Vencido)</span>}
-                    {isToday(parseISO(reservation.scheduled_pickup_date)) && !overdue && (
+                    {isToday(parseISO(group.scheduled_pickup_date)) && !overdue && (
                       <span className="text-xs text-primary font-medium">(Hoje)</span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
-                  <Badge variant={overdue ? 'destructive' : statusLabels[reservation.status as keyof typeof statusLabels]?.variant || 'default'}>
-                    <StatusIcon className="h-3 w-3 mr-1" />
-                    {overdue ? 'Vencido' : statusLabels[reservation.status as keyof typeof statusLabels]?.label || reservation.status}
+                  <Badge variant={overdue ? 'destructive' : 'default'}>
+                    {overdue ? (
+                      <><Clock className="h-3 w-3 mr-1" />Vencido</>
+                    ) : (
+                      <><Clock className="h-3 w-3 mr-1" />Aguardando</>
+                    )}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -169,7 +185,7 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePickup(reservation)}
+                      onClick={() => handlePickup(group)}
                     >
                       <ArrowRight className="h-3 w-3 mr-1" />
                       <span className="hidden sm:inline">Retirar</span>
@@ -184,13 +200,13 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
                         <AlertDialogHeader>
                           <AlertDialogTitle>Cancelar reserva?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja cancelar esta pré-reserva de {reservation.equipment?.name}? O estoque será restaurado.
+                            Tem certeza que deseja cancelar {isGrouped ? `estas ${group.reservations.length} pré-reservas` : 'esta pré-reserva'}? O estoque será restaurado.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Voltar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleCancel(reservation.id)}>
-                            Cancelar Reserva
+                          <AlertDialogAction onClick={() => handleCancelGroup(group)}>
+                            Cancelar Reserva{isGrouped ? 's' : ''}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
