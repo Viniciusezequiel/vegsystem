@@ -20,7 +20,22 @@ export type EquipmentReservation = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  reservation_group_id: string | null;
   equipment?: Equipment;
+};
+
+export type GroupedReservation = {
+  groupId: string;
+  reservations: EquipmentReservation[];
+  requester_name: string;
+  requester_phone: string;
+  requester_sector: string;
+  requester_type: string;
+  scheduled_pickup_date: string;
+  expected_return_date: string;
+  status: string;
+  purpose: string | null;
+  notes: string | null;
 };
 
 export function useEquipmentReservations(status?: string) {
