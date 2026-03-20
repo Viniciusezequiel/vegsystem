@@ -48,12 +48,17 @@ import { SignaturePad } from '@/components/ui/SignaturePad';
 import { useAuth } from '@/contexts/AuthContext';
 import { Separator } from '@/components/ui/separator';
 
-type ReservationState = {
+type ReservationItem = {
   reservationId: string;
   equipmentId: string;
   equipmentName: string;
   equipmentPatrimonyCode: string;
   quantity: number;
+};
+
+type ReservationState = {
+  reservationIds: string[];
+  items: ReservationItem[];
   borrowerName: string;
   borrowerPhone: string;
   borrowerSector: string;
@@ -101,10 +106,16 @@ export default function EquipmentLoanForm() {
 
   // Pre-fill form from reservation data
   useEffect(() => {
-    if (reservationData && equipment) {
-      const equip = equipment.find(e => e.id === reservationData.equipmentId);
-      if (equip && selectedItems.length === 0) {
-        setSelectedItems([{ equipment: equip, quantity: reservationData.quantity }]);
+    if (reservationData && equipment && selectedItems.length === 0) {
+      const items: SelectedEquipment[] = [];
+      for (const resItem of reservationData.items) {
+        const equip = equipment.find(e => e.id === resItem.equipmentId);
+        if (equip) {
+          items.push({ equipment: equip, quantity: resItem.quantity });
+        }
+      }
+      if (items.length > 0) {
+        setSelectedItems(items);
       }
     }
   }, [reservationData, equipment]);
@@ -183,10 +194,13 @@ export default function EquipmentLoanForm() {
     setIsSubmitting(true);
     
     try {
+      const reservedEquipmentIds = new Set(
+        reservationData?.items.map(i => i.equipmentId) || []
+      );
+
       for (const item of selectedItems) {
         const isReservedPickupItem =
-          Boolean(reservationData?.reservationId) &&
-          item.equipment.id === reservationData?.equipmentId;
+          Boolean(reservationData) && reservedEquipmentIds.has(item.equipment.id);
 
         await createLoan.mutateAsync({
           equipment_id: item.equipment.id,
@@ -206,9 +220,9 @@ export default function EquipmentLoanForm() {
         });
       }
       
-      // Se veio de uma reserva, marcar como retirada
-      if (reservationData?.reservationId) {
-        await markPickedUp.mutateAsync(reservationData.reservationId);
+      // Se veio de reserva(s), marcar todas como retirada
+      if (reservationData?.reservationIds?.length) {
+        await markPickedUp.mutateAsync(reservationData.reservationIds);
       }
       
       toast({ title: 'Sucesso', description: `${totalItems} empréstimo(s) registrado(s) com sucesso` });

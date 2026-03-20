@@ -20,7 +20,22 @@ export type EquipmentReservation = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  reservation_group_id: string | null;
   equipment?: Equipment;
+};
+
+export type GroupedReservation = {
+  groupId: string;
+  reservations: EquipmentReservation[];
+  requester_name: string;
+  requester_phone: string;
+  requester_sector: string;
+  requester_type: string;
+  scheduled_pickup_date: string;
+  expected_return_date: string;
+  status: string;
+  purpose: string | null;
+  notes: string | null;
 };
 
 export function useEquipmentReservations(status?: string) {
@@ -169,6 +184,7 @@ export function useCreateEquipmentReservation() {
       scheduled_pickup_date: string;
       expected_return_date: string;
       notes?: string;
+      reservation_group_id?: string;
     }) => {
       // Validar data de devolução
       if (!reservation.expected_return_date) {
@@ -294,20 +310,66 @@ export function useMarkReservationPickedUp() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (ids: string | string[]) => {
+      const idArray = Array.isArray(ids) ? ids : [ids];
       const { error } = await supabase
         .from('equipment_reservations')
         .update({ status: 'picked_up' })
-        .eq('id', id);
+        .in('id', idArray);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-reservations'] });
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
-      toast.success('Reserva marcada como retirada!');
+      toast.success('Reserva(s) marcada(s) como retirada!');
     },
     onError: (error: Error) => {
       toast.error('Erro ao atualizar reserva: ' + error.message);
     },
+  });
+}
+
+export function useCancelReservationGroup() {
+  const queryClient = useQueryClient();
+  const cancelSingle = useCancelReservation();
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) {
+        await cancelSingle.mutateAsync(id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+    },
+  });
+}
+
+/** Groups reservations by reservation_group_id (ungrouped ones get their own group by id) */
+export function groupReservations(reservations: EquipmentReservation[]): GroupedReservation[] {
+  const groups = new Map<string, EquipmentReservation[]>();
+
+  for (const r of reservations) {
+    const key = r.reservation_group_id || r.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r);
+  }
+
+  return Array.from(groups.entries()).map(([groupId, items]) => {
+    const first = items[0];
+    return {
+      groupId,
+      reservations: items,
+      requester_name: first.requester_name,
+      requester_phone: first.requester_phone,
+      requester_sector: first.requester_sector,
+      requester_type: first.requester_type,
+      scheduled_pickup_date: first.scheduled_pickup_date,
+      expected_return_date: first.expected_return_date,
+      status: first.status,
+      purpose: first.purpose,
+      notes: first.notes,
+    };
   });
 }

@@ -105,6 +105,9 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
     let successCount = 0;
     let errorMessages: string[] = [];
 
+    // Generate a shared group ID when reserving multiple items
+    const groupId = selectedEquipments.length > 1 ? crypto.randomUUID() : undefined;
+
     for (const equip of selectedEquipments) {
       try {
         await createReservation.mutateAsync({
@@ -118,6 +121,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
           scheduled_pickup_date: scheduledDate,
           expected_return_date: expectedReturnDate,
           notes: notes || undefined,
+          reservation_group_id: groupId,
         });
         successCount++;
       } catch (err: any) {
