@@ -13,23 +13,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { EquipmentSearchDropdown } from './EquipmentSearchDropdown';
+import { Trash2 } from 'lucide-react';
 import { useEquipmentList, Equipment } from '@/hooks/useEquipment';
 import { useCreateEquipmentReservation } from '@/hooks/useEquipmentReservations';
 import { toast } from 'sonner';
+
+interface SelectedEquipment {
+  equipment_id: string;
+  equipment_name: string;
+  patrimony_code: string;
+  quantity: number;
+  max_available: number;
+  is_unique: boolean;
+}
 
 interface ReservationFormDialogProps {
   open: boolean;
@@ -37,10 +34,7 @@ interface ReservationFormDialogProps {
 }
 
 export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDialogProps) {
-  const [equipOpen, setEquipOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const [quantity, setQuantity] = useState(1);
+  const [selectedEquipments, setSelectedEquipments] = useState<SelectedEquipment[]>([]);
   const [requesterName, setRequesterName] = useState('');
   const [requesterPhone, setRequesterPhone] = useState('');
   const [requesterSector, setRequesterSector] = useState('');
@@ -49,6 +43,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
   const [scheduledDate, setScheduledDate] = useState('');
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: equipment } = useEquipmentList();
   const createReservation = useCreateEquipmentReservation();
@@ -57,18 +52,8 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
     return equipment?.filter(e => e.status !== 'maintenance') || [];
   }, [equipment]);
 
-  const filteredEquipment = useMemo(() => {
-    if (!searchValue) return availableEquipment;
-    const search = searchValue.toLowerCase();
-    return availableEquipment.filter(e =>
-      e.name.toLowerCase().includes(search) ||
-      e.patrimony_code.toLowerCase().includes(search)
-    );
-  }, [availableEquipment, searchValue]);
-
   const resetForm = () => {
-    setSelectedEquipment(null);
-    setQuantity(1);
+    setSelectedEquipments([]);
     setRequesterName('');
     setRequesterPhone('');
     setRequesterSector('');
@@ -79,29 +64,76 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
     setNotes('');
   };
 
+  const handleToggleEquipment = (equip: Equipment) => {
+    setSelectedEquipments(prev => {
+      const exists = prev.find(s => s.equipment_id === equip.id);
+      if (exists) {
+        return prev.filter(s => s.equipment_id !== equip.id);
+      }
+      return [...prev, {
+        equipment_id: equip.id,
+        equipment_name: equip.name,
+        patrimony_code: equip.patrimony_code,
+        quantity: 1,
+        max_available: equip.available_quantity,
+        is_unique: equip.quantity <= 1,
+      }];
+    });
+  };
+
+  const handleQuantityChange = (equipmentId: string, newQty: number) => {
+    setSelectedEquipments(prev =>
+      prev.map(s =>
+        s.equipment_id === equipmentId
+          ? { ...s, quantity: Math.max(1, Math.min(newQty, s.max_available)) }
+          : s
+      )
+    );
+  };
+
+  const handleRemoveEquipment = (equipmentId: string) => {
+    setSelectedEquipments(prev => prev.filter(s => s.equipment_id !== equipmentId));
+  };
+
   const handleSubmit = async () => {
-    if (!selectedEquipment || !requesterName || !requesterPhone || !requesterSector || !scheduledDate || !expectedReturnDate) {
+    if (selectedEquipments.length === 0 || !requesterName || !requesterPhone || !requesterSector || !scheduledDate || !expectedReturnDate) {
       toast.error('Preencha todos os campos obrigatórios (incluindo data de devolução)');
       return;
     }
 
-    try {
-      await createReservation.mutateAsync({
-        equipment_id: selectedEquipment.id,
-        quantity_reserved: quantity,
-        requester_name: requesterName,
-        requester_phone: requesterPhone,
-        requester_sector: requesterSector,
-        requester_type: requesterType,
-        purpose: purpose || undefined,
-        scheduled_pickup_date: scheduledDate,
-        expected_return_date: expectedReturnDate,
-        notes: notes || undefined,
-      });
+    setIsSubmitting(true);
+    let successCount = 0;
+    let errorMessages: string[] = [];
+
+    for (const equip of selectedEquipments) {
+      try {
+        await createReservation.mutateAsync({
+          equipment_id: equip.equipment_id,
+          quantity_reserved: equip.quantity,
+          requester_name: requesterName,
+          requester_phone: requesterPhone,
+          requester_sector: requesterSector,
+          requester_type: requesterType,
+          purpose: purpose || undefined,
+          scheduled_pickup_date: scheduledDate,
+          expected_return_date: expectedReturnDate,
+          notes: notes || undefined,
+        });
+        successCount++;
+      } catch (err: any) {
+        errorMessages.push(`${equip.equipment_name}: ${err.message}`);
+      }
+    }
+
+    setIsSubmitting(false);
+
+    if (successCount > 0 && errorMessages.length === 0) {
       resetForm();
       onOpenChange(false);
-    } catch {
-      // Error handled in hook
+    } else if (successCount > 0 && errorMessages.length > 0) {
+      toast.error(`Algumas reservas falharam:\n${errorMessages.join('\n')}`);
+      // Remove successful ones from the list
+      setSelectedEquipments(prev => prev.filter(s => errorMessages.some(m => m.startsWith(s.equipment_name))));
     }
   };
 
@@ -115,82 +147,44 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
         <div className="space-y-4">
           {/* Equipment Selection */}
           <div className="space-y-2">
-            <Label>Equipamento *</Label>
-            {selectedEquipment ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg border bg-secondary/20">
-                <div className="flex-1">
-                  <p className="font-medium">{selectedEquipment.name}</p>
-                  <p className="text-xs text-muted-foreground">Patrimônio: {selectedEquipment.patrimony_code}</p>
-                </div>
-                {selectedEquipment.quantity > 1 ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={selectedEquipment.available_quantity}
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.min(parseInt(e.target.value) || 1, selectedEquipment.available_quantity))}
-                      className="w-20 h-8"
-                    />
-                    <span className="text-xs text-muted-foreground">/ {selectedEquipment.available_quantity}</span>
-                  </div>
-                ) : (
-                  <Badge variant="secondary" className="text-xs">Único</Badge>
-                )}
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setSelectedEquipment(null)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <Popover open={equipOpen} onOpenChange={setEquipOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full gap-2">
-                    <Plus className="h-4 w-4" />
-                    Selecionar Equipamento
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[380px] p-0" align="start">
-                  <Command shouldFilter={false}>
-                    <div className="flex items-center border-b px-3">
-                      <Search className="h-4 w-4 shrink-0 opacity-50" />
-                      <CommandInput placeholder="Buscar..." value={searchValue} onValueChange={setSearchValue} />
+            <Label>Equipamento(s) *</Label>
+            <EquipmentSearchDropdown
+              availableEquipment={availableEquipment}
+              selectedEquipments={selectedEquipments}
+              onToggleEquipment={handleToggleEquipment}
+              placeholder={selectedEquipments.length > 0 ? `${selectedEquipments.length} equipamento(s) selecionado(s)` : 'Buscar e selecionar equipamentos...'}
+            />
+
+            {/* Selected equipment list with quantity controls */}
+            {selectedEquipments.length > 0 && (
+              <div className="space-y-2 mt-2">
+                {selectedEquipments.map(equip => (
+                  <div key={equip.equipment_id} className="flex items-center gap-3 p-3 rounded-lg border bg-secondary/20">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{equip.equipment_name}</p>
+                      <p className="text-xs text-muted-foreground">Patrimônio: {equip.patrimony_code}</p>
                     </div>
-                    <CommandList className="max-h-[250px] overflow-y-auto">
-                      {filteredEquipment.length === 0 ? (
-                        <CommandEmpty>Nenhum equipamento encontrado.</CommandEmpty>
-                      ) : (
-                        <CommandGroup>
-                          {filteredEquipment.slice(0, 50).map((equip) => (
-                            <CommandItem
-                              key={equip.id}
-                              value={equip.id}
-                              onSelect={() => {
-                                setSelectedEquipment(equip);
-                                setQuantity(1);
-                                setEquipOpen(false);
-                                setSearchValue('');
-                              }}
-                              className="cursor-pointer"
-                            >
-                              <div className="flex flex-col flex-1 gap-0.5">
-                                <span className="font-medium">{equip.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>{equip.patrimony_code}</span>
-                                  {equip.quantity > 1 ? (
-                                    <span className="text-primary font-medium">{equip.available_quantity} disp.</span>
-                                  ) : (
-                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">Único</Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      )}
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                    {!equip.is_unique ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={equip.max_available}
+                          value={equip.quantity}
+                          onChange={(e) => handleQuantityChange(equip.equipment_id, parseInt(e.target.value) || 1)}
+                          className="w-20 h-8"
+                        />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">/ {equip.max_available}</span>
+                      </div>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">Único</Badge>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive flex-shrink-0" onClick={() => handleRemoveEquipment(equip.equipment_id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -277,9 +271,9 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={createReservation.isPending || !selectedEquipment || !requesterName || !scheduledDate || !expectedReturnDate}
+              disabled={isSubmitting || selectedEquipments.length === 0 || !requesterName || !scheduledDate || !expectedReturnDate}
             >
-              {createReservation.isPending ? 'Registrando...' : 'Registrar Pré-Reserva'}
+              {isSubmitting ? 'Registrando...' : `Registrar Pré-Reserva${selectedEquipments.length > 1 ? ` (${selectedEquipments.length})` : ''}`}
             </Button>
           </div>
         </div>
