@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, ArrowLeft, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, ArrowLeft, Check, Search } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -43,6 +43,10 @@ export default function ClassroomCallSettings() {
   // Issues state
   const [newIssueDesc, setNewIssueDesc] = useState('');
   const [bulkIssueRoomIds, setBulkIssueRoomIds] = useState<string[]>([]);
+
+  // Filter state
+  const [roomSearch, setRoomSearch] = useState('');
+  const [campusFilter, setCampusFilter] = useState<string>('all');
 
   // Responses state
   const [newResponseMsg, setNewResponseMsg] = useState('');
@@ -112,6 +116,14 @@ export default function ClassroomCallSettings() {
 
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
 
+  const filteredRooms = useMemo(() => {
+    return rooms.filter(room => {
+      const matchesSearch = !roomSearch || room.name.toLowerCase().includes(roomSearch.toLowerCase());
+      const matchesCampus = campusFilter === 'all' || room.campus === campusFilter;
+      return matchesSearch && matchesCampus;
+    });
+  }, [rooms, roomSearch, campusFilter]);
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -171,8 +183,32 @@ export default function ClassroomCallSettings() {
                     </Button>
                   </div>
 
+                  {/* Filters */}
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar sala..."
+                        value={roomSearch}
+                        onChange={(e) => setRoomSearch(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                    <Select value={campusFilter} onValueChange={setCampusFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os campus</SelectItem>
+                        {CAMPUSES.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Rooms Table */}
-                  {rooms.length > 0 ? (
+                  {filteredRooms.length > 0 ? (
                     <div className="border rounded-lg">
                       <Table>
                         <TableHeader>
@@ -184,7 +220,7 @@ export default function ClassroomCallSettings() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {rooms.map((room) => (
+                          {filteredRooms.map((room) => (
                             <TableRow
                               key={room.id}
                               className={`cursor-pointer ${selectedRoomId === room.id ? 'bg-primary/5' : ''}`}
@@ -255,7 +291,7 @@ export default function ClassroomCallSettings() {
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <Building2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                      <p>Nenhuma sala cadastrada</p>
+                      <p>{rooms.length > 0 ? 'Nenhuma sala encontrada com os filtros aplicados' : 'Nenhuma sala cadastrada'}</p>
                     </div>
                   )}
                 </CardContent>
