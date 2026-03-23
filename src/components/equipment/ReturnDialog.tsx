@@ -23,6 +23,7 @@ interface ReturnDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (data: ReturnData) => void;
   itemName: string;
+  itemNames?: { name: string; patrimony: string; quantity: number }[];
   borrowerName: string;
   isPending?: boolean;
 }
@@ -44,6 +45,7 @@ export function ReturnDialog({
   onOpenChange,
   onConfirm,
   itemName,
+  itemNames,
   borrowerName,
   isPending = false,
 }: ReturnDialogProps) {
@@ -90,8 +92,23 @@ export function ReturnDialog({
         <DialogHeader>
           <DialogTitle>Registrar Devolução</DialogTitle>
           <DialogDescription>
-            Registre a devolução de "{itemName}"
+            {itemNames && itemNames.length > 1 ? (
+              <span>Registre a devolução de {itemNames.length} equipamentos:</span>
+            ) : (
+              <span>Registre a devolução de "{itemName}"</span>
+            )}
           </DialogDescription>
+          {itemNames && itemNames.length > 1 && (
+            <div className="mt-2 space-y-1">
+              {itemNames.map((item, idx) => (
+                <div key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-xs">({item.patrimony})</span>
+                  <span className="text-xs">Qtd: {item.quantity}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

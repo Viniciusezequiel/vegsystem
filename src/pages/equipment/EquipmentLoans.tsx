@@ -17,7 +17,7 @@ import { ReservationsTabContent } from '@/components/equipment/ReservationsTabCo
 import { ReservationFormDialog } from '@/components/equipment/ReservationFormDialog';
 import { useEquipmentReservations } from '@/hooks/useEquipmentReservations';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
-import { format, isPast, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const statusLabels = {
@@ -32,10 +32,51 @@ const borrowerTypeLabels: Record<string, string> = {
   funcionario: 'Funcionário',
 };
 
+export type GroupedLoan = {
+  groupId: string;
+  loans: EquipmentLoan[];
+  borrower_name: string;
+  borrower_phone: string;
+  borrower_sector: string;
+  borrower_type: string | null;
+  purpose: string | null;
+  expected_return_date: string;
+  status: 'active' | 'returned' | 'overdue';
+  collaborator_name: string | null;
+  created_at: string;
+};
+
+function groupLoans(loans: EquipmentLoan[]): GroupedLoan[] {
+  const groups = new Map<string, EquipmentLoan[]>();
+  for (const loan of loans) {
+    const key = loan.loan_group_id || loan.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(loan);
+  }
+
+  return Array.from(groups.entries()).map(([groupId, items]) => {
+    const first = items[0];
+    return {
+      groupId,
+      loans: items,
+      borrower_name: first.borrower_name,
+      borrower_phone: first.borrower_phone,
+      borrower_sector: first.borrower_sector,
+      borrower_type: first.borrower_type,
+      purpose: first.purpose,
+      expected_return_date: first.expected_return_date,
+      status: first.status,
+      collaborator_name: first.collaborator_name,
+      created_at: first.created_at,
+    };
+  });
+}
+
 export default function EquipmentLoans() {
   const [activeTab, setActiveTab] = useState('reservations');
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<GroupedLoan | null>(null);
   const [selectedLoan, setSelectedLoan] = useState<EquipmentLoan | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
@@ -64,21 +105,29 @@ export default function EquipmentLoans() {
   const filteredReturnedLoans = useMemo(() => filterLoans(returnedLoans), [returnedLoans, searchQuery]);
   const filteredOverdueLoans = useMemo(() => filterLoans(overdueLoans), [overdueLoans, searchQuery]);
 
-  const handleOpenReturn = (loan: EquipmentLoan) => {
-    setSelectedLoan(loan);
+  const groupedActiveLoans = useMemo(() => groupLoans(filteredActiveLoans || []), [filteredActiveLoans]);
+  const groupedReturnedLoans = useMemo(() => groupLoans(filteredReturnedLoans || []), [filteredReturnedLoans]);
+  const groupedOverdueLoans = useMemo(() => groupLoans(filteredOverdueLoans || []), [filteredOverdueLoans]);
+
+  const handleOpenReturn = (group: GroupedLoan) => {
+    setSelectedGroup(group);
+    setSelectedLoan(group.loans[0]);
     setReturnDialogOpen(true);
   };
 
-  const handleOpenDetails = (loan: EquipmentLoan) => {
-    setSelectedLoan(loan);
+  const handleOpenDetails = (group: GroupedLoan) => {
+    setSelectedGroup(group);
+    setSelectedLoan(group.loans[0]);
     setDetailsDialogOpen(true);
   };
 
   const handleReturn = (data: ReturnData) => {
-    if (!selectedLoan) return;
+    if (!selectedGroup) return;
+    
+    const loanIds = selectedGroup.loans.map(l => l.id);
     
     returnEquipment.mutate({
-      loanId: selectedLoan.id,
+      loanId: loanIds,
       returner_name: data.returner_name,
       returner_phone: data.returner_phone,
       returner_sector: data.returner_sector,
@@ -91,6 +140,7 @@ export default function EquipmentLoans() {
     }, {
       onSuccess: () => {
         setReturnDialogOpen(false);
+        setSelectedGroup(null);
         setSelectedLoan(null);
       },
     });
@@ -114,8 +164,12 @@ export default function EquipmentLoans() {
     return returnDate < today;
   };
 
-  const renderLoansTable = (loans: EquipmentLoan[] | undefined, showReturnButton = false) => {
-    if (!loans?.length) {
+  const isGroupOverdue = (group: GroupedLoan) => {
+    return group.loans.some(l => isOverdue(l));
+  };
+
+  const renderGroupedLoansTable = (groups: GroupedLoan[], showReturnButton = false) => {
+    if (!groups.length) {
       return (
         <div className="text-center py-8 text-muted-foreground">
           Nenhum empréstimo encontrado
@@ -128,8 +182,7 @@ export default function EquipmentLoans() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Equipamento</TableHead>
-              <TableHead className="hidden sm:table-cell">Qtd.</TableHead>
+              <TableHead>Equipamento(s)</TableHead>
               <TableHead>Solicitante</TableHead>
               <TableHead className="hidden md:table-cell">Tipo</TableHead>
               <TableHead className="hidden md:table-cell">Setor</TableHead>
@@ -142,70 +195,81 @@ export default function EquipmentLoans() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loans.map((loan) => {
-              const overdue = isOverdue(loan);
-              const StatusIcon = overdue ? AlertTriangle : statusLabels[loan.status].icon;
+            {groups.map((group) => {
+              const overdue = isGroupOverdue(group);
+              const isGrouped = group.loans.length > 1;
+              const StatusIcon = overdue ? AlertTriangle : statusLabels[group.status].icon;
               
               return (
-                <TableRow key={loan.id} className={overdue ? 'bg-destructive/10' : ''}>
+                <TableRow key={group.groupId} className={overdue ? 'bg-destructive/10' : ''}>
                   <TableCell className="font-medium">
-                    <div className="min-w-0">
-                      <span className="block truncate">{loan.equipment?.name || 'N/A'}</span>
-                      <span className="text-xs text-muted-foreground block">{loan.equipment?.patrimony_code}</span>
-                      <span className="text-xs text-muted-foreground sm:hidden">Qtd: {loan.quantity_borrowed}</span>
+                    <div className="space-y-1">
+                      {group.loans.map((loan) => (
+                        <div key={loan.id} className="min-w-0">
+                          <span className="block truncate text-sm">{loan.equipment?.name || 'N/A'}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {loan.equipment?.patrimony_code} • Qtd: {loan.quantity_borrowed}
+                          </span>
+                        </div>
+                      ))}
+                      {isGrouped && (
+                        <Badge variant="outline" className="text-[10px] mt-1">
+                          <Package className="h-3 w-3 mr-1" />
+                          {group.loans.length} itens
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">{loan.quantity_borrowed}</TableCell>
                   <TableCell>
                     <div className="min-w-0">
-                      <span className="block truncate">{loan.borrower_name}</span>
-                      <span className="text-xs text-muted-foreground md:hidden">{loan.borrower_sector}</span>
+                      <span className="block truncate">{group.borrower_name}</span>
+                      <span className="text-xs text-muted-foreground md:hidden">{group.borrower_sector}</span>
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <Badge variant="outline" className="text-xs">
-                      {borrowerTypeLabels[loan.borrower_type || 'aluno'] || loan.borrower_type}
+                      {borrowerTypeLabels[group.borrower_type || 'aluno'] || group.borrower_type}
                     </Badge>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">{loan.borrower_sector}</TableCell>
+                  <TableCell className="hidden md:table-cell">{group.borrower_sector}</TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <a 
-                      href={`https://wa.me/55${loan.borrower_phone.replace(/\D/g, '')}`}
+                      href={`https://wa.me/55${group.borrower_phone.replace(/\D/g, '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-primary hover:underline"
                     >
                       <Phone className="h-3 w-3" />
-                      {loan.borrower_phone}
+                      {group.borrower_phone}
                     </a>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    {loan.purpose || '—'}
+                    {group.purpose || '—'}
                   </TableCell>
                   <TableCell className={overdue ? 'text-destructive font-medium' : ''}>
                     <div className="min-w-0">
-                      <span className="block">{formatDate(loan.expected_return_date)}</span>
+                      <span className="block">{formatDate(group.expected_return_date)}</span>
                       {overdue && <span className="text-xs">(Atrasado)</span>}
                     </div>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <span className="text-xs text-muted-foreground">{loan.collaborator_name || '—'}</span>
+                    <span className="text-xs text-muted-foreground">{group.collaborator_name || '—'}</span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <Badge variant={overdue ? 'destructive' : statusLabels[loan.status].variant}>
+                    <Badge variant={overdue ? 'destructive' : statusLabels[group.status].variant}>
                       <StatusIcon className="h-3 w-3 mr-1" />
-                      {overdue ? 'Atrasado' : statusLabels[loan.status].label}
+                      {overdue ? 'Atrasado' : statusLabels[group.status].label}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleOpenDetails(loan)}>
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenDetails(group)}>
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">Ver detalhes</span>
                       </Button>
                       {showReturnButton && (
-                        <Button variant="outline" size="sm" onClick={() => handleOpenReturn(loan)}>
-                          <span className="hidden sm:inline">Devolver</span>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenReturn(group)}>
+                          <span className="hidden sm:inline">Devolver{isGrouped ? ` (${group.loans.length})` : ''}</span>
                           <span className="sm:hidden">Dev.</span>
                         </Button>
                       )}
@@ -331,13 +395,13 @@ export default function EquipmentLoans() {
                 <ReservationsTabContent searchQuery={searchQuery} />
               </TabsContent>
               <TabsContent value="active" className="mt-4">
-                {renderLoansTable(filteredActiveLoans, true)}
+                {renderGroupedLoansTable(groupedActiveLoans, true)}
               </TabsContent>
               <TabsContent value="overdue" className="mt-4">
-                {renderLoansTable(filteredOverdueLoans, true)}
+                {renderGroupedLoansTable(groupedOverdueLoans, true)}
               </TabsContent>
               <TabsContent value="returned" className="mt-4">
-                {renderLoansTable(filteredReturnedLoans, false)}
+                {renderGroupedLoansTable(groupedReturnedLoans, false)}
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -348,17 +412,26 @@ export default function EquipmentLoans() {
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
         loan={selectedLoan}
+        loans={selectedGroup?.loans}
         onReturn={handleReturnFromDetails}
-        showReturnButton={selectedLoan?.status === 'active'}
+        showReturnButton={selectedGroup?.status === 'active'}
       />
 
-      {selectedLoan && (
+      {selectedGroup && (
         <ReturnDialog
           open={returnDialogOpen}
           onOpenChange={setReturnDialogOpen}
           onConfirm={handleReturn}
-          itemName={selectedLoan.equipment?.name || 'Item'}
-          borrowerName={selectedLoan.borrower_name}
+          itemName={selectedGroup.loans.length > 1 
+            ? `${selectedGroup.loans.length} equipamentos` 
+            : (selectedGroup.loans[0]?.equipment?.name || 'Item')
+          }
+          itemNames={selectedGroup.loans.map(l => ({
+            name: l.equipment?.name || 'N/A',
+            patrimony: l.equipment?.patrimony_code || '',
+            quantity: l.quantity_borrowed,
+          }))}
+          borrowerName={selectedGroup.borrower_name}
           isPending={returnEquipment.isPending}
         />
       )}

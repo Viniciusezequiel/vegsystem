@@ -19,6 +19,7 @@ interface EquipmentLoanDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   loan: EquipmentLoan | null;
+  loans?: EquipmentLoan[];
   onReturn?: () => void;
   showReturnButton?: boolean;
 }
@@ -45,10 +46,14 @@ export function EquipmentLoanDetailsDialog({
   open,
   onOpenChange,
   loan,
+  loans,
   onReturn,
   showReturnButton = false,
 }: EquipmentLoanDetailsDialogProps) {
   if (!loan) return null;
+
+  const allLoans = loans && loans.length > 1 ? loans : [loan];
+  const isGrouped = allLoans.length > 1;
 
   const todayDate = new Date();
   todayDate.setHours(0, 0, 0, 0);
@@ -67,38 +72,42 @@ export function EquipmentLoanDetailsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="w-5 h-5" />
-            Detalhes do Empréstimo
+            Detalhes do Empréstimo {isGrouped ? `(${allLoans.length} itens)` : ''}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Equipment Info */}
-          <div className="bg-muted/50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Equipamento</p>
-                <p className="text-xl font-bold">{loan.equipment?.name || 'N/A'}</p>
-                <p className="text-sm text-muted-foreground">{loan.equipment?.patrimony_code}</p>
+          {allLoans.map((l, idx) => (
+            <div key={l.id} className="bg-muted/50 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Equipamento {isGrouped ? `${idx + 1}` : ''}</p>
+                  <p className="text-xl font-bold">{l.equipment?.name || 'N/A'}</p>
+                  <p className="text-sm text-muted-foreground">{l.equipment?.patrimony_code}</p>
+                </div>
+                {idx === 0 && (
+                  <Badge variant={statusLabels[status].variant} className="text-sm">
+                    {statusLabels[status].label}
+                  </Badge>
+                )}
               </div>
-              <Badge variant={statusLabels[status].variant} className="text-sm">
-                {statusLabels[status].label}
-              </Badge>
+              <div className="mt-3 flex flex-wrap gap-4 text-sm">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Building2 className="w-4 h-4" />
+                  {l.equipment?.campus}
+                </div>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <MapPin className="w-4 h-4" />
+                  {l.equipment?.location}
+                </div>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Package className="w-4 h-4" />
+                  Qtd: {l.quantity_borrowed}
+                </div>
+              </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-4 text-sm">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Building2 className="w-4 h-4" />
-                {loan.equipment?.campus}
-              </div>
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <MapPin className="w-4 h-4" />
-                {loan.equipment?.location}
-              </div>
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Package className="w-4 h-4" />
-                Qtd: {loan.quantity_borrowed}
-              </div>
-            </div>
-          </div>
+          ))}
 
           <Separator />
 

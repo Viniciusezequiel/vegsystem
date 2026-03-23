@@ -49,6 +49,7 @@ export type EquipmentLoan = {
   loaned_by: string | null;
   returned_by: string | null;
   notes: string | null;
+  loan_group_id: string | null;
   created_at: string;
   updated_at: string;
   equipment?: Equipment;
@@ -331,11 +332,12 @@ export function useCreateEquipmentLoan() {
       authorizer_name?: string;
       authorizer_contact?: string;
       collaborator_name?: string;
-      skip_stock_deduction?: boolean; // Para reservas já deduzidas
+      skip_stock_deduction?: boolean;
+      loan_group_id?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { skip_stock_deduction, ...loanData } = loan;
+      const { skip_stock_deduction, loan_group_id, ...loanData } = loan;
       
       if (!skip_stock_deduction) {
         // Verificar disponibilidade apenas se não for reserva
@@ -369,7 +371,8 @@ export function useCreateEquipmentLoan() {
           authorizer_name: loanData.authorizer_name,
           authorizer_contact: loanData.authorizer_contact,
           collaborator_name: loanData.collaborator_name,
-          loaned_by: user?.id 
+          loaned_by: user?.id,
+          loan_group_id: loan_group_id || null,
         })
         .select()
         .single();
@@ -413,7 +416,7 @@ export function useReturnEquipment() {
 
   return useMutation({
     mutationFn: async (data: {
-      loanId: string;
+      loanId: string | string[];
       returner_name?: string;
       returner_phone?: string;
       returner_sector?: string;
@@ -425,44 +428,47 @@ export function useReturnEquipment() {
       pending_items_description?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      // Get loan details
-      const { data: loan, error: loanError } = await supabase
-        .from('equipment_loans')
-        .select('*, equipment(*)')
-        .eq('id', data.loanId)
-        .single();
-      
-      if (loanError) throw loanError;
+      const loanIds = Array.isArray(data.loanId) ? data.loanId : [data.loanId];
 
-      // Update loan status with return info
-      const { error } = await supabase
-        .from('equipment_loans')
-        .update({ 
-          status: 'returned',
-          actual_return_date: new Date().toISOString().split('T')[0],
-          returned_by: user?.id,
-          return_signature: data.return_signature,
-          returner_name: data.returner_name,
-          returner_phone: data.returner_phone,
-          item_condition: data.item_condition,
-          return_collaborator_name: data.return_collaborator_name,
-          all_items_returned: data.all_items_returned ?? true,
-          pending_items_description: data.pending_items_description,
-          notes: data.notes ? `${loan.notes ? loan.notes + '\n' : ''}Devolução: ${data.notes}` : loan.notes
-        })
-        .eq('id', data.loanId);
-      if (error) throw error;
+      for (const loanId of loanIds) {
+        // Get loan details
+        const { data: loan, error: loanError } = await supabase
+          .from('equipment_loans')
+          .select('*, equipment(*)')
+          .eq('id', loanId)
+          .single();
+        
+        if (loanError) throw loanError;
 
-      // Update equipment available quantity
-      const equip = loan.equipment as Equipment;
-      await supabase
-        .from('equipment')
-        .update({ 
-          available_quantity: equip.available_quantity + loan.quantity_borrowed,
-          status: 'available'
-        })
-        .eq('id', loan.equipment_id);
+        // Update loan status with return info
+        const { error } = await supabase
+          .from('equipment_loans')
+          .update({ 
+            status: 'returned',
+            actual_return_date: new Date().toISOString().split('T')[0],
+            returned_by: user?.id,
+            return_signature: data.return_signature,
+            returner_name: data.returner_name,
+            returner_phone: data.returner_phone,
+            item_condition: data.item_condition,
+            return_collaborator_name: data.return_collaborator_name,
+            all_items_returned: data.all_items_returned ?? true,
+            pending_items_description: data.pending_items_description,
+            notes: data.notes ? `${loan.notes ? loan.notes + '\n' : ''}Devolução: ${data.notes}` : loan.notes
+          })
+          .eq('id', loanId);
+        if (error) throw error;
+
+        // Update equipment available quantity
+        const equip = loan.equipment as Equipment;
+        await supabase
+          .from('equipment')
+          .update({ 
+            available_quantity: equip.available_quantity + loan.quantity_borrowed,
+            status: 'available'
+          })
+          .eq('id', loan.equipment_id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] });

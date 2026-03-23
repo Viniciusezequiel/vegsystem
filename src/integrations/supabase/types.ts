@@ -363,6 +363,7 @@ export type Database = {
           expected_return_date: string
           id: string
           item_condition: string | null
+          loan_group_id: string | null
           loaned_by: string | null
           notes: string | null
           pending_items_description: string | null
@@ -392,6 +393,7 @@ export type Database = {
           expected_return_date: string
           id?: string
           item_condition?: string | null
+          loan_group_id?: string | null
           loaned_by?: string | null
           notes?: string | null
           pending_items_description?: string | null
@@ -421,6 +423,7 @@ export type Database = {
           expected_return_date?: string
           id?: string
           item_condition?: string | null
+          loan_group_id?: string | null
           loaned_by?: string | null
           notes?: string | null
           pending_items_description?: string | null
