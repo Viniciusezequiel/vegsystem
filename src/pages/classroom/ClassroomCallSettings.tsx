@@ -183,8 +183,32 @@ export default function ClassroomCallSettings() {
                     </Button>
                   </div>
 
+                  {/* Filters */}
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar sala..."
+                        value={roomSearch}
+                        onChange={(e) => setRoomSearch(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                    <Select value={campusFilter} onValueChange={setCampusFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os campus</SelectItem>
+                        {CAMPUSES.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Rooms Table */}
-                  {rooms.length > 0 ? (
+                  {filteredRooms.length > 0 ? (
                     <div className="border rounded-lg">
                       <Table>
                         <TableHeader>
@@ -196,7 +220,7 @@ export default function ClassroomCallSettings() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {rooms.map((room) => (
+                          {filteredRooms.map((room) => (
                             <TableRow
                               key={room.id}
                               className={`cursor-pointer ${selectedRoomId === room.id ? 'bg-primary/5' : ''}`}
