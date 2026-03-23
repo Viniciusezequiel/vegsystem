@@ -45,6 +45,7 @@ export function ReturnDialog({
   onOpenChange,
   onConfirm,
   itemName,
+  itemNames,
   borrowerName,
   isPending = false,
 }: ReturnDialogProps) {
