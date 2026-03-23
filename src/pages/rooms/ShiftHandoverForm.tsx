@@ -101,7 +101,15 @@ export default function ShiftHandoverForm() {
   };
 
   const allTasksAnswered = tasks.every(t => t.answer !== null);
-  const allNoTasksHaveObservation = tasks.every(t => t.answer !== false || t.observation.trim() !== '');
+  const allNoTasksHaveObservation = tasks.every(t => {
+    const isYesRequired = OBSERVATION_REQUIRED_ON_YES.includes(t.task_name);
+    if (isYesRequired) {
+      // For these tasks, observation is required when "Sim"
+      return t.answer !== true || t.observation.trim() !== '';
+    }
+    // For other tasks, observation is required when "Não"
+    return t.answer !== false || t.observation.trim() !== '';
+  });
   const hasAnyIncidentDescription = incidents.some(i => i.description.trim());
   const allDescribedIncidentsHaveTreatment = incidents.every(i => !i.description.trim() || i.treatment.trim());
   const incidentsValid = !hasImpactIncident || (hasAnyIncidentDescription && allDescribedIncidentsHaveTreatment);
