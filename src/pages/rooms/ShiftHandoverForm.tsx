@@ -37,6 +37,13 @@ const DEFAULT_TASKS = [
   'Abertura de chamados',
 ];
 
+// Tasks where observation is required when "Sim" (not when "Não")
+const OBSERVATION_REQUIRED_ON_YES = [
+  'Aviso para remanejamento',
+  'Intercorrências',
+  'Abertura de chamados',
+];
+
 const INCIDENT_TYPES = [
   'Reserva não ocorreu',
   'Reserva e/ou remanejamento de urgência',
@@ -94,7 +101,15 @@ export default function ShiftHandoverForm() {
   };
 
   const allTasksAnswered = tasks.every(t => t.answer !== null);
-  const allNoTasksHaveObservation = tasks.every(t => t.answer !== false || t.observation.trim() !== '');
+  const allNoTasksHaveObservation = tasks.every(t => {
+    const isYesRequired = OBSERVATION_REQUIRED_ON_YES.includes(t.task_name);
+    if (isYesRequired) {
+      // For these tasks, observation is required when "Sim"
+      return t.answer !== true || t.observation.trim() !== '';
+    }
+    // For other tasks, observation is required when "Não"
+    return t.answer !== false || t.observation.trim() !== '';
+  });
   const hasAnyIncidentDescription = incidents.some(i => i.description.trim());
   const allDescribedIncidentsHaveTreatment = incidents.every(i => !i.description.trim() || i.treatment.trim());
   const incidentsValid = !hasImpactIncident || (hasAnyIncidentDescription && allDescribedIncidentsHaveTreatment);
@@ -106,7 +121,7 @@ export default function ShiftHandoverForm() {
     }
 
     if (!allNoTasksHaveObservation) {
-      toast.error('Preencha a observação para todas as tarefas marcadas como "Não".');
+      toast.error('Preencha a observação para todas as tarefas que exigem detalhamento.');
       return;
     }
 
@@ -253,26 +268,32 @@ export default function ShiftHandoverForm() {
                       </Button>
                     </div>
                   </div>
-                  {task.answer === false ? (
-                    <div className="space-y-1">
+                  {(() => {
+                    const isYesRequired = OBSERVATION_REQUIRED_ON_YES.includes(task.task_name);
+                    const isObsRequired = isYesRequired ? task.answer === true : task.answer === false;
+                    const requiredLabel = isYesRequired ? 'Sim' : 'Não';
+                    
+                    return isObsRequired ? (
+                      <div className="space-y-1">
+                        <Input
+                          placeholder={`Observação (obrigatório quando ${requiredLabel})`}
+                          value={task.observation}
+                          onChange={e => updateTask(index, 'observation', e.target.value)}
+                          className={`text-sm ${!task.observation.trim() ? 'border-destructive' : ''}`}
+                        />
+                        {!task.observation.trim() && (
+                          <p className="text-xs text-destructive">* Observação obrigatória para tarefas com resposta "{requiredLabel}"</p>
+                        )}
+                      </div>
+                    ) : (
                       <Input
-                        placeholder="Observação (obrigatório quando Não)"
+                        placeholder="Observação (opcional)"
                         value={task.observation}
                         onChange={e => updateTask(index, 'observation', e.target.value)}
-                        className={`text-sm ${!task.observation.trim() ? 'border-destructive' : ''}`}
+                        className="text-sm"
                       />
-                      {!task.observation.trim() && (
-                        <p className="text-xs text-destructive">* Observação obrigatória para tarefas com resposta "Não"</p>
-                      )}
-                    </div>
-                  ) : (
-                    <Input
-                      placeholder="Observação (opcional)"
-                      value={task.observation}
-                      onChange={e => updateTask(index, 'observation', e.target.value)}
-                      className="text-sm"
-                    />
-                  )}
+                    );
+                  })()}
                 </div>
               ))}
               {!allTasksAnswered && (
