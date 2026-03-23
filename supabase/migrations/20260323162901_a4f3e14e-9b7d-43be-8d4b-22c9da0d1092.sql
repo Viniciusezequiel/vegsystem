@@ -1,0 +1,1 @@
+ALTER TABLE public.equipment_loans ADD COLUMN loan_group_id uuid DEFAULT NULL;
