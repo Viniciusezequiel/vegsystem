@@ -158,11 +158,13 @@ export default function ClassroomCallForm() {
     setSelectedCampus(campus);
     setSelectedRoomId('');
     setSelectedIssueId('');
+    setCustomIssueText('');
   };
 
   const handleRoomChange = (roomId: string) => {
     setSelectedRoomId(roomId);
     setSelectedIssueId('');
+    setCustomIssueText('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
