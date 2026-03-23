@@ -37,6 +37,13 @@ const DEFAULT_TASKS = [
   'Abertura de chamados',
 ];
 
+// Tasks where observation is required when "Sim" (not when "Não")
+const OBSERVATION_REQUIRED_ON_YES = [
+  'Aviso para remanejamento',
+  'Intercorrências',
+  'Abertura de chamados',
+];
+
 const INCIDENT_TYPES = [
   'Reserva não ocorreu',
   'Reserva e/ou remanejamento de urgência',
