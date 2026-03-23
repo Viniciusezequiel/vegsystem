@@ -382,7 +382,7 @@ export default function ClassroomCallForm() {
               {selectedRoom && selectedRoom.issues.length > 0 && (
                 <div className="space-y-2">
                   <Label>Tipo do Problema *</Label>
-                  <Select value={selectedIssueId} onValueChange={setSelectedIssueId}>
+                  <Select value={selectedIssueId} onValueChange={(v) => { setSelectedIssueId(v); if (v !== '__other__') setCustomIssueText(''); }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o problema..." />
                     </SelectTrigger>
@@ -392,8 +392,19 @@ export default function ClassroomCallForm() {
                           {issue.description}
                         </SelectItem>
                       ))}
+                      <SelectItem value="__other__">Outros</SelectItem>
                     </SelectContent>
                   </Select>
+                  {selectedIssueId === '__other__' && (
+                    <Textarea
+                      placeholder="Descreva o problema..."
+                      value={customIssueText}
+                      onChange={(e) => setCustomIssueText(e.target.value)}
+                      required
+                      maxLength={500}
+                      rows={3}
+                    />
+                  )}
                 </div>
               )}
 
