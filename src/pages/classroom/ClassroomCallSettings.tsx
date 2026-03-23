@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, ArrowLeft, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, ArrowLeft, Check, Search } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
 import {
