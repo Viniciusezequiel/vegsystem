@@ -116,6 +116,14 @@ export default function ClassroomCallSettings() {
 
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
 
+  const filteredRooms = useMemo(() => {
+    return rooms.filter(room => {
+      const matchesSearch = !roomSearch || room.name.toLowerCase().includes(roomSearch.toLowerCase());
+      const matchesCampus = campusFilter === 'all' || room.campus === campusFilter;
+      return matchesSearch && matchesCampus;
+    });
+  }, [rooms, roomSearch, campusFilter]);
+
   return (
     <MainLayout>
       <div className="space-y-6">
