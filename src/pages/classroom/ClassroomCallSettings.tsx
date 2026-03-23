@@ -307,6 +307,7 @@ export default function ClassroomCallSettings() {
                                 >
                                   <Checkbox
                                     checked={bulkIssueRoomIds.includes(room.id)}
+                                    onClick={(e) => e.stopPropagation()}
                                     onCheckedChange={() => toggleBulkRoom(room.id)}
                                   />
                                   <span>{room.name}</span>
