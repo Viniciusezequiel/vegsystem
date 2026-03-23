@@ -371,7 +371,8 @@ export function useCreateEquipmentLoan() {
           authorizer_name: loanData.authorizer_name,
           authorizer_contact: loanData.authorizer_contact,
           collaborator_name: loanData.collaborator_name,
-          loaned_by: user?.id 
+          loaned_by: user?.id,
+          loan_group_id: loan_group_id || null,
         })
         .select()
         .single();
