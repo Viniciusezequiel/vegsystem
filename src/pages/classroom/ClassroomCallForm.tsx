@@ -219,6 +219,7 @@ export default function ClassroomCallForm() {
     setSubmittedCallId(null);
     setCallStatus(null);
     setSelectedIssueId('');
+    setCustomIssueText('');
     setAdditionalInfo('');
   };
 
