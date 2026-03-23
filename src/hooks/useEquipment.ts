@@ -49,6 +49,7 @@ export type EquipmentLoan = {
   loaned_by: string | null;
   returned_by: string | null;
   notes: string | null;
+  loan_group_id: string | null;
   created_at: string;
   updated_at: string;
   equipment?: Equipment;
