@@ -337,7 +337,7 @@ export function useCreateEquipmentLoan() {
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { skip_stock_deduction, ...loanData } = loan;
+      const { skip_stock_deduction, loan_group_id, ...loanData } = loan;
       
       if (!skip_stock_deduction) {
         // Verificar disponibilidade apenas se não for reserva
