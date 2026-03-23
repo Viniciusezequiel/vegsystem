@@ -72,10 +72,21 @@ export default function ClassroomCallSettings() {
     setNewRoomName('');
   };
 
-  const handleAddIssue = () => {
-    if (!newIssueDesc.trim() || !selectedRoomId) return;
-    createIssue.mutate({ room_id: selectedRoomId, description: newIssueDesc.trim() });
+  const handleAddIssue = async () => {
+    if (!newIssueDesc.trim()) return;
+    const targetRoomIds = bulkIssueRoomIds.length > 0 ? bulkIssueRoomIds : (selectedRoomId ? [selectedRoomId] : []);
+    if (targetRoomIds.length === 0) return;
+    for (const roomId of targetRoomIds) {
+      await createIssue.mutateAsync({ room_id: roomId, description: newIssueDesc.trim() });
+    }
     setNewIssueDesc('');
+    setBulkIssueRoomIds([]);
+  };
+
+  const toggleBulkRoom = (roomId: string) => {
+    setBulkIssueRoomIds(prev =>
+      prev.includes(roomId) ? prev.filter(id => id !== roomId) : [...prev, roomId]
+    );
   };
 
   const handleAddResponse = () => {
