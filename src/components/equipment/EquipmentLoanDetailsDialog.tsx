@@ -19,6 +19,7 @@ interface EquipmentLoanDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   loan: EquipmentLoan | null;
+  loans?: EquipmentLoan[];
   onReturn?: () => void;
   showReturnButton?: boolean;
 }
