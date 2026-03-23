@@ -300,17 +300,19 @@ export default function ClassroomCallSettings() {
                             </p>
                             <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto">
                               {rooms.filter(r => r.id !== selectedRoomId).map((room) => (
-                                <label
+                                <div
                                   key={room.id}
                                   className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded p-1"
+                                  onClick={() => toggleBulkRoom(room.id)}
                                 >
                                   <Checkbox
                                     checked={bulkIssueRoomIds.includes(room.id)}
+                                    onClick={(e) => e.stopPropagation()}
                                     onCheckedChange={() => toggleBulkRoom(room.id)}
                                   />
                                   <span>{room.name}</span>
                                   <Badge variant="outline" className="text-xs ml-auto">{room.campus}</Badge>
-                                </label>
+                                </div>
                               ))}
                             </div>
                             {bulkIssueRoomIds.length > 0 && (
