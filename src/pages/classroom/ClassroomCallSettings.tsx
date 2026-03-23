@@ -75,7 +75,9 @@ export default function ClassroomCallSettings() {
 
   const handleAddIssue = async () => {
     if (!newIssueDesc.trim()) return;
-    const targetRoomIds = bulkIssueRoomIds.length > 0 ? bulkIssueRoomIds : (selectedRoomId ? [selectedRoomId] : []);
+    const targetRoomIds = bulkIssueRoomIds.length > 0 
+      ? [...new Set([selectedRoomId!, ...bulkIssueRoomIds])] 
+      : (selectedRoomId ? [selectedRoomId] : []);
     if (targetRoomIds.length === 0) return;
     for (const roomId of targetRoomIds) {
       await createIssue.mutateAsync({ room_id: roomId, description: newIssueDesc.trim() });
