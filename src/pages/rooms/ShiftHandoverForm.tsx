@@ -121,7 +121,7 @@ export default function ShiftHandoverForm() {
     }
 
     if (!allNoTasksHaveObservation) {
-      toast.error('Preencha a observação para todas as tarefas marcadas como "Não".');
+      toast.error('Preencha a observação para todas as tarefas que exigem detalhamento.');
       return;
     }
 
