@@ -225,7 +225,12 @@ export default function ClassroomCallForm() {
 
   // Determine if form can be submitted
   const hasIssues = selectedRoom && selectedRoom.issues.length > 0;
-  const canSubmit = selectedRoomId && (hasIssues ? selectedIssueId : additionalInfo.trim());
+  const isOther = selectedIssueId === '__other__';
+  const canSubmit = selectedRoomId && (
+    hasIssues 
+      ? (isOther ? customIssueText.trim() : selectedIssueId)
+      : additionalInfo.trim()
+  );
 
   if (submittedCallId && callStatus) {
     return (
