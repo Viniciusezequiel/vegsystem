@@ -44,6 +44,10 @@ export default function ClassroomCallSettings() {
   const [newIssueDesc, setNewIssueDesc] = useState('');
   const [bulkIssueRoomIds, setBulkIssueRoomIds] = useState<string[]>([]);
 
+  // Filter state
+  const [roomSearch, setRoomSearch] = useState('');
+  const [campusFilter, setCampusFilter] = useState<string>('all');
+
   // Responses state
   const [newResponseMsg, setNewResponseMsg] = useState('');
 
