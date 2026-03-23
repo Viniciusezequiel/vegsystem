@@ -23,6 +23,7 @@ interface ReturnDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (data: ReturnData) => void;
   itemName: string;
+  itemNames?: { name: string; patrimony: string; quantity: number }[];
   borrowerName: string;
   isPending?: boolean;
 }
