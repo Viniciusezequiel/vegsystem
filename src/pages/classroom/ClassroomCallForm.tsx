@@ -29,6 +29,7 @@ export default function ClassroomCallForm() {
   const [selectedCampus, setSelectedCampus] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [selectedIssueId, setSelectedIssueId] = useState('');
+  const [customIssueText, setCustomIssueText] = useState('');
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [submittedCallId, setSubmittedCallId] = useState<string | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus | null>(null);

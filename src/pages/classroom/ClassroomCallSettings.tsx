@@ -275,18 +275,49 @@ export default function ClassroomCallSettings() {
                 <CardContent className="space-y-4">
                   {selectedRoomId ? (
                     <>
-                      {/* Add Issue Form */}
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Descreva o problema..."
-                          value={newIssueDesc}
-                          onChange={(e) => setNewIssueDesc(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAddIssue()}
-                          className="flex-1"
-                        />
-                        <Button onClick={handleAddIssue} disabled={!newIssueDesc.trim() || createIssue.isPending}>
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                      {/* Add Issue Form with multi-room option */}
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Descreva o problema..."
+                            value={newIssueDesc}
+                            onChange={(e) => setNewIssueDesc(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddIssue()}
+                            className="flex-1"
+                          />
+                          <Button onClick={handleAddIssue} disabled={!newIssueDesc.trim() || createIssue.isPending}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Multi-room selector */}
+                        {newIssueDesc.trim() && (
+                          <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Adicionar também em outras salas:
+                            </p>
+                            <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto">
+                              {rooms.filter(r => r.id !== selectedRoomId).map((room) => (
+                                <label
+                                  key={room.id}
+                                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded p-1"
+                                >
+                                  <Checkbox
+                                    checked={bulkIssueRoomIds.includes(room.id)}
+                                    onCheckedChange={() => toggleBulkRoom(room.id)}
+                                  />
+                                  <span>{room.name}</span>
+                                  <Badge variant="outline" className="text-xs ml-auto">{room.campus}</Badge>
+                                </label>
+                              ))}
+                            </div>
+                            {bulkIssueRoomIds.length > 0 && (
+                              <p className="text-xs text-primary">
+                                Será adicionado em {bulkIssueRoomIds.length + 1} sala(s) (incluindo a atual)
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Issues List */}
