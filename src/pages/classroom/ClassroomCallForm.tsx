@@ -29,6 +29,7 @@ export default function ClassroomCallForm() {
   const [selectedCampus, setSelectedCampus] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [selectedIssueId, setSelectedIssueId] = useState('');
+  const [customIssueText, setCustomIssueText] = useState('');
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [submittedCallId, setSubmittedCallId] = useState<string | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus | null>(null);
@@ -157,11 +158,13 @@ export default function ClassroomCallForm() {
     setSelectedCampus(campus);
     setSelectedRoomId('');
     setSelectedIssueId('');
+    setCustomIssueText('');
   };
 
   const handleRoomChange = (roomId: string) => {
     setSelectedRoomId(roomId);
     setSelectedIssueId('');
+    setCustomIssueText('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,7 +175,12 @@ export default function ClassroomCallForm() {
     try {
       const roomName = `${selectedRoom.name} (${selectedRoom.campus})`;
       let reason = '';
-      if (selectedIssue?.description) {
+      if (selectedIssueId === '__other__') {
+        reason = customIssueText.trim();
+        if (additionalInfo.trim()) {
+          reason += ' — ' + additionalInfo.trim();
+        }
+      } else if (selectedIssue?.description) {
         reason = selectedIssue.description;
         if (additionalInfo.trim()) {
           reason += ' — ' + additionalInfo.trim();
@@ -211,12 +219,18 @@ export default function ClassroomCallForm() {
     setSubmittedCallId(null);
     setCallStatus(null);
     setSelectedIssueId('');
+    setCustomIssueText('');
     setAdditionalInfo('');
   };
 
   // Determine if form can be submitted
   const hasIssues = selectedRoom && selectedRoom.issues.length > 0;
-  const canSubmit = selectedRoomId && (hasIssues ? selectedIssueId : additionalInfo.trim());
+  const isOther = selectedIssueId === '__other__';
+  const canSubmit = selectedRoomId && (
+    hasIssues 
+      ? (isOther ? customIssueText.trim() : selectedIssueId)
+      : additionalInfo.trim()
+  );
 
   if (submittedCallId && callStatus) {
     return (
@@ -368,7 +382,7 @@ export default function ClassroomCallForm() {
               {selectedRoom && selectedRoom.issues.length > 0 && (
                 <div className="space-y-2">
                   <Label>Tipo do Problema *</Label>
-                  <Select value={selectedIssueId} onValueChange={setSelectedIssueId}>
+                  <Select value={selectedIssueId} onValueChange={(v) => { setSelectedIssueId(v); if (v !== '__other__') setCustomIssueText(''); }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o problema..." />
                     </SelectTrigger>
@@ -378,8 +392,19 @@ export default function ClassroomCallForm() {
                           {issue.description}
                         </SelectItem>
                       ))}
+                      <SelectItem value="__other__">Outros</SelectItem>
                     </SelectContent>
                   </Select>
+                  {selectedIssueId === '__other__' && (
+                    <Textarea
+                      placeholder="Descreva o problema..."
+                      value={customIssueText}
+                      onChange={(e) => setCustomIssueText(e.target.value)}
+                      required
+                      maxLength={500}
+                      rows={3}
+                    />
+                  )}
                 </div>
               )}
 

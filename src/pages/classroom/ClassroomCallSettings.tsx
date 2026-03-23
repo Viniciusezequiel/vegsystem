@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, ArrowLeft, Check } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
 import {
   useClassroomCallRooms,
@@ -41,6 +42,7 @@ export default function ClassroomCallSettings() {
 
   // Issues state
   const [newIssueDesc, setNewIssueDesc] = useState('');
+  const [bulkIssueRoomIds, setBulkIssueRoomIds] = useState<string[]>([]);
 
   // Responses state
   const [newResponseMsg, setNewResponseMsg] = useState('');
@@ -71,10 +73,23 @@ export default function ClassroomCallSettings() {
     setNewRoomName('');
   };
 
-  const handleAddIssue = () => {
-    if (!newIssueDesc.trim() || !selectedRoomId) return;
-    createIssue.mutate({ room_id: selectedRoomId, description: newIssueDesc.trim() });
+  const handleAddIssue = async () => {
+    if (!newIssueDesc.trim()) return;
+    const targetRoomIds = bulkIssueRoomIds.length > 0 
+      ? [...new Set([selectedRoomId!, ...bulkIssueRoomIds])] 
+      : (selectedRoomId ? [selectedRoomId] : []);
+    if (targetRoomIds.length === 0) return;
+    for (const roomId of targetRoomIds) {
+      await createIssue.mutateAsync({ room_id: roomId, description: newIssueDesc.trim() });
+    }
     setNewIssueDesc('');
+    setBulkIssueRoomIds([]);
+  };
+
+  const toggleBulkRoom = (roomId: string) => {
+    setBulkIssueRoomIds(prev =>
+      prev.includes(roomId) ? prev.filter(id => id !== roomId) : [...prev, roomId]
+    );
   };
 
   const handleAddResponse = () => {
@@ -262,18 +277,49 @@ export default function ClassroomCallSettings() {
                 <CardContent className="space-y-4">
                   {selectedRoomId ? (
                     <>
-                      {/* Add Issue Form */}
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Descreva o problema..."
-                          value={newIssueDesc}
-                          onChange={(e) => setNewIssueDesc(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAddIssue()}
-                          className="flex-1"
-                        />
-                        <Button onClick={handleAddIssue} disabled={!newIssueDesc.trim() || createIssue.isPending}>
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                      {/* Add Issue Form with multi-room option */}
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Descreva o problema..."
+                            value={newIssueDesc}
+                            onChange={(e) => setNewIssueDesc(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddIssue()}
+                            className="flex-1"
+                          />
+                          <Button onClick={handleAddIssue} disabled={!newIssueDesc.trim() || createIssue.isPending}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Multi-room selector */}
+                        {newIssueDesc.trim() && (
+                          <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Adicionar também em outras salas:
+                            </p>
+                            <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto">
+                              {rooms.filter(r => r.id !== selectedRoomId).map((room) => (
+                                <label
+                                  key={room.id}
+                                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded p-1"
+                                >
+                                  <Checkbox
+                                    checked={bulkIssueRoomIds.includes(room.id)}
+                                    onCheckedChange={() => toggleBulkRoom(room.id)}
+                                  />
+                                  <span>{room.name}</span>
+                                  <Badge variant="outline" className="text-xs ml-auto">{room.campus}</Badge>
+                                </label>
+                              ))}
+                            </div>
+                            {bulkIssueRoomIds.length > 0 && (
+                              <p className="text-xs text-primary">
+                                Será adicionado em {bulkIssueRoomIds.length + 1} sala(s) (incluindo a atual)
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Issues List */}
