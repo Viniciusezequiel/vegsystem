@@ -291,7 +291,7 @@ export default function ClassroomCallSettings() {
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <Building2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                      <p>Nenhuma sala cadastrada</p>
+                      <p>{rooms.length > 0 ? 'Nenhuma sala encontrada com os filtros aplicados' : 'Nenhuma sala cadastrada'}</p>
                     </div>
                   )}
                 </CardContent>
