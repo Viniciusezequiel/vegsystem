@@ -175,7 +175,12 @@ export default function ClassroomCallForm() {
     try {
       const roomName = `${selectedRoom.name} (${selectedRoom.campus})`;
       let reason = '';
-      if (selectedIssue?.description) {
+      if (selectedIssueId === '__other__') {
+        reason = customIssueText.trim();
+        if (additionalInfo.trim()) {
+          reason += ' — ' + additionalInfo.trim();
+        }
+      } else if (selectedIssue?.description) {
         reason = selectedIssue.description;
         if (additionalInfo.trim()) {
           reason += ' — ' + additionalInfo.trim();
