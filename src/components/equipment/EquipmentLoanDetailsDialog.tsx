@@ -46,6 +46,7 @@ export function EquipmentLoanDetailsDialog({
   open,
   onOpenChange,
   loan,
+  loans,
   onReturn,
   showReturnButton = false,
 }: EquipmentLoanDetailsDialogProps) {
