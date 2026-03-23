@@ -198,6 +198,9 @@ export default function EquipmentLoanForm() {
         reservationData?.items.map(i => i.equipmentId) || []
       );
 
+      // Generate a group ID when there are multiple items
+      const groupId = selectedItems.length > 1 ? crypto.randomUUID() : undefined;
+
       for (const item of selectedItems) {
         const isReservedPickupItem =
           Boolean(reservationData) && reservedEquipmentIds.has(item.equipment.id);
@@ -217,6 +220,7 @@ export default function EquipmentLoanForm() {
           authorizer_contact: data.authorizer_contact || undefined,
           collaborator_name: profile?.full_name || undefined,
           skip_stock_deduction: isReservedPickupItem,
+          loan_group_id: groupId,
         });
       }
       
