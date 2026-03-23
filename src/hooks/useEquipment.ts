@@ -332,7 +332,8 @@ export function useCreateEquipmentLoan() {
       authorizer_name?: string;
       authorizer_contact?: string;
       collaborator_name?: string;
-      skip_stock_deduction?: boolean; // Para reservas já deduzidas
+      skip_stock_deduction?: boolean;
+      loan_group_id?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
