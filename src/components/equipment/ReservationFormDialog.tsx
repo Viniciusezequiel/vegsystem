@@ -49,6 +49,7 @@ export function ReservationFormDialog({ open, onOpenChange }: ReservationFormDia
   const createReservation = useCreateEquipmentReservation();
 
   const availableEquipment = useMemo(() => {
+    // For reservations, show all non-maintenance equipment (even borrowed ones, since they may return before pickup date)
     return equipment?.filter(e => e.status !== 'maintenance') || [];
   }, [equipment]);
 
