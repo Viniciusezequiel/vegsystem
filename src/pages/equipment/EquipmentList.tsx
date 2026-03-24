@@ -400,9 +400,10 @@ export default function EquipmentList() {
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                         <TableRow>
                           <TableHead>Nome</TableHead>
-                          <TableHead>Patrimônio</TableHead>
+                          <TableHead>Patrimônio Novo</TableHead>
+                          <TableHead>Patrimônio Antigo</TableHead>
                           <TableHead>Qtd.</TableHead>
                           <TableHead>Campus</TableHead>
                           <TableHead>Local</TableHead>
