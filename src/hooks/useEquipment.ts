@@ -112,7 +112,7 @@ export function useEquipmentList(search?: string) {
         .order('created_at', { ascending: false });
 
       if (search) {
-        query = query.or(`name.ilike.%${search}%,patrimony_code.ilike.%${search}%`);
+        query = query.or(`name.ilike.%${search}%,patrimony_code.ilike.%${search}%,old_patrimony_code.ilike.%${search}%`);
       }
 
       try {
