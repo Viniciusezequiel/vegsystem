@@ -202,8 +202,37 @@ export function useCreateEquipmentReservation() {
 
       if (equipError) throw equipError;
 
-      if (currentEquipment.available_quantity < reservation.quantity_reserved) {
-        throw new Error(`Estoque insuficiente para "${currentEquipment.name}". Disponível: ${currentEquipment.available_quantity}, Solicitado: ${reservation.quantity_reserved}`);
+      // For future reservations, check if stock will be available by then
+      // by considering active loans that will be returned before the pickup date
+      const pickupDate = new Date(reservation.scheduled_pickup_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (pickupDate > today) {
+        // Future reservation: check if loans will free up stock before pickup
+        const { data: activeLoansForEquip } = await supabase
+          .from('equipment_loans')
+          .select('quantity_borrowed, expected_return_date')
+          .eq('equipment_id', reservation.equipment_id)
+          .eq('status', 'active');
+        
+        let projectedAvailable = currentEquipment.available_quantity;
+        for (const loan of (activeLoansForEquip || [])) {
+          if (loan.expected_return_date) {
+            const returnDate = new Date(loan.expected_return_date);
+            if (returnDate < pickupDate) {
+              projectedAvailable += loan.quantity_borrowed;
+            }
+          }
+        }
+        
+        if (projectedAvailable < reservation.quantity_reserved) {
+          throw new Error(`Estoque insuficiente para "${currentEquipment.name}". Projetado disponível na data: ${projectedAvailable}, Solicitado: ${reservation.quantity_reserved}`);
+        }
+      } else {
+        if (currentEquipment.available_quantity < reservation.quantity_reserved) {
+          throw new Error(`Estoque insuficiente para "${currentEquipment.name}". Disponível: ${currentEquipment.available_quantity}, Solicitado: ${reservation.quantity_reserved}`);
+        }
       }
 
       // Verificar conflito de datas com buffer de 24h

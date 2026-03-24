@@ -399,6 +399,10 @@ export function useDeliverLostItem() {
       owner_signature?: string;
       destination?: 'owner' | 'donation' | 'disposal';
     }) => {
+      // Enforce signature requirement for regular deliveries (not donation/disposal)
+      if (!data.destination && !data.owner_signature) {
+        throw new Error('Assinatura do proprietário é obrigatória para registrar a entrega.');
+      }
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase
         .from('profiles')
