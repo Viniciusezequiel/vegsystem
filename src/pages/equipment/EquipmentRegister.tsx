@@ -65,6 +65,7 @@ export default function EquipmentRegister() {
     defaultValues: {
       name: '',
       patrimony_code: '',
+      old_patrimony_code: '',
       patrimony_type: 'unique',
       quantity: 1,
       location: '',
