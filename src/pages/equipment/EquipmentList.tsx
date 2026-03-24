@@ -416,6 +416,7 @@ export default function EquipmentList() {
                           <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell>{item.patrimony_code}</TableCell>
+                            <TableCell className="text-muted-foreground">{item.old_patrimony_code || '—'}</TableCell>
                             <TableCell>
                               <span className="text-primary font-medium">{item.available_quantity}</span>
                               <span className="text-muted-foreground">/{item.quantity}</span>
