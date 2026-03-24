@@ -1,0 +1,1 @@
+ALTER TABLE public.equipment ADD COLUMN old_patrimony_code text DEFAULT NULL;
