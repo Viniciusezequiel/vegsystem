@@ -84,7 +84,10 @@ export function EquipmentLoanDetailsDialog({
                 <div>
                   <p className="text-sm text-muted-foreground">Equipamento {isGrouped ? `${idx + 1}` : ''}</p>
                   <p className="text-xl font-bold">{l.equipment?.name || 'N/A'}</p>
-                  <p className="text-sm text-muted-foreground">{l.equipment?.patrimony_code}</p>
+                  <p className="text-sm text-muted-foreground">Novo: {l.equipment?.patrimony_code}</p>
+                  {l.equipment?.old_patrimony_code && (
+                    <p className="text-sm text-muted-foreground">Antigo: {l.equipment.old_patrimony_code}</p>
+                  )}
                 </div>
                 {idx === 0 && (
                   <Badge variant={statusLabels[status].variant} className="text-sm">

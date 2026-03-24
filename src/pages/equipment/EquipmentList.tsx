@@ -162,7 +162,8 @@ export default function EquipmentList() {
 
     const formattedData = importData.map((row: any) => ({
       name: row['Nome'] || row['name'] || '',
-      patrimony_code: String(row['Patrimônio'] || row['patrimony_code'] || row['Codigo'] || ''),
+      patrimony_code: String(row['Patrimônio Novo'] || row['Patrimônio'] || row['patrimony_code'] || row['Codigo'] || ''),
+      old_patrimony_code: row['Patrimônio Antigo'] || row['old_patrimony_code'] || null,
       location: row['Localização'] || row['location'] || '',
       campus: (row['Campus'] || row['campus'] || 'Campus I') as CampusEnum,
       quantity: Number(row['Quantidade'] || row['quantity'] || 1),
@@ -205,7 +206,8 @@ export default function EquipmentList() {
               filename="equipamentos"
               columns={[
                 { header: 'Nome', accessor: 'name' },
-                { header: 'Patrimônio', accessor: 'patrimony_code' },
+                { header: 'Patrimônio Novo', accessor: 'patrimony_code' },
+                { header: 'Patrimônio Antigo', accessor: (row) => row.old_patrimony_code || '—' },
                 { header: 'Qtd. Total', accessor: (row) => String(row.quantity) },
                 { header: 'Disponível', accessor: (row) => String(row.available_quantity) },
                 { header: 'Campus', accessor: 'campus' },
@@ -400,9 +402,10 @@ export default function EquipmentList() {
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                         <TableRow>
                           <TableHead>Nome</TableHead>
-                          <TableHead>Patrimônio</TableHead>
+                          <TableHead>Patrimônio Novo</TableHead>
+                          <TableHead>Patrimônio Antigo</TableHead>
                           <TableHead>Qtd.</TableHead>
                           <TableHead>Campus</TableHead>
                           <TableHead>Local</TableHead>
@@ -415,6 +418,7 @@ export default function EquipmentList() {
                           <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell>{item.patrimony_code}</TableCell>
+                            <TableCell className="text-muted-foreground">{item.old_patrimony_code || '—'}</TableCell>
                             <TableCell>
                               <span className="text-primary font-medium">{item.available_quantity}</span>
                               <span className="text-muted-foreground">/{item.quantity}</span>

@@ -8,6 +8,7 @@ export type Equipment = {
   id: string;
   name: string;
   patrimony_code: string;
+  old_patrimony_code: string | null;
   quantity: number;
   available_quantity: number;
   location: string;
@@ -20,7 +21,7 @@ export type Equipment = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  _pending?: boolean; // Flag for offline-created items
+  _pending?: boolean;
 };
 
 export type EquipmentLoan = {
@@ -97,7 +98,8 @@ export function useEquipmentList(search?: string) {
             const q = search.toLowerCase();
             return cached.filter(e =>
               e.name?.toLowerCase().includes(q) ||
-              e.patrimony_code?.toLowerCase().includes(q)
+              e.patrimony_code?.toLowerCase().includes(q) ||
+              e.old_patrimony_code?.toLowerCase().includes(q)
             );
           }
           return cached;
@@ -111,7 +113,7 @@ export function useEquipmentList(search?: string) {
         .order('created_at', { ascending: false });
 
       if (search) {
-        query = query.or(`name.ilike.%${search}%,patrimony_code.ilike.%${search}%`);
+        query = query.or(`name.ilike.%${search}%,patrimony_code.ilike.%${search}%,old_patrimony_code.ilike.%${search}%`);
       }
 
       try {
@@ -132,7 +134,8 @@ export function useEquipmentList(search?: string) {
             const q = search.toLowerCase();
             return cached.filter(eq =>
               eq.name?.toLowerCase().includes(q) ||
-              eq.patrimony_code?.toLowerCase().includes(q)
+              eq.patrimony_code?.toLowerCase().includes(q) ||
+              eq.old_patrimony_code?.toLowerCase().includes(q)
             );
           }
           return cached;

@@ -32,6 +32,7 @@ import { useCreateEquipment, useUpdateEquipment, useEquipment } from '@/hooks/us
 const equipmentSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   patrimony_code: z.string().optional(),
+  old_patrimony_code: z.string().optional(),
   patrimony_type: z.enum(['unique', 'quantity']),
   quantity: z.coerce.number().min(1, 'Quantidade mínima é 1'),
   location: z.string().min(1, 'Local é obrigatório'),
@@ -64,6 +65,7 @@ export default function EquipmentRegister() {
     defaultValues: {
       name: '',
       patrimony_code: '',
+      old_patrimony_code: '',
       patrimony_type: 'unique',
       quantity: 1,
       location: '',
@@ -89,6 +91,7 @@ export default function EquipmentRegister() {
       form.reset({
         name: existingEquipment.name,
         patrimony_code: existingEquipment.patrimony_code,
+        old_patrimony_code: existingEquipment.old_patrimony_code || '',
         patrimony_type: isUnique ? 'unique' : 'quantity',
         quantity: existingEquipment.quantity,
         location: existingEquipment.location,
@@ -110,6 +113,7 @@ export default function EquipmentRegister() {
         id,
         name: data.name,
         patrimony_code: data.patrimony_type === 'unique' ? (data.patrimony_code || '') : existingEquipment?.patrimony_code || finalPatrimonyCode,
+        old_patrimony_code: data.old_patrimony_code || null,
         quantity: finalQuantity,
         location: data.location,
         campus: data.campus,
@@ -121,6 +125,7 @@ export default function EquipmentRegister() {
       await createEquipment.mutateAsync({
         name: data.name,
         patrimony_code: finalPatrimonyCode,
+        old_patrimony_code: data.old_patrimony_code || null,
         quantity: finalQuantity,
         location: data.location,
         campus: data.campus,
@@ -238,6 +243,21 @@ export default function EquipmentRegister() {
                     )}
                   />
                 )}
+
+                {/* Old Patrimony Code - always visible */}
+                <FormField
+                  control={form.control}
+                  name="old_patrimony_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Patrimônio Antigo</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: PAT-ANT-001" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {/* Quantity field - only visible when type is 'quantity' */}
                 {patrimonyType === 'quantity' && (

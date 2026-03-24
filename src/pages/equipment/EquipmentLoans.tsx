@@ -96,6 +96,7 @@ export default function EquipmentLoans() {
       loan.borrower_sector.toLowerCase().includes(q) ||
       loan.equipment?.name?.toLowerCase().includes(q) ||
       loan.equipment?.patrimony_code?.toLowerCase().includes(q) ||
+      loan.equipment?.old_patrimony_code?.toLowerCase().includes(q) ||
       loan.collaborator_name?.toLowerCase().includes(q) ||
       loan.borrower_type?.toLowerCase().includes(q)
     );
@@ -211,7 +212,7 @@ export default function EquipmentLoans() {
                         <div key={loan.id} className="min-w-0">
                           <span className="block truncate text-sm">{loan.equipment?.name || 'N/A'}</span>
                           <span className="text-xs text-muted-foreground">
-                            {loan.equipment?.patrimony_code} • Qtd: {loan.quantity_borrowed}
+                            Novo: {loan.equipment?.patrimony_code}{loan.equipment?.old_patrimony_code ? ` | Antigo: ${loan.equipment.old_patrimony_code}` : ''} • Qtd: {loan.quantity_borrowed}
                           </span>
                         </div>
                       ))}

@@ -296,6 +296,7 @@ export type Database = {
           image_url: string | null
           location: string
           name: string
+          old_patrimony_code: string | null
           patrimony_code: string
           quantity: number
           status: Database["public"]["Enums"]["equipment_status"]
@@ -316,6 +317,7 @@ export type Database = {
           image_url?: string | null
           location: string
           name: string
+          old_patrimony_code?: string | null
           patrimony_code: string
           quantity?: number
           status?: Database["public"]["Enums"]["equipment_status"]
@@ -336,6 +338,7 @@ export type Database = {
           image_url?: string | null
           location?: string
           name?: string
+          old_patrimony_code?: string | null
           patrimony_code?: string
           quantity?: number
           status?: Database["public"]["Enums"]["equipment_status"]
