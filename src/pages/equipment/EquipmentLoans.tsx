@@ -212,7 +212,7 @@ export default function EquipmentLoans() {
                         <div key={loan.id} className="min-w-0">
                           <span className="block truncate text-sm">{loan.equipment?.name || 'N/A'}</span>
                           <span className="text-xs text-muted-foreground">
-                            {loan.equipment?.patrimony_code} • Qtd: {loan.quantity_borrowed}
+                            Novo: {loan.equipment?.patrimony_code}{loan.equipment?.old_patrimony_code ? ` | Antigo: ${loan.equipment.old_patrimony_code}` : ''} • Qtd: {loan.quantity_borrowed}
                           </span>
                         </div>
                       ))}

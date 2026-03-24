@@ -244,6 +244,21 @@ export default function EquipmentRegister() {
                   />
                 )}
 
+                {/* Old Patrimony Code - always visible */}
+                <FormField
+                  control={form.control}
+                  name="old_patrimony_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Patrimônio Antigo</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: PAT-ANT-001" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {/* Quantity field - only visible when type is 'quantity' */}
                 {patrimonyType === 'quantity' && (
                   <FormField
