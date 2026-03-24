@@ -145,7 +145,7 @@ async function checkDateConflict(
     }
   }
 
-  // Check against active loans
+  // Check against active loans - only block if pickup is before loan return
   for (const loan of (activeLoans || [])) {
     if (!loan.expected_return_date) continue;
 
@@ -155,8 +155,10 @@ async function checkDateConflict(
     const loanReturnPlusBuffer = new Date(loanReturn);
     loanReturnPlusBuffer.setDate(loanReturnPlusBuffer.getDate() + 1);
 
-    // New reservation pickup must be after loan return + buffer
+    // Check overlap: new reservation period overlaps with loan period (considering buffer)
+    // Allow if pickup is on or after loan return + buffer
     if (newPickup < loanReturnPlusBuffer) {
+      // Only block if dates truly overlap - if the item will be returned before the reservation pickup, allow it
       const returnDateFormatted = loanReturn.toLocaleDateString('pt-BR');
       const nextAvailable = loanReturnPlusBuffer.toLocaleDateString('pt-BR');
       return {
