@@ -32,6 +32,7 @@ import { useCreateEquipment, useUpdateEquipment, useEquipment } from '@/hooks/us
 const equipmentSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   patrimony_code: z.string().optional(),
+  old_patrimony_code: z.string().optional(),
   patrimony_type: z.enum(['unique', 'quantity']),
   quantity: z.coerce.number().min(1, 'Quantidade mínima é 1'),
   location: z.string().min(1, 'Local é obrigatório'),
