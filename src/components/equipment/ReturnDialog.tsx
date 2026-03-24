@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
 import { SignaturePad } from '@/components/ui/SignaturePad';
@@ -23,7 +23,7 @@ interface ReturnDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (data: ReturnData) => void;
   itemName: string;
-  itemNames?: { name: string; patrimony: string; quantity: number }[];
+  itemNames?: { name: string; patrimony: string; quantity: number; loanId: string }[];
   borrowerName: string;
   isPending?: boolean;
 }
@@ -38,6 +38,8 @@ export interface ReturnData {
   notes?: string;
   return_signature?: string;
   return_collaborator_name?: string;
+  /** IDs of loans being returned (for partial returns) */
+  selectedLoanIds?: string[];
 }
 
 export function ReturnDialog({
@@ -54,24 +56,48 @@ export function ReturnDialog({
   const [returnerPhone, setReturnerPhone] = useState('');
   const [returnerSector, setReturnerSector] = useState('');
   const [itemCondition, setItemCondition] = useState<'good' | 'damaged' | 'missing_parts'>('good');
-  const [allItemsReturned, setAllItemsReturned] = useState(true);
   const [pendingItemsDescription, setPendingItemsDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
+  const [selectedLoanIds, setSelectedLoanIds] = useState<string[]>([]);
+
+  const isGrouped = itemNames && itemNames.length > 1;
+  const isPartialReturn = isGrouped && selectedLoanIds.length < (itemNames?.length || 0);
+
+  // Initialize selected loan IDs when dialog opens
+  useEffect(() => {
+    if (open && itemNames) {
+      setSelectedLoanIds(itemNames.map(i => i.loanId));
+    }
+  }, [open, itemNames]);
+
+  const toggleLoanSelection = (loanId: string) => {
+    setSelectedLoanIds(prev => {
+      if (prev.includes(loanId)) {
+        return prev.filter(id => id !== loanId);
+      }
+      return [...prev, loanId];
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!signature) return;
+    if (selectedLoanIds.length === 0) return;
+
     onConfirm({
       returner_name: returnerName,
       returner_phone: returnerPhone,
       returner_sector: returnerSector,
       item_condition: itemCondition,
-      all_items_returned: allItemsReturned,
-      pending_items_description: !allItemsReturned ? pendingItemsDescription : undefined,
+      all_items_returned: !isPartialReturn,
+      pending_items_description: isPartialReturn
+        ? `Itens pendentes: ${itemNames?.filter(i => !selectedLoanIds.includes(i.loanId)).map(i => `${i.name} (${i.patrimony})`).join(', ')}`
+        : (pendingItemsDescription || undefined),
       notes: notes || undefined,
       return_signature: signature,
       return_collaborator_name: profile?.full_name || undefined,
+      selectedLoanIds,
     });
   };
 
@@ -80,10 +106,10 @@ export function ReturnDialog({
     setReturnerPhone('');
     setReturnerSector('');
     setItemCondition('good');
-    setAllItemsReturned(true);
     setPendingItemsDescription('');
     setNotes('');
     setSignature(null);
+    setSelectedLoanIds([]);
   };
 
   return (
@@ -92,24 +118,50 @@ export function ReturnDialog({
         <DialogHeader>
           <DialogTitle>Registrar Devolução</DialogTitle>
           <DialogDescription>
-            {itemNames && itemNames.length > 1 ? (
-              <span>Registre a devolução de {itemNames.length} equipamentos:</span>
+            {isGrouped ? (
+              <span>Selecione os equipamentos que estão sendo devolvidos:</span>
             ) : (
               <span>Registre a devolução de "{itemName}"</span>
             )}
           </DialogDescription>
-          {itemNames && itemNames.length > 1 && (
-            <div className="mt-2 space-y-1">
-              {itemNames.map((item, idx) => (
-                <div key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
-                  <span className="font-medium">{item.name}</span>
-                  <span className="text-xs">({item.patrimony})</span>
-                  <span className="text-xs">Qtd: {item.quantity}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </DialogHeader>
+
+        {/* Item selection for grouped loans */}
+        {isGrouped && itemNames && (
+          <div className="space-y-2 border rounded-lg p-3">
+            <Label className="font-medium text-sm">Equipamentos a devolver</Label>
+            {itemNames.map((item) => (
+              <div key={item.loanId} className="flex items-center gap-3 py-1">
+                <Checkbox
+                  id={`loan-${item.loanId}`}
+                  checked={selectedLoanIds.includes(item.loanId)}
+                  onCheckedChange={() => toggleLoanSelection(item.loanId)}
+                />
+                <label htmlFor={`loan-${item.loanId}`} className="flex-1 text-sm cursor-pointer">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-xs text-muted-foreground ml-2">({item.patrimony}) Qtd: {item.quantity}</span>
+                </label>
+              </div>
+            ))}
+            {isPartialReturn && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                ⚠ Devolução parcial: {selectedLoanIds.length} de {itemNames.length} itens selecionados. Os demais permanecerão como empréstimo ativo.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Single item display */}
+        {!isGrouped && itemNames && itemNames.length === 1 && (
+          <div className="mt-2 space-y-1">
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <span className="font-medium">{itemNames[0].name}</span>
+              <span className="text-xs">({itemNames[0].patrimony})</span>
+              <span className="text-xs">Qtd: {itemNames[0].quantity}</span>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="returner-name">Nome de quem está devolvendo *</Label>
@@ -146,29 +198,6 @@ export function ReturnDialog({
             </RadioGroup>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <Label className="font-medium">Todos os equipamentos devolvidos?</Label>
-              <p className="text-xs text-muted-foreground">Marque se todos os itens foram devolvidos</p>
-            </div>
-            <Switch checked={allItemsReturned} onCheckedChange={setAllItemsReturned} />
-          </div>
-
-          {!allItemsReturned && (
-            <div>
-              <Label htmlFor="pending-items">Quais pendentes? *</Label>
-              <Textarea
-                id="pending-items"
-                value={pendingItemsDescription}
-                onChange={(e) => setPendingItemsDescription(e.target.value)}
-                placeholder="Descreva quais itens estão pendentes de devolução..."
-                rows={2}
-                required
-                className="mt-1.5"
-              />
-            </div>
-          )}
-
           <div>
             <Label htmlFor="return-notes">Observações</Label>
             <Textarea id="return-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Informações adicionais sobre a devolução..." rows={2} className="mt-1.5" />
@@ -193,9 +222,12 @@ export function ReturnDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={isPending || !signature}>
+            <Button type="submit" disabled={isPending || !signature || selectedLoanIds.length === 0}>
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Confirmar Devolução
+              {isPartialReturn
+                ? `Devolver ${selectedLoanIds.length} de ${itemNames?.length} itens`
+                : 'Confirmar Devolução'
+              }
             </Button>
           </DialogFooter>
         </form>
