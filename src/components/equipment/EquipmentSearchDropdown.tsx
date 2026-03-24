@@ -37,6 +37,7 @@ export function EquipmentSearchDropdown({
     return availableEquipment.filter(eq => 
       eq.name.toLowerCase().includes(query) ||
       eq.patrimony_code?.toLowerCase().includes(query) ||
+      eq.old_patrimony_code?.toLowerCase().includes(query) ||
       eq.category?.toLowerCase().includes(query) ||
       eq.location?.toLowerCase().includes(query)
     );
