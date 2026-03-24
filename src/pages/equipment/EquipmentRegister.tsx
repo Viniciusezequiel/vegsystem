@@ -91,6 +91,7 @@ export default function EquipmentRegister() {
       form.reset({
         name: existingEquipment.name,
         patrimony_code: existingEquipment.patrimony_code,
+        old_patrimony_code: existingEquipment.old_patrimony_code || '',
         patrimony_type: isUnique ? 'unique' : 'quantity',
         quantity: existingEquipment.quantity,
         location: existingEquipment.location,
