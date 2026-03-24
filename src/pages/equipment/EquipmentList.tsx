@@ -162,7 +162,8 @@ export default function EquipmentList() {
 
     const formattedData = importData.map((row: any) => ({
       name: row['Nome'] || row['name'] || '',
-      patrimony_code: String(row['Patrimônio'] || row['patrimony_code'] || row['Codigo'] || ''),
+      patrimony_code: String(row['Patrimônio Novo'] || row['Patrimônio'] || row['patrimony_code'] || row['Codigo'] || ''),
+      old_patrimony_code: row['Patrimônio Antigo'] || row['old_patrimony_code'] || null,
       location: row['Localização'] || row['location'] || '',
       campus: (row['Campus'] || row['campus'] || 'Campus I') as CampusEnum,
       quantity: Number(row['Quantidade'] || row['quantity'] || 1),
