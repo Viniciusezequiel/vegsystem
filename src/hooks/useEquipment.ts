@@ -8,6 +8,7 @@ export type Equipment = {
   id: string;
   name: string;
   patrimony_code: string;
+  old_patrimony_code: string | null;
   quantity: number;
   available_quantity: number;
   location: string;
@@ -20,7 +21,7 @@ export type Equipment = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  _pending?: boolean; // Flag for offline-created items
+  _pending?: boolean;
 };
 
 export type EquipmentLoan = {
