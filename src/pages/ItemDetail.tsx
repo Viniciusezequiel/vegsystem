@@ -181,7 +181,7 @@ export default function ItemDetail() {
   // Admin e analista podem editar itens entregues/expirados
   const isDeliveredOrExpired = item?.status === 'delivered' || item?.status === 'expired';
   const canDeliver = role === 'admin' || role === 'analista' || role === 'assistente';
-  const canEdit = (role === 'admin' || role === 'analista') && (!isDeliveredOrExpired || role === 'admin' || role === 'analista');
+  const canEdit = role === 'admin' || role === 'analista' || role === 'supervisor' || role === 'assistente';
 
   const handleOpenEditDialog = () => {
     if (item) {

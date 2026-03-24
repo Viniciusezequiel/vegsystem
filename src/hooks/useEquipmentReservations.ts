@@ -145,7 +145,7 @@ async function checkDateConflict(
     }
   }
 
-  // Check against active loans
+  // Check against active loans - only block if pickup is before loan return
   for (const loan of (activeLoans || [])) {
     if (!loan.expected_return_date) continue;
 
@@ -155,8 +155,10 @@ async function checkDateConflict(
     const loanReturnPlusBuffer = new Date(loanReturn);
     loanReturnPlusBuffer.setDate(loanReturnPlusBuffer.getDate() + 1);
 
-    // New reservation pickup must be after loan return + buffer
+    // Check overlap: new reservation period overlaps with loan period (considering buffer)
+    // Allow if pickup is on or after loan return + buffer
     if (newPickup < loanReturnPlusBuffer) {
+      // Only block if dates truly overlap - if the item will be returned before the reservation pickup, allow it
       const returnDateFormatted = loanReturn.toLocaleDateString('pt-BR');
       const nextAvailable = loanReturnPlusBuffer.toLocaleDateString('pt-BR');
       return {
@@ -200,8 +202,37 @@ export function useCreateEquipmentReservation() {
 
       if (equipError) throw equipError;
 
-      if (currentEquipment.available_quantity < reservation.quantity_reserved) {
-        throw new Error(`Estoque insuficiente para "${currentEquipment.name}". Disponível: ${currentEquipment.available_quantity}, Solicitado: ${reservation.quantity_reserved}`);
+      // For future reservations, check if stock will be available by then
+      // by considering active loans that will be returned before the pickup date
+      const pickupDate = new Date(reservation.scheduled_pickup_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (pickupDate > today) {
+        // Future reservation: check if loans will free up stock before pickup
+        const { data: activeLoansForEquip } = await supabase
+          .from('equipment_loans')
+          .select('quantity_borrowed, expected_return_date')
+          .eq('equipment_id', reservation.equipment_id)
+          .eq('status', 'active');
+        
+        let projectedAvailable = currentEquipment.available_quantity;
+        for (const loan of (activeLoansForEquip || [])) {
+          if (loan.expected_return_date) {
+            const returnDate = new Date(loan.expected_return_date);
+            if (returnDate < pickupDate) {
+              projectedAvailable += loan.quantity_borrowed;
+            }
+          }
+        }
+        
+        if (projectedAvailable < reservation.quantity_reserved) {
+          throw new Error(`Estoque insuficiente para "${currentEquipment.name}". Projetado disponível na data: ${projectedAvailable}, Solicitado: ${reservation.quantity_reserved}`);
+        }
+      } else {
+        if (currentEquipment.available_quantity < reservation.quantity_reserved) {
+          throw new Error(`Estoque insuficiente para "${currentEquipment.name}". Disponível: ${currentEquipment.available_quantity}, Solicitado: ${reservation.quantity_reserved}`);
+        }
       }
 
       // Verificar conflito de datas com buffer de 24h
@@ -229,20 +260,25 @@ export function useCreateEquipmentReservation() {
 
       if (error) throw error;
 
-      // Deduzir do estoque ao criar pré-reserva (usar valor já validado)
-      const newAvailable = currentEquipment.available_quantity - reservation.quantity_reserved;
-      const { error: stockError } = await supabase
-        .from('equipment')
-        .update({
-          available_quantity: newAvailable,
-        })
-        .eq('id', reservation.equipment_id);
+      // Deduzir do estoque ao criar pré-reserva (somente se há estoque disponível agora)
+      // Para reservas futuras onde o item será devolvido antes, o estoque será liberado na devolução
+      if (currentEquipment.available_quantity >= reservation.quantity_reserved) {
+        const newAvailable = currentEquipment.available_quantity - reservation.quantity_reserved;
+        const { error: stockError } = await supabase
+          .from('equipment')
+          .update({
+            available_quantity: newAvailable,
+          })
+          .eq('id', reservation.equipment_id);
 
-      if (stockError) {
-        // Rollback: remover a reserva
-        await supabase.from('equipment_reservations').delete().eq('id', data.id);
-        throw new Error('Erro ao atualizar estoque: ' + stockError.message);
+        if (stockError) {
+          // Rollback: remover a reserva
+          await supabase.from('equipment_reservations').delete().eq('id', data.id);
+          throw new Error('Erro ao atualizar estoque: ' + stockError.message);
+        }
       }
+      // If no stock available now but it's a future reservation (validated above), 
+      // stock will be deducted when pickup happens
 
       return data;
     },

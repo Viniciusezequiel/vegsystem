@@ -124,7 +124,10 @@ export default function EquipmentLoans() {
   const handleReturn = (data: ReturnData) => {
     if (!selectedGroup) return;
     
-    const loanIds = selectedGroup.loans.map(l => l.id);
+    // Use selectedLoanIds for partial returns, or all loans for full return
+    const loanIds = data.selectedLoanIds && data.selectedLoanIds.length > 0
+      ? data.selectedLoanIds
+      : selectedGroup.loans.map(l => l.id);
     
     returnEquipment.mutate({
       loanId: loanIds,
@@ -430,6 +433,7 @@ export default function EquipmentLoans() {
             name: l.equipment?.name || 'N/A',
             patrimony: l.equipment?.patrimony_code || '',
             quantity: l.quantity_borrowed,
+            loanId: l.id,
           }))}
           borrowerName={selectedGroup.borrower_name}
           isPending={returnEquipment.isPending}
