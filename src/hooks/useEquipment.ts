@@ -134,7 +134,8 @@ export function useEquipmentList(search?: string) {
             const q = search.toLowerCase();
             return cached.filter(eq =>
               eq.name?.toLowerCase().includes(q) ||
-              eq.patrimony_code?.toLowerCase().includes(q)
+              eq.patrimony_code?.toLowerCase().includes(q) ||
+              eq.old_patrimony_code?.toLowerCase().includes(q)
             );
           }
           return cached;
