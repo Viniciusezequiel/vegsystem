@@ -205,15 +205,15 @@ export default function EquipmentList() {
               title="Relatório de Equipamentos"
               filename="equipamentos"
               columns={[
-207:                 { header: 'Nome', accessor: 'name' },
-208:                 { header: 'Patrimônio Novo', accessor: 'patrimony_code' },
-209:                 { header: 'Patrimônio Antigo', accessor: (row) => row.old_patrimony_code || '—' },
-210:                 { header: 'Qtd. Total', accessor: (row) => String(row.quantity) },
-211:                 { header: 'Disponível', accessor: (row) => String(row.available_quantity) },
-212:                 { header: 'Campus', accessor: 'campus' },
-213:                 { header: 'Local', accessor: 'location' },
-214:                 { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
-215:               ]}
+                { header: 'Nome', accessor: 'name' },
+                { header: 'Patrimônio Novo', accessor: 'patrimony_code' },
+                { header: 'Patrimônio Antigo', accessor: (row) => row.old_patrimony_code || '—' },
+                { header: 'Qtd. Total', accessor: (row) => String(row.quantity) },
+                { header: 'Disponível', accessor: (row) => String(row.available_quantity) },
+                { header: 'Campus', accessor: 'campus' },
+                { header: 'Local', accessor: 'location' },
+                { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
+              ]}
               data={filteredEquipment || []}
               filters={[
                 {
