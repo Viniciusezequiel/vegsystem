@@ -260,20 +260,25 @@ export function useCreateEquipmentReservation() {
 
       if (error) throw error;
 
-      // Deduzir do estoque ao criar pré-reserva (usar valor já validado)
-      const newAvailable = currentEquipment.available_quantity - reservation.quantity_reserved;
-      const { error: stockError } = await supabase
-        .from('equipment')
-        .update({
-          available_quantity: newAvailable,
-        })
-        .eq('id', reservation.equipment_id);
+      // Deduzir do estoque ao criar pré-reserva (somente se há estoque disponível agora)
+      // Para reservas futuras onde o item será devolvido antes, o estoque será liberado na devolução
+      if (currentEquipment.available_quantity >= reservation.quantity_reserved) {
+        const newAvailable = currentEquipment.available_quantity - reservation.quantity_reserved;
+        const { error: stockError } = await supabase
+          .from('equipment')
+          .update({
+            available_quantity: newAvailable,
+          })
+          .eq('id', reservation.equipment_id);
 
-      if (stockError) {
-        // Rollback: remover a reserva
-        await supabase.from('equipment_reservations').delete().eq('id', data.id);
-        throw new Error('Erro ao atualizar estoque: ' + stockError.message);
+        if (stockError) {
+          // Rollback: remover a reserva
+          await supabase.from('equipment_reservations').delete().eq('id', data.id);
+          throw new Error('Erro ao atualizar estoque: ' + stockError.message);
+        }
       }
+      // If no stock available now but it's a future reservation (validated above), 
+      // stock will be deducted when pickup happens
 
       return data;
     },
