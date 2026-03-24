@@ -113,6 +113,7 @@ export default function EquipmentRegister() {
         id,
         name: data.name,
         patrimony_code: data.patrimony_type === 'unique' ? (data.patrimony_code || '') : existingEquipment?.patrimony_code || finalPatrimonyCode,
+        old_patrimony_code: data.old_patrimony_code || null,
         quantity: finalQuantity,
         location: data.location,
         campus: data.campus,
@@ -124,6 +125,7 @@ export default function EquipmentRegister() {
       await createEquipment.mutateAsync({
         name: data.name,
         patrimony_code: finalPatrimonyCode,
+        old_patrimony_code: data.old_patrimony_code || null,
         quantity: finalQuantity,
         location: data.location,
         campus: data.campus,
