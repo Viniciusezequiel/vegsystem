@@ -96,6 +96,7 @@ export default function EquipmentLoans() {
       loan.borrower_sector.toLowerCase().includes(q) ||
       loan.equipment?.name?.toLowerCase().includes(q) ||
       loan.equipment?.patrimony_code?.toLowerCase().includes(q) ||
+      loan.equipment?.old_patrimony_code?.toLowerCase().includes(q) ||
       loan.collaborator_name?.toLowerCase().includes(q) ||
       loan.borrower_type?.toLowerCase().includes(q)
     );
