@@ -482,6 +482,29 @@ export default function EquipmentLoans() {
         open={reservationDialogOpen}
         onOpenChange={setReservationDialogOpen}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir empréstimo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {groupToDelete?.loans.length === 1 ? 'este empréstimo' : `estes ${groupToDelete?.loans.length} empréstimos`}?
+              {groupToDelete?.status === 'active' && ' O estoque dos equipamentos será restaurado.'}
+              {' '}Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteEquipmentLoan.isPending}
+            >
+              {deleteEquipmentLoan.isPending ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
