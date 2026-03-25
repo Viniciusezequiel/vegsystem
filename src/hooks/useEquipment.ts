@@ -342,22 +342,7 @@ export function useCreateEquipmentLoan() {
       
       const { skip_stock_deduction, loan_group_id, ...loanData } = loan;
       
-      if (!skip_stock_deduction) {
-        // Verificar disponibilidade apenas se não for reserva
-        const { data: equipment, error: equipError } = await supabase
-          .from('equipment')
-          .select('available_quantity')
-          .eq('id', loan.equipment_id)
-          .single();
-        
-        if (equipError) throw equipError;
-        
-        if (equipment.available_quantity < loan.quantity_borrowed) {
-          throw new Error('Quantidade indisponível');
-        }
-      }
-
-      // Create loan
+      // Create loan first
       const { data, error } = await supabase
         .from('equipment_loans')
         .insert({ 
@@ -381,23 +366,115 @@ export function useCreateEquipmentLoan() {
         .single();
       if (error) throw error;
 
-      if (!skip_stock_deduction) {
-        // Update available quantity only for non-reservation loans
-        const { data: equipment } = await supabase
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment-loans'] });
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao registrar empréstimo: ' + error.message);
+    },
+  });
+}
+
+// Batch loan creation: validates stock upfront, creates all loans, then deducts stock once per equipment
+export function useCreateBatchLoans() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      items: Array<{
+        equipment_id: string;
+        quantity_borrowed: number;
+        skip_stock_deduction?: boolean;
+      }>;
+      common: {
+        borrower_name: string;
+        borrower_sector: string;
+        borrower_phone: string;
+        expected_return_date: string;
+        notes?: string;
+        borrower_signature?: string;
+        borrower_type?: string;
+        purpose?: string;
+        authorizer_name?: string;
+        authorizer_contact?: string;
+        collaborator_name?: string;
+        loan_group_id?: string;
+      };
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { items, common } = params;
+
+      // 1. Aggregate quantities per equipment for stock validation
+      const stockNeeded = new Map<string, number>();
+      for (const item of items) {
+        if (!item.skip_stock_deduction) {
+          stockNeeded.set(item.equipment_id, (stockNeeded.get(item.equipment_id) || 0) + item.quantity_borrowed);
+        }
+      }
+
+      // 2. Validate stock for all equipment at once
+      if (stockNeeded.size > 0) {
+        const equipIds = Array.from(stockNeeded.keys());
+        const { data: equipList, error: equipError } = await supabase
+          .from('equipment')
+          .select('id, available_quantity, name')
+          .in('id', equipIds);
+        
+        if (equipError) throw equipError;
+
+        for (const equip of equipList || []) {
+          const needed = stockNeeded.get(equip.id) || 0;
+          if (equip.available_quantity < needed) {
+            throw new Error(`Quantidade indisponível para "${equip.name}": disponível ${equip.available_quantity}, solicitado ${needed}`);
+          }
+        }
+      }
+
+      // 3. Create all loan records in a single insert
+      const loanRecords = items.map(item => ({
+        equipment_id: item.equipment_id,
+        quantity_borrowed: item.quantity_borrowed,
+        borrower_name: common.borrower_name,
+        borrower_sector: common.borrower_sector,
+        borrower_phone: common.borrower_phone,
+        expected_return_date: common.expected_return_date,
+        notes: common.notes,
+        borrower_signature: common.borrower_signature,
+        borrower_type: common.borrower_type,
+        purpose: common.purpose,
+        authorizer_name: common.authorizer_name,
+        authorizer_contact: common.authorizer_contact,
+        collaborator_name: common.collaborator_name,
+        loaned_by: user?.id,
+        loan_group_id: common.loan_group_id || null,
+      }));
+
+      const { data, error } = await supabase
+        .from('equipment_loans')
+        .insert(loanRecords)
+        .select();
+      if (error) throw error;
+
+      // 4. Deduct stock once per equipment
+      for (const [equipId, qty] of stockNeeded.entries()) {
+        const { data: equip } = await supabase
           .from('equipment')
           .select('available_quantity')
-          .eq('id', loan.equipment_id)
+          .eq('id', equipId)
           .single();
         
-        if (equipment) {
-          const newAvailable = equipment.available_quantity - loan.quantity_borrowed;
+        if (equip) {
+          const newAvailable = equip.available_quantity - qty;
           await supabase
             .from('equipment')
             .update({ 
-              available_quantity: newAvailable,
-              status: newAvailable === 0 ? 'borrowed' : 'available'
+              available_quantity: Math.max(0, newAvailable),
+              status: newAvailable <= 0 ? 'borrowed' : 'available'
             })
-            .eq('id', loan.equipment_id);
+            .eq('id', equipId);
         }
       }
 
@@ -406,10 +483,68 @@ export function useCreateEquipmentLoan() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
       queryClient.invalidateQueries({ queryKey: ['equipment-loans'] });
-      toast.success('Empréstimo registrado com sucesso!');
+      toast.success('Empréstimo(s) registrado(s) com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error('Erro ao registrar empréstimo: ' + error.message);
+      toast.error('Erro ao registrar empréstimos: ' + error.message);
+    },
+  });
+}
+
+export function useDeleteEquipmentLoan() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { loanIds: string[] }) => {
+      // Fetch loans to restore stock for active ones
+      const { data: loans, error: fetchError } = await supabase
+        .from('equipment_loans')
+        .select('id, equipment_id, quantity_borrowed, status')
+        .in('id', params.loanIds);
+      
+      if (fetchError) throw fetchError;
+
+      // Restore stock for active loans
+      const stockRestore = new Map<string, number>();
+      for (const loan of loans || []) {
+        if (loan.status === 'active') {
+          stockRestore.set(loan.equipment_id, (stockRestore.get(loan.equipment_id) || 0) + loan.quantity_borrowed);
+        }
+      }
+
+      // Delete loans
+      const { error } = await supabase
+        .from('equipment_loans')
+        .delete()
+        .in('id', params.loanIds);
+      if (error) throw error;
+
+      // Restore equipment stock
+      for (const [equipId, qty] of stockRestore.entries()) {
+        const { data: equip } = await supabase
+          .from('equipment')
+          .select('available_quantity')
+          .eq('id', equipId)
+          .single();
+        
+        if (equip) {
+          await supabase
+            .from('equipment')
+            .update({ 
+              available_quantity: equip.available_quantity + qty,
+              status: 'available'
+            })
+            .eq('id', equipId);
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment-loans'] });
+      toast.success('Empréstimo(s) excluído(s) com sucesso!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao excluir empréstimo: ' + error.message);
     },
   });
 }
