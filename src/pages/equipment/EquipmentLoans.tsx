@@ -30,7 +30,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ptBR } from 'date-fns/locale';
 
 const statusLabels = {
   active: { label: 'Ativo', variant: 'default' as const, icon: Clock },
