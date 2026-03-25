@@ -9,8 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock } from 'lucide-react';
-import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, EquipmentLoan } from '@/hooks/useEquipment';
+import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2 } from 'lucide-react';
+import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, useDeleteEquipmentLoan, EquipmentLoan } from '@/hooks/useEquipment';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
 import { ReservationsTabContent } from '@/components/equipment/ReservationsTabContent';
@@ -19,6 +19,17 @@ import { useEquipmentReservations } from '@/hooks/useEquipmentReservations';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const statusLabels = {
   active: { label: 'Ativo', variant: 'default' as const, icon: Clock },
@@ -80,12 +91,18 @@ export default function EquipmentLoans() {
   const [selectedLoan, setSelectedLoan] = useState<EquipmentLoan | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<GroupedLoan | null>(null);
+  
+  const { profile } = useAuth();
+  const isAdmin = profile?.position === 'admin'; // fallback check
   
   const { data: activeLoans } = useEquipmentLoans('active');
   const { data: awaitingReservations } = useEquipmentReservations('awaiting_pickup');
   const { data: returnedLoans } = useEquipmentLoans('returned');
   const { data: overdueLoans } = useOverdueLoans();
   const returnEquipment = useReturnEquipment();
+  const deleteEquipmentLoan = useDeleteEquipmentLoan();
 
   const filterLoans = (loans: EquipmentLoan[] | undefined) => {
     if (!loans || !searchQuery.trim()) return loans;
@@ -153,6 +170,22 @@ export default function EquipmentLoans() {
   const handleReturnFromDetails = () => {
     setDetailsDialogOpen(false);
     setReturnDialogOpen(true);
+  };
+
+  const handleOpenDelete = (group: GroupedLoan) => {
+    setGroupToDelete(group);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!groupToDelete) return;
+    const loanIds = groupToDelete.loans.map(l => l.id);
+    deleteEquipmentLoan.mutate({ loanIds }, {
+      onSuccess: () => {
+        setDeleteDialogOpen(false);
+        setGroupToDelete(null);
+      },
+    });
   };
 
   const formatDate = (date: string) => {
@@ -277,6 +310,10 @@ export default function EquipmentLoans() {
                           <span className="sm:hidden">Dev.</span>
                         </Button>
                       )}
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleOpenDelete(group)}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Excluir</span>
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -445,6 +482,29 @@ export default function EquipmentLoans() {
         open={reservationDialogOpen}
         onOpenChange={setReservationDialogOpen}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir empréstimo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {groupToDelete?.loans.length === 1 ? 'este empréstimo' : `estes ${groupToDelete?.loans.length} empréstimos`}?
+              {groupToDelete?.status === 'active' && ' O estoque dos equipamentos será restaurado.'}
+              {' '}Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteEquipmentLoan.isPending}
+            >
+              {deleteEquipmentLoan.isPending ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
