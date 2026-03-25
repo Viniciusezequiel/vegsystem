@@ -471,13 +471,13 @@ export default function EquipmentLoans() {
                 <ReservationsTabContent searchQuery={searchQuery} />
               </TabsContent>
               <TabsContent value="active" className="mt-4">
-                {renderGroupedLoansTable(groupedActiveLoans, true)}
+                {renderGroupedLoansCards(groupedActiveLoans, true)}
               </TabsContent>
               <TabsContent value="overdue" className="mt-4">
-                {renderGroupedLoansTable(groupedOverdueLoans, true)}
+                {renderGroupedLoansCards(groupedOverdueLoans, true)}
               </TabsContent>
               <TabsContent value="returned" className="mt-4">
-                {renderGroupedLoansTable(groupedReturnedLoans, false)}
+                {renderGroupedLoansCards(groupedReturnedLoans, false)}
               </TabsContent>
             </Tabs>
           </CardContent>
