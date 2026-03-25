@@ -91,12 +91,18 @@ export default function EquipmentLoans() {
   const [selectedLoan, setSelectedLoan] = useState<EquipmentLoan | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<GroupedLoan | null>(null);
+  
+  const { profile } = useAuth();
+  const isAdmin = profile?.position === 'admin'; // fallback check
   
   const { data: activeLoans } = useEquipmentLoans('active');
   const { data: awaitingReservations } = useEquipmentReservations('awaiting_pickup');
   const { data: returnedLoans } = useEquipmentLoans('returned');
   const { data: overdueLoans } = useOverdueLoans();
   const returnEquipment = useReturnEquipment();
+  const deleteEquipmentLoan = useDeleteEquipmentLoan();
 
   const filterLoans = (loans: EquipmentLoan[] | undefined) => {
     if (!loans || !searchQuery.trim()) return loans;
