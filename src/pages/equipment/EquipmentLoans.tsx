@@ -172,6 +172,22 @@ export default function EquipmentLoans() {
     setReturnDialogOpen(true);
   };
 
+  const handleOpenDelete = (group: GroupedLoan) => {
+    setGroupToDelete(group);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!groupToDelete) return;
+    const loanIds = groupToDelete.loans.map(l => l.id);
+    deleteEquipmentLoan.mutate({ loanIds }, {
+      onSuccess: () => {
+        setDeleteDialogOpen(false);
+        setGroupToDelete(null);
+      },
+    });
+  };
+
   const formatDate = (date: string) => {
     return format(parseISO(date), "dd/MM/yyyy", { locale: ptBR });
   };
