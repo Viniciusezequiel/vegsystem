@@ -203,7 +203,18 @@ export default function EquipmentLoans() {
     return group.loans.some(l => isOverdue(l));
   };
 
-  const renderGroupedLoansTable = (groups: GroupedLoan[], showReturnButton = false) => {
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const renderGroupedLoansCards = (groups: GroupedLoan[], showReturnButton = false) => {
     if (!groups.length) {
       return (
         <div className="text-center py-8 text-muted-foreground">
@@ -213,112 +224,138 @@ export default function EquipmentLoans() {
     }
 
     return (
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Equipamento(s)</TableHead>
-              <TableHead>Solicitante</TableHead>
-              <TableHead className="hidden md:table-cell">Tipo</TableHead>
-              <TableHead className="hidden md:table-cell">Setor</TableHead>
-              <TableHead className="hidden lg:table-cell">Telefone</TableHead>
-              <TableHead className="hidden lg:table-cell">Finalidade</TableHead>
-              <TableHead>Prev. Devolução</TableHead>
-              <TableHead className="hidden sm:table-cell">Colaborador</TableHead>
-              <TableHead className="hidden sm:table-cell">Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groups.map((group) => {
-              const overdue = isGroupOverdue(group);
-              const isGrouped = group.loans.length > 1;
-              const StatusIcon = overdue ? AlertTriangle : statusLabels[group.status].icon;
-              
-              return (
-                <TableRow key={group.groupId} className={overdue ? 'bg-destructive/10' : ''}>
-                  <TableCell className="font-medium">
-                    <div className="space-y-1">
-                      {group.loans.map((loan) => (
-                        <div key={loan.id} className="min-w-0">
-                          <span className="block truncate text-sm">{loan.equipment?.name || 'N/A'}</span>
-                          <span className="text-xs text-muted-foreground">
-                            Novo: {loan.equipment?.patrimony_code}{loan.equipment?.old_patrimony_code ? ` | Antigo: ${loan.equipment.old_patrimony_code}` : ''} • Qtd: {loan.quantity_borrowed}
-                          </span>
-                        </div>
-                      ))}
-                      {isGrouped && (
-                        <Badge variant="outline" className="text-[10px] mt-1">
-                          <Package className="h-3 w-3 mr-1" />
-                          {group.loans.length} itens
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="min-w-0">
-                      <span className="block truncate">{group.borrower_name}</span>
-                      <span className="text-xs text-muted-foreground md:hidden">{group.borrower_sector}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <Badge variant="outline" className="text-xs">
+      <div className="space-y-3">
+        {groups.map((group) => {
+          const overdue = isGroupOverdue(group);
+          const isGrouped = group.loans.length > 1;
+          const StatusIcon = overdue ? AlertTriangle : statusLabels[group.status].icon;
+          const isExpanded = expandedGroups.has(group.groupId);
+
+          return (
+            <div
+              key={group.groupId}
+              className={`rounded-lg border p-4 transition-colors ${overdue ? 'border-destructive/50 bg-destructive/5' : 'bg-card'}`}
+            >
+              {/* Header row - always visible */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0 space-y-1">
+                  {/* Equipment names */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Package className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="font-medium text-sm truncate">
+                      {group.loans.length === 1
+                        ? (group.loans[0].equipment?.name || 'N/A')
+                        : `${group.loans.length} equipamentos`
+                      }
+                    </span>
+                    {isGrouped && (
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {group.loans.length} itens
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Key info row */}
+                  <div className="flex items-center gap-3 flex-wrap text-sm">
+                    <span className="flex items-center gap-1">
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-medium">{group.borrower_name}</span>
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
                       {borrowerTypeLabels[group.borrower_type || 'aluno'] || group.borrower_type}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">{group.borrower_sector}</TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <a 
-                      href={`https://wa.me/55${group.borrower_phone.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-primary hover:underline"
-                    >
-                      <Phone className="h-3 w-3" />
-                      {group.borrower_phone}
-                    </a>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {group.purpose || '—'}
-                  </TableCell>
-                  <TableCell className={overdue ? 'text-destructive font-medium' : ''}>
-                    <div className="min-w-0">
-                      <span className="block">{formatDate(group.expected_return_date)}</span>
-                      {overdue && <span className="text-xs">(Atrasado)</span>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <span className="text-xs text-muted-foreground">{group.collaborator_name || '—'}</span>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge variant={overdue ? 'destructive' : statusLabels[group.status].variant}>
+                    <span className={`flex items-center gap-1 text-xs ${overdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                      <Calendar className="h-3.5 w-3.5" />
+                      {formatDate(group.expected_return_date)}
+                      {overdue && ' (Atrasado)'}
+                    </span>
+                    <Badge variant={overdue ? 'destructive' : statusLabels[group.status].variant} className="text-[10px]">
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {overdue ? 'Atrasado' : statusLabels[group.status].label}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleOpenDetails(group)}>
-                        <Eye className="h-4 w-4" />
-                        <span className="sr-only">Ver detalhes</span>
-                      </Button>
-                      {showReturnButton && (
-                        <Button variant="outline" size="sm" onClick={() => handleOpenReturn(group)}>
-                          <span className="hidden sm:inline">Devolver{isGrouped ? ` (${group.loans.length})` : ''}</span>
-                          <span className="sm:hidden">Dev.</span>
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleOpenDelete(group)}>
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Excluir</span>
-                      </Button>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleExpanded(group.groupId)}>
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDetails(group)}>
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  {showReturnButton && (
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleOpenReturn(group)}>
+                      Devolver
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDelete(group)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Expanded details */}
+              {isExpanded && (
+                <div className="mt-3 pt-3 border-t space-y-3">
+                  {/* Equipment list */}
+                  <div className="space-y-2">
+                    {group.loans.map((loan) => (
+                      <div key={loan.id} className="flex items-center gap-3 text-sm bg-secondary/30 rounded-md px-3 py-2">
+                        <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium block truncate">{loan.equipment?.name || 'N/A'}</span>
+                          <span className="text-xs text-muted-foreground">
+                            Novo: {loan.equipment?.patrimony_code}
+                            {loan.equipment?.old_patrimony_code ? ` | Antigo: ${loan.equipment.old_patrimony_code}` : ''}
+                          </span>
+                        </div>
+                        <Badge variant="secondary" className="text-[10px] shrink-0">
+                          Qtd: {loan.quantity_borrowed}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Details grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> Setor/Curso
+                      </span>
+                      <span className="font-medium">{group.borrower_sector}</span>
                     </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    <div>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Phone className="h-3 w-3" /> Telefone
+                      </span>
+                      <a
+                        href={`https://wa.me/55${group.borrower_phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {group.borrower_phone}
+                      </a>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <FileText className="h-3 w-3" /> Finalidade
+                      </span>
+                      <span className="font-medium">{group.purpose || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <User className="h-3 w-3" /> Colaborador
+                      </span>
+                      <span className="font-medium">{group.collaborator_name || '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
