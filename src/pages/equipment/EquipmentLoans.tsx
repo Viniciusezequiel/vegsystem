@@ -310,6 +310,10 @@ export default function EquipmentLoans() {
                           <span className="sm:hidden">Dev.</span>
                         </Button>
                       )}
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleOpenDelete(group)}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Excluir</span>
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
