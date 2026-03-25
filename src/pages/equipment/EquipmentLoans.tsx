@@ -9,8 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock } from 'lucide-react';
-import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, EquipmentLoan } from '@/hooks/useEquipment';
+import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2 } from 'lucide-react';
+import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, useDeleteEquipmentLoan, EquipmentLoan } from '@/hooks/useEquipment';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
 import { ReservationsTabContent } from '@/components/equipment/ReservationsTabContent';
@@ -18,6 +18,18 @@ import { ReservationFormDialog } from '@/components/equipment/ReservationFormDia
 import { useEquipmentReservations } from '@/hooks/useEquipmentReservations';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ptBR } from 'date-fns/locale';
 
 const statusLabels = {
