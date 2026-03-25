@@ -40,7 +40,7 @@ import { ArrowLeft, Package, Plus, Trash2, PenLine, Search, UserCheck, FileText 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useEquipmentList, useCreateEquipmentLoan, Equipment } from '@/hooks/useEquipment';
+import { useEquipmentList, useCreateBatchLoans, Equipment } from '@/hooks/useEquipment';
 import { useMarkReservationPickedUp } from '@/hooks/useEquipmentReservations';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -101,7 +101,7 @@ export default function EquipmentLoanForm() {
   const reservationData = (location.state as { fromReservation?: ReservationState } | null)?.fromReservation;
   
   const { data: equipment } = useEquipmentList();
-  const createLoan = useCreateEquipmentLoan();
+  const createBatchLoans = useCreateBatchLoans();
   const markPickedUp = useMarkReservationPickedUp();
 
   // Pre-fill form from reservation data
@@ -201,28 +201,27 @@ export default function EquipmentLoanForm() {
       // Generate a group ID when there are multiple items
       const groupId = selectedItems.length > 1 ? crypto.randomUUID() : undefined;
 
-      for (const item of selectedItems) {
-        const isReservedPickupItem =
-          Boolean(reservationData) && reservedEquipmentIds.has(item.equipment.id);
-
-        await createLoan.mutateAsync({
+      await createBatchLoans.mutateAsync({
+        items: selectedItems.map(item => ({
           equipment_id: item.equipment.id,
           quantity_borrowed: item.quantity,
+          skip_stock_deduction: Boolean(reservationData) && reservedEquipmentIds.has(item.equipment.id),
+        })),
+        common: {
           borrower_name: data.borrower_name,
           borrower_sector: data.borrower_sector,
           borrower_phone: data.borrower_phone,
           expected_return_date: data.expected_return_date,
           notes: data.notes || undefined,
-          borrower_signature: signature,
+          borrower_signature: signature || undefined,
           borrower_type: data.borrower_type,
           purpose: data.purpose,
           authorizer_name: data.authorizer_name || undefined,
           authorizer_contact: data.authorizer_contact || undefined,
           collaborator_name: profile?.full_name || undefined,
-          skip_stock_deduction: isReservedPickupItem,
           loan_group_id: groupId,
-        });
-      }
+        },
+      });
       
       // Se veio de reserva(s), marcar todas como retirada
       if (reservationData?.reservationIds?.length) {
@@ -231,8 +230,8 @@ export default function EquipmentLoanForm() {
       
       toast({ title: 'Sucesso', description: `${totalItems} empréstimo(s) registrado(s) com sucesso` });
       navigate('/equipment/loans');
-    } catch (error) {
-      toast({ title: 'Erro', description: 'Falha ao registrar empréstimos', variant: 'destructive' });
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error?.message || 'Falha ao registrar empréstimos', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
