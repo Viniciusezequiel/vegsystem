@@ -13,12 +13,19 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, MapPin, Plus, Search, Users, Check, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { useRoomReservations, useReservationRooms, useUpdateReservationStatus, useDeleteReservation, type RoomReservation } from '@/hooks/useRoomReservations';
+import {
+  Calendar, Clock, MapPin, Plus, Search, Users, Check, X, Trash2,
+  ChevronDown, ChevronUp, ArrowRightLeft, FileText,
+} from 'lucide-react';
+import {
+  useRoomReservations, useReservationRooms, useUpdateReservationStatus,
+  useDeleteReservation, type RoomReservation,
+} from '@/hooks/useRoomReservations';
 import { useAuth } from '@/contexts/AuthContext';
-import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, isPast, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
+import { RescheduleDialog } from '@/components/reservations/RescheduleDialog';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pendente', variant: 'secondary' },
@@ -39,6 +46,7 @@ export default function RoomReservationsList() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [rescheduleReservation, setRescheduleReservation] = useState<RoomReservation | null>(null);
 
   const { data: rooms } = useReservationRooms();
   const { data: reservations, isLoading } = useRoomReservations({
@@ -81,6 +89,27 @@ export default function RoomReservationsList() {
     };
   }, [reservations]);
 
+  // Quick report filters
+  const applyReportFilter = (type: 'today' | 'week' | 'month') => {
+    const now = new Date();
+    if (type === 'today') {
+      const todayStr = format(now, 'yyyy-MM-dd');
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    } else if (type === 'week') {
+      const ws = startOfWeek(now, { weekStartsOn: 1 });
+      const we = endOfWeek(now, { weekStartsOn: 1 });
+      setStartDate(format(ws, 'yyyy-MM-dd'));
+      setEndDate(format(we, 'yyyy-MM-dd'));
+    } else if (type === 'month') {
+      const ms = startOfMonth(now);
+      const me = endOfMonth(now);
+      setStartDate(format(ms, 'yyyy-MM-dd'));
+      setEndDate(format(me, 'yyyy-MM-dd'));
+    }
+    setStatusFilter('all');
+  };
+
   const renderReservationCard = (reservation: RoomReservation) => {
     const isExpanded = expandedId === reservation.id;
     const status = statusConfig[reservation.status] || { label: reservation.status, variant: 'outline' as const };
@@ -90,22 +119,14 @@ export default function RoomReservationsList() {
     return (
       <Card key={reservation.id} className={`transition-all ${isOverdue ? 'border-destructive/50' : ''}`}>
         <CardContent className="p-4">
-          {/* Header */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-sm truncate">{reservation.title}</h3>
-                <Badge variant={status.variant} className="text-[10px]">
-                  {status.label}
-                </Badge>
-                {dateLabel && (
-                  <Badge variant="outline" className="text-[10px] text-primary">
-                    {dateLabel}
-                  </Badge>
-                )}
-                {isOverdue && (
-                  <Badge variant="destructive" className="text-[10px]">Expirada</Badge>
-                )}
+                <Badge variant={status.variant} className="text-[10px]">{status.label}</Badge>
+                {dateLabel && <Badge variant="outline" className="text-[10px] text-primary">{dateLabel}</Badge>}
+                {isOverdue && <Badge variant="destructive" className="text-[10px]">Expirada</Badge>}
+                {reservation.is_fixed && <Badge variant="outline" className="text-[10px]">Fixa</Badge>}
               </div>
               <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
@@ -121,29 +142,33 @@ export default function RoomReservationsList() {
                   {format(parseISO(reservation.start_datetime), 'HH:mm')} - {format(parseISO(reservation.end_datetime), 'HH:mm')}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {reservation.attendees_count}
+                  <Users className="h-3 w-3" /> {reservation.attendees_count}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
+              {/* Reschedule */}
+              {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  title="Remanejar"
+                  onClick={() => setRescheduleReservation(reservation)}
+                >
+                  <ArrowRightLeft className="h-3 w-3" />
+                </Button>
+              )}
+
               {reservation.status === 'pending' && isAdmin && (
                 <>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7 text-green-600"
-                    onClick={() => updateStatus.mutate({ id: reservation.id, status: 'confirmed' })}
-                  >
+                  <Button variant="outline" size="icon" className="h-7 w-7 text-primary"
+                    onClick={() => updateStatus.mutate({ id: reservation.id, status: 'confirmed' })}>
                     <Check className="h-3 w-3" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7 text-destructive"
-                    onClick={() => updateStatus.mutate({ id: reservation.id, status: 'cancelled' })}
-                  >
+                  <Button variant="outline" size="icon" className="h-7 w-7 text-destructive"
+                    onClick={() => updateStatus.mutate({ id: reservation.id, status: 'cancelled' })}>
                     <X className="h-3 w-3" />
                   </Button>
                 </>
@@ -158,73 +183,34 @@ export default function RoomReservationsList() {
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Excluir reserva?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta ação não pode ser desfeita.
-                      </AlertDialogDescription>
+                      <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteReservation.mutate(reservation.id)}>
-                        Excluir
-                      </AlertDialogAction>
+                      <AlertDialogAction onClick={() => deleteReservation.mutate(reservation.id)}>Excluir</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setExpandedId(isExpanded ? null : reservation.id)}
-              >
+              <Button variant="ghost" size="icon" className="h-7 w-7"
+                onClick={() => setExpandedId(isExpanded ? null : reservation.id)}>
                 {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </Button>
             </div>
           </div>
 
-          {/* Expanded Details */}
           {isExpanded && (
             <div className="mt-3 pt-3 border-t space-y-2 text-sm">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <span className="text-muted-foreground">Solicitante:</span>{' '}
-                  <span className="font-medium">{reservation.requester_name}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">E-mail:</span>{' '}
-                  <span>{reservation.requester_email}</span>
-                </div>
-                {reservation.requester_phone && (
-                  <div>
-                    <span className="text-muted-foreground">Telefone:</span>{' '}
-                    <span>{reservation.requester_phone}</span>
-                  </div>
-                )}
-                <div>
-                  <span className="text-muted-foreground">Campus:</span>{' '}
-                  <span>{reservation.room?.campus || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Início:</span>{' '}
-                  <span>{formatDateTime(reservation.start_datetime)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Término:</span>{' '}
-                  <span>{formatDateTime(reservation.end_datetime)}</span>
-                </div>
+                <div><span className="text-muted-foreground">Solicitante:</span> <span className="font-medium">{reservation.requester_name}</span></div>
+                {reservation.requester_email && <div><span className="text-muted-foreground">E-mail:</span> {reservation.requester_email}</div>}
+                {reservation.requester_phone && <div><span className="text-muted-foreground">Telefone:</span> {reservation.requester_phone}</div>}
+                <div><span className="text-muted-foreground">Campus:</span> {reservation.room?.campus || 'N/A'}</div>
+                <div><span className="text-muted-foreground">Início:</span> {formatDateTime(reservation.start_datetime)}</div>
+                <div><span className="text-muted-foreground">Término:</span> {formatDateTime(reservation.end_datetime)}</div>
               </div>
-              {reservation.description && (
-                <div>
-                  <span className="text-muted-foreground">Descrição:</span>{' '}
-                  <span>{reservation.description}</span>
-                </div>
-              )}
-              {reservation.notes && (
-                <div>
-                  <span className="text-muted-foreground">Observações:</span>{' '}
-                  <span>{reservation.notes}</span>
-                </div>
-              )}
+              {reservation.description && <div><span className="text-muted-foreground">Descrição:</span> {reservation.description}</div>}
+              {reservation.notes && <div><span className="text-muted-foreground">Observações:</span> {reservation.notes}</div>}
             </div>
           )}
         </CardContent>
@@ -254,16 +240,29 @@ export default function RoomReservationsList() {
           </div>
         </div>
 
+        {/* Quick report buttons */}
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => applyReportFilter('today')}>
+            <FileText className="h-3 w-3 mr-1" /> Hoje
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => applyReportFilter('week')}>
+            <FileText className="h-3 w-3 mr-1" /> Esta Semana
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => applyReportFilter('month')}>
+            <FileText className="h-3 w-3 mr-1" /> Este Mês
+          </Button>
+          {(startDate || endDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setStartDate(''); setEndDate(''); }}>
+              Limpar Filtro de Data
+            </Button>
+          )}
+        </div>
+
         {/* Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por título ou nome..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="Buscar por título ou nome..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={campusFilter} onValueChange={v => { setCampusFilter(v); setRoomFilter('all'); }}>
             <SelectTrigger><SelectValue placeholder="Campus" /></SelectTrigger>
@@ -281,16 +280,8 @@ export default function RoomReservationsList() {
               ))}
             </SelectContent>
           </Select>
-          <DatePickerInput
-            value={startDate}
-            onChange={setStartDate}
-            placeholder="Data início"
-          />
-          <DatePickerInput
-            value={endDate}
-            onChange={setEndDate}
-            placeholder="Data fim"
-          />
+          <DatePickerInput value={startDate} onChange={setStartDate} placeholder="Data início" />
+          <DatePickerInput value={endDate} onChange={setEndDate} placeholder="Data fim" />
         </div>
 
         {/* Tabs */}
@@ -306,9 +297,7 @@ export default function RoomReservationsList() {
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">Carregando...</div>
             ) : !reservations?.length ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Nenhuma reserva encontrada
-              </div>
+              <div className="text-center py-8 text-muted-foreground">Nenhuma reserva encontrada</div>
             ) : (
               <div className="space-y-3">
                 {reservations.map(renderReservationCard)}
@@ -317,6 +306,15 @@ export default function RoomReservationsList() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Reschedule Dialog */}
+      {rescheduleReservation && (
+        <RescheduleDialog
+          reservation={rescheduleReservation}
+          open={!!rescheduleReservation}
+          onOpenChange={open => { if (!open) setRescheduleReservation(null); }}
+        />
+      )}
     </MainLayout>
   );
 }
