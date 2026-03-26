@@ -81,10 +81,10 @@ export function useRoomReservations(filters?: {
         query = query.eq('room_id', filters.roomId);
       }
       if (filters?.startDate) {
-        query = query.gte('start_datetime', filters.startDate);
+        query = query.gte('start_datetime', `${filters.startDate}T00:00:00`);
       }
       if (filters?.endDate) {
-        query = query.lte('end_datetime', filters.endDate);
+        query = query.lte('start_datetime', `${filters.endDate}T23:59:59`);
       }
       if (filters?.search) {
         const q = filters.search;
