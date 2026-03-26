@@ -63,6 +63,7 @@ import TasksDashboard from "./pages/tasks/TasksDashboard";
 import RoomReservationsList from "./pages/reservations/RoomReservationsList";
 import NewReservationForm from "./pages/reservations/NewReservationForm";
 import ReservationRoomsManagement from "./pages/reservations/ReservationRoomsManagement";
+import PublicReservationBoard from "./pages/reservations/PublicReservationBoard";
 
 // PWA
 import Install from "./pages/Install";
@@ -227,6 +228,7 @@ const App = () => (
               {/* Classroom Calls Module */}
               <Route path="/install" element={<Install />} />
               <Route path="/chamado-sala" element={<ClassroomCallForm />} />
+              <Route path="/painel-reservas" element={<PublicReservationBoard />} />
               <Route path="/classroom-calls" element={
                 <ProtectedRoute>
                   <ClassroomCallsList />
