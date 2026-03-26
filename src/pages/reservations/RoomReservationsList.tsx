@@ -283,6 +283,9 @@ export default function RoomReservationsList() {
               Limpar Filtro de Data
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={!reservations?.length}>
+            <Download className="h-3 w-3 mr-1" /> Exportar
+          </Button>
         </div>
 
         {/* Filters */}
