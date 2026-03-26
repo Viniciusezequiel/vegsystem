@@ -26,6 +26,7 @@ import { format, parseISO, isToday, isTomorrow, isPast, startOfWeek, endOfWeek, 
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { RescheduleDialog } from '@/components/reservations/RescheduleDialog';
+import * as XLSX from 'xlsx';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pendente', variant: 'secondary' },
