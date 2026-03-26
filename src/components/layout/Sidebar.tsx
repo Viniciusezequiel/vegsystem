@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckSquare,
+  CalendarDays,
   ShoppingCart,
   RefreshCw,
   Bell,
@@ -128,6 +129,18 @@ const moduleGroups: NavGroup[] = [
     items: [
       { name: 'Escaninhos', href: '/lockers', icon: Lock },
       { name: 'Alocações', href: '/lockers/loans', icon: Users },
+    ],
+  },
+  {
+    name: 'Reservas de Salas',
+    icon: CalendarDays,
+    basePath: '/reservations',
+    gradient: 'from-indigo-500 to-violet-500',
+    module: 'reservations' as Module,
+    items: [
+      { name: 'Reservas', href: '/reservations', icon: CalendarDays },
+      { name: 'Nova Reserva', href: '/reservations/new', icon: Plus },
+      { name: 'Gestão de Salas', href: '/reservations/rooms', icon: MapPin, adminOnly: true },
     ],
   },
   {
