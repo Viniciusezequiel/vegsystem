@@ -59,6 +59,11 @@ import TasksList from "./pages/tasks/TasksList";
 import MyTasks from "./pages/tasks/MyTasks";
 import TasksDashboard from "./pages/tasks/TasksDashboard";
 
+// Room Reservations Module
+import RoomReservationsList from "./pages/reservations/RoomReservationsList";
+import NewReservationForm from "./pages/reservations/NewReservationForm";
+import ReservationRoomsManagement from "./pages/reservations/ReservationRoomsManagement";
+
 // PWA
 import Install from "./pages/Install";
 
