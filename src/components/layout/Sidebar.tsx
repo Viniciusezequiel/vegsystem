@@ -139,8 +139,8 @@ const moduleGroups: NavGroup[] = [
     module: 'reservations' as Module,
     items: [
       { name: 'Reservas', href: '/reservations', icon: CalendarDays },
-      { name: 'Nova Reserva', href: '/reservations/new', icon: Plus },
-      { name: 'Gestão de Salas', href: '/reservations/rooms', icon: MapPin, adminOnly: true },
+      { name: 'Nova Reserva', href: '/reservations/new', icon: PackagePlus },
+      { name: 'Gestão de Salas', href: '/reservations/rooms', icon: Settings, adminOnly: true },
     ],
   },
   {
