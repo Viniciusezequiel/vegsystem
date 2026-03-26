@@ -16,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Calendar, Clock, MapPin, Plus, Search, Users, Check, X, Trash2,
-  ChevronDown, ChevronUp, ArrowRightLeft, FileText, Download,
+  ChevronDown, ChevronUp, ArrowRightLeft, FileText, Download, ExternalLink,
 } from 'lucide-react';
 import {
   useRoomReservations, useReservationRooms, useUpdateReservationStatus,
