@@ -36,8 +36,8 @@ export default function RoomReservationsList() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [campusFilter, setCampusFilter] = useState('all');
   const [roomFilter, setRoomFilter] = useState('all');
-  const [startDate, setStartDate] = useState<Date | undefined>();
-  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: rooms } = useReservationRooms();
@@ -45,8 +45,8 @@ export default function RoomReservationsList() {
     status: statusFilter,
     campus: campusFilter !== 'all' ? campusFilter : undefined,
     roomId: roomFilter !== 'all' ? roomFilter : undefined,
-    startDate: startDate ? startDate.toISOString() : undefined,
-    endDate: endDate ? endDate.toISOString() : undefined,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
     search: search || undefined,
   });
 

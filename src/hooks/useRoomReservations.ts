@@ -107,7 +107,7 @@ export function useReservationRooms(campus?: string) {
         .order('code');
 
       if (campus) {
-        query = query.eq('campus', campus);
+        query = query.eq('campus', campus as any);
       }
 
       const { data, error } = await query;
