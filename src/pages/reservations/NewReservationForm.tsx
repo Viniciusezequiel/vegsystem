@@ -300,7 +300,13 @@ export default function NewReservationForm() {
                     <div>
                       <Label className="cursor-pointer">Repetir semanalmente</Label>
                       <p className="text-xs text-muted-foreground">
-                        Repete no mesmo dia da semana e horário por várias semanas
+                        {searchParams.date
+                          ? `Repete toda ${(() => {
+                              const d = new Date(searchParams.date + 'T12:00:00');
+                              const days = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+                              return days[d.getDay()];
+                            })()} no mesmo horário`
+                          : 'Repete no mesmo dia da semana e horário por várias semanas'}
                       </p>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Calendar, Clock, MapPin, Plus, Search, Users, Check, X, Trash2,
-  ChevronDown, ChevronUp, ArrowRightLeft, FileText,
+  ChevronDown, ChevronUp, ArrowRightLeft, FileText, Download,
 } from 'lucide-react';
 import {
   useRoomReservations, useReservationRooms, useUpdateReservationStatus,
@@ -26,6 +27,7 @@ import { format, parseISO, isToday, isTomorrow, isPast, startOfWeek, endOfWeek, 
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { RescheduleDialog } from '@/components/reservations/RescheduleDialog';
+import * as XLSX from 'xlsx';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pendente', variant: 'secondary' },
@@ -108,6 +110,31 @@ export default function RoomReservationsList() {
       setEndDate(format(me, 'yyyy-MM-dd'));
     }
     setStatusFilter('all');
+  };
+
+  const handleExport = () => {
+    if (!reservations?.length) {
+      toast.error('Nenhuma reserva para exportar.');
+      return;
+    }
+    const rows = reservations.map(r => ({
+      'Título': r.title,
+      'Sala': r.room?.name || 'N/A',
+      'Código': r.room?.code || '',
+      'Campus': r.room?.campus || '',
+      'Início': format(parseISO(r.start_datetime), 'dd/MM/yyyy HH:mm'),
+      'Término': format(parseISO(r.end_datetime), 'dd/MM/yyyy HH:mm'),
+      'Participantes': r.attendees_count,
+      'Solicitante': r.requester_name,
+      'E-mail': r.requester_email || '',
+      'Status': statusConfig[r.status]?.label || r.status,
+      'Descrição': r.description || '',
+      'Observações': r.notes || '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reservas');
+    XLSX.writeFile(wb, `reservas_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
   const renderReservationCard = (reservation: RoomReservation) => {
@@ -256,6 +283,9 @@ export default function RoomReservationsList() {
               Limpar Filtro de Data
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={!reservations?.length}>
+            <Download className="h-3 w-3 mr-1" /> Exportar
+          </Button>
         </div>
 
         {/* Filters */}
