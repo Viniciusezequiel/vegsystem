@@ -255,6 +255,24 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
+              
+              {/* Room Reservations Module */}
+              <Route path="/reservations" element={
+                <ProtectedRoute>
+                  <RoomReservationsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/new" element={
+                <ProtectedRoute>
+                  <NewReservationForm />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/rooms" element={
+                <ProtectedRoute requireAdmin>
+                  <ReservationRoomsManagement />
+                </ProtectedRoute>
+              } />
+
               {/* Legacy routes */}
               <Route path="/register" element={
                 <ProtectedRoute>
