@@ -286,6 +286,16 @@ export default function RoomReservationsList() {
           <Button variant="outline" size="sm" onClick={handleExport} disabled={!reservations?.length}>
             <Download className="h-3 w-3 mr-1" /> Exportar
           </Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            const link = `${window.location.origin}/painel-reservas`;
+            navigator.clipboard.writeText(link);
+            toast.success('Link do painel público copiado!');
+          }}>
+            <ExternalLink className="h-3 w-3 mr-1" /> Copiar Link Público
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open('/painel-reservas', '_blank')}>
+            <ExternalLink className="h-3 w-3 mr-1" /> Abrir Painel
+          </Button>
         </div>
 
         {/* Filters */}
