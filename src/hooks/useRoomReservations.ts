@@ -138,6 +138,7 @@ export function useCreateReservation() {
           p_room_id: data.room_id,
           p_start_datetime: data.start_datetime,
           p_end_datetime: data.end_datetime,
+          p_is_external: false,
         }
       );
 
@@ -158,7 +159,7 @@ export function useCreateReservation() {
         .insert({
           ...data,
           requester_name: profile?.full_name || 'Sistema',
-          requester_email: profile?.email || '',
+          requester_email: '',
           status,
           is_external: false,
           created_by: profile?.user_id,
