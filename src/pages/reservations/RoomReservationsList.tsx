@@ -111,6 +111,31 @@ export default function RoomReservationsList() {
     setStatusFilter('all');
   };
 
+  const handleExport = () => {
+    if (!reservations?.length) {
+      toast.error('Nenhuma reserva para exportar.');
+      return;
+    }
+    const rows = reservations.map(r => ({
+      'Título': r.title,
+      'Sala': r.room?.name || 'N/A',
+      'Código': r.room?.code || '',
+      'Campus': r.room?.campus || '',
+      'Início': format(parseISO(r.start_datetime), 'dd/MM/yyyy HH:mm'),
+      'Término': format(parseISO(r.end_datetime), 'dd/MM/yyyy HH:mm'),
+      'Participantes': r.attendees_count,
+      'Solicitante': r.requester_name,
+      'E-mail': r.requester_email || '',
+      'Status': statusConfig[r.status]?.label || r.status,
+      'Descrição': r.description || '',
+      'Observações': r.notes || '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reservas');
+    XLSX.writeFile(wb, `reservas_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
   const renderReservationCard = (reservation: RoomReservation) => {
     const isExpanded = expandedId === reservation.id;
     const status = statusConfig[reservation.status] || { label: reservation.status, variant: 'outline' as const };
