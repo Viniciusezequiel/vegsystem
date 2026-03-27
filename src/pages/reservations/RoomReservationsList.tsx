@@ -362,6 +362,9 @@ export default function RoomReservationsList() {
           onOpenChange={open => { if (!open) setRescheduleReservation(null); }}
         />
       )}
+
+      {/* Import Dialog */}
+      <ImportReservationsDialog open={importOpen} onOpenChange={setImportOpen} />
     </MainLayout>
   );
 }
