@@ -16,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Calendar, Clock, MapPin, Plus, Search, Users, Check, X, Trash2,
-  ChevronDown, ChevronUp, ArrowRightLeft, FileText, Download, ExternalLink,
+  ChevronDown, ChevronUp, ArrowRightLeft, FileText, Download, ExternalLink, Upload,
 } from 'lucide-react';
 import {
   useRoomReservations, useReservationRooms, useUpdateReservationStatus,
@@ -27,6 +27,7 @@ import { format, parseISO, isToday, isTomorrow, isPast, startOfWeek, endOfWeek, 
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { RescheduleDialog } from '@/components/reservations/RescheduleDialog';
+import { ImportReservationsDialog } from '@/pages/reservations/ImportReservationsDialog';
 import * as XLSX from 'xlsx';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
