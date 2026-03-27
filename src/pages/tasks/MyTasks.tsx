@@ -199,10 +199,11 @@ export default function MyTasks() {
     });
   };
 
-  const getDueDateInfo = (dueDate: string | null) => {
+  const getDueDateInfo = (dueDate: string | null, status?: string) => {
     if (!dueDate) return null;
     const days = differenceInDays(parseISO(dueDate), new Date());
-    if (days < 0) return { text: 'Atrasada', color: 'text-red-600 dark:text-red-400' };
+    if (days < 0 && status !== 'completed' && status !== 'cancelled') return { text: 'Atrasada', color: 'text-red-600 dark:text-red-400' };
+    if (days < 0 && (status === 'completed' || status === 'cancelled')) return { text: format(parseISO(dueDate), 'dd/MM/yyyy', { locale: ptBR }), color: 'text-muted-foreground' };
     if (days === 0) return { text: 'Vence hoje', color: 'text-orange-600 dark:text-orange-400' };
     if (days <= 2) return { text: `Vence em ${days} dia(s)`, color: 'text-yellow-600 dark:text-yellow-400' };
     return { text: format(parseISO(dueDate), 'dd/MM/yyyy', { locale: ptBR }), color: 'text-muted-foreground' };
@@ -319,7 +320,7 @@ export default function MyTasks() {
                 </TableHeader>
                 <TableBody>
                   {filteredTasks.map((task) => {
-                    const dueDateInfo = getDueDateInfo(task.due_date);
+                    const dueDateInfo = getDueDateInfo(task.due_date, task.status);
                     return (
                       <TableRow key={task.id}>
                         <TableCell>

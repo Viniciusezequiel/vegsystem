@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -28,12 +26,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, ClipboardCheck, Eye, Check, X, Plus, Search, User, Calendar, Building2, Clock, MessageSquare } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { ArrowLeft, ClipboardCheck, Eye, Check, X, Plus, Search, User, Calendar, Building2, Clock, MessageSquare, Download, Trash2 } from 'lucide-react';
 import { useRoomChecklists, useChecklistWithAnswers, useRoomsList, RoomChecklist } from '@/hooks/useRooms';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import * as XLSX from 'xlsx';
 
 // Custom hook to get profile name for checklist
 function useProfileName(userId: string) {
@@ -55,6 +60,8 @@ function useProfileName(userId: string) {
 }
 
 export default function ChecklistHistory() {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>('all');
   const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,6 +75,38 @@ export default function ChecklistHistory() {
   );
   const { data: checklistDetail, isLoading: loadingDetail } = useChecklistWithAnswers(selectedChecklist || '');
   const { data: profileName } = useProfileName(checklistDetail?.filled_by || '');
+
+  const handleExport = () => {
+    if (!filteredChecklists.length) return;
+    const rows = filteredChecklists.map(c => ({
+      'Sala': c.room?.name || 'N/A',
+      'Campus': c.room?.campus || '',
+      'Prédio': c.room?.building || '',
+      'Turno': c.shift,
+      'Data/Hora': format(parseISO(c.filled_at), 'dd/MM/yyyy HH:mm'),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Checklists');
+    XLSX.writeFile(wb, `checklists_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    toast.success('Exportação realizada!');
+  };
+
+  const handleCleanup = async () => {
+    if (!filteredChecklists.length) return;
+    const ids = filteredChecklists.map(c => c.id);
+    // Delete answers first, then checklists
+    for (const id of ids) {
+      await supabase.from('checklist_answers').delete().eq('checklist_id', id);
+    }
+    const { error } = await supabase.from('room_checklists').delete().in('id', ids);
+    if (error) {
+      toast.error('Erro ao limpar checklists: ' + error.message);
+    } else {
+      toast.success(`${ids.length} checklist(s) removido(s).`);
+      queryClient.invalidateQueries({ queryKey: ['room-checklists'] });
+    }
+  };
 
   const formatDate = (date: string) => {
     return format(parseISO(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
@@ -150,12 +189,40 @@ export default function ChecklistHistory() {
               <p className="text-muted-foreground">Visualize os checklists preenchidos</p>
             </div>
           </div>
-          <Button asChild>
-            <Link to="/rooms/checklist/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Checklist
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExport} disabled={!filteredChecklists.length}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar Período
+            </Button>
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={!filteredChecklists.length || (!startDate && !endDate)}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Limpar Período
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Limpar checklists do período?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Serão excluídos {filteredChecklists.length} checklist(s) do período selecionado. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCleanup}>Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button asChild>
+              <Link to="/rooms/checklist/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Checklist
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <Card>

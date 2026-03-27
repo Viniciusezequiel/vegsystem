@@ -16,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Calendar, Clock, MapPin, Plus, Search, Users, Check, X, Trash2,
-  ChevronDown, ChevronUp, ArrowRightLeft, FileText, Download, ExternalLink,
+  ChevronDown, ChevronUp, ArrowRightLeft, FileText, Download, ExternalLink, Upload,
 } from 'lucide-react';
 import {
   useRoomReservations, useReservationRooms, useUpdateReservationStatus,
@@ -27,6 +27,7 @@ import { format, parseISO, isToday, isTomorrow, isPast, startOfWeek, endOfWeek, 
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { RescheduleDialog } from '@/components/reservations/RescheduleDialog';
+import { ImportReservationsDialog } from '@/pages/reservations/ImportReservationsDialog';
 import * as XLSX from 'xlsx';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -49,6 +50,7 @@ export default function RoomReservationsList() {
   const [endDate, setEndDate] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rescheduleReservation, setRescheduleReservation] = useState<RoomReservation | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: rooms } = useReservationRooms();
   const { data: reservations, isLoading } = useRoomReservations({
@@ -296,6 +298,11 @@ export default function RoomReservationsList() {
           <Button variant="outline" size="sm" onClick={() => window.open('/painel-reservas', '_blank')}>
             <ExternalLink className="h-3 w-3 mr-1" /> Abrir Painel
           </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3 w-3 mr-1" /> Importar Mapa
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
@@ -355,6 +362,9 @@ export default function RoomReservationsList() {
           onOpenChange={open => { if (!open) setRescheduleReservation(null); }}
         />
       )}
+
+      {/* Import Dialog */}
+      <ImportReservationsDialog open={importOpen} onOpenChange={setImportOpen} />
     </MainLayout>
   );
 }
