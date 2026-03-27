@@ -320,7 +320,7 @@ export default function MyTasks() {
                 </TableHeader>
                 <TableBody>
                   {filteredTasks.map((task) => {
-                    const dueDateInfo = getDueDateInfo(task.due_date);
+                    const dueDateInfo = getDueDateInfo(task.due_date, task.status);
                     return (
                       <TableRow key={task.id}>
                         <TableCell>
