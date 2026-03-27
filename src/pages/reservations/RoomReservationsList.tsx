@@ -298,6 +298,11 @@ export default function RoomReservationsList() {
           <Button variant="outline" size="sm" onClick={() => window.open('/painel-reservas', '_blank')}>
             <ExternalLink className="h-3 w-3 mr-1" /> Abrir Painel
           </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3 w-3 mr-1" /> Importar Mapa
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
