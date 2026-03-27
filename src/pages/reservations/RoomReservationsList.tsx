@@ -50,6 +50,7 @@ export default function RoomReservationsList() {
   const [endDate, setEndDate] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rescheduleReservation, setRescheduleReservation] = useState<RoomReservation | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: rooms } = useReservationRooms();
   const { data: reservations, isLoading } = useRoomReservations({
