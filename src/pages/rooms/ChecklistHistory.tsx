@@ -60,6 +60,8 @@ function useProfileName(userId: string) {
 }
 
 export default function ChecklistHistory() {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>('all');
   const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,6 +75,38 @@ export default function ChecklistHistory() {
   );
   const { data: checklistDetail, isLoading: loadingDetail } = useChecklistWithAnswers(selectedChecklist || '');
   const { data: profileName } = useProfileName(checklistDetail?.filled_by || '');
+
+  const handleExport = () => {
+    if (!filteredChecklists.length) return;
+    const rows = filteredChecklists.map(c => ({
+      'Sala': c.room?.name || 'N/A',
+      'Campus': c.room?.campus || '',
+      'Prédio': c.room?.building || '',
+      'Turno': c.shift,
+      'Data/Hora': format(parseISO(c.filled_at), 'dd/MM/yyyy HH:mm'),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Checklists');
+    XLSX.writeFile(wb, `checklists_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    toast.success('Exportação realizada!');
+  };
+
+  const handleCleanup = async () => {
+    if (!filteredChecklists.length) return;
+    const ids = filteredChecklists.map(c => c.id);
+    // Delete answers first, then checklists
+    for (const id of ids) {
+      await supabase.from('checklist_answers').delete().eq('checklist_id', id);
+    }
+    const { error } = await supabase.from('room_checklists').delete().in('id', ids);
+    if (error) {
+      toast.error('Erro ao limpar checklists: ' + error.message);
+    } else {
+      toast.success(`${ids.length} checklist(s) removido(s).`);
+      queryClient.invalidateQueries({ queryKey: ['room-checklists'] });
+    }
+  };
 
   const formatDate = (date: string) => {
     return format(parseISO(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
