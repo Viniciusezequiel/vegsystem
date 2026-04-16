@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2, Building2 } from 'lucide-react';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
@@ -403,16 +404,15 @@ export default function ClassroomCallsList() {
                           <TableRow key={call.id} className={call.status === 'pending' ? 'bg-destructive/5' : ''}>
                             <TableCell className="font-medium">{call.room_name}</TableCell>
                             <TableCell className="max-w-xs">
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger className="truncate block max-w-[200px] text-left">
-                                    {call.reason}
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-sm">
-                                    <p>{call.reason}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              <Popover>
+                                <PopoverTrigger className="truncate block max-w-[200px] text-left hover:underline cursor-pointer">
+                                  {call.reason}
+                                </PopoverTrigger>
+                                <PopoverContent className="max-w-sm w-auto">
+                                  <p className="font-semibold mb-1 text-sm">Motivo:</p>
+                                  <p className="text-sm whitespace-pre-wrap break-words">{call.reason}</p>
+                                </PopoverContent>
+                              </Popover>
                             </TableCell>
                             <TableCell>
                               <Badge variant={status.variant} className="gap-1">
@@ -424,22 +424,20 @@ export default function ClassroomCallsList() {
                               <div className="flex flex-col gap-1">
                                 {getValidationBadge(call)}
                                 {(call.validation_reason || call.treatment) && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger>
-                                        <Badge variant="outline" className="gap-1 cursor-help">
-                                          <MessageSquare className="h-3 w-3" />
-                                          {call.treatment ? 'Tratativa' : 'Justificativa'}
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="max-w-sm">
-                                        <p className="font-semibold mb-1">
-                                          {call.treatment ? 'Tratativa:' : 'Justificativa:'}
-                                        </p>
-                                        <p>{call.treatment || call.validation_reason}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Badge variant="outline" className="gap-1 cursor-pointer">
+                                        <MessageSquare className="h-3 w-3" />
+                                        {call.treatment ? 'Tratativa' : 'Justificativa'}
+                                      </Badge>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="max-w-sm w-auto">
+                                      <p className="font-semibold mb-1 text-sm">
+                                        {call.treatment ? 'Tratativa:' : 'Justificativa:'}
+                                      </p>
+                                      <p className="text-sm whitespace-pre-wrap break-words">{call.treatment || call.validation_reason}</p>
+                                    </PopoverContent>
+                                  </Popover>
                                 )}
                               </div>
                             </TableCell>
