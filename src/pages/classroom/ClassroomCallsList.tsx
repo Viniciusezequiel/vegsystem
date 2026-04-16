@@ -413,6 +413,15 @@ export default function ClassroomCallsList() {
                                 </PopoverContent>
                               </Popover>
                             </TableCell>
+                            <TableCell>
+                              <Badge variant={status.variant} className="gap-1">
+                                <StatusIcon className="h-3 w-3" />
+                                {status.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-1">
+                                {getValidationBadge(call)}
                                 {(call.validation_reason || call.treatment) && (
                                   <Popover>
                                     <PopoverTrigger asChild>
