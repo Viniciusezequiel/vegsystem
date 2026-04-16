@@ -416,6 +416,9 @@ export function useCreateBatchLoans() {
       }
 
       // 2. Validate stock for all equipment at once
+      // Considera "disponibilidade projetada": pré-reservas futuras (que retiram DEPOIS
+      // da devolução prevista deste empréstimo) não devem bloquear o empréstimo,
+      // pois o item será devolvido a tempo.
       if (stockNeeded.size > 0) {
         const equipIds = Array.from(stockNeeded.keys());
         const { data: equipList, error: equipError } = await supabase
@@ -425,10 +428,28 @@ export function useCreateBatchLoans() {
         
         if (equipError) throw equipError;
 
+        // Buscar pré-reservas ativas que retiram DEPOIS da devolução do empréstimo atual
+        // (essas reservas já debitaram estoque, mas o item estará devolvido antes da retirada delas)
+        const { data: futureReservations } = await supabase
+          .from('equipment_reservations')
+          .select('equipment_id, quantity_reserved, scheduled_pickup_date')
+          .in('equipment_id', equipIds)
+          .in('status', ['awaiting_pickup', 'confirmed'])
+          .gt('scheduled_pickup_date', common.expected_return_date);
+
+        const projectedExtra = new Map<string, number>();
+        for (const res of futureReservations || []) {
+          projectedExtra.set(
+            res.equipment_id,
+            (projectedExtra.get(res.equipment_id) || 0) + (res.quantity_reserved || 0)
+          );
+        }
+
         for (const equip of equipList || []) {
           const needed = stockNeeded.get(equip.id) || 0;
-          if (equip.available_quantity < needed) {
-            throw new Error(`Quantidade indisponível para "${equip.name}": disponível ${equip.available_quantity}, solicitado ${needed}`);
+          const projectedAvailable = equip.available_quantity + (projectedExtra.get(equip.id) || 0);
+          if (projectedAvailable < needed) {
+            throw new Error(`Quantidade indisponível para "${equip.name}": disponível ${projectedAvailable}, solicitado ${needed}`);
           }
         }
       }
