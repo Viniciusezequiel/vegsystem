@@ -23,6 +23,7 @@ import {
   Bell,
   Shield,
   FileText,
+  Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
@@ -164,6 +165,16 @@ const moduleGroups: NavGroup[] = [
     items: [
       { name: 'Chamados', href: '/classroom-calls', icon: Bell },
       { name: 'Configurações', href: '/classroom-calls/settings', icon: Settings, adminOnly: true },
+    ],
+  },
+  {
+    name: 'Etiquetas',
+    icon: Tag,
+    basePath: '/labels',
+    gradient: 'from-fuchsia-500 to-purple-500',
+    items: [
+      { name: 'Modelos', href: '/labels', icon: Tag },
+      { name: 'Novo Modelo', href: '/labels/new', icon: PackagePlus },
     ],
   },
 ];
