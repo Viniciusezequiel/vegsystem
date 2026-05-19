@@ -65,6 +65,11 @@ import NewReservationForm from "./pages/reservations/NewReservationForm";
 import ReservationRoomsManagement from "./pages/reservations/ReservationRoomsManagement";
 import PublicReservationBoard from "./pages/reservations/PublicReservationBoard";
 
+// Labels Module
+import LabelTemplatesList from "./pages/labels/LabelTemplatesList";
+import LabelTemplateEditor from "./pages/labels/LabelTemplateEditor";
+import LabelGenerate from "./pages/labels/LabelGenerate";
+
 // PWA
 import Install from "./pages/Install";
 
@@ -274,6 +279,29 @@ const App = () => (
                   <ReservationRoomsManagement />
                 </ProtectedRoute>
               } />
+
+              {/* Labels Module */}
+              <Route path="/labels" element={
+                <ProtectedRoute>
+                  <LabelTemplatesList />
+                </ProtectedRoute>
+              } />
+              <Route path="/labels/new" element={
+                <ProtectedRoute>
+                  <LabelTemplateEditor />
+                </ProtectedRoute>
+              } />
+              <Route path="/labels/edit/:id" element={
+                <ProtectedRoute>
+                  <LabelTemplateEditor />
+                </ProtectedRoute>
+              } />
+              <Route path="/labels/generate/:id" element={
+                <ProtectedRoute>
+                  <LabelGenerate />
+                </ProtectedRoute>
+              } />
+
 
               {/* Legacy routes */}
               <Route path="/register" element={
