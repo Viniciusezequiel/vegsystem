@@ -181,6 +181,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       event_start_datetime: eventStartISO || null,
       event_end_datetime: eventEndISO || null,
       recurrence_type: formData.is_recurring && formData.recurrence_type ? formData.recurrence_type : null,
+      recurrence_days: formData.is_recurring && formData.recurrence_type === 'weekly' && formData.recurrence_days.length > 0 ? formData.recurrence_days : null,
     };
 
     let taskId: string;
