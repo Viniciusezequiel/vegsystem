@@ -122,6 +122,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         event_end_time: '',
         is_recurring: false,
         recurrence_type: '',
+        recurrence_days: [],
       });
       setAdditionalAssignees([]);
     }
