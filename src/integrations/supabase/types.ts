@@ -1752,6 +1752,8 @@ export type Database = {
           id: string
           notes: string | null
           priority: string
+          recurrence_days: string[] | null
+          recurrence_last_run_date: string | null
           recurrence_type: string | null
           started_at: string | null
           status: string
@@ -1777,6 +1779,8 @@ export type Database = {
           id?: string
           notes?: string | null
           priority?: string
+          recurrence_days?: string[] | null
+          recurrence_last_run_date?: string | null
           recurrence_type?: string | null
           started_at?: string | null
           status?: string
@@ -1802,6 +1806,8 @@ export type Database = {
           id?: string
           notes?: string | null
           priority?: string
+          recurrence_days?: string[] | null
+          recurrence_last_run_date?: string | null
           recurrence_type?: string | null
           started_at?: string | null
           status?: string
