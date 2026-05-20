@@ -103,6 +103,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         event_end_time: eventEnd ? eventEnd.toTimeString().slice(0, 5) : '',
         is_recurring: !!recurrence,
         recurrence_type: recurrence,
+        recurrence_days: ((taskAny.recurrence_days as string[]) || []),
       });
     } else if (!task && open) {
       setFormData({
