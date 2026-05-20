@@ -248,7 +248,7 @@ export default function TasksList() {
                           <span className="text-muted-foreground">Não atribuído</span>
                         )}
                       </TableCell>
-                      <TableCell className={getDueDateColor(task.due_date)}>
+                      <TableCell className={getDueDateColor(task.due_date, task.status)}>
                         {task.due_date ? (
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
