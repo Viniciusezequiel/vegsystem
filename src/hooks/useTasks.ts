@@ -22,6 +22,7 @@ export interface CreateTaskData {
   event_start_datetime?: string | null;
   event_end_datetime?: string | null;
   recurrence_type?: string | null;
+  recurrence_days?: string[] | null;
 }
 
 export interface UpdateTaskData extends Partial<CreateTaskData> {
