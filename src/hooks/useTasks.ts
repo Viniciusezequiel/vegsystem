@@ -184,6 +184,7 @@ export function useCreateTask() {
           event_start_datetime: data.event_start_datetime || null,
           event_end_datetime: data.event_end_datetime || null,
           recurrence_type: data.recurrence_type || null,
+          recurrence_days: data.recurrence_days && data.recurrence_days.length > 0 ? data.recurrence_days : null,
           created_by_name: 'Sistema',
         })
         .select()
