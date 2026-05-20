@@ -54,6 +54,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
     event_end_time: '',
     is_recurring: false,
     recurrence_type: '',
+    recurrence_days: [] as string[],
   });
   const [additionalAssignees, setAdditionalAssignees] = useState<{ userId: string; name: string }[]>([]);
   const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
@@ -102,6 +103,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         event_end_time: eventEnd ? eventEnd.toTimeString().slice(0, 5) : '',
         is_recurring: !!recurrence,
         recurrence_type: recurrence,
+        recurrence_days: ((taskAny.recurrence_days as string[]) || []),
       });
     } else if (!task && open) {
       setFormData({
@@ -120,6 +122,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
         event_end_time: '',
         is_recurring: false,
         recurrence_type: '',
+        recurrence_days: [],
       });
       setAdditionalAssignees([]);
     }
@@ -178,6 +181,7 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
       event_start_datetime: eventStartISO || null,
       event_end_datetime: eventEndISO || null,
       recurrence_type: formData.is_recurring && formData.recurrence_type ? formData.recurrence_type : null,
+      recurrence_days: formData.is_recurring && formData.recurrence_type === 'weekly' && formData.recurrence_days.length > 0 ? formData.recurrence_days : null,
     };
 
     let taskId: string;
@@ -469,24 +473,71 @@ export default function TaskFormDialog({ open, onOpenChange, task }: TaskFormDia
               />
             </div>
             {formData.is_recurring && (
-              <div className="space-y-2">
-                <Label>Frequência *</Label>
-                <Select
-                  value={formData.recurrence_type || 'weekly'}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, recurrence_type: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a frequência" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">Semanal</SelectItem>
-                    <SelectItem value="monthly">Mensal</SelectItem>
-                    <SelectItem value="semiannual">Semestral</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  A demanda será recriada automaticamente na frequência selecionada.
-                </p>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Frequência *</Label>
+                  <Select
+                    value={formData.recurrence_type || 'weekly'}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, recurrence_type: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a frequência" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Diária (todos os dias)</SelectItem>
+                      <SelectItem value="weekly">Semanal (dias específicos)</SelectItem>
+                      <SelectItem value="monthly">Mensal</SelectItem>
+                      <SelectItem value="semiannual">Semestral</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.recurrence_type === 'weekly' && (
+                  <div className="space-y-2">
+                    <Label>Dias da semana *</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { v: '0', l: 'Dom' },
+                        { v: '1', l: 'Seg' },
+                        { v: '2', l: 'Ter' },
+                        { v: '3', l: 'Qua' },
+                        { v: '4', l: 'Qui' },
+                        { v: '5', l: 'Sex' },
+                        { v: '6', l: 'Sáb' },
+                      ].map(d => {
+                        const active = formData.recurrence_days.includes(d.v);
+                        return (
+                          <button
+                            type="button"
+                            key={d.v}
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              recurrence_days: active
+                                ? prev.recurrence_days.filter(x => x !== d.v)
+                                : [...prev.recurrence_days, d.v]
+                            }))}
+                            className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                              active
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background hover:bg-muted border-border'
+                            }`}
+                          >
+                            {d.l}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Selecione um ou mais dias. A demanda será recriada automaticamente nesses dias.
+                    </p>
+                  </div>
+                )}
+
+                {formData.recurrence_type !== 'weekly' && (
+                  <p className="text-xs text-muted-foreground">
+                    A demanda será recriada automaticamente na frequência selecionada.
+                  </p>
+                )}
               </div>
             )}
           </div>

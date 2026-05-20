@@ -15,164 +15,141 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const now = new Date();
-    const today = now.toISOString().split("T")[0]; // YYYY-MM-DD
-    const currentDayOfWeek = now.getDay(); // 0=Sunday ... 6=Saturday
+    // Use America/Sao_Paulo for day-of-week calculation
+    const tzNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const today = tzNow.toISOString().split("T")[0];
+    const currentDayOfWeek = tzNow.getDay(); // 0=Sun ... 6=Sat
+    const currentDayStr = String(currentDayOfWeek);
 
-    // Fetch all completed recurring tasks
-    const { data: completedRecurring, error: fetchError } = await supabase
+    // Fetch ALL recurring task templates (any status). We use recurrence_last_run_date for dedupe.
+    const { data: recurringTasks, error: fetchError } = await supabase
       .from("tasks")
       .select("*")
-      .eq("status", "completed")
       .not("recurrence_type", "is", null);
 
-    if (fetchError) {
-      throw fetchError;
-    }
+    if (fetchError) throw fetchError;
 
-    if (!completedRecurring || completedRecurring.length === 0) {
+    if (!recurringTasks || recurringTasks.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No recurring tasks to process", created: 0 }),
+        JSON.stringify({ message: "No recurring tasks", created: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     let createdCount = 0;
 
-    for (const task of completedRecurring) {
-      const completedAt = task.completed_at ? new Date(task.completed_at) : new Date(task.updated_at);
-      const recurrenceType = task.recurrence_type;
+    for (const task of recurringTasks) {
+      const recurrenceType = task.recurrence_type as string;
+      const recurrenceDays: string[] | null = task.recurrence_days || null;
+      const lastRun: string | null = task.recurrence_last_run_date || null;
+
+      // Already generated today → skip
+      if (lastRun === today) continue;
 
       let shouldCreate = false;
-      let newDueDate: string | null = null;
-      let newEventStart: string | null = null;
-      let newEventEnd: string | null = null;
 
-      if (recurrenceType === "weekly") {
-        // Create on same day of week as original was created
-        const originalCreatedDay = new Date(task.created_at).getDay();
-        if (currentDayOfWeek === originalCreatedDay) {
-          // Check if we already created one this week
-          const weekStart = new Date(now);
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-          weekStart.setHours(0, 0, 0, 0);
-
-          const { count } = await supabase
-            .from("tasks")
-            .select("*", { count: "exact", head: true })
-            .eq("title", task.title)
-            .eq("recurrence_type", "weekly")
-            .eq("status", "pending")
-            .gte("created_at", weekStart.toISOString());
-
-          if (!count || count === 0) {
-            shouldCreate = true;
-            // Set due date to 7 days from now if original had a due date
-            if (task.due_date) {
-              const due = new Date(today);
-              due.setDate(due.getDate() + 7);
-              newDueDate = due.toISOString().split("T")[0];
+      if (recurrenceType === "daily") {
+        shouldCreate = true;
+      } else if (recurrenceType === "weekly") {
+        if (recurrenceDays && recurrenceDays.length > 0) {
+          // New mode: explicit weekdays
+          shouldCreate = recurrenceDays.includes(currentDayStr);
+        } else {
+          // Legacy: same weekday as original creation, once per week
+          const originalDay = new Date(task.created_at).getDay();
+          if (currentDayOfWeek === originalDay) {
+            // Avoid duplicate in same week
+            if (!lastRun) {
+              shouldCreate = true;
+            } else {
+              const daysSince = Math.floor(
+                (tzNow.getTime() - new Date(lastRun + "T00:00:00").getTime()) / 86400000
+              );
+              shouldCreate = daysSince >= 7;
             }
           }
         }
       } else if (recurrenceType === "monthly") {
-        const originalCreatedDate = new Date(task.created_at).getDate();
-        if (now.getDate() === originalCreatedDate) {
-          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-          const { count } = await supabase
-            .from("tasks")
-            .select("*", { count: "exact", head: true })
-            .eq("title", task.title)
-            .eq("recurrence_type", "monthly")
-            .eq("status", "pending")
-            .gte("created_at", monthStart.toISOString());
-
-          if (!count || count === 0) {
+        const originalDate = new Date(task.created_at).getDate();
+        if (tzNow.getDate() === originalDate) {
+          if (!lastRun || lastRun.slice(0, 7) !== today.slice(0, 7)) {
             shouldCreate = true;
-            if (task.due_date) {
-              const due = new Date(today);
-              due.setMonth(due.getMonth() + 1);
-              newDueDate = due.toISOString().split("T")[0];
-            }
           }
         }
       } else if (recurrenceType === "semiannual") {
-        const originalCreated = new Date(task.created_at);
-        const monthsSinceCreated = (now.getFullYear() - originalCreated.getFullYear()) * 12 + (now.getMonth() - originalCreated.getMonth());
-        
-        if (monthsSinceCreated > 0 && monthsSinceCreated % 6 === 0 && now.getDate() === originalCreated.getDate()) {
-          const semesterStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-          const { count } = await supabase
-            .from("tasks")
-            .select("*", { count: "exact", head: true })
-            .eq("title", task.title)
-            .eq("recurrence_type", "semiannual")
-            .eq("status", "pending")
-            .gte("created_at", semesterStart.toISOString());
-
-          if (!count || count === 0) {
-            shouldCreate = true;
-            if (task.due_date) {
-              const due = new Date(today);
-              due.setMonth(due.getMonth() + 6);
-              newDueDate = due.toISOString().split("T")[0];
-            }
-          }
+        const orig = new Date(task.created_at);
+        const monthsSince = (tzNow.getFullYear() - orig.getFullYear()) * 12 + (tzNow.getMonth() - orig.getMonth());
+        if (monthsSince > 0 && monthsSince % 6 === 0 && tzNow.getDate() === orig.getDate()) {
+          if (lastRun !== today) shouldCreate = true;
         }
       }
 
-      if (shouldCreate) {
-        // Shift event datetimes if they exist
-        if (task.event_start_datetime && task.event_end_datetime) {
-          const origStart = new Date(task.event_start_datetime);
-          const origEnd = new Date(task.event_end_datetime);
-          const diff = recurrenceType === "weekly" ? 7 : recurrenceType === "monthly" ? 30 : 180;
-          
-          const newStart = new Date(origStart);
-          newStart.setDate(newStart.getDate() + diff);
-          const newEnd = new Date(origEnd);
-          newEnd.setDate(newEnd.getDate() + diff);
-          
-          newEventStart = newStart.toISOString();
-          newEventEnd = newEnd.toISOString();
-        }
+      if (!shouldCreate) continue;
 
-        const { error: insertError } = await supabase.from("tasks").insert({
-          title: task.title,
-          description: task.description,
-          priority: task.priority,
-          category: task.category,
-          due_date: newDueDate || task.due_date,
-          assigned_to: task.assigned_to,
-          assigned_to_name: task.assigned_to_name,
-          estimated_hours: task.estimated_hours,
-          tags: task.tags,
-          notes: task.notes,
-          recurrence_type: task.recurrence_type,
-          event_start_datetime: newEventStart,
-          event_end_datetime: newEventEnd,
-          created_by_name: task.created_by_name || "Sistema (Recorrência)",
-          status: "pending",
-        });
+      // Skip if an identical pending/in_progress task for today already exists
+      const { count: dupCount } = await supabase
+        .from("tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("title", task.title)
+        .eq("recurrence_type", recurrenceType)
+        .in("status", ["pending", "in_progress"])
+        .gte("created_at", `${today}T00:00:00`)
+        .lte("created_at", `${today}T23:59:59`);
 
-        if (!insertError) {
-          createdCount++;
-        } else {
-          console.error("Error creating recurring task:", insertError);
-        }
+      if (dupCount && dupCount > 0) {
+        await supabase.from("tasks").update({ recurrence_last_run_date: today }).eq("id", task.id);
+        continue;
       }
+
+      // Shift event datetimes to today if present
+      let newEventStart: string | null = null;
+      let newEventEnd: string | null = null;
+      if (task.event_start_datetime && task.event_end_datetime) {
+        const origStart = new Date(task.event_start_datetime);
+        const origEnd = new Date(task.event_end_datetime);
+        const duration = origEnd.getTime() - origStart.getTime();
+        const newStart = new Date(`${today}T${origStart.toISOString().slice(11, 19)}`);
+        newEventStart = newStart.toISOString();
+        newEventEnd = new Date(newStart.getTime() + duration).toISOString();
+      }
+
+      const newDueDate = task.due_date ? today : null;
+
+      const { error: insertError } = await supabase.from("tasks").insert({
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        category: task.category,
+        due_date: newDueDate,
+        assigned_to: task.assigned_to,
+        assigned_to_name: task.assigned_to_name,
+        estimated_hours: task.estimated_hours,
+        tags: task.tags,
+        notes: task.notes,
+        recurrence_type: null, // children are not themselves recurring templates
+        event_start_datetime: newEventStart,
+        event_end_datetime: newEventEnd,
+        created_by_name: task.created_by_name || "Sistema (Recorrência)",
+        status: "pending",
+      });
+
+      if (insertError) {
+        console.error("Error creating recurring task:", insertError);
+        continue;
+      }
+
+      await supabase.from("tasks").update({ recurrence_last_run_date: today }).eq("id", task.id);
+      createdCount++;
     }
 
     return new Response(
-      JSON.stringify({ message: `Processed recurring tasks`, created: createdCount }),
+      JSON.stringify({ message: "Processed", created: createdCount, today, currentDayOfWeek }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error processing recurring tasks:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
