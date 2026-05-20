@@ -99,8 +99,9 @@ export default function TasksList() {
     }
   };
 
-  const getDueDateColor = (dueDate: string | null) => {
+  const getDueDateColor = (dueDate: string | null, status?: string) => {
     if (!dueDate) return '';
+    if (status === 'completed' || status === 'cancelled') return '';
     const date = parseISO(dueDate);
     if (isPast(date) && !isToday(date)) return 'text-destructive font-medium';
     if (isToday(date)) return 'text-orange-600 font-medium';
@@ -247,7 +248,7 @@ export default function TasksList() {
                           <span className="text-muted-foreground">Não atribuído</span>
                         )}
                       </TableCell>
-                      <TableCell className={getDueDateColor(task.due_date)}>
+                      <TableCell className={getDueDateColor(task.due_date, task.status)}>
                         {task.due_date ? (
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
