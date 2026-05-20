@@ -99,8 +99,9 @@ export default function TasksList() {
     }
   };
 
-  const getDueDateColor = (dueDate: string | null) => {
+  const getDueDateColor = (dueDate: string | null, status?: string) => {
     if (!dueDate) return '';
+    if (status === 'completed' || status === 'cancelled') return '';
     const date = parseISO(dueDate);
     if (isPast(date) && !isToday(date)) return 'text-destructive font-medium';
     if (isToday(date)) return 'text-orange-600 font-medium';
