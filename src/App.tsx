@@ -312,10 +312,10 @@ const App = () => (
               } />
 
               {/* Portal do Cliente - external public routes */}
-              <Route path="/portal-cliente" element={<Navigate to="/portal-cliente/login" replace />} />
               <Route path="/portal-cliente/login" element={<PortalLogin />} />
               <Route path="/portal-cliente/cadastro" element={<PortalSignup />} />
               <Route path="/portal-cliente" element={<PortalLayout />}>
+                <Route index element={<Navigate to="/portal-cliente/dashboard" replace />} />
                 <Route path="dashboard" element={<PortalDashboard />} />
                 <Route path="nova-reserva" element={<PortalNewReservation />} />
                 <Route path="minhas-reservas" element={<PortalMyReservations />} />
