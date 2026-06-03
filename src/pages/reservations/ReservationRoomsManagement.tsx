@@ -4,6 +4,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -13,7 +14,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Plus, Pencil, MapPin, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, MapPin, Search, X, Package } from 'lucide-react';
 import { useReservationRooms, type ReservationRoom } from '@/hooks/useRoomReservations';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,14 +24,20 @@ import type { Database } from '@/integrations/supabase/types';
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
+type RoomWithExtras = ReservationRoom & {
+  observations?: string | null;
+  equipment?: string[] | null;
+};
+
 export default function ReservationRoomsManagement() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: rooms, isLoading } = useReservationRooms();
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<ReservationRoom | null>(null);
+  const [editing, setEditing] = useState<RoomWithExtras | null>(null);
   const [saving, setSaving] = useState(false);
+  const [equipInput, setEquipInput] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -41,14 +48,17 @@ export default function ReservationRoomsManagement() {
     location: '',
     auto_confirm: true,
     max_advance_days: '',
+    observations: '',
+    equipment: [] as string[],
   });
 
   const resetForm = () => {
-    setForm({ name: '', code: '', campus: '', capacity: 30, description: '', location: '', auto_confirm: true, max_advance_days: '' });
+    setForm({ name: '', code: '', campus: '', capacity: 30, description: '', location: '', auto_confirm: true, max_advance_days: '', observations: '', equipment: [] });
     setEditing(null);
+    setEquipInput('');
   };
 
-  const openEdit = (room: ReservationRoom) => {
+  const openEdit = (room: RoomWithExtras) => {
     setEditing(room);
     setForm({
       name: room.name,
@@ -59,8 +69,25 @@ export default function ReservationRoomsManagement() {
       location: room.location || '',
       auto_confirm: room.auto_confirm,
       max_advance_days: room.max_advance_days?.toString() || '',
+      observations: room.observations || '',
+      equipment: Array.isArray(room.equipment) ? room.equipment : [],
     });
     setDialogOpen(true);
+  };
+
+  const addEquipment = () => {
+    const v = equipInput.trim();
+    if (!v) return;
+    if (form.equipment.includes(v)) {
+      setEquipInput('');
+      return;
+    }
+    setForm(f => ({ ...f, equipment: [...f.equipment, v] }));
+    setEquipInput('');
+  };
+
+  const removeEquipment = (item: string) => {
+    setForm(f => ({ ...f, equipment: f.equipment.filter(e => e !== item) }));
   };
 
   const handleSave = async () => {
@@ -71,7 +98,7 @@ export default function ReservationRoomsManagement() {
 
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         name: form.name,
         code: form.code,
         campus: form.campus as CampusEnum,
@@ -80,19 +107,21 @@ export default function ReservationRoomsManagement() {
         location: form.location || null,
         auto_confirm: form.auto_confirm,
         max_advance_days: form.max_advance_days ? parseInt(form.max_advance_days) : null,
+        observations: form.observations || null,
+        equipment: form.equipment,
       };
 
       if (editing) {
         const { error } = await supabase
           .from('reservation_rooms')
-          .update(payload)
+          .update(payload as never)
           .eq('id', editing.id);
         if (error) throw error;
         toast.success('Sala atualizada!');
       } else {
         const { error } = await supabase
           .from('reservation_rooms')
-          .insert(payload);
+          .insert(payload as never);
         if (error) throw error;
         toast.success('Sala cadastrada!');
       }
@@ -100,8 +129,9 @@ export default function ReservationRoomsManagement() {
       queryClient.invalidateQueries({ queryKey: ['reservation-rooms'] });
       setDialogOpen(false);
       resetForm();
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao salvar sala');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao salvar sala';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -121,7 +151,7 @@ export default function ReservationRoomsManagement() {
     }
   };
 
-  const filtered = rooms?.filter(r => {
+  const filtered = (rooms as RoomWithExtras[] | undefined)?.filter(r => {
     if (!search) return true;
     const q = search.toLowerCase();
     return r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q) || r.campus.toLowerCase().includes(q);
@@ -175,6 +205,24 @@ export default function ReservationRoomsManagement() {
                     <div>Capacidade: {room.capacity}</div>
                     {room.auto_confirm && <Badge variant="outline" className="text-[10px]">Auto-confirma</Badge>}
                   </div>
+                  {Array.isArray(room.equipment) && room.equipment.length > 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                        <Package className="h-3 w-3" /> Equipamentos
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {room.equipment.slice(0, 4).map(eq => (
+                          <Badge key={eq} variant="secondary" className="text-[10px]">{eq}</Badge>
+                        ))}
+                        {room.equipment.length > 4 && (
+                          <Badge variant="outline" className="text-[10px]">+{room.equipment.length - 4}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {room.observations && (
+                    <p className="mt-2 text-xs text-muted-foreground italic line-clamp-2">{room.observations}</p>
+                  )}
                   <div className="flex justify-end gap-2 mt-3">
                     <Button variant="ghost" size="sm" onClick={() => toggleActive(room)}>
                       {room.is_active ? 'Desativar' : 'Ativar'}
@@ -189,9 +237,8 @@ export default function ReservationRoomsManagement() {
           </div>
         )}
 
-        {/* Dialog */}
         <Dialog open={dialogOpen} onOpenChange={v => { if (!v) resetForm(); setDialogOpen(v); }}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? 'Editar Sala' : 'Nova Sala'}</DialogTitle>
             </DialogHeader>
@@ -225,6 +272,43 @@ export default function ReservationRoomsManagement() {
                 <Label>Descrição</Label>
                 <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
               </div>
+
+              <div>
+                <Label>Equipamentos disponíveis na sala</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={equipInput}
+                    onChange={e => setEquipInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addEquipment(); } }}
+                    placeholder="Ex: Projetor, Lousa branca, Ar-condicionado"
+                  />
+                  <Button type="button" variant="outline" onClick={addEquipment}>Adicionar</Button>
+                </div>
+                {form.equipment.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {form.equipment.map(eq => (
+                      <Badge key={eq} variant="secondary" className="gap-1">
+                        {eq}
+                        <button type="button" onClick={() => removeEquipment(eq)} className="hover:text-destructive">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Pressione Enter para adicionar cada equipamento</p>
+              </div>
+
+              <div>
+                <Label>Observações sobre o espaço</Label>
+                <Textarea
+                  value={form.observations}
+                  onChange={e => setForm(f => ({ ...f, observations: e.target.value }))}
+                  placeholder="Ex: Acesso por escada, possui janela ampla, sem tomadas no canto direito..."
+                  rows={3}
+                />
+              </div>
+
               <div>
                 <Label>Antecedência máxima (dias)</Label>
                 <Input type="number" value={form.max_advance_days} onChange={e => setForm(f => ({ ...f, max_advance_days: e.target.value }))} placeholder="Sem limite" />
