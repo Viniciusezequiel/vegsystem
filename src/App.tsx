@@ -70,6 +70,15 @@ import LabelTemplatesList from "./pages/labels/LabelTemplatesList";
 import LabelTemplateEditor from "./pages/labels/LabelTemplateEditor";
 import LabelGenerate from "./pages/labels/LabelGenerate";
 
+// Portal do Cliente (external)
+import PortalLayout from "./pages/portal-cliente/PortalLayout";
+import PortalLogin from "./pages/portal-cliente/PortalLogin";
+import PortalSignup from "./pages/portal-cliente/PortalSignup";
+import PortalDashboard from "./pages/portal-cliente/PortalDashboard";
+import PortalNewReservation from "./pages/portal-cliente/PortalNewReservation";
+import PortalMyReservations from "./pages/portal-cliente/PortalMyReservations";
+import ExternalUsersApproval from "./pages/ExternalUsersApproval";
+
 // PWA
 import Install from "./pages/Install";
 
