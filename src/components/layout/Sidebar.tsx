@@ -183,6 +183,7 @@ const bottomNav: NavItem[] = [
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
   { name: 'Histórico de Atividades', href: '/activity-history', icon: History, module: 'activityHistory' },
   { name: 'Usuários', href: '/users', icon: Users, adminOnly: true, module: 'users' },
+  { name: 'Aprovação de Clientes', href: '/external-users-approval', icon: Users, adminOnly: true },
   { name: 'Permissões', href: '/permissions', icon: Shield, adminOnly: true },
   { name: 'Configurações', href: '/settings', icon: Settings, module: 'settings' },
 ];

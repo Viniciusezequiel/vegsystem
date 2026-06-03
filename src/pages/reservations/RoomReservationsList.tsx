@@ -3,20 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Calendar, Clock, MapPin, Plus, Search, Users, Check, X, Trash2,
+  Calendar, Clock, MapPin, Plus, Users, Check, X, Trash2,
   ChevronDown, ChevronUp, ArrowRightLeft, FileText, Download, ExternalLink, Upload,
+  LayoutGrid, CalendarDays,
 } from 'lucide-react';
 import {
   useRoomReservations, useReservationRooms, useUpdateReservationStatus,
@@ -25,9 +22,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO, isToday, isTomorrow, isPast, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import { RescheduleDialog } from '@/components/reservations/RescheduleDialog';
 import { ImportReservationsDialog } from '@/pages/reservations/ImportReservationsDialog';
+import { ReservationFiltersBar, type FiltersState } from '@/components/reservations/FiltersBar';
+import { ReservationsCalendar } from '@/components/reservations/ReservationsCalendar';
 import * as XLSX from 'xlsx';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -37,44 +35,34 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   completed: { label: 'Concluída', variant: 'outline' },
 };
 
-const campusOptions = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
+const DEFAULT_FILTERS: FiltersState = {
+  search: '', startDate: '', endDate: '', status: 'all', campus: 'all', roomId: 'all',
+};
 
 export default function RoomReservationsList() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [campusFilter, setCampusFilter] = useState('all');
-  const [roomFilter, setRoomFilter] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rescheduleReservation, setRescheduleReservation] = useState<RoomReservation | null>(null);
   const [importOpen, setImportOpen] = useState(false);
 
   const { data: rooms } = useReservationRooms();
   const { data: reservations, isLoading } = useRoomReservations({
-    status: statusFilter,
-    campus: campusFilter !== 'all' ? campusFilter : undefined,
-    roomId: roomFilter !== 'all' ? roomFilter : undefined,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
-    search: search || undefined,
+    status: filters.status,
+    campus: filters.campus !== 'all' ? filters.campus : undefined,
+    roomId: filters.roomId !== 'all' ? filters.roomId : undefined,
+    startDate: filters.startDate || undefined,
+    endDate: filters.endDate || undefined,
+    search: filters.search || undefined,
   });
 
   const updateStatus = useUpdateReservationStatus();
   const deleteReservation = useDeleteReservation();
 
-  const filteredRooms = useMemo(() => {
-    if (!rooms) return [];
-    if (campusFilter !== 'all') return rooms.filter(r => r.campus === campusFilter);
-    return rooms;
-  }, [rooms, campusFilter]);
-
-  const formatDateTime = (dt: string) => {
-    const d = parseISO(dt);
-    return format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-  };
+  const formatDateTime = (dt: string) =>
+    format(parseISO(dt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
 
   const getDateLabel = (dt: string) => {
     const d = parseISO(dt);
@@ -93,25 +81,26 @@ export default function RoomReservationsList() {
     };
   }, [reservations]);
 
-  // Quick report filters
   const applyReportFilter = (type: 'today' | 'week' | 'month') => {
     const now = new Date();
     if (type === 'today') {
       const todayStr = format(now, 'yyyy-MM-dd');
-      setStartDate(todayStr);
-      setEndDate(todayStr);
+      setFilters(f => ({ ...f, startDate: todayStr, endDate: todayStr, status: 'all' }));
     } else if (type === 'week') {
-      const ws = startOfWeek(now, { weekStartsOn: 1 });
-      const we = endOfWeek(now, { weekStartsOn: 1 });
-      setStartDate(format(ws, 'yyyy-MM-dd'));
-      setEndDate(format(we, 'yyyy-MM-dd'));
-    } else if (type === 'month') {
-      const ms = startOfMonth(now);
-      const me = endOfMonth(now);
-      setStartDate(format(ms, 'yyyy-MM-dd'));
-      setEndDate(format(me, 'yyyy-MM-dd'));
+      setFilters(f => ({
+        ...f,
+        startDate: format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        endDate: format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        status: 'all',
+      }));
+    } else {
+      setFilters(f => ({
+        ...f,
+        startDate: format(startOfMonth(now), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(now), 'yyyy-MM-dd'),
+        status: 'all',
+      }));
     }
-    setStatusFilter('all');
   };
 
   const handleExport = () => {
@@ -156,6 +145,7 @@ export default function RoomReservationsList() {
                 {dateLabel && <Badge variant="outline" className="text-[10px] text-primary">{dateLabel}</Badge>}
                 {isOverdue && <Badge variant="destructive" className="text-[10px]">Expirada</Badge>}
                 {reservation.is_fixed && <Badge variant="outline" className="text-[10px]">Fixa</Badge>}
+                {reservation.is_external && <Badge variant="outline" className="text-[10px]">Externa</Badge>}
               </div>
               <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
@@ -177,7 +167,6 @@ export default function RoomReservationsList() {
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
-              {/* Reschedule */}
               {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
                 <Button
                   variant="outline"
@@ -255,7 +244,7 @@ export default function RoomReservationsList() {
             <h1 className="text-2xl font-bold">Reservas de Salas</h1>
             <p className="text-sm text-muted-foreground">Gerencie as reservas de salas e espaços</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {isAdmin && (
               <Button variant="outline" onClick={() => navigate('/reservations/rooms')}>
                 <MapPin className="h-4 w-4 mr-2" />
@@ -269,7 +258,7 @@ export default function RoomReservationsList() {
           </div>
         </div>
 
-        {/* Quick report buttons */}
+        {/* Quick actions */}
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => applyReportFilter('today')}>
             <FileText className="h-3 w-3 mr-1" /> Hoje
@@ -280,11 +269,6 @@ export default function RoomReservationsList() {
           <Button variant="outline" size="sm" onClick={() => applyReportFilter('month')}>
             <FileText className="h-3 w-3 mr-1" /> Este Mês
           </Button>
-          {(startDate || endDate) && (
-            <Button variant="ghost" size="sm" onClick={() => { setStartDate(''); setEndDate(''); }}>
-              Limpar Filtro de Data
-            </Button>
-          )}
           <Button variant="outline" size="sm" onClick={handleExport} disabled={!reservations?.length}>
             <Download className="h-3 w-3 mr-1" /> Exportar
           </Button>
@@ -305,56 +289,57 @@ export default function RoomReservationsList() {
           )}
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por título ou nome..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        {/* Filters bar */}
+        <ReservationFiltersBar value={filters} onChange={setFilters} rooms={rooms || []} />
+
+        {/* View toggle + tabs */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <Tabs value={filters.status} onValueChange={v => setFilters(f => ({ ...f, status: v }))}>
+            <TabsList>
+              <TabsTrigger value="all">Todas ({counts.all})</TabsTrigger>
+              <TabsTrigger value="pending">Pendentes ({counts.pending})</TabsTrigger>
+              <TabsTrigger value="confirmed">Confirmadas ({counts.confirmed})</TabsTrigger>
+              <TabsTrigger value="cancelled">Canceladas ({counts.cancelled})</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="flex items-center border rounded-md">
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-r-none"
+              onClick={() => setViewMode('list')}
+            >
+              <LayoutGrid className="h-4 w-4 mr-1" /> Lista
+            </Button>
+            <Button
+              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-l-none"
+              onClick={() => setViewMode('calendar')}
+            >
+              <CalendarDays className="h-4 w-4 mr-1" /> Calendário
+            </Button>
           </div>
-          <Select value={campusFilter} onValueChange={v => { setCampusFilter(v); setRoomFilter('all'); }}>
-            <SelectTrigger><SelectValue placeholder="Campus" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Campus</SelectItem>
-              {campusOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={roomFilter} onValueChange={setRoomFilter}>
-            <SelectTrigger><SelectValue placeholder="Sala" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as Salas</SelectItem>
-              {filteredRooms.map(r => (
-                <SelectItem key={r.id} value={r.id}>{r.code} - {r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DatePickerInput value={startDate} onChange={setStartDate} placeholder="Data início" />
-          <DatePickerInput value={endDate} onChange={setEndDate} placeholder="Data fim" />
         </div>
 
-        {/* Tabs */}
-        <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-          <TabsList>
-            <TabsTrigger value="all">Todas ({counts.all})</TabsTrigger>
-            <TabsTrigger value="pending">Pendentes ({counts.pending})</TabsTrigger>
-            <TabsTrigger value="confirmed">Confirmadas ({counts.confirmed})</TabsTrigger>
-            <TabsTrigger value="cancelled">Canceladas ({counts.cancelled})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value={statusFilter} className="mt-4">
-            {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-            ) : !reservations?.length ? (
-              <div className="text-center py-8 text-muted-foreground">Nenhuma reserva encontrada</div>
-            ) : (
-              <div className="space-y-3">
-                {reservations.map(renderReservationCard)}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        {/* Content */}
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+        ) : !reservations?.length ? (
+          <div className="text-center py-8 text-muted-foreground">Nenhuma reserva encontrada</div>
+        ) : viewMode === 'list' ? (
+          <div className="space-y-3">
+            {reservations.map(renderReservationCard)}
+          </div>
+        ) : (
+          <ReservationsCalendar
+            reservations={reservations}
+            onSelect={r => setExpandedId(r.id)}
+          />
+        )}
       </div>
 
-      {/* Reschedule Dialog */}
       {rescheduleReservation && (
         <RescheduleDialog
           reservation={rescheduleReservation}
@@ -363,7 +348,6 @@ export default function RoomReservationsList() {
         />
       )}
 
-      {/* Import Dialog */}
       <ImportReservationsDialog open={importOpen} onOpenChange={setImportOpen} />
     </MainLayout>
   );

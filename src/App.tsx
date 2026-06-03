@@ -70,6 +70,15 @@ import LabelTemplatesList from "./pages/labels/LabelTemplatesList";
 import LabelTemplateEditor from "./pages/labels/LabelTemplateEditor";
 import LabelGenerate from "./pages/labels/LabelGenerate";
 
+// Portal do Cliente (external)
+import PortalLayout from "./pages/portal-cliente/PortalLayout";
+import PortalLogin from "./pages/portal-cliente/PortalLogin";
+import PortalSignup from "./pages/portal-cliente/PortalSignup";
+import PortalDashboard from "./pages/portal-cliente/PortalDashboard";
+import PortalNewReservation from "./pages/portal-cliente/PortalNewReservation";
+import PortalMyReservations from "./pages/portal-cliente/PortalMyReservations";
+import ExternalUsersApproval from "./pages/ExternalUsersApproval";
+
 // PWA
 import Install from "./pages/Install";
 
@@ -302,6 +311,22 @@ const App = () => (
                 </ProtectedRoute>
               } />
 
+              {/* Portal do Cliente - external public routes */}
+              <Route path="/portal-cliente/login" element={<PortalLogin />} />
+              <Route path="/portal-cliente/cadastro" element={<PortalSignup />} />
+              <Route path="/portal-cliente" element={<PortalLayout />}>
+                <Route index element={<Navigate to="/portal-cliente/dashboard" replace />} />
+                <Route path="dashboard" element={<PortalDashboard />} />
+                <Route path="nova-reserva" element={<PortalNewReservation />} />
+                <Route path="minhas-reservas" element={<PortalMyReservations />} />
+              </Route>
+
+              {/* External users approval (admin) */}
+              <Route path="/external-users-approval" element={
+                <ProtectedRoute requireAdmin>
+                  <ExternalUsersApproval />
+                </ProtectedRoute>
+              } />
 
               {/* Legacy routes */}
               <Route path="/register" element={
