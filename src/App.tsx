@@ -311,16 +311,20 @@ const App = () => (
                 </ProtectedRoute>
               } />
 
+              {/* Portal do Cliente - external public routes */}
+              <Route path="/portal-cliente" element={<Navigate to="/portal-cliente/login" replace />} />
+              <Route path="/portal-cliente/login" element={<PortalLogin />} />
+              <Route path="/portal-cliente/cadastro" element={<PortalSignup />} />
+              <Route path="/portal-cliente" element={<PortalLayout />}>
+                <Route path="dashboard" element={<PortalDashboard />} />
+                <Route path="nova-reserva" element={<PortalNewReservation />} />
+                <Route path="minhas-reservas" element={<PortalMyReservations />} />
+              </Route>
 
-              {/* Legacy routes */}
-              <Route path="/register" element={
-                <ProtectedRoute>
-                  <RegisterItem />
-                </ProtectedRoute>
-              } />
-              <Route path="/items" element={
-                <ProtectedRoute>
-                  <ItemsList />
+              {/* External users approval (admin) */}
+              <Route path="/external-users-approval" element={
+                <ProtectedRoute requireAdmin>
+                  <ExternalUsersApproval />
                 </ProtectedRoute>
               } />
               <Route path="/items/:id" element={
