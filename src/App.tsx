@@ -327,6 +327,18 @@ const App = () => (
                   <ExternalUsersApproval />
                 </ProtectedRoute>
               } />
+
+              {/* Legacy routes */}
+              <Route path="/register" element={
+                <ProtectedRoute>
+                  <RegisterItem />
+                </ProtectedRoute>
+              } />
+              <Route path="/items" element={
+                <ProtectedRoute>
+                  <ItemsList />
+                </ProtectedRoute>
+              } />
               <Route path="/items/:id" element={
                 <ProtectedRoute>
                   <ItemDetail />
