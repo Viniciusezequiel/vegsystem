@@ -585,36 +585,48 @@ export type Database = {
       }
       external_users: {
         Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           cpf: string
           created_at: string
           email: string
           full_name: string
           id: string
           phone: string | null
+          rejection_reason: string | null
           sector: string | null
           updated_at: string
           user_id: string
           user_type: string | null
         }
         Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           cpf: string
           created_at?: string
           email: string
           full_name: string
           id?: string
           phone?: string | null
+          rejection_reason?: string | null
           sector?: string | null
           updated_at?: string
           user_id: string
           user_type?: string | null
         }
         Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           cpf?: string
           created_at?: string
           email?: string
           full_name?: string
           id?: string
           phone?: string | null
+          rejection_reason?: string | null
           sector?: string | null
           updated_at?: string
           user_id?: string
@@ -1243,11 +1255,13 @@ export type Database = {
           code: string
           created_at: string
           description: string | null
+          equipment: Json
           id: string
           is_active: boolean
           location: string | null
           max_advance_days: number | null
           name: string
+          observations: string | null
           updated_at: string
         }
         Insert: {
@@ -1257,11 +1271,13 @@ export type Database = {
           code: string
           created_at?: string
           description?: string | null
+          equipment?: Json
           id?: string
           is_active?: boolean
           location?: string | null
           max_advance_days?: number | null
           name: string
+          observations?: string | null
           updated_at?: string
         }
         Update: {
@@ -1271,11 +1287,13 @@ export type Database = {
           code?: string
           created_at?: string
           description?: string | null
+          equipment?: Json
           id?: string
           is_active?: boolean
           location?: string | null
           max_advance_days?: number | null
           name?: string
+          observations?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1293,6 +1311,7 @@ export type Database = {
           is_external: boolean
           is_fixed: boolean
           notes: string | null
+          original_reservation_id: string | null
           requester_cpf: string | null
           requester_email: string
           requester_name: string
@@ -1315,6 +1334,7 @@ export type Database = {
           is_external?: boolean
           is_fixed?: boolean
           notes?: string | null
+          original_reservation_id?: string | null
           requester_cpf?: string | null
           requester_email: string
           requester_name: string
@@ -1337,6 +1357,7 @@ export type Database = {
           is_external?: boolean
           is_fixed?: boolean
           notes?: string | null
+          original_reservation_id?: string | null
           requester_cpf?: string | null
           requester_email?: string
           requester_name?: string
