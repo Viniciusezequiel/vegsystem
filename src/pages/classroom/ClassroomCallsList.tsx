@@ -498,7 +498,7 @@ export default function ClassroomCallsList() {
                       <Skeleton key={i} className="h-16 w-full" />
                     ))}
                   </div>
-                ) : calls && calls.length > 0 ? (
+                ) : filteredCalls && filteredCalls.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -512,9 +512,10 @@ export default function ClassroomCallsList() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {calls.map((call) => {
+                      {filteredCalls.map((call) => {
                         const status = statusConfig[call.status as keyof typeof statusConfig];
                         const StatusIcon = status.icon;
+                        
                         
                         return (
                           <TableRow key={call.id} className={call.status === 'pending' ? 'bg-destructive/5' : ''}>
