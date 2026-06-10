@@ -92,6 +92,8 @@ export default function EquipmentLoans() {
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<GroupedLoan | null>(null);
+  const [editDateDialogOpen, setEditDateDialogOpen] = useState(false);
+  const [groupToEditDate, setGroupToEditDate] = useState<GroupedLoan | null>(null);
   
   const { profile } = useAuth();
   const isAdmin = profile?.position === 'admin'; // fallback check
