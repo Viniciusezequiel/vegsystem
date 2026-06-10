@@ -293,9 +293,14 @@ export default function EquipmentLoans() {
                     <Eye className="h-4 w-4" />
                   </Button>
                   {showReturnButton && (
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleOpenReturn(group)}>
-                      Devolver
-                    </Button>
+                    <>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDate(group)} title="Alterar data de devolução">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleOpenReturn(group)}>
+                        Devolver
+                      </Button>
+                    </>
                   )}
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDelete(group)}>
                     <Trash2 className="h-4 w-4" />
