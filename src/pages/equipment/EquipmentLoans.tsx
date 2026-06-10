@@ -553,6 +553,12 @@ export default function EquipmentLoans() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditReturnDateDialog
+        open={editDateDialogOpen}
+        onOpenChange={setEditDateDialogOpen}
+        group={groupToEditDate}
+      />
     </MainLayout>
   );
 }
