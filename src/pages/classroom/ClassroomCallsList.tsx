@@ -12,7 +12,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2, Building2 } from 'lucide-react';
+import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2, Building2, Download } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
 import { useClassroomCallRooms } from '@/hooks/useClassroomCallSettings';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +21,10 @@ import { useNativeCallNotification } from '@/hooks/useNativeNotifications';
 import { useUserPermissions } from '@/hooks/usePermissions';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClassroomCallValidationDialog from '@/components/classroom/ClassroomCallValidationDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 
 // Online notification sound URL (continuous siren)
 const ALARM_SOUND_URL = '/alert-siren.ogg';
@@ -40,6 +45,9 @@ export default function ClassroomCallsList() {
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<'accept' | 'resolve'>('accept');
   const [selectedCampus, setSelectedCampus] = useState<string>('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const queryClient = useQueryClient();
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const loopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -64,6 +72,69 @@ export default function ClassroomCallsList() {
   
   const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab, campusFilter);
   const { data: pendingCount } = usePendingCallsCount(campusFilter);
+
+  const filteredCalls = useMemo(() => {
+    if (!calls) return [];
+    return calls.filter((c) => {
+      if (startDate) {
+        const d = new Date(c.created_at);
+        const s = new Date(startDate + 'T00:00:00');
+        if (d < s) return false;
+      }
+      if (endDate) {
+        const d = new Date(c.created_at);
+        const e = new Date(endDate + 'T23:59:59');
+        if (d > e) return false;
+      }
+      return true;
+    });
+  }, [calls, startDate, endDate]);
+
+  const handleExportCalls = () => {
+    if (!filteredCalls.length) {
+      toast.error('Nenhum chamado no período selecionado');
+      return;
+    }
+    const statusLabels: Record<string, string> = {
+      pending: 'Pendente', accepted: 'Em Atendimento', resolved: 'Resolvido',
+    };
+    const rows = filteredCalls.map(c => ({
+      'Sala': c.room_name,
+      'Campus': c.campus || '',
+      'Motivo': c.reason,
+      'Status': statusLabels[c.status] || c.status,
+      'Validação': c.is_valid === true ? 'Procede' : c.is_valid === false ? 'Não Procede' : '',
+      'Justificativa': c.validation_reason || '',
+      'Tratativa': c.treatment || '',
+      'Resposta ao Solicitante': c.response_message || '',
+      'Atendido por': c.accepted_by_name || '',
+      'Criado em': format(new Date(c.created_at), 'dd/MM/yyyy HH:mm'),
+      'Aceito em': c.accepted_at ? format(new Date(c.accepted_at), 'dd/MM/yyyy HH:mm') : '',
+      'Resolvido em': c.resolved_at ? format(new Date(c.resolved_at), 'dd/MM/yyyy HH:mm') : '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 14 }, { wch: 50 }, { wch: 14 }, { wch: 12 },
+      { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Chamados');
+    XLSX.writeFile(wb, `chamados_sala_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    toast.success('Exportação realizada!');
+  };
+
+  const handleCleanupCalls = async () => {
+    if (!filteredCalls.length) return;
+    const ids = filteredCalls.map(c => c.id);
+    const { error } = await supabase.from('classroom_calls').delete().in('id', ids);
+    if (error) {
+      toast.error('Erro ao limpar: ' + error.message);
+    } else {
+      toast.success(`${ids.length} chamado(s) removido(s).`);
+      queryClient.invalidateQueries({ queryKey: ['classroom-calls'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-calls-count'] });
+    }
+  };
   
   // Native notifications for tablets/mobile
   useNativeCallNotification(pendingCount);
@@ -312,22 +383,67 @@ export default function ClassroomCallsList() {
           </div>
         </div>
 
-        {/* Campus Filter */}
-        <div className="flex items-center gap-3">
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          <Select value={selectedCampus} onValueChange={setSelectedCampus}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Todos os campus" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os campus</SelectItem>
-              {campuses.map((campus) => (
-                <SelectItem key={campus} value={campus}>
-                  {campus}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Filters: campus + período + ações */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedCampus} onValueChange={setSelectedCampus}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Todos os campus" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os campus</SelectItem>
+                {campuses.map((campus) => (
+                  <SelectItem key={campus} value={campus}>
+                    {campus}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-[160px]"
+            />
+            <span className="text-muted-foreground text-sm">até</span>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-[160px]"
+            />
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={handleExportCalls} disabled={!filteredCalls.length}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar Período
+            </Button>
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" disabled={!filteredCalls.length || (!startDate && !endDate)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Limpar Período
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Limpar chamados do período?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Serão excluídos {filteredCalls.length} chamado(s) do período/filtros selecionados. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCleanupCalls}>Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
 
         {/* Pending Calls Alert */}
@@ -382,7 +498,7 @@ export default function ClassroomCallsList() {
                       <Skeleton key={i} className="h-16 w-full" />
                     ))}
                   </div>
-                ) : calls && calls.length > 0 ? (
+                ) : filteredCalls && filteredCalls.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -396,9 +512,10 @@ export default function ClassroomCallsList() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {calls.map((call) => {
+                      {filteredCalls.map((call) => {
                         const status = statusConfig[call.status as keyof typeof statusConfig];
                         const StatusIcon = status.icon;
+                        
                         
                         return (
                           <TableRow key={call.id} className={call.status === 'pending' ? 'bg-destructive/5' : ''}>
