@@ -72,6 +72,69 @@ export default function ClassroomCallsList() {
   
   const { data: calls, isLoading } = useClassroomCalls(activeTab === 'all' ? undefined : activeTab, campusFilter);
   const { data: pendingCount } = usePendingCallsCount(campusFilter);
+
+  const filteredCalls = useMemo(() => {
+    if (!calls) return [];
+    return calls.filter((c) => {
+      if (startDate) {
+        const d = new Date(c.created_at);
+        const s = new Date(startDate + 'T00:00:00');
+        if (d < s) return false;
+      }
+      if (endDate) {
+        const d = new Date(c.created_at);
+        const e = new Date(endDate + 'T23:59:59');
+        if (d > e) return false;
+      }
+      return true;
+    });
+  }, [calls, startDate, endDate]);
+
+  const handleExportCalls = () => {
+    if (!filteredCalls.length) {
+      toast.error('Nenhum chamado no período selecionado');
+      return;
+    }
+    const statusLabels: Record<string, string> = {
+      pending: 'Pendente', accepted: 'Em Atendimento', resolved: 'Resolvido',
+    };
+    const rows = filteredCalls.map(c => ({
+      'Sala': c.room_name,
+      'Campus': c.campus || '',
+      'Motivo': c.reason,
+      'Status': statusLabels[c.status] || c.status,
+      'Validação': c.is_valid === true ? 'Procede' : c.is_valid === false ? 'Não Procede' : '',
+      'Justificativa': c.validation_reason || '',
+      'Tratativa': c.treatment || '',
+      'Resposta ao Solicitante': c.response_message || '',
+      'Atendido por': c.accepted_by_name || '',
+      'Criado em': format(new Date(c.created_at), 'dd/MM/yyyy HH:mm'),
+      'Aceito em': c.accepted_at ? format(new Date(c.accepted_at), 'dd/MM/yyyy HH:mm') : '',
+      'Resolvido em': c.resolved_at ? format(new Date(c.resolved_at), 'dd/MM/yyyy HH:mm') : '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 14 }, { wch: 50 }, { wch: 14 }, { wch: 12 },
+      { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Chamados');
+    XLSX.writeFile(wb, `chamados_sala_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    toast.success('Exportação realizada!');
+  };
+
+  const handleCleanupCalls = async () => {
+    if (!filteredCalls.length) return;
+    const ids = filteredCalls.map(c => c.id);
+    const { error } = await supabase.from('classroom_calls').delete().in('id', ids);
+    if (error) {
+      toast.error('Erro ao limpar: ' + error.message);
+    } else {
+      toast.success(`${ids.length} chamado(s) removido(s).`);
+      queryClient.invalidateQueries({ queryKey: ['classroom-calls'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-calls-count'] });
+    }
+  };
   
   // Native notifications for tablets/mobile
   useNativeCallNotification(pendingCount);
