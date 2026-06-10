@@ -76,20 +76,95 @@ export default function ChecklistHistory() {
   const { data: checklistDetail, isLoading: loadingDetail } = useChecklistWithAnswers(selectedChecklist || '');
   const { data: profileName } = useProfileName(checklistDetail?.filled_by || '');
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!filteredChecklists.length) return;
-    const rows = filteredChecklists.map(c => ({
-      'Sala': c.room?.name || 'N/A',
-      'Campus': c.room?.campus || '',
-      'Prédio': c.room?.building || '',
-      'Turno': c.shift,
-      'Data/Hora': format(parseISO(c.filled_at), 'dd/MM/yyyy HH:mm'),
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Checklists');
-    XLSX.writeFile(wb, `checklists_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-    toast.success('Exportação realizada!');
+    try {
+      const ids = filteredChecklists.map(c => c.id);
+
+      const userIds = [...new Set(filteredChecklists.map(c => c.filled_by).filter(Boolean))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+      const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
+
+      const { data: answers, error: ansErr } = await supabase
+        .from('checklist_answers')
+        .select('checklist_id, answer, notes, question:checklist_questions(question, category)')
+        .in('checklist_id', ids);
+      if (ansErr) throw ansErr;
+
+      const answersByChecklist = new Map<string, any[]>();
+      (answers || []).forEach((a: any) => {
+        const arr = answersByChecklist.get(a.checklist_id) || [];
+        arr.push(a);
+        answersByChecklist.set(a.checklist_id, arr);
+      });
+
+      const parseObs = (observations: string | null) => {
+        if (!observations) return { customItems: null as any, generalObservations: null as string | null };
+        try {
+          const parsed = JSON.parse(observations);
+          if (parsed && typeof parsed === 'object') {
+            return {
+              customItems: parsed.customItems || null,
+              generalObservations: parsed.generalObservations || null,
+            };
+          }
+        } catch {
+          return { customItems: null, generalObservations: observations };
+        }
+        return { customItems: null, generalObservations: observations };
+      };
+
+      const rows = filteredChecklists.map(c => {
+        const cAnswers = answersByChecklist.get(c.id) || [];
+        const { customItems, generalObservations } = parseObs(c.observations);
+
+        const respostas = cAnswers
+          .map((a: any) => {
+            const status = a.answer ? 'OK' : 'PENDENTE';
+            const cat = a.question?.category ? `[${a.question.category}] ` : '';
+            const note = a.notes ? ` — ${a.notes}` : '';
+            return `${cat}${a.question?.question || '-'}: ${status}${note}`;
+          })
+          .join('\n');
+
+        const itensPersonalizados = customItems
+          ? Object.values(customItems)
+              .map((it: any) => {
+                const status = it.answer ? 'OK' : 'PENDENTE';
+                const note = it.notes ? ` — ${it.notes}` : '';
+                return `${it.label}: ${status}${note}`;
+              })
+              .join('\n')
+          : '';
+
+        return {
+          'Sala': c.room?.name || 'N/A',
+          'Campus': c.room?.campus || '',
+          'Prédio': c.room?.building || '',
+          'Turno': c.shift,
+          'Preenchido por': profileMap.get(c.filled_by) || 'N/A',
+          'Data/Hora': format(parseISO(c.filled_at), 'dd/MM/yyyy HH:mm'),
+          'Respostas': respostas,
+          'Itens Personalizados': itensPersonalizados,
+          'Observações Gerais': generalObservations || '',
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 25 },
+        { wch: 18 }, { wch: 60 }, { wch: 40 }, { wch: 40 },
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Checklists');
+      XLSX.writeFile(wb, `checklists_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      toast.success('Exportação realizada!');
+    } catch (err: any) {
+      toast.error('Erro ao exportar: ' + (err.message || err));
+    }
   };
 
   const handleCleanup = async () => {
