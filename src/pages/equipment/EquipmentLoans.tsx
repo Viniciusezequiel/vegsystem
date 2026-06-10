@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2, ChevronDown, ChevronUp, User, MapPin, FileText, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2, ChevronDown, ChevronUp, User, MapPin, FileText, Calendar, Pencil } from 'lucide-react';
 import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, useDeleteEquipmentLoan, EquipmentLoan } from '@/hooks/useEquipment';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
+import { EditReturnDateDialog } from '@/components/equipment/EditReturnDateDialog';
 import { ReservationsTabContent } from '@/components/equipment/ReservationsTabContent';
 import { ReservationFormDialog } from '@/components/equipment/ReservationFormDialog';
 import { useEquipmentReservations } from '@/hooks/useEquipmentReservations';
@@ -91,6 +92,8 @@ export default function EquipmentLoans() {
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<GroupedLoan | null>(null);
+  const [editDateDialogOpen, setEditDateDialogOpen] = useState(false);
+  const [groupToEditDate, setGroupToEditDate] = useState<GroupedLoan | null>(null);
   
   const { profile } = useAuth();
   const isAdmin = profile?.position === 'admin'; // fallback check
@@ -135,6 +138,11 @@ export default function EquipmentLoans() {
     setSelectedGroup(group);
     setSelectedLoan(group.loans[0]);
     setDetailsDialogOpen(true);
+  };
+
+  const handleOpenEditDate = (group: GroupedLoan) => {
+    setGroupToEditDate(group);
+    setEditDateDialogOpen(true);
   };
 
   const handleReturn = (data: ReturnData) => {
@@ -285,9 +293,14 @@ export default function EquipmentLoans() {
                     <Eye className="h-4 w-4" />
                   </Button>
                   {showReturnButton && (
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleOpenReturn(group)}>
-                      Devolver
-                    </Button>
+                    <>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDate(group)} title="Alterar data de devolução">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleOpenReturn(group)}>
+                        Devolver
+                      </Button>
+                    </>
                   )}
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDelete(group)}>
                     <Trash2 className="h-4 w-4" />
@@ -540,6 +553,12 @@ export default function EquipmentLoans() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditReturnDateDialog
+        open={editDateDialogOpen}
+        onOpenChange={setEditDateDialogOpen}
+        group={groupToEditDate}
+      />
     </MainLayout>
   );
 }

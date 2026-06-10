@@ -570,6 +570,27 @@ export function useDeleteEquipmentLoan() {
   });
 }
 
+export function useUpdateLoanReturnDate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { loanIds: string[]; expected_return_date: string }) => {
+      const { error } = await supabase
+        .from('equipment_loans')
+        .update({ expected_return_date: params.expected_return_date })
+        .in('id', params.loanIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-loans'] });
+      toast.success('Data de devolução atualizada com sucesso!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao atualizar data de devolução: ' + error.message);
+    },
+  });
+}
+
 export function useReturnEquipment() {
   const queryClient = useQueryClient();
 
