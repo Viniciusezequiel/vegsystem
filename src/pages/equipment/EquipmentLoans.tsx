@@ -140,6 +140,11 @@ export default function EquipmentLoans() {
     setDetailsDialogOpen(true);
   };
 
+  const handleOpenEditDate = (group: GroupedLoan) => {
+    setGroupToEditDate(group);
+    setEditDateDialogOpen(true);
+  };
+
   const handleReturn = (data: ReturnData) => {
     if (!selectedGroup) return;
     
