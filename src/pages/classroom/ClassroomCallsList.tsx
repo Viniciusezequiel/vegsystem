@@ -383,22 +383,67 @@ export default function ClassroomCallsList() {
           </div>
         </div>
 
-        {/* Campus Filter */}
-        <div className="flex items-center gap-3">
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          <Select value={selectedCampus} onValueChange={setSelectedCampus}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Todos os campus" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os campus</SelectItem>
-              {campuses.map((campus) => (
-                <SelectItem key={campus} value={campus}>
-                  {campus}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Filters: campus + período + ações */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedCampus} onValueChange={setSelectedCampus}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Todos os campus" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os campus</SelectItem>
+                {campuses.map((campus) => (
+                  <SelectItem key={campus} value={campus}>
+                    {campus}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-[160px]"
+            />
+            <span className="text-muted-foreground text-sm">até</span>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-[160px]"
+            />
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={handleExportCalls} disabled={!filteredCalls.length}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar Período
+            </Button>
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" disabled={!filteredCalls.length || (!startDate && !endDate)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Limpar Período
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Limpar chamados do período?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Serão excluídos {filteredCalls.length} chamado(s) do período/filtros selecionados. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCleanupCalls}>Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
 
         {/* Pending Calls Alert */}
