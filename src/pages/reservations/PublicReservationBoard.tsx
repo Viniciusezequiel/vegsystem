@@ -244,7 +244,6 @@ export default function PublicReservationBoard() {
                                 title="Clique para ver detalhes"
                               >
                                 <div className="font-medium truncate">{reservation.title}</div>
-                                <div className="truncate opacity-75">{reservation.requester_name}</div>
                               </div>
                             ) : (
                               <div className="h-8 rounded bg-muted/30" />
@@ -277,7 +276,6 @@ export default function PublicReservationBoard() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold truncate">{r.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{r.requester_name}</p>
                         </div>
                         <Badge variant={r.status === 'confirmed' ? 'default' : 'secondary'} className="text-[10px] shrink-0">
                           {r.status === 'confirmed' ? 'Confirmada' : 'Pendente'}
@@ -356,8 +354,7 @@ export default function PublicReservationBoard() {
                 <div className="flex items-start gap-2">
                   <Users className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium">{selectedReservation.requester_name}</p>
-                    <p className="text-xs text-muted-foreground">{selectedReservation.attendees_count} participante(s)</p>
+                    <p className="font-medium">{selectedReservation.attendees_count} participante(s)</p>
                   </div>
                 </div>
 
