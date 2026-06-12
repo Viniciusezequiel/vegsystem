@@ -13,11 +13,10 @@ const TIME_SLOTS = Array.from({ length: 15 }, (_, i) => `${String(7 + i).padStar
 
 type Room = { id: string; name: string; code: string; campus: string; capacity: number };
 type Reservation = {
-  id: string; title: string; requester_name: string;
+  id: string; title: string;
   start_datetime: string; end_datetime: string;
   status: string; attendees_count: number; room_id: string;
   description: string | null; notes: string | null;
-  requester_email: string; requester_phone: string | null;
 };
 
 export default function PublicReservationBoard() {
@@ -37,9 +36,7 @@ export default function PublicReservationBoard() {
 
     const [roomsRes, reservationsRes] = await Promise.all([
       supabase.from('reservation_rooms').select('id, name, code, campus, capacity').eq('is_active', true).order('code'),
-      supabase.from('reservations').select('id, title, requester_name, start_datetime, end_datetime, status, attendees_count, room_id, description, notes, requester_email, requester_phone')
-        .gte('start_datetime', dayStart).lte('start_datetime', dayEnd)
-        .in('status', ['pending', 'confirmed']),
+      supabase.rpc('get_public_reservations', { p_start: dayStart, p_end: dayEnd }),
     ]);
 
     if (roomsRes.data) setRooms(roomsRes.data);
@@ -76,7 +73,6 @@ export default function PublicReservationBoard() {
       const room = rooms.find(rm => rm.id === r.room_id);
       return (
         r.title.toLowerCase().includes(q) ||
-        r.requester_name.toLowerCase().includes(q) ||
         (r.description && r.description.toLowerCase().includes(q)) ||
         (r.notes && r.notes.toLowerCase().includes(q)) ||
         (room && room.name.toLowerCase().includes(q)) ||
