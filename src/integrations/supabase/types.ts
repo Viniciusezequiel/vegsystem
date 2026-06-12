@@ -1919,6 +1919,20 @@ export type Database = {
             }[]
           }
       get_linked_rooms: { Args: { p_room_id: string }; Returns: string[] }
+      get_public_reservations: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          attendees_count: number
+          description: string
+          end_datetime: string
+          id: string
+          notes: string
+          room_id: string
+          start_datetime: string
+          status: string
+          title: string
+        }[]
+      }
       has_permission: {
         Args: { _action: string; _module: string; _user_id: string }
         Returns: boolean
