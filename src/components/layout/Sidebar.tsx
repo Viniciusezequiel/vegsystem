@@ -24,6 +24,7 @@ import {
   Shield,
   FileText,
   Tag,
+  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
@@ -133,7 +134,7 @@ const moduleGroups: NavGroup[] = [
     ],
   },
   {
-    name: 'Reservas de Salas',
+    name: 'Gestão de Salas',
     icon: CalendarDays,
     basePath: '/reservations',
     gradient: 'from-indigo-500 to-violet-500',
@@ -141,7 +142,8 @@ const moduleGroups: NavGroup[] = [
     items: [
       { name: 'Reservas', href: '/reservations', icon: CalendarDays },
       { name: 'Nova Reserva', href: '/reservations/new', icon: PackagePlus },
-      { name: 'Gestão de Salas', href: '/reservations/rooms', icon: Settings, adminOnly: true },
+      { name: 'Cadastro de Salas', href: '/reservations/rooms', icon: Settings, adminOnly: true },
+      { name: 'Importar Aulas', href: '/reservations/import', icon: Upload, adminOnly: true },
     ],
   },
   {

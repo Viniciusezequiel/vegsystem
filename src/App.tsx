@@ -63,6 +63,7 @@ import TasksDashboard from "./pages/tasks/TasksDashboard";
 import RoomReservationsList from "./pages/reservations/RoomReservationsList";
 import NewReservationForm from "./pages/reservations/NewReservationForm";
 import ReservationRoomsManagement from "./pages/reservations/ReservationRoomsManagement";
+import ImportClasses from "./pages/reservations/ImportClasses";
 import PublicReservationBoard from "./pages/reservations/PublicReservationBoard";
 
 // Labels Module
@@ -286,6 +287,11 @@ const App = () => (
               <Route path="/reservations/rooms" element={
                 <ProtectedRoute requireAdmin>
                   <ReservationRoomsManagement />
+                </ProtectedRoute>
+              } />
+              <Route path="/reservations/import" element={
+                <ProtectedRoute requireAdmin>
+                  <ImportClasses />
                 </ProtectedRoute>
               } />
 

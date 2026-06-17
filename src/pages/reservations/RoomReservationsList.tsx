@@ -241,7 +241,7 @@ export default function RoomReservationsList() {
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Reservas de Salas</h1>
+            <h1 className="text-2xl font-bold">Gestão de Salas</h1>
             <p className="text-sm text-muted-foreground">Gerencie as reservas de salas e espaços</p>
           </div>
           <div className="flex gap-2 flex-wrap">
