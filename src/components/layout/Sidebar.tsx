@@ -24,6 +24,7 @@ import {
   Shield,
   FileText,
   Tag,
+  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
