@@ -289,6 +289,11 @@ const App = () => (
                   <ReservationRoomsManagement />
                 </ProtectedRoute>
               } />
+              <Route path="/reservations/import" element={
+                <ProtectedRoute requireAdmin>
+                  <ImportClasses />
+                </ProtectedRoute>
+              } />
 
               {/* Labels Module */}
               <Route path="/labels" element={
