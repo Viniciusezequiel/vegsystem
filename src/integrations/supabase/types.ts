@@ -1308,6 +1308,7 @@ export type Database = {
           end_datetime: string
           external_user_id: string | null
           id: string
+          import_tag: string | null
           is_external: boolean
           is_fixed: boolean
           notes: string | null
@@ -1331,6 +1332,7 @@ export type Database = {
           end_datetime: string
           external_user_id?: string | null
           id?: string
+          import_tag?: string | null
           is_external?: boolean
           is_fixed?: boolean
           notes?: string | null
@@ -1354,6 +1356,7 @@ export type Database = {
           end_datetime?: string
           external_user_id?: string | null
           id?: string
+          import_tag?: string | null
           is_external?: boolean
           is_fixed?: boolean
           notes?: string | null
