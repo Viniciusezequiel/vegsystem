@@ -170,9 +170,14 @@ export default function ReservationRoomsManagement() {
               <p className="text-sm text-muted-foreground">Cadastre e gerencie as salas para reserva</p>
             </div>
           </div>
-          <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> Nova Sala
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => navigate('/reservations/import')}>
+              <Upload className="h-4 w-4 mr-2" /> Importar Aulas / Mapa
+            </Button>
+            <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" /> Nova Sala
+            </Button>
+          </div>
         </div>
 
         <div className="relative max-w-md">
