@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Upload, PlayCircle, Save, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Upload, PlayCircle, Save, RotateCcw, AlertTriangle, CheckCircle2, FileSpreadsheet } from 'lucide-react';
 
 interface RawRow {
   Curso: string;
@@ -272,6 +272,131 @@ export default function ImportClasses() {
     setRollbackTag('');
   };
 
+  // ============== EXPORT MAPA DE SALAS ==============
+  const exportMapaSalas = () => {
+    // Coleta entradas: aulas alocadas (Teóricas) + Práticas/Extensão com Ambiente preenchido
+    type Entry = {
+      diaIdx: number; dia: string; hi: string; hf: string;
+      roomId: string; roomCode: string; roomCampus: string;
+      disciplina: string; turma: string; curso: string;
+      professor: string; alunos: number; tipo: string;
+    };
+    const entries: Entry[] = [];
+
+    // 1) Teóricas alocadas
+    for (const a of allocations) {
+      if (a.status !== 'ok' || !a.assignedRoomId) continue;
+      const room = rooms.find(r => r.id === a.assignedRoomId);
+      if (!room) continue;
+      entries.push({
+        diaIdx: a.diaIdx, dia: a.dia, hi: a.horaInicio, hf: a.horaFim,
+        roomId: room.id, roomCode: room.code, roomCampus: room.campus,
+        disciplina: a.disciplina, turma: a.turma, curso: a.curso,
+        professor: a.professor, alunos: a.needed, tipo: a.tipo,
+      });
+    }
+
+    // 2) Práticas / Extensão com Ambiente — tenta casar com sala cadastrada por substring
+    const matchRoom = (ambiente: string) => {
+      if (!ambiente) return null;
+      const amb = ambiente.toLowerCase();
+      // tenta por código primeiro, depois por nome
+      let best = rooms.find(r => r.code && amb.includes(r.code.toLowerCase()));
+      if (!best) best = rooms.find(r => r.name && amb.includes(r.name.toLowerCase()));
+      return best || null;
+    };
+    for (const r of rawRows) {
+      const t = normalize(r.Tipo);
+      if (t !== 'prática' && t !== 'pratica' && t !== 'extensão' && t !== 'extensao') continue;
+      if (!r.Ambiente) continue;
+      const room = matchRoom(r.Ambiente);
+      if (!room) continue;
+      const dia = (r.Dia || '').toString();
+      const diaIdx = DIA_MAP[normalize(dia)] ?? -1;
+      if (diaIdx < 0) continue;
+      entries.push({
+        diaIdx, dia, hi: timeToStr(r.HoraInicio), hf: timeToStr(r.HoraFim),
+        roomId: room.id, roomCode: room.code, roomCampus: room.campus,
+        disciplina: r.Disciplina, turma: r.Turma, curso: r.Curso,
+        professor: r.Professor, alunos: getTurmaSize(r.Curso, r.Turma, defaultTurmaSize),
+        tipo: r.Tipo,
+      });
+    }
+
+    if (!entries.length) {
+      toast.error('Sem dados para exportar. Carregue a planilha e calcule a alocação primeiro.');
+      return;
+    }
+
+    // Agrupa por campus → uma aba por dia da semana
+    const DAY_ORDER = [1, 2, 3, 4, 5, 6];
+    const DAY_NAMES: Record<number, string> = {
+      1: 'SEGUNDA', 2: 'TERÇA', 3: 'QUARTA', 4: 'QUINTA', 5: 'SEXTA', 6: 'SÁBADO',
+    };
+
+    const campusList = Array.from(new Set(entries.map(e => e.roomCampus))).sort();
+    const wb = XLSX.utils.book_new();
+
+    for (const camp of campusList) {
+      const campEntries = entries.filter(e => e.roomCampus === camp);
+      // Salas (colunas) — todas as salas do campus, ordenadas por código
+      const campRooms = rooms
+        .filter(r => r.campus === camp)
+        .sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+
+      for (const di of DAY_ORDER) {
+        const dayEntries = campEntries.filter(e => e.diaIdx === di);
+        if (!dayEntries.length) continue;
+
+        // Faixas de horário únicas (linhas)
+        const slotSet = new Set<string>();
+        dayEntries.forEach(e => slotSet.add(`${e.hi}-${e.hf}`));
+        const slots = Array.from(slotSet).sort();
+
+        // Monta matriz
+        const header1 = ['HORÁRIO', ...campRooms.map(r => r.code)];
+        const header2 = ['CAPACIDADE', ...campRooms.map(r => r.capacity)];
+        const aoa: (string | number)[][] = [
+          [`MAPA FCMMG — ${DAY_NAMES[di]} — ${camp}`],
+          header1,
+          header2 as (string | number)[],
+        ];
+
+        for (const slot of slots) {
+          const [s, e] = slot.split('-');
+          const row: (string | number)[] = [`${s} às ${e}`];
+          for (const room of campRooms) {
+            const hits = dayEntries.filter(en => en.roomId === room.id && `${en.hi}-${en.hf}` === slot);
+            if (!hits.length) { row.push(''); continue; }
+            const txt = hits.map(h =>
+              `${h.disciplina}\n${h.turma}\nPROF. ${h.professor}\n${h.alunos} ALUNOS`
+            ).join('\n---\n');
+            row.push(txt);
+          }
+          aoa.push(row);
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        // larguras
+        ws['!cols'] = [{ wch: 18 }, ...campRooms.map(() => ({ wch: 28 }))];
+        // wrap text em todas as células
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+        for (let R = range.s.r; R <= range.e.r; R++) {
+          for (let C = range.s.c; C <= range.e.c; C++) {
+            const addr = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[addr]) continue;
+            ws[addr].s = { alignment: { wrapText: true, vertical: 'top' } };
+          }
+        }
+        const sheetName = `${DAY_NAMES[di]}-${camp}`.slice(0, 31).replace(/[\\/?*[\]]/g, '');
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+    }
+
+    XLSX.writeFile(wb, `Mapa_Salas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success('Mapa de salas exportado');
+  };
+
   const okCount = allocations.filter(a => a.status === 'ok').length;
   const failCount = allocations.length - okCount;
 
@@ -412,10 +537,13 @@ export default function ImportClasses() {
               </Alert>
             )}
 
-            <div className="flex gap-2 mt-4">
+            <div className="flex flex-wrap gap-2 mt-4">
               <Button onClick={commitImport} disabled={importing || !okCount}>
                 <Save className="mr-2 h-4 w-4" />
                 {importing ? 'Importando...' : `Confirmar e criar ${okCount} aulas`}
+              </Button>
+              <Button variant="outline" onClick={exportMapaSalas} disabled={!okCount}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Exportar Mapa de Salas (XLSX)
               </Button>
               {rollbackTag && (
                 <Button variant="destructive" onClick={rollback}>
