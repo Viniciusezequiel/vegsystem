@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Upload, PlayCircle, Save, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Upload, PlayCircle, Save, RotateCcw, AlertTriangle, CheckCircle2, FileSpreadsheet } from 'lucide-react';
 
 interface RawRow {
   Curso: string;
