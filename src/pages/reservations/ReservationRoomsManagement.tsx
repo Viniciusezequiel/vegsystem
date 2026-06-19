@@ -14,7 +14,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Plus, Pencil, MapPin, Search, X, Package } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, MapPin, Search, X, Package, Upload } from 'lucide-react';
 import { useReservationRooms, type ReservationRoom } from '@/hooks/useRoomReservations';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
