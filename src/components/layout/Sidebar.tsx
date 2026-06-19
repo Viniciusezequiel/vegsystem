@@ -143,7 +143,6 @@ const moduleGroups: NavGroup[] = [
       { name: 'Reservas', href: '/reservations', icon: CalendarDays },
       { name: 'Nova Reserva', href: '/reservations/new', icon: PackagePlus },
       { name: 'Cadastro de Salas', href: '/reservations/rooms', icon: Settings, adminOnly: true },
-      { name: 'Importar Aulas', href: '/reservations/import', icon: Upload, adminOnly: true },
     ],
   },
   {
