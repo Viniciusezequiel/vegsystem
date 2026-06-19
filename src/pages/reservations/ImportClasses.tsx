@@ -537,10 +537,13 @@ export default function ImportClasses() {
               </Alert>
             )}
 
-            <div className="flex gap-2 mt-4">
+            <div className="flex flex-wrap gap-2 mt-4">
               <Button onClick={commitImport} disabled={importing || !okCount}>
                 <Save className="mr-2 h-4 w-4" />
                 {importing ? 'Importando...' : `Confirmar e criar ${okCount} aulas`}
+              </Button>
+              <Button variant="outline" onClick={exportMapaSalas} disabled={!okCount}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Exportar Mapa de Salas (XLSX)
               </Button>
               {rollbackTag && (
                 <Button variant="destructive" onClick={rollback}>
