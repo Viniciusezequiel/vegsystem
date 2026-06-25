@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import {
   useItemOptions,
   useCreateItemOption,
+  useUpdateItemOption,
   useDeleteItemOption,
+  useSeedDefaultItemOptions,
 } from '@/hooks/useSemesterChecklist';
 import { SEMESTER_CATEGORIES, SEMESTER_BASE_ITEMS } from '@/lib/semesterChecklistConstants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,25 +17,50 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Trash2, ShieldAlert, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ShieldAlert, Pencil, Check, X } from 'lucide-react';
 
 export default function SemesterItemOptions() {
   const { isAdmin } = useAuth();
   const { data: options = [], isLoading } = useItemOptions();
   const create = useCreateItemOption();
+  const update = useUpdateItemOption();
   const del = useDeleteItemOption();
+  const seed = useSeedDefaultItemOptions();
 
   const [category, setCategory] = useState<string>(SEMESTER_CATEGORIES[0]);
   const [label, setLabel] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+
+  // Auto-seed missing defaults so admins can edit every option from the database
+  const seedTriedRef = useRef(false);
+  useEffect(() => {
+    if (!isAdmin || isLoading || seedTriedRef.current || seed.isPending) return;
+    const existing = new Set(options.map((o) => `${o.category}::${o.label.toLowerCase()}`));
+    const missing: { category: string; label: string; sort_order: number }[] = [];
+    SEMESTER_CATEGORIES.forEach((cat) => {
+      (SEMESTER_BASE_ITEMS[cat] ?? []).forEach((l, idx) => {
+        if (!existing.has(`${cat}::${l.toLowerCase()}`)) {
+          missing.push({ category: cat, label: l, sort_order: idx });
+        }
+      });
+    });
+    if (missing.length) {
+      seedTriedRef.current = true;
+      seed.mutate(missing, {
+        onError: (e: any) => toast.error(e?.message || 'Erro ao carregar opções padrão'),
+      });
+    } else {
+      seedTriedRef.current = true;
+    }
+  }, [isAdmin, isLoading, options, seed]);
 
   const byCategory = useMemo(() => {
-    const map: Record<string, { label: string; id?: string; fixed?: boolean }[]> = {};
-    SEMESTER_CATEGORIES.forEach((c) => {
-      map[c] = (SEMESTER_BASE_ITEMS[c] ?? []).map((l) => ({ label: l, fixed: true }));
-    });
+    const map: Record<string, { id: string; label: string }[]> = {};
+    SEMESTER_CATEGORIES.forEach((c) => (map[c] = []));
     options.forEach((o) => {
       if (!map[o.category]) map[o.category] = [];
-      map[o.category].push({ label: o.label, id: o.id });
+      map[o.category].push({ id: o.id, label: o.label });
     });
     return map;
   }, [options]);
@@ -51,6 +78,26 @@ export default function SemesterItemOptions() {
     }
   };
 
+  const startEdit = (id: string, current: string) => {
+    setEditingId(id);
+    setEditingValue(current);
+  };
+
+  const saveEdit = async (cat: string) => {
+    const val = editingValue.trim();
+    if (!val || !editingId) return setEditingId(null);
+    const dup = byCategory[cat]?.some((o) => o.id !== editingId && o.label.toLowerCase() === val.toLowerCase());
+    if (dup) return toast.error('Já existe outra opção com este nome');
+    try {
+      await update.mutateAsync({ id: editingId, label: val });
+      toast.success('Opção atualizada');
+      setEditingId(null);
+      setEditingValue('');
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao atualizar');
+    }
+  };
+
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
@@ -62,7 +109,7 @@ export default function SemesterItemOptions() {
             <div>
               <h1 className="text-2xl font-bold">Opções de Itens — Checklist Semestral</h1>
               <p className="text-sm text-muted-foreground">
-                Pré-cadastre as opções que aparecem no dropdown ao adicionar itens em cada categoria.
+                Todas as opções podem ser editadas, renomeadas ou removidas pelo administrador.
               </p>
             </div>
           </div>
@@ -125,39 +172,83 @@ export default function SemesterItemOptions() {
                 <p className="text-sm text-muted-foreground">Nenhuma opção cadastrada.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {byCategory[cat].map((o, i) => (
-                    <div
-                      key={(o.id ?? o.label) + i}
-                      className="flex items-center gap-2 border rounded-full pl-3 pr-1 py-1 text-sm bg-muted/40"
-                    >
-                      <span>{o.label}</span>
-                      {o.fixed ? (
-                        <span title="Opção padrão do sistema" className="text-muted-foreground">
-                          <Lock className="h-3 w-3" />
-                        </span>
-                      ) : isAdmin ? (
-                        <button
-                          type="button"
-                          className="rounded-full hover:bg-destructive/10 p-1 text-destructive"
-                          title="Remover"
-                          onClick={() => {
-                            if (confirm(`Remover "${o.label}"?`)) {
-                              del.mutate(o.id!, { onSuccess: () => toast.success('Removida') });
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      ) : null}
-                    </div>
-                  ))}
+                  {byCategory[cat].map((o) => {
+                    const isEditing = editingId === o.id;
+                    return (
+                      <div
+                        key={o.id}
+                        className="flex items-center gap-1 border rounded-full pl-3 pr-1 py-1 text-sm bg-muted/40"
+                      >
+                        {isEditing ? (
+                          <>
+                            <Input
+                              autoFocus
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit(cat);
+                                if (e.key === 'Escape') { setEditingId(null); setEditingValue(''); }
+                              }}
+                              className="h-7 w-56"
+                            />
+                            <button
+                              type="button"
+                              className="rounded-full hover:bg-emerald-500/10 p-1 text-emerald-600"
+                              title="Salvar"
+                              onClick={() => saveEdit(cat)}
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full hover:bg-muted p-1 text-muted-foreground"
+                              title="Cancelar"
+                              onClick={() => { setEditingId(null); setEditingValue(''); }}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span>{o.label}</span>
+                            {isAdmin && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="rounded-full hover:bg-primary/10 p-1 text-primary"
+                                  title="Editar"
+                                  onClick={() => startEdit(o.id, o.label)}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-full hover:bg-destructive/10 p-1 text-destructive"
+                                  title="Remover"
+                                  onClick={() => {
+                                    if (confirm(`Remover "${o.label}"?`)) {
+                                      del.mutate(o.id, { onSuccess: () => toast.success('Removida') });
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
           </Card>
         ))}
 
-        {isLoading && <div className="text-sm text-muted-foreground">Carregando...</div>}
+        {(isLoading || seed.isPending) && (
+          <div className="text-sm text-muted-foreground">Carregando...</div>
+        )}
       </div>
     </MainLayout>
   );
