@@ -208,6 +208,18 @@ const App = () => (
                   <ShiftHandoverHistory />
                 </ProtectedRoute>
               } />
+
+              {/* Checklist Semestral */}
+              <Route path="/semester" element={<ProtectedRoute><SemesterChecklistsList /></ProtectedRoute>} />
+              <Route path="/semester/new" element={<ProtectedRoute><SemesterChecklistForm /></ProtectedRoute>} />
+              <Route path="/semester/competencies" element={<ProtectedRoute><SemesterCompetencies /></ProtectedRoute>} />
+              <Route path="/semester/dashboard" element={<ProtectedRoute><SemesterDashboard /></ProtectedRoute>} />
+              <Route path="/semester/summary" element={<ProtectedRoute><SemesterSummary /></ProtectedRoute>} />
+              <Route path="/semester/labels" element={<ProtectedRoute><SemesterLabels /></ProtectedRoute>} />
+              <Route path="/semester/:id" element={<ProtectedRoute><SemesterChecklistForm /></ProtectedRoute>} />
+
+                </ProtectedRoute>
+              } />
               
               {/* Lockers Module */}
               <Route path="/lockers" element={
