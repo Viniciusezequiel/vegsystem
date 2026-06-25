@@ -268,9 +268,10 @@ function CategoryEditor({
 
   const { data: allOptions = [] } = useItemOptions();
   const baseItems = useMemo(() => {
-    const fromConst = SEMESTER_BASE_ITEMS[category] ?? [];
     const fromDb = allOptions.filter((o) => o.category === category).map((o) => o.label);
-    return Array.from(new Set([...fromConst, ...fromDb]));
+    // Fall back to constants only when the database has no options for this category yet
+    const fromConst = fromDb.length === 0 ? (SEMESTER_BASE_ITEMS[category] ?? []) : [];
+    return Array.from(new Set([...fromDb, ...fromConst]));
   }, [category, allOptions]);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({
