@@ -1528,6 +1528,302 @@ export type Database = {
         }
         Relationships: []
       }
+      semester_checklist_items: {
+        Row: {
+          category: string
+          checklist_id: string
+          closure_observation: string | null
+          closure_responsible: string | null
+          created_at: string
+          id: string
+          item_name: string
+          maintenance_done_at: string | null
+          maintenance_type:
+            | Database["public"]["Enums"]["semester_maintenance_type"]
+            | null
+          needs_label: boolean
+          needs_ticket: boolean
+          observation: string | null
+          photo_url: string | null
+          quantity: number
+          status: Database["public"]["Enums"]["semester_item_status"]
+          ticket_number: string | null
+          ticket_opened_at: string | null
+          ticket_responsible: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          checklist_id: string
+          closure_observation?: string | null
+          closure_responsible?: string | null
+          created_at?: string
+          id?: string
+          item_name: string
+          maintenance_done_at?: string | null
+          maintenance_type?:
+            | Database["public"]["Enums"]["semester_maintenance_type"]
+            | null
+          needs_label?: boolean
+          needs_ticket?: boolean
+          observation?: string | null
+          photo_url?: string | null
+          quantity?: number
+          status?: Database["public"]["Enums"]["semester_item_status"]
+          ticket_number?: string | null
+          ticket_opened_at?: string | null
+          ticket_responsible?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          checklist_id?: string
+          closure_observation?: string | null
+          closure_responsible?: string | null
+          created_at?: string
+          id?: string
+          item_name?: string
+          maintenance_done_at?: string | null
+          maintenance_type?:
+            | Database["public"]["Enums"]["semester_maintenance_type"]
+            | null
+          needs_label?: boolean
+          needs_ticket?: boolean
+          observation?: string | null
+          photo_url?: string | null
+          quantity?: number
+          status?: Database["public"]["Enums"]["semester_item_status"]
+          ticket_number?: string | null
+          ticket_opened_at?: string | null
+          ticket_responsible?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semester_checklist_items_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "semester_checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semester_checklists: {
+        Row: {
+          campus: string | null
+          checklist_date: string
+          competency_id: string
+          created_at: string
+          floor: string | null
+          general_observation: string | null
+          id: string
+          responsible_id: string | null
+          responsible_name: string
+          room_code: string | null
+          room_id: string | null
+          room_name: string
+          status: Database["public"]["Enums"]["semester_item_status"]
+          updated_at: string
+        }
+        Insert: {
+          campus?: string | null
+          checklist_date?: string
+          competency_id: string
+          created_at?: string
+          floor?: string | null
+          general_observation?: string | null
+          id?: string
+          responsible_id?: string | null
+          responsible_name: string
+          room_code?: string | null
+          room_id?: string | null
+          room_name: string
+          status?: Database["public"]["Enums"]["semester_item_status"]
+          updated_at?: string
+        }
+        Update: {
+          campus?: string | null
+          checklist_date?: string
+          competency_id?: string
+          created_at?: string
+          floor?: string | null
+          general_observation?: string | null
+          id?: string
+          responsible_id?: string | null
+          responsible_name?: string
+          room_code?: string | null
+          room_id?: string | null
+          room_name?: string
+          status?: Database["public"]["Enums"]["semester_item_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semester_checklists_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "semester_competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semester_checklists_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semester_competencies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["semester_competency_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["semester_competency_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["semester_competency_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      semester_furniture_details: {
+        Row: {
+          checklist_item_id: string
+          created_at: string
+          id: string
+          item_type: string
+          maintenance_type:
+            | Database["public"]["Enums"]["semester_maintenance_type"]
+            | null
+          observation: string | null
+          problem_type: string
+          quantity: number
+          status: Database["public"]["Enums"]["semester_item_status"]
+          updated_at: string
+        }
+        Insert: {
+          checklist_item_id: string
+          created_at?: string
+          id?: string
+          item_type: string
+          maintenance_type?:
+            | Database["public"]["Enums"]["semester_maintenance_type"]
+            | null
+          observation?: string | null
+          problem_type: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["semester_item_status"]
+          updated_at?: string
+        }
+        Update: {
+          checklist_item_id?: string
+          created_at?: string
+          id?: string
+          item_type?: string
+          maintenance_type?:
+            | Database["public"]["Enums"]["semester_maintenance_type"]
+            | null
+          observation?: string | null
+          problem_type?: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["semester_item_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semester_furniture_details_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "semester_checklist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semester_labels: {
+        Row: {
+          checklist_item_id: string | null
+          competency_id: string | null
+          furniture_detail_id: string | null
+          generated_at: string
+          generated_by: string | null
+          generated_by_name: string | null
+          id: string
+          label_code: string
+          sequence_number: number
+          sequence_total: number
+        }
+        Insert: {
+          checklist_item_id?: string | null
+          competency_id?: string | null
+          furniture_detail_id?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          generated_by_name?: string | null
+          id?: string
+          label_code: string
+          sequence_number: number
+          sequence_total: number
+        }
+        Update: {
+          checklist_item_id?: string | null
+          competency_id?: string | null
+          furniture_detail_id?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          generated_by_name?: string | null
+          id?: string
+          label_code?: string
+          sequence_number?: number
+          sequence_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semester_labels_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "semester_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semester_labels_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "semester_competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semester_labels_furniture_detail_id_fkey"
+            columns: ["furniture_detail_id"]
+            isOneToOne: false
+            referencedRelation: "semester_furniture_details"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_handover_incidents: {
         Row: {
           description: string | null
@@ -1963,6 +2259,17 @@ export type Database = {
       equipment_status: "available" | "borrowed" | "maintenance"
       loan_status: "active" | "returned" | "overdue"
       locker_status: "available" | "occupied"
+      semester_competency_status: "draft" | "released" | "blocked" | "finished"
+      semester_item_status:
+        | "pending_analysis"
+        | "pending_ticket"
+        | "ticket_opened"
+        | "in_maintenance"
+        | "waiting_parts"
+        | "completed"
+        | "written_off"
+        | "cancelled"
+      semester_maintenance_type: "internal" | "external"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2102,6 +2409,18 @@ export const Constants = {
       equipment_status: ["available", "borrowed", "maintenance"],
       loan_status: ["active", "returned", "overdue"],
       locker_status: ["available", "occupied"],
+      semester_competency_status: ["draft", "released", "blocked", "finished"],
+      semester_item_status: [
+        "pending_analysis",
+        "pending_ticket",
+        "ticket_opened",
+        "in_maintenance",
+        "waiting_parts",
+        "completed",
+        "written_off",
+        "cancelled",
+      ],
+      semester_maintenance_type: ["internal", "external"],
     },
   },
 } as const
