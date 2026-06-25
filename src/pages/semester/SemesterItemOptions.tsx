@@ -184,7 +184,7 @@ export default function SemesterItemOptions() {
                 <Badge variant="outline">{byCategory[cat]?.length ?? 0} opções</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {(!byCategory[cat] || byCategory[cat].length === 0) ? (
                 <p className="text-sm text-muted-foreground">Nenhuma opção cadastrada.</p>
               ) : (
@@ -258,6 +258,37 @@ export default function SemesterItemOptions() {
                     );
                   })}
                 </div>
+              )}
+              {isAdmin && (
+                inlineAddCat === cat ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      autoFocus
+                      value={inlineAddValue}
+                      onChange={(e) => setInlineAddValue(e.target.value)}
+                      placeholder={`Nova opção em ${cat}`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') submitInline(cat);
+                        if (e.key === 'Escape') { setInlineAddCat(null); setInlineAddValue(''); }
+                      }}
+                      className="h-8 max-w-xs"
+                    />
+                    <Button size="sm" onClick={() => submitInline(cat)} disabled={create.isPending}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setInlineAddCat(null); setInlineAddValue(''); }}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setInlineAddCat(cat); setInlineAddValue(''); }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar opção
+                  </Button>
+                )
               )}
             </CardContent>
           </Card>
