@@ -437,12 +437,46 @@ export function useCreateItemOption() {
   });
 }
 
+export function useUpdateItemOption() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (row: { id: string; label?: string; category?: string; sort_order?: number }) => {
+      const { id, ...patch } = row;
+      const { data, error } = await supabase
+        .from('semester_item_options' as any)
+        .update(patch as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-item-options'] }),
+  });
+}
+
 export function useDeleteItemOption() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('semester_item_options' as any).delete().eq('id', id);
       if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-item-options'] }),
+  });
+}
+
+export function useSeedDefaultItemOptions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (rows: { category: string; label: string; sort_order?: number }[]) => {
+      if (!rows.length) return [];
+      const { data, error } = await supabase
+        .from('semester_item_options' as any)
+        .insert(rows as any)
+        .select();
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-item-options'] }),
   });
