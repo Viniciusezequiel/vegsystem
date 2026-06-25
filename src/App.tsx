@@ -217,9 +217,6 @@ const App = () => (
               <Route path="/semester/summary" element={<ProtectedRoute><SemesterSummary /></ProtectedRoute>} />
               <Route path="/semester/labels" element={<ProtectedRoute><SemesterLabels /></ProtectedRoute>} />
               <Route path="/semester/:id" element={<ProtectedRoute><SemesterChecklistForm /></ProtectedRoute>} />
-
-                </ProtectedRoute>
-              } />
               
               {/* Lockers Module */}
               <Route path="/lockers" element={
