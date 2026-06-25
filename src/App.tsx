@@ -78,6 +78,7 @@ import SemesterChecklistForm from "./pages/semester/SemesterChecklistForm";
 import SemesterDashboard from "./pages/semester/SemesterDashboard";
 import SemesterSummary from "./pages/semester/SemesterSummary";
 import SemesterLabels from "./pages/semester/SemesterLabels";
+import SemesterItemOptions from "./pages/semester/SemesterItemOptions";
 
 // Portal do Cliente (external)
 import PortalLayout from "./pages/portal-cliente/PortalLayout";
