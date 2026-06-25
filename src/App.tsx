@@ -217,6 +217,7 @@ const App = () => (
               <Route path="/semester/dashboard" element={<ProtectedRoute><SemesterDashboard /></ProtectedRoute>} />
               <Route path="/semester/summary" element={<ProtectedRoute><SemesterSummary /></ProtectedRoute>} />
               <Route path="/semester/labels" element={<ProtectedRoute><SemesterLabels /></ProtectedRoute>} />
+              <Route path="/semester/item-options" element={<ProtectedRoute><SemesterItemOptions /></ProtectedRoute>} />
               <Route path="/semester/:id" element={<ProtectedRoute><SemesterChecklistForm /></ProtectedRoute>} />
               
               {/* Lockers Module */}
