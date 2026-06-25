@@ -64,7 +64,7 @@ export default function SemesterCompetencies() {
         status: form.status,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
-        created_by_name: profile?.name ?? null,
+        created_by_name: profile?.full_name ?? null,
       });
       toast.success('Competência salva');
       setOpen(false);
