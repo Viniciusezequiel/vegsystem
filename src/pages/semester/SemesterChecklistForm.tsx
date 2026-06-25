@@ -16,6 +16,7 @@ import {
   useFurnitureDetails,
   useCreateFurniture,
   useDeleteFurniture,
+  useItemOptions,
   type SemesterItem,
 } from '@/hooks/useSemesterChecklist';
 import {
