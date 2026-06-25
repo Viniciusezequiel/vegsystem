@@ -1763,6 +1763,36 @@ export type Database = {
           },
         ]
       }
+      semester_item_options: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       semester_labels: {
         Row: {
           checklist_item_id: string | null
