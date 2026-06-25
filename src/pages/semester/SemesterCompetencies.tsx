@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Lock, Unlock, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 export default function SemesterCompetencies() {
   const { isAdmin, profile } = useAuth();
@@ -73,7 +74,7 @@ export default function SemesterCompetencies() {
     }
   };
 
-  return (
+  return (<MainLayout>
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -179,5 +180,5 @@ export default function SemesterCompetencies() {
         </DialogContent>
       </Dialog>
     </div>
-  );
+  </MainLayout>);
 }

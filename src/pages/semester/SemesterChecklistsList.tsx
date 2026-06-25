@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Eye, Trash2, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 export default function SemesterChecklistsList() {
   const { isAdmin } = useAuth();
@@ -32,7 +33,7 @@ export default function SemesterChecklistsList() {
     );
   }, [list, search]);
 
-  return (
+  return (<MainLayout>
     <div className="p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -115,5 +116,5 @@ export default function SemesterChecklistsList() {
         </CardContent>
       </Card>
     </div>
-  );
+  </MainLayout>);
 }

@@ -41,6 +41,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Trash2, Armchair, Save, ShieldAlert } from 'lucide-react';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 function useRooms() {
   return useQuery({
@@ -501,7 +502,7 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
     return byProblem;
   }, [details]);
 
-  return (
+  return (<MainLayout>
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
@@ -583,5 +584,5 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  </MainLayout>);
 }

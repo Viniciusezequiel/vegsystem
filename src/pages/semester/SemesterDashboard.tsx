@@ -20,6 +20,7 @@ import {
   Inbox,
   Building2,
 } from 'lucide-react';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 function StatCard({ icon: Icon, label, value, color }: any) {
   return (
@@ -65,7 +66,7 @@ export default function SemesterDashboard() {
     return { totalRooms, totalItems, totalFurniture, internal, external, pendingTicket, openedTickets, completed, byCategory };
   }, [checklists, items, furniture]);
 
-  return (
+  return (<MainLayout>
     <div className="p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -130,5 +131,5 @@ export default function SemesterDashboard() {
         </CardContent>
       </Card>
     </div>
-  );
+  </MainLayout>);
 }
