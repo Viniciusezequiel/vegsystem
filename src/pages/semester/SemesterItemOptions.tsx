@@ -31,6 +31,8 @@ export default function SemesterItemOptions() {
   const [label, setLabel] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [inlineAddCat, setInlineAddCat] = useState<string | null>(null);
+  const [inlineAddValue, setInlineAddValue] = useState('');
 
   // Auto-seed missing defaults so admins can edit every option from the database
   const seedTriedRef = useRef(false);
@@ -95,6 +97,21 @@ export default function SemesterItemOptions() {
       setEditingValue('');
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao atualizar');
+    }
+  };
+
+  const submitInline = async (cat: string) => {
+    const val = inlineAddValue.trim();
+    if (!val) return toast.error('Informe a opção');
+    const exists = byCategory[cat]?.some((o) => o.label.toLowerCase() === val.toLowerCase());
+    if (exists) return toast.error('Esta opção já existe nesta categoria');
+    try {
+      await create.mutateAsync({ category: cat, label: val });
+      setInlineAddValue('');
+      setInlineAddCat(null);
+      toast.success('Opção adicionada');
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao salvar');
     }
   };
 
