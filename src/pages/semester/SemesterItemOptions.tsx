@@ -31,6 +31,8 @@ export default function SemesterItemOptions() {
   const [label, setLabel] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [inlineAddCat, setInlineAddCat] = useState<string | null>(null);
+  const [inlineAddValue, setInlineAddValue] = useState('');
 
   // Auto-seed missing defaults so admins can edit every option from the database
   const seedTriedRef = useRef(false);
@@ -95,6 +97,21 @@ export default function SemesterItemOptions() {
       setEditingValue('');
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao atualizar');
+    }
+  };
+
+  const submitInline = async (cat: string) => {
+    const val = inlineAddValue.trim();
+    if (!val) return toast.error('Informe a opção');
+    const exists = byCategory[cat]?.some((o) => o.label.toLowerCase() === val.toLowerCase());
+    if (exists) return toast.error('Esta opção já existe nesta categoria');
+    try {
+      await create.mutateAsync({ category: cat, label: val });
+      setInlineAddValue('');
+      setInlineAddCat(null);
+      toast.success('Opção adicionada');
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao salvar');
     }
   };
 
@@ -167,7 +184,7 @@ export default function SemesterItemOptions() {
                 <Badge variant="outline">{byCategory[cat]?.length ?? 0} opções</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {(!byCategory[cat] || byCategory[cat].length === 0) ? (
                 <p className="text-sm text-muted-foreground">Nenhuma opção cadastrada.</p>
               ) : (
@@ -241,6 +258,37 @@ export default function SemesterItemOptions() {
                     );
                   })}
                 </div>
+              )}
+              {isAdmin && (
+                inlineAddCat === cat ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      autoFocus
+                      value={inlineAddValue}
+                      onChange={(e) => setInlineAddValue(e.target.value)}
+                      placeholder={`Nova opção em ${cat}`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') submitInline(cat);
+                        if (e.key === 'Escape') { setInlineAddCat(null); setInlineAddValue(''); }
+                      }}
+                      className="h-8 max-w-xs"
+                    />
+                    <Button size="sm" onClick={() => submitInline(cat)} disabled={create.isPending}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setInlineAddCat(null); setInlineAddValue(''); }}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setInlineAddCat(cat); setInlineAddValue(''); }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar opção
+                  </Button>
+                )
               )}
             </CardContent>
           </Card>

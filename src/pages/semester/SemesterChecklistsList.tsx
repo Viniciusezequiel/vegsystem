@@ -29,7 +29,7 @@ export default function SemesterChecklistsList() {
     const q = search.trim().toLowerCase();
     if (!q) return list;
     return list.filter((c) =>
-      [c.room_name, c.responsible_name, c.floor, c.campus].filter(Boolean).join(' ').toLowerCase().includes(q),
+      [c.room_name, c.responsible_name, c.campus].filter(Boolean).join(' ').toLowerCase().includes(q),
     );
   }, [list, search]);
 
@@ -40,9 +40,12 @@ export default function SemesterChecklistsList() {
           <h1 className="text-2xl font-bold">Checklist Semestral — Levantamentos</h1>
           <p className="text-sm text-muted-foreground">Visualize e gerencie os levantamentos por sala.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline"><Link to="/semester/dashboard">Dashboard</Link></Button>
           <Button asChild variant="outline"><Link to="/semester/summary">Resumo p/ Chamados</Link></Button>
+          {isAdmin && (
+            <Button asChild variant="outline"><Link to="/semester/item-options">Opções de Itens</Link></Button>
+          )}
           <Button asChild variant="outline"><Link to="/semester/labels">Etiquetas</Link></Button>
           <Button asChild><Link to="/semester/new"><Plus className="h-4 w-4 mr-1" /> Novo levantamento</Link></Button>
         </div>
@@ -61,7 +64,7 @@ export default function SemesterChecklistsList() {
           </Select>
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar sala, andar, responsável..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder="Buscar sala, campus, responsável..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
         </CardContent>
       </Card>

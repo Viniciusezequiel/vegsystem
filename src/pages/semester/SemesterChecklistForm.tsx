@@ -74,7 +74,6 @@ export default function SemesterChecklistForm() {
 
   const [competencyId, setCompetencyId] = useState('');
   const [roomId, setRoomId] = useState('');
-  const [floor, setFloor] = useState('');
   const [responsible, setResponsible] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [observation, setObservation] = useState('');
@@ -83,7 +82,6 @@ export default function SemesterChecklistForm() {
     if (existing) {
       setCompetencyId(existing.competency_id);
       setRoomId(existing.room_id ?? '');
-      setFloor(existing.floor ?? '');
       setResponsible(existing.responsible_name);
       setDate(existing.checklist_date);
       setObservation(existing.general_observation ?? '');
@@ -108,7 +106,7 @@ export default function SemesterChecklistForm() {
       room_name: room?.name ?? existing?.room_name ?? '',
       room_code: room?.code ?? existing?.room_code ?? null,
       campus: room?.campus ?? existing?.campus ?? null,
-      floor: floor || room?.location || null,
+      floor: room?.location || existing?.floor || null,
       responsible_id: profile?.id ?? null,
       responsible_name: responsible.trim(),
       checklist_date: date,
@@ -178,10 +176,6 @@ export default function SemesterChecklistForm() {
             {existing && !isNew && (
               <p className="text-xs text-muted-foreground mt-1">{existing.room_name} — {existing.campus}</p>
             )}
-          </div>
-          <div>
-            <Label>Andar</Label>
-            <Input value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="Ex.: 8º andar" />
           </div>
           <div>
             <Label>Responsável *</Label>
