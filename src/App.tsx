@@ -71,6 +71,14 @@ import LabelTemplatesList from "./pages/labels/LabelTemplatesList";
 import LabelTemplateEditor from "./pages/labels/LabelTemplateEditor";
 import LabelGenerate from "./pages/labels/LabelGenerate";
 
+// Checklist Semestral Module
+import SemesterCompetencies from "./pages/semester/SemesterCompetencies";
+import SemesterChecklistsList from "./pages/semester/SemesterChecklistsList";
+import SemesterChecklistForm from "./pages/semester/SemesterChecklistForm";
+import SemesterDashboard from "./pages/semester/SemesterDashboard";
+import SemesterSummary from "./pages/semester/SemesterSummary";
+import SemesterLabels from "./pages/semester/SemesterLabels";
+
 // Portal do Cliente (external)
 import PortalLayout from "./pages/portal-cliente/PortalLayout";
 import PortalLogin from "./pages/portal-cliente/PortalLogin";
