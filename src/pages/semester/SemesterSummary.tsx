@@ -9,6 +9,7 @@ import { Copy, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 interface GroupRow {
   room: string;
@@ -122,7 +123,7 @@ export default function SemesterSummary() {
     XLSX.writeFile(wb, `checklist-semestral-resumo-${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
-  return (
+  return (<MainLayout>
     <div className="p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -181,5 +182,5 @@ export default function SemesterSummary() {
         ))
       )}
     </div>
-  );
+  </MainLayout>);
 }

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Eye, Trash2, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 export default function SemesterChecklistsList() {
   const { isAdmin } = useAuth();
@@ -75,7 +76,7 @@ export default function SemesterChecklistsList() {
             <div className="divide-y">
               {filtered.map((c) => {
                 const comp = competencies.find((x) => x.id === c.competency_id);
-                return (
+                return (<MainLayout>
                   <div key={c.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center flex-wrap gap-2">
@@ -115,5 +116,5 @@ export default function SemesterChecklistsList() {
         </CardContent>
       </Card>
     </div>
-  );
+  </MainLayout>);
 }

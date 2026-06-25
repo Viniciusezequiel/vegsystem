@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import {
+import { MainLayout } from '@/components/layout/MainLayout';
   ClipboardCheck,
   Wrench,
   Armchair,
@@ -65,7 +66,7 @@ export default function SemesterDashboard() {
     return { totalRooms, totalItems, totalFurniture, internal, external, pendingTicket, openedTickets, completed, byCategory };
   }, [checklists, items, furniture]);
 
-  return (
+  return (<MainLayout>
     <div className="p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -130,5 +131,5 @@ export default function SemesterDashboard() {
         </CardContent>
       </Card>
     </div>
-  );
+  </MainLayout>);
 }

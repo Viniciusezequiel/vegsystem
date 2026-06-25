@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Printer, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 interface Candidate {
   key: string;
@@ -173,7 +174,7 @@ export default function SemesterLabels() {
     }
   };
 
-  return (
+  return (<MainLayout>
     <div className="p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -265,5 +266,5 @@ export default function SemesterLabels() {
         </CardContent>
       </Card>
     </div>
-  );
+  </MainLayout>);
 }
