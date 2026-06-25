@@ -76,7 +76,7 @@ export default function SemesterChecklistsList() {
             <div className="divide-y">
               {filtered.map((c) => {
                 const comp = competencies.find((x) => x.id === c.competency_id);
-                return (<MainLayout>
+                return (
                   <div key={c.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center flex-wrap gap-2">
