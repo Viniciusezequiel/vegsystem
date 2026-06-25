@@ -134,6 +134,7 @@ const moduleGroups: NavGroup[] = [
       { name: 'Competências', href: '/semester/competencies', icon: Settings, adminOnly: true },
       { name: 'Dashboard', href: '/semester/dashboard', icon: BarChart3 },
       { name: 'Resumo p/ Chamados', href: '/semester/summary', icon: FileText },
+      { name: 'Opções de Itens', href: '/semester/item-options', icon: Settings, adminOnly: true },
       { name: 'Etiquetas (Pimaco A4365)', href: '/semester/labels', icon: Tag },
     ],
   },

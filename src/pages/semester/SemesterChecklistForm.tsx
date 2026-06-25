@@ -16,6 +16,7 @@ import {
   useFurnitureDetails,
   useCreateFurniture,
   useDeleteFurniture,
+  useItemOptions,
   type SemesterItem,
 } from '@/hooks/useSemesterChecklist';
 import {
@@ -265,7 +266,12 @@ function CategoryEditor({
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
 
-  const baseItems = SEMESTER_BASE_ITEMS[category];
+  const { data: allOptions = [] } = useItemOptions();
+  const baseItems = useMemo(() => {
+    const fromConst = SEMESTER_BASE_ITEMS[category] ?? [];
+    const fromDb = allOptions.filter((o) => o.category === category).map((o) => o.label);
+    return Array.from(new Set([...fromConst, ...fromDb]));
+  }, [category, allOptions]);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({
     item_name: baseItems[0] ?? '',

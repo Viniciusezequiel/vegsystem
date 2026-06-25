@@ -394,3 +394,56 @@ export function useCreateLabels() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-labels'] }),
   });
 }
+
+// ===== Item options (admin pre-cadastra opções do dropdown por categoria) =====
+export interface SemesterItemOption {
+  id: string;
+  category: string;
+  label: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useItemOptions() {
+  return useQuery({
+    queryKey: ['semester-item-options'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('semester_item_options' as any)
+        .select('*')
+        .order('category')
+        .order('sort_order')
+        .order('label');
+      if (error) throw error;
+      return (data ?? []) as unknown as SemesterItemOption[];
+    },
+  });
+}
+
+export function useCreateItemOption() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (row: { category: string; label: string; sort_order?: number }) => {
+      const { data, error } = await supabase
+        .from('semester_item_options' as any)
+        .insert(row as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-item-options'] }),
+  });
+}
+
+export function useDeleteItemOption() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('semester_item_options' as any).delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-item-options'] }),
+  });
+}

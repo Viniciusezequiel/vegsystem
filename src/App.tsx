@@ -78,6 +78,7 @@ import SemesterChecklistForm from "./pages/semester/SemesterChecklistForm";
 import SemesterDashboard from "./pages/semester/SemesterDashboard";
 import SemesterSummary from "./pages/semester/SemesterSummary";
 import SemesterLabels from "./pages/semester/SemesterLabels";
+import SemesterItemOptions from "./pages/semester/SemesterItemOptions";
 
 // Portal do Cliente (external)
 import PortalLayout from "./pages/portal-cliente/PortalLayout";
@@ -216,6 +217,7 @@ const App = () => (
               <Route path="/semester/dashboard" element={<ProtectedRoute><SemesterDashboard /></ProtectedRoute>} />
               <Route path="/semester/summary" element={<ProtectedRoute><SemesterSummary /></ProtectedRoute>} />
               <Route path="/semester/labels" element={<ProtectedRoute><SemesterLabels /></ProtectedRoute>} />
+              <Route path="/semester/item-options" element={<ProtectedRoute><SemesterItemOptions /></ProtectedRoute>} />
               <Route path="/semester/:id" element={<ProtectedRoute><SemesterChecklistForm /></ProtectedRoute>} />
               
               {/* Lockers Module */}
