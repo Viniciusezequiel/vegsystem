@@ -20,6 +20,7 @@ import {
   Inbox,
   Building2,
 } from 'lucide-react';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 function StatCard({ icon: Icon, label, value, color }: any) {
   return (
