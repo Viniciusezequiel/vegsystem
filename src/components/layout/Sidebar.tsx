@@ -120,6 +120,11 @@ const moduleGroups: NavGroup[] = [
       { name: 'Checklists', href: '/rooms/checklists', icon: Search },
       { name: 'Passagem de Plantão', href: '/rooms/shift-handovers', icon: RefreshCw },
       { name: 'Gestão de Salas', href: '/rooms', icon: ClipboardCheck, adminOnly: true },
+      { name: 'Checklist Semestral', href: '/semester', icon: CalendarDays },
+      { name: 'Competências (Semestral)', href: '/semester/competencies', icon: Settings, adminOnly: true },
+      { name: 'Dashboard Semestral', href: '/semester/dashboard', icon: BarChart3 },
+      { name: 'Resumo p/ Chamados', href: '/semester/summary', icon: FileText },
+      { name: 'Etiquetas Semestral', href: '/semester/labels', icon: Tag },
     ],
   },
   {

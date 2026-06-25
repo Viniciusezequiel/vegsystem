@@ -71,6 +71,14 @@ import LabelTemplatesList from "./pages/labels/LabelTemplatesList";
 import LabelTemplateEditor from "./pages/labels/LabelTemplateEditor";
 import LabelGenerate from "./pages/labels/LabelGenerate";
 
+// Checklist Semestral Module
+import SemesterCompetencies from "./pages/semester/SemesterCompetencies";
+import SemesterChecklistsList from "./pages/semester/SemesterChecklistsList";
+import SemesterChecklistForm from "./pages/semester/SemesterChecklistForm";
+import SemesterDashboard from "./pages/semester/SemesterDashboard";
+import SemesterSummary from "./pages/semester/SemesterSummary";
+import SemesterLabels from "./pages/semester/SemesterLabels";
+
 // Portal do Cliente (external)
 import PortalLayout from "./pages/portal-cliente/PortalLayout";
 import PortalLogin from "./pages/portal-cliente/PortalLogin";
@@ -200,6 +208,15 @@ const App = () => (
                   <ShiftHandoverHistory />
                 </ProtectedRoute>
               } />
+
+              {/* Checklist Semestral */}
+              <Route path="/semester" element={<ProtectedRoute><SemesterChecklistsList /></ProtectedRoute>} />
+              <Route path="/semester/new" element={<ProtectedRoute><SemesterChecklistForm /></ProtectedRoute>} />
+              <Route path="/semester/competencies" element={<ProtectedRoute><SemesterCompetencies /></ProtectedRoute>} />
+              <Route path="/semester/dashboard" element={<ProtectedRoute><SemesterDashboard /></ProtectedRoute>} />
+              <Route path="/semester/summary" element={<ProtectedRoute><SemesterSummary /></ProtectedRoute>} />
+              <Route path="/semester/labels" element={<ProtectedRoute><SemesterLabels /></ProtectedRoute>} />
+              <Route path="/semester/:id" element={<ProtectedRoute><SemesterChecklistForm /></ProtectedRoute>} />
               
               {/* Lockers Module */}
               <Route path="/lockers" element={
