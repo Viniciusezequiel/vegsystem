@@ -466,11 +466,17 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
   const { data: details = [] } = useFurnitureDetails(itemId);
   const create = useCreateFurniture();
   const del = useDeleteFurniture();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    item_type: string;
+    problem_type: string;
+    quantity: number;
+    maintenance_type: 'internal' | 'external';
+    observation: string;
+  }>({
     item_type: 'Carteira',
     problem_type: FURNITURE_PROBLEMS[0],
     quantity: 1,
-    maintenance_type: 'internal' as 'internal' | 'external',
+    maintenance_type: 'internal',
     observation: '',
   });
 
