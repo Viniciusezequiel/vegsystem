@@ -207,6 +207,7 @@ export default function SemesterChecklistForm() {
         </CardContent>
       </Card>
     </div>
+    </MainLayout>
   );
 }
 
