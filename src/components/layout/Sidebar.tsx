@@ -130,7 +130,6 @@ const moduleGroups: NavGroup[] = [
     module: 'rooms',
     items: [
       { name: 'Checklists Semestrais', href: '/semester', icon: ClipboardCheck },
-      { name: 'Novo Checklist Semestral', href: '/semester/new', icon: PackagePlus },
       { name: 'Competências', href: '/semester/competencies', icon: Settings, adminOnly: true },
       { name: 'Etiquetas (Pimaco A4365)', href: '/semester/labels', icon: Tag },
     ],

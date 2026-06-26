@@ -26,7 +26,6 @@ interface Candidate {
   competencyId: string;
   competencyName: string;
   room: string;
-  floor: string;
   itemType: string;
   problem: string;
   maintenance: string;
@@ -46,7 +45,6 @@ export default function SemesterLabels() {
 
   const [search, setSearch] = useState('');
   const [filterRoom, setFilterRoom] = useState('all');
-  const [filterFloor, setFilterFloor] = useState('all');
   const [filterMaintenance, setFilterMaintenance] = useState<'all' | 'internal' | 'external'>('all');
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
@@ -63,7 +61,6 @@ export default function SemesterLabels() {
         competencyId: ch?.competency_id ?? '',
         competencyName: comp?.name ?? '',
         room: ch?.room_name ?? '-',
-        floor: ch?.floor ?? '-',
         itemType: i.item_name,
         problem: i.observation ?? i.category,
         maintenance: i.maintenance_type === 'external' ? 'Externa' : 'Interna',
@@ -83,7 +80,6 @@ export default function SemesterLabels() {
         competencyId: ch?.competency_id ?? '',
         competencyName: comp?.name ?? '',
         room: ch?.room_name ?? '-',
-        floor: ch?.floor ?? '-',
         itemType: f.item_type,
         problem: f.problem_type,
         maintenance: f.maintenance_type === 'external' ? 'Externa' : 'Interna',
@@ -96,18 +92,16 @@ export default function SemesterLabels() {
   }, [items, furniture, competencies]);
 
   const rooms = useMemo(() => Array.from(new Set(candidates.map((c) => c.room))).sort(), [candidates]);
-  const floors = useMemo(() => Array.from(new Set(candidates.map((c) => c.floor))).filter(Boolean).sort(), [candidates]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return candidates.filter((c) => {
       if (filterRoom !== 'all' && c.room !== filterRoom) return false;
-      if (filterFloor !== 'all' && c.floor !== filterFloor) return false;
       if (filterMaintenance !== 'all' && c.maintenance.toLowerCase() !== (filterMaintenance === 'internal' ? 'interna' : 'externa')) return false;
       if (q && !`${c.room} ${c.itemType} ${c.problem} ${c.responsible}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [candidates, search, filterRoom, filterFloor, filterMaintenance]);
+  }, [candidates, search, filterRoom, filterMaintenance]);
 
   const allSelected = filtered.length > 0 && filtered.every((c) => selected[c.key]);
   const toggleAll = () => {
@@ -121,7 +115,6 @@ export default function SemesterLabels() {
     const chosen = filtered.filter((c) => selected[c.key]);
     if (chosen.length === 0) return toast.error('Selecione ao menos um item');
 
-    // expandir por quantidade gerando sequência por grupo (sala/item/problema)
     type ExpandedRow = SemesterLabelData & {
       source: 'item' | 'furniture';
       sourceId: string;
@@ -138,7 +131,6 @@ export default function SemesterLabels() {
           competencyId: c.competencyId,
           competency: c.competencyName,
           room: c.room,
-          floor: c.floor,
           itemType: c.itemType,
           problem: c.problem,
           maintenance: c.maintenance,
@@ -151,11 +143,9 @@ export default function SemesterLabels() {
       }
     });
 
-    // gerar PDF
     const doc = generateSemesterLabelsPdf(expanded);
     doc.save(`etiquetas-checklist-semestral-${format(new Date(), 'yyyyMMddHHmm')}.pdf`);
 
-    // registrar no banco
     try {
       const rows = expanded.map((e) => ({
         checklist_item_id: e.source === 'item' ? e.sourceId : null,
@@ -187,7 +177,7 @@ export default function SemesterLabels() {
       </div>
 
       <Card>
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
           <Select value={competencyId} onValueChange={setCompetencyId}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -200,13 +190,6 @@ export default function SemesterLabels() {
             <SelectContent>
               <SelectItem value="all">Todas salas</SelectItem>
               {rooms.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterFloor} onValueChange={setFilterFloor}>
-            <SelectTrigger><SelectValue placeholder="Andar" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos andares</SelectItem>
-              {floors.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterMaintenance} onValueChange={(v) => setFilterMaintenance(v as any)}>
@@ -247,7 +230,6 @@ export default function SemesterLabels() {
                   <div className="flex-1">
                     <div className="flex items-center flex-wrap gap-2">
                       <strong>{c.room}</strong>
-                      <Badge variant="outline">{c.floor}</Badge>
                       <Badge variant="outline">{c.maintenance}</Badge>
                       <Badge variant="secondary">{c.quantity} etiquetas</Badge>
                       <Badge variant="outline">{c.competencyName}</Badge>
