@@ -106,7 +106,6 @@ export default function SemesterChecklistForm() {
       room_name: room?.name ?? existing?.room_name ?? '',
       room_code: room?.code ?? existing?.room_code ?? null,
       campus: room?.campus ?? existing?.campus ?? null,
-      floor: room?.location || existing?.floor || null,
       responsible_id: profile?.id ?? null,
       responsible_name: responsible.trim(),
       checklist_date: date,
@@ -185,16 +184,27 @@ export default function SemesterChecklistForm() {
             <Label>Data *</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <div className="md:col-span-3">
-            <Label>Observação geral</Label>
-            <Textarea value={observation} onChange={(e) => setObservation(e.target.value)} rows={2} />
-          </div>
         </CardContent>
       </Card>
 
       {!isNew && existing && (
         <ItemsSection checklistId={existing.id} canEdit={canEditItems} />
       )}
+
+      {/* Observação geral — sempre por último */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Observação geral</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={observation}
+            onChange={(e) => setObservation(e.target.value)}
+            rows={3}
+            placeholder="Anotações gerais sobre este levantamento"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
