@@ -131,6 +131,7 @@ export default function SemesterChecklistForm() {
   const canEditItems = isAdmin || (releasedSelected?.status === 'released');
 
   return (
+    <MainLayout>
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={() => navigate('/semester')}><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</Button>
