@@ -106,7 +106,6 @@ export default function SemesterChecklistForm() {
       room_name: room?.name ?? existing?.room_name ?? '',
       room_code: room?.code ?? existing?.room_code ?? null,
       campus: room?.campus ?? existing?.campus ?? null,
-      floor: room?.location || existing?.floor || null,
       responsible_id: profile?.id ?? null,
       responsible_name: responsible.trim(),
       checklist_date: date,
@@ -132,6 +131,7 @@ export default function SemesterChecklistForm() {
   const canEditItems = isAdmin || (releasedSelected?.status === 'released');
 
   return (
+    <MainLayout>
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={() => navigate('/semester')}><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</Button>
@@ -185,17 +185,29 @@ export default function SemesterChecklistForm() {
             <Label>Data *</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <div className="md:col-span-3">
-            <Label>Observação geral</Label>
-            <Textarea value={observation} onChange={(e) => setObservation(e.target.value)} rows={2} />
-          </div>
         </CardContent>
       </Card>
 
       {!isNew && existing && (
         <ItemsSection checklistId={existing.id} canEdit={canEditItems} />
       )}
+
+      {/* Observação geral — sempre por último */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Observação geral</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={observation}
+            onChange={(e) => setObservation(e.target.value)}
+            rows={3}
+            placeholder="Anotações gerais sobre este levantamento"
+          />
+        </CardContent>
+      </Card>
     </div>
+    </MainLayout>
   );
 }
 
@@ -267,6 +279,7 @@ function CategoryEditor({
     const fromConst = fromDb.length === 0 ? (SEMESTER_BASE_ITEMS[category] ?? []) : [];
     return Array.from(new Set([...fromDb, ...fromConst]));
   }, [category, allOptions]);
+  const isFurnitureCategory = category === 'Mobiliário';
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({
     item_name: baseItems[0] ?? '',
@@ -274,7 +287,7 @@ function CategoryEditor({
     quantity: 1,
     maintenance_type: 'internal' as 'internal' | 'external',
     needs_ticket: false,
-    needs_label: false,
+    needs_label: isFurnitureCategory, // Mobiliário sempre gera etiqueta por padrão
     observation: '',
   });
 
@@ -299,7 +312,7 @@ function CategoryEditor({
       quantity: 1,
       maintenance_type: 'internal',
       needs_ticket: false,
-      needs_label: false,
+      needs_label: isFurnitureCategory,
       observation: '',
     });
   };
@@ -470,49 +483,61 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
   const del = useDeleteFurniture();
   const [form, setForm] = useState<{
     item_type: string;
-    problem_type: string;
+    problems: string[];
     quantity: number;
     maintenance_type: 'internal' | 'external';
     observation: string;
   }>({
     item_type: 'Carteira',
-    problem_type: FURNITURE_PROBLEMS[0],
+    problems: [FURNITURE_PROBLEMS[0]],
     quantity: 1,
     maintenance_type: 'internal',
     observation: '',
   });
 
+  const toggleProblem = (p: string) => {
+    setForm((f) => ({
+      ...f,
+      problems: f.problems.includes(p) ? f.problems.filter((x) => x !== p) : [...f.problems, p],
+    }));
+  };
+
   const submit = async () => {
+    if (form.problems.length === 0) return toast.error('Selecione ao menos um problema');
     await create.mutateAsync({
       checklist_item_id: itemId,
       item_type: form.item_type,
-      problem_type: form.problem_type,
+      problem_type: form.problems.join(' + '),
       quantity: form.quantity || 1,
       maintenance_type: form.maintenance_type,
       observation: form.observation || null,
     });
     toast.success('Detalhe adicionado');
-    setForm({ ...form, quantity: 1, observation: '' });
+    setForm({ ...form, quantity: 1, observation: '', problems: [FURNITURE_PROBLEMS[0]] });
   };
 
   const totals = useMemo(() => {
     const byProblem: Record<string, number> = {};
     details.forEach((d) => {
-      byProblem[d.problem_type] = (byProblem[d.problem_type] ?? 0) + d.quantity;
+      // problem_type pode conter múltiplos problemas separados por " + " ou ","
+      const parts = (d.problem_type || '').split(/\s*\+\s*|\s*,\s*/).filter(Boolean);
+      parts.forEach((p) => {
+        byProblem[p] = (byProblem[p] ?? 0) + d.quantity;
+      });
     });
     return byProblem;
   }, [details]);
 
-  return (<MainLayout>
+  return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalhamento de carteiras/cadeiras</DialogTitle>
         </DialogHeader>
 
         {Object.keys(totals).length > 0 && (
           <div className="rounded-lg bg-muted/50 p-3 flex flex-wrap gap-2 text-sm">
-            <span className="font-medium">Totais:</span>
+            <span className="font-medium">Totais por problema:</span>
             {Object.entries(totals).map(([p, q]) => (
               <Badge key={p} variant="secondary">{p}: {q}</Badge>
             ))}
@@ -521,60 +546,87 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
 
         <div className="divide-y border rounded">
           {details.length === 0 && <div className="p-3 text-sm text-muted-foreground">Nenhum detalhe.</div>}
-          {details.map((d) => (
-            <div key={d.id} className="p-3 flex items-center justify-between gap-2">
-              <div className="text-sm">
-                <strong>{d.quantity}x</strong> {d.item_type} — {d.problem_type}{' '}
-                <Badge variant="outline">{d.maintenance_type === 'internal' ? 'Interna' : 'Externa'}</Badge>
-                {d.observation && <p className="text-xs text-muted-foreground mt-1">{d.observation}</p>}
+          {details.map((d) => {
+            const probs = (d.problem_type || '').split(/\s*\+\s*|\s*,\s*/).filter(Boolean);
+            return (
+              <div key={d.id} className="p-3 flex items-start justify-between gap-2">
+                <div className="text-sm flex-1">
+                  <div className="flex items-center flex-wrap gap-1.5">
+                    <strong>{d.quantity}x</strong>
+                    <span>{d.item_type}</span>
+                    <Badge variant="outline">{d.maintenance_type === 'internal' ? 'Interna' : 'Externa'}</Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {probs.map((p) => (
+                      <Badge key={p} variant="secondary" className="text-[11px]">{p}</Badge>
+                    ))}
+                  </div>
+                  {d.observation && <p className="text-xs text-muted-foreground mt-1">{d.observation}</p>}
+                </div>
+                {canEdit && (
+                  <Button size="sm" variant="destructive" onClick={() => del.mutate(d.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
-              {canEdit && (
-                <Button size="sm" variant="destructive" onClick={() => del.mutate(d.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {canEdit && (
-          <div className="border rounded p-3 grid grid-cols-1 md:grid-cols-2 gap-3 bg-muted/30">
-            <div>
-              <Label>Tipo</Label>
-              <Select value={form.item_type} onValueChange={(v) => setForm({ ...form, item_type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FURNITURE_ITEM_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
+          <div className="border rounded p-3 space-y-3 bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label>Tipo</Label>
+                <Select value={form.item_type} onValueChange={(v) => setForm({ ...form, item_type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FURNITURE_ITEM_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Quantidade</Label>
+                <Input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) || 1 })} />
+              </div>
+              <div>
+                <Label>Manutenção</Label>
+                <Select value={form.maintenance_type} onValueChange={(v) => setForm({ ...form, maintenance_type: v as any })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MAINTENANCE_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
             <div>
-              <Label>Problema</Label>
-              <Select value={form.problem_type} onValueChange={(v) => setForm({ ...form, problem_type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FURNITURE_PROBLEMS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Problemas (selecione um ou mais)</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1 p-3 border rounded bg-background">
+                {FURNITURE_PROBLEMS.map((p) => (
+                  <label key={p} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={form.problems.includes(p)}
+                      onChange={() => toggleProblem(p)}
+                    />
+                    {p}
+                  </label>
+                ))}
+              </div>
+              {form.problems.length > 1 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Os problemas selecionados aparecerão juntos na mesma etiqueta.
+                </p>
+              )}
             </div>
+
             <div>
-              <Label>Quantidade</Label>
-              <Input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) || 1 })} />
-            </div>
-            <div>
-              <Label>Manutenção</Label>
-              <Select value={form.maintenance_type} onValueChange={(v) => setForm({ ...form, maintenance_type: v as any })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MAINTENANCE_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2">
               <Label>Observação</Label>
               <Textarea rows={2} value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} />
             </div>
-            <div className="md:col-span-2 flex justify-end">
+            <div className="flex justify-end">
               <Button size="sm" onClick={submit} disabled={create.isPending}><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
             </div>
           </div>
@@ -585,5 +637,5 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  </MainLayout>);
+  );
 }
