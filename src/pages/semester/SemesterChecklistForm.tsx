@@ -277,6 +277,7 @@ function CategoryEditor({
     const fromConst = fromDb.length === 0 ? (SEMESTER_BASE_ITEMS[category] ?? []) : [];
     return Array.from(new Set([...fromDb, ...fromConst]));
   }, [category, allOptions]);
+  const isFurnitureCategory = category === 'Mobiliário';
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({
     item_name: baseItems[0] ?? '',
@@ -284,7 +285,7 @@ function CategoryEditor({
     quantity: 1,
     maintenance_type: 'internal' as 'internal' | 'external',
     needs_ticket: false,
-    needs_label: false,
+    needs_label: isFurnitureCategory, // Mobiliário sempre gera etiqueta por padrão
     observation: '',
   });
 
@@ -309,7 +310,7 @@ function CategoryEditor({
       quantity: 1,
       maintenance_type: 'internal',
       needs_ticket: false,
-      needs_label: false,
+      needs_label: isFurnitureCategory,
       observation: '',
     });
   };
