@@ -13,6 +13,7 @@ import { SEMESTER_CATEGORIES, competencyStatusLabel, statusColor, statusLabel } 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -162,9 +163,19 @@ export default function SemesterChecklistsList() {
             <div className="divide-y">
               {filtered.map((c) => {
                 const comp = competencies.find((x) => x.id === c.competency_id);
+                const categoriesWithItems = new Set(
+                  items.filter((it: any) => it.checklist_id === c.id).map((it: any) => it.category),
+                );
+                const confirmed: string[] = (c as any).confirmed_categories ?? [];
+                const doneCats = SEMESTER_CATEGORIES.filter(
+                  (cat) => categoriesWithItems.has(cat) || confirmed.includes(cat),
+                ).length;
+                const progress = Math.round((doneCats / SEMESTER_CATEGORIES.length) * 100);
+                const progressColor =
+                  progress === 100 ? 'text-emerald-600' : progress >= 50 ? 'text-amber-600' : 'text-muted-foreground';
                 return (
                   <div key={c.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center flex-wrap gap-2">
                         <h3 className="font-semibold">{c.room_name}</h3>
                         {c.campus && <Badge variant="outline">{c.campus}</Badge>}
@@ -174,6 +185,13 @@ export default function SemesterChecklistsList() {
                         {comp?.name && `${comp.name} • `}
                         Responsável: {c.responsible_name} • {format(new Date(c.checklist_date), 'dd/MM/yyyy')}
                       </p>
+                      <div className="mt-2 max-w-md">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-muted-foreground">Progresso do levantamento</span>
+                          <span className={`font-medium ${progressColor}`}>{doneCats}/{SEMESTER_CATEGORIES.length} • {progress}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" asChild variant="outline">
