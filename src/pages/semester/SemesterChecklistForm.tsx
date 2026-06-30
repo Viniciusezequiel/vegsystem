@@ -428,8 +428,7 @@ function ItemRow({
   onUpdate: (patch: Partial<SemesterItem>) => void;
 }) {
   const [openFurniture, setOpenFurniture] = useState(false);
-  const isFurnitureRelevant =
-    category === 'Mobiliário' && /carteira|cadeira/i.test(item.item_name);
+  const isFurnitureRelevant = category === 'Mobiliário';
 
   return (
     <div className="border rounded-lg p-3 bg-card">
