@@ -1613,6 +1613,7 @@ export type Database = {
           campus: string | null
           checklist_date: string
           competency_id: string
+          confirmed_categories: string[]
           created_at: string
           floor: string | null
           general_observation: string | null
@@ -1629,6 +1630,7 @@ export type Database = {
           campus?: string | null
           checklist_date?: string
           competency_id: string
+          confirmed_categories?: string[]
           created_at?: string
           floor?: string | null
           general_observation?: string | null
@@ -1645,6 +1647,7 @@ export type Database = {
           campus?: string | null
           checklist_date?: string
           competency_id?: string
+          confirmed_categories?: string[]
           created_at?: string
           floor?: string | null
           general_observation?: string | null
