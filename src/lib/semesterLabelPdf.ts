@@ -79,10 +79,22 @@ function drawLabel(doc: jsPDF, l: SemesterLabelData, ox: number, oy: number) {
   doc.text(l.room || '-', ox + padding, cy + 7);
   cy += 13;
 
-  // Item + Problema ligados em um único bloco
+  // Item + Problema(s) ligados em um único bloco (altura dinâmica)
+  const problemsList = (l.problem || '-')
+    .split(/\s*\+\s*|\s*,\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const problemLines: string[] = [];
+  problemsList.forEach((p) => {
+    const wrapped = doc.splitTextToSize(`• ${p}`, innerW - 6);
+    wrapped.forEach((w: string) => problemLines.push(w));
+  });
+  const maxProblemLines = Math.min(problemLines.length, 5);
+  const blockH = 11 + maxProblemLines * 3.6 + 2;
+
   doc.setFillColor(240, 253, 244); // green-50
   doc.setDrawColor(187, 247, 208); // green-200
-  doc.roundedRect(ox + padding, cy - 3, innerW, 18, 1.5, 1.5, 'FD');
+  doc.roundedRect(ox + padding, cy - 3, innerW, blockH, 1.5, 1.5, 'FD');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
@@ -97,15 +109,15 @@ function drawLabel(doc: jsPDF, l: SemesterLabelData, ox: number, oy: number) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(21, 128, 61);
-  doc.text('PROBLEMA(S)', ox + padding + 2, cy + 9);
+  doc.text(`PROBLEMA${problemsList.length > 1 ? 'S' : ''} (${problemsList.length})`, ox + padding + 2, cy + 9);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(15, 15, 15);
-  const problemsText = (l.problem || '-').split(/\s*\+\s*|\s*,\s*/).join(' • ');
-  const probWrapped = doc.splitTextToSize(problemsText, innerW - 4);
-  doc.text(probWrapped.slice(0, 2).join('\n'), ox + padding + 2, cy + 13);
+  problemLines.slice(0, maxProblemLines).forEach((line, i) => {
+    doc.text(line, ox + padding + 2, cy + 12.5 + i * 3.6);
+  });
 
-  cy += 19;
+  cy += blockH + 1;
 
   // Manutenção + Responsável
   doc.setFont('helvetica', 'bold');
