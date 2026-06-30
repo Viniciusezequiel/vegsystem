@@ -41,7 +41,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Trash2, Armchair, Save, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Armchair, Save, ShieldAlert, CheckCircle2, Circle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { MainLayout } from '@/components/layout/MainLayout';
 
 function useRooms() {
@@ -189,7 +190,7 @@ export default function SemesterChecklistForm() {
       </Card>
 
       {!isNew && existing && (
-        <ItemsSection checklistId={existing.id} canEdit={canEditItems} />
+        <ItemsSection checklist={existing} canEdit={canEditItems} />
       )}
 
       {/* Observação geral — sempre por último */}
@@ -211,8 +212,12 @@ export default function SemesterChecklistForm() {
   );
 }
 
-function ItemsSection({ checklistId, canEdit }: { checklistId: string; canEdit: boolean }) {
+function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean }) {
+  const checklistId = checklist.id;
   const { data: items = [], isLoading } = useChecklistItems(checklistId);
+  const updateChecklist = useUpdateChecklist();
+  const confirmed: string[] = checklist.confirmed_categories ?? [];
+
   const grouped = useMemo(() => {
     const g: Record<string, SemesterItem[]> = {};
     for (const c of SEMESTER_CATEGORIES) g[c] = [];
@@ -223,33 +228,85 @@ function ItemsSection({ checklistId, canEdit }: { checklistId: string; canEdit: 
     return g;
   }, [items]);
 
+  const isDone = (cat: string) => grouped[cat].length > 0 || confirmed.includes(cat);
+  const doneCount = SEMESTER_CATEGORIES.filter(isDone).length;
+  const progress = Math.round((doneCount / SEMESTER_CATEGORIES.length) * 100);
+
+  const toggleConfirm = async (cat: string, value: boolean) => {
+    const next = value
+      ? Array.from(new Set([...confirmed, cat]))
+      : confirmed.filter((c) => c !== cat);
+    try {
+      await updateChecklist.mutateAsync({ id: checklistId, patch: { confirmed_categories: next } as any });
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Itens por categoria</CardTitle>
+        <CardTitle className="flex items-center justify-between gap-3">
+          <span>Itens por categoria</span>
+          <span className="text-sm font-normal text-muted-foreground">{doneCount}/{SEMESTER_CATEGORIES.length} categorias revisadas ({progress}%)</span>
+        </CardTitle>
+        <Progress value={progress} className="h-2 mt-2" />
+        <p className="text-xs text-muted-foreground mt-1">
+          Entre em cada categoria e adicione itens ou marque como "em conformidade" para concluir o levantamento.
+        </p>
       </CardHeader>
       <CardContent>
         <Accordion type="multiple" className="w-full">
-          {SEMESTER_CATEGORIES.map((cat) => (
-            <AccordionItem key={cat} value={cat}>
-              <AccordionTrigger>
-                <span className="flex items-center gap-2">
-                  {cat}
-                  {grouped[cat].length > 0 && (
-                    <Badge variant="secondary">{grouped[cat].length}</Badge>
+          {SEMESTER_CATEGORIES.map((cat) => {
+            const done = isDone(cat);
+            const isConfirmed = confirmed.includes(cat);
+            const hasItems = grouped[cat].length > 0;
+            return (
+              <AccordionItem key={cat} value={cat}>
+                <AccordionTrigger>
+                  <span className="flex items-center gap-2">
+                    {done ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    {cat}
+                    {hasItems && <Badge variant="secondary">{grouped[cat].length}</Badge>}
+                    {isConfirmed && !hasItems && (
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                        Em conformidade
+                      </Badge>
+                    )}
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  {canEdit && !hasItems && (
+                    <div className="flex items-center justify-between gap-3 mb-3 p-3 rounded-md border bg-muted/30">
+                      <div className="text-sm">
+                        {isConfirmed
+                          ? 'Categoria marcada como em conformidade (nada a incluir).'
+                          : 'Sem itens. Se nada precisa ser registrado, marque como em conformidade.'}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={isConfirmed ? 'outline' : 'default'}
+                        onClick={() => toggleConfirm(cat, !isConfirmed)}
+                        disabled={updateChecklist.isPending}
+                      >
+                        {isConfirmed ? 'Desmarcar' : 'Marcar como em conformidade'}
+                      </Button>
+                    </div>
                   )}
-                </span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <CategoryEditor
-                  checklistId={checklistId}
-                  category={cat}
-                  items={grouped[cat]}
-                  canEdit={canEdit}
-                />
-              </AccordionContent>
-            </AccordionItem>
-          ))}
+                  <CategoryEditor
+                    checklistId={checklistId}
+                    category={cat}
+                    items={grouped[cat]}
+                    canEdit={canEdit}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
         </Accordion>
         {isLoading && <div className="text-sm text-muted-foreground mt-3">Carregando...</div>}
       </CardContent>
