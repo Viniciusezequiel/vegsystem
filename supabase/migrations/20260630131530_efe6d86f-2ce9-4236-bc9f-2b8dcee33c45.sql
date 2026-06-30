@@ -1,0 +1,1 @@
+ALTER TABLE public.semester_checklists ADD COLUMN IF NOT EXISTS confirmed_categories text[] NOT NULL DEFAULT '{}'::text[];

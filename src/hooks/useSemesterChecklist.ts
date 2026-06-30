@@ -37,6 +37,7 @@ export interface SemesterChecklist {
   responsible_name: string;
   checklist_date: string;
   general_observation: string | null;
+  confirmed_categories: string[];
   status: SemesterItemStatus;
   created_at: string;
   updated_at: string;
