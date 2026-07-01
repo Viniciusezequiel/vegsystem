@@ -24,6 +24,8 @@ import {
   SEMESTER_BASE_ITEMS,
   FURNITURE_ITEM_TYPES,
   FURNITURE_PROBLEMS,
+  FURNITURE_TYPES_CATEGORY,
+  FURNITURE_PROBLEMS_CATEGORY,
   MAINTENANCE_TYPES,
   SEMESTER_ITEM_STATUS,
   statusColor,
@@ -506,7 +508,7 @@ function ItemRow({
         <div className="flex gap-2">
           {isFurnitureRelevant && (
             <Button size="sm" variant="outline" onClick={() => setOpenFurniture(true)}>
-              <Armchair className="h-4 w-4 mr-1" /> Detalhar carteiras/cadeiras
+              <Armchair className="h-4 w-4 mr-1" /> Detalhar
             </Button>
           )}
           {canEdit && (
@@ -535,8 +537,20 @@ function ItemRow({
 
 function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit: boolean; onClose: () => void }) {
   const { data: details = [] } = useFurnitureDetails(itemId);
+  const { data: allOptions = [] } = useItemOptions();
   const create = useCreateFurniture();
   const del = useDeleteFurniture();
+
+  const typeOptions = useMemo(() => {
+    const db = allOptions.filter((o) => o.category === FURNITURE_TYPES_CATEGORY).map((o) => o.label);
+    return db.length ? db : [...FURNITURE_ITEM_TYPES];
+  }, [allOptions]);
+
+  const problemOptions = useMemo(() => {
+    const db = allOptions.filter((o) => o.category === FURNITURE_PROBLEMS_CATEGORY).map((o) => o.label);
+    return db.length ? db : [...FURNITURE_PROBLEMS];
+  }, [allOptions]);
+
   const [form, setForm] = useState<{
     item_type: string;
     problems: string[];
@@ -544,12 +558,23 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
     maintenance_type: 'internal' | 'external';
     observation: string;
   }>({
-    item_type: 'Carteira',
-    problems: [FURNITURE_PROBLEMS[0]],
+    item_type: typeOptions[0] ?? 'Carteira',
+    problems: problemOptions[0] ? [problemOptions[0]] : [],
     quantity: 1,
     maintenance_type: 'internal',
     observation: '',
   });
+
+  // Sincroniza defaults quando as opções chegam do banco
+  useEffect(() => {
+    setForm((f) => ({
+      ...f,
+      item_type: typeOptions.includes(f.item_type) ? f.item_type : (typeOptions[0] ?? f.item_type),
+      problems: f.problems.length ? f.problems : (problemOptions[0] ? [problemOptions[0]] : []),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeOptions.join('|'), problemOptions.join('|')]);
+
 
   const toggleProblem = (p: string) => {
     setForm((f) => ({
@@ -569,7 +594,7 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
       observation: form.observation || null,
     });
     toast.success('Detalhe adicionado');
-    setForm({ ...form, quantity: 1, observation: '', problems: [FURNITURE_PROBLEMS[0]] });
+    setForm({ ...form, quantity: 1, observation: '', problems: problemOptions[0] ? [problemOptions[0]] : [] });
   };
 
   const totals = useMemo(() => {
@@ -637,7 +662,7 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
                 <Select value={form.item_type} onValueChange={(v) => setForm({ ...form, item_type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {FURNITURE_ITEM_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    {typeOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -659,7 +684,12 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
             <div>
               <Label>Problemas (selecione um ou mais)</Label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1 p-3 border rounded bg-background">
-                {FURNITURE_PROBLEMS.map((p) => (
+                {problemOptions.length === 0 && (
+                  <p className="col-span-full text-xs text-muted-foreground">
+                    Nenhuma opção cadastrada. Peça ao administrador para adicionar em "Opções de Itens → Mobiliário — Problemas".
+                  </p>
+                )}
+                {problemOptions.map((p) => (
                   <label key={p} className="flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="checkbox"
@@ -676,6 +706,9 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
                   Os problemas selecionados aparecerão juntos na mesma etiqueta.
                 </p>
               )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Para incluir/editar/remover opções, acesse "Opções de Itens" na tela principal do Checklist Semestral (somente admin).
+              </p>
             </div>
 
             <div>

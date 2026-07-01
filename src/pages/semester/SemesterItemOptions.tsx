@@ -9,7 +9,14 @@ import {
   useDeleteItemOption,
   useSeedDefaultItemOptions,
 } from '@/hooks/useSemesterChecklist';
-import { SEMESTER_CATEGORIES, SEMESTER_BASE_ITEMS } from '@/lib/semesterChecklistConstants';
+import {
+  SEMESTER_CATEGORIES,
+  SEMESTER_BASE_ITEMS,
+  FURNITURE_TYPES_CATEGORY,
+  FURNITURE_PROBLEMS_CATEGORY,
+  FURNITURE_ITEM_TYPES,
+  FURNITURE_PROBLEMS,
+} from '@/lib/semesterChecklistConstants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +41,17 @@ export default function SemesterItemOptions() {
   const [inlineAddCat, setInlineAddCat] = useState<string | null>(null);
   const [inlineAddValue, setInlineAddValue] = useState('');
 
+  // Categorias exibidas: as normais + as duas especiais de Mobiliário (tipos e problemas)
+  const ALL_CATS = useMemo(
+    () => [...SEMESTER_CATEGORIES, FURNITURE_TYPES_CATEGORY, FURNITURE_PROBLEMS_CATEGORY],
+    [],
+  );
+
+  const CAT_LABEL: Record<string, string> = {
+    [FURNITURE_TYPES_CATEGORY]: 'Mobiliário — Tipos (Carteira/Cadeira/…)',
+    [FURNITURE_PROBLEMS_CATEGORY]: 'Mobiliário — Problemas',
+  };
+
   // Auto-seed missing defaults so admins can edit every option from the database
   const seedTriedRef = useRef(false);
   useEffect(() => {
@@ -47,6 +65,16 @@ export default function SemesterItemOptions() {
         }
       });
     });
+    FURNITURE_ITEM_TYPES.forEach((l, idx) => {
+      if (!existing.has(`${FURNITURE_TYPES_CATEGORY}::${l.toLowerCase()}`)) {
+        missing.push({ category: FURNITURE_TYPES_CATEGORY, label: l, sort_order: idx });
+      }
+    });
+    FURNITURE_PROBLEMS.forEach((l, idx) => {
+      if (!existing.has(`${FURNITURE_PROBLEMS_CATEGORY}::${l.toLowerCase()}`)) {
+        missing.push({ category: FURNITURE_PROBLEMS_CATEGORY, label: l, sort_order: idx });
+      }
+    });
     if (missing.length) {
       seedTriedRef.current = true;
       seed.mutate(missing, {
@@ -59,13 +87,13 @@ export default function SemesterItemOptions() {
 
   const byCategory = useMemo(() => {
     const map: Record<string, { id: string; label: string }[]> = {};
-    SEMESTER_CATEGORIES.forEach((c) => (map[c] = []));
+    ALL_CATS.forEach((c) => (map[c] = []));
     options.forEach((o) => {
       if (!map[o.category]) map[o.category] = [];
       map[o.category].push({ id: o.id, label: o.label });
     });
     return map;
-  }, [options]);
+  }, [options, ALL_CATS]);
 
   const submit = async () => {
     if (!label.trim()) return toast.error('Informe a opção');
@@ -152,8 +180,8 @@ export default function SemesterItemOptions() {
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {SEMESTER_CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    {ALL_CATS.map((c) => (
+                      <SelectItem key={c} value={c}>{CAT_LABEL[c] ?? c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -176,11 +204,11 @@ export default function SemesterItemOptions() {
           </Card>
         )}
 
-        {SEMESTER_CATEGORIES.map((cat) => (
+        {ALL_CATS.map((cat) => (
           <Card key={cat}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center justify-between">
-                <span>{cat}</span>
+                <span>{CAT_LABEL[cat] ?? cat}</span>
                 <Badge variant="outline">{byCategory[cat]?.length ?? 0} opções</Badge>
               </CardTitle>
             </CardHeader>
