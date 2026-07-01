@@ -180,8 +180,8 @@ export default function SemesterItemOptions() {
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {SEMESTER_CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    {ALL_CATS.map((c) => (
+                      <SelectItem key={c} value={c}>{CAT_LABEL[c] ?? c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
