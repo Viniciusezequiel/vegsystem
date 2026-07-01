@@ -204,11 +204,11 @@ export default function SemesterItemOptions() {
           </Card>
         )}
 
-        {SEMESTER_CATEGORIES.map((cat) => (
+        {ALL_CATS.map((cat) => (
           <Card key={cat}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center justify-between">
-                <span>{cat}</span>
+                <span>{CAT_LABEL[cat] ?? cat}</span>
                 <Badge variant="outline">{byCategory[cat]?.length ?? 0} opções</Badge>
               </CardTitle>
             </CardHeader>
