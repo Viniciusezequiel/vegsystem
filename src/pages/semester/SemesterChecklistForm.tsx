@@ -537,8 +537,20 @@ function ItemRow({
 
 function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit: boolean; onClose: () => void }) {
   const { data: details = [] } = useFurnitureDetails(itemId);
+  const { data: allOptions = [] } = useItemOptions();
   const create = useCreateFurniture();
   const del = useDeleteFurniture();
+
+  const typeOptions = useMemo(() => {
+    const db = allOptions.filter((o) => o.category === FURNITURE_TYPES_CATEGORY).map((o) => o.label);
+    return db.length ? db : [...FURNITURE_ITEM_TYPES];
+  }, [allOptions]);
+
+  const problemOptions = useMemo(() => {
+    const db = allOptions.filter((o) => o.category === FURNITURE_PROBLEMS_CATEGORY).map((o) => o.label);
+    return db.length ? db : [...FURNITURE_PROBLEMS];
+  }, [allOptions]);
+
   const [form, setForm] = useState<{
     item_type: string;
     problems: string[];
@@ -546,12 +558,23 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
     maintenance_type: 'internal' | 'external';
     observation: string;
   }>({
-    item_type: 'Carteira',
-    problems: [FURNITURE_PROBLEMS[0]],
+    item_type: typeOptions[0] ?? 'Carteira',
+    problems: problemOptions[0] ? [problemOptions[0]] : [],
     quantity: 1,
     maintenance_type: 'internal',
     observation: '',
   });
+
+  // Sincroniza defaults quando as opções chegam do banco
+  useEffect(() => {
+    setForm((f) => ({
+      ...f,
+      item_type: typeOptions.includes(f.item_type) ? f.item_type : (typeOptions[0] ?? f.item_type),
+      problems: f.problems.length ? f.problems : (problemOptions[0] ? [problemOptions[0]] : []),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeOptions.join('|'), problemOptions.join('|')]);
+
 
   const toggleProblem = (p: string) => {
     setForm((f) => ({
