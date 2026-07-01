@@ -662,7 +662,7 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
                 <Select value={form.item_type} onValueChange={(v) => setForm({ ...form, item_type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {FURNITURE_ITEM_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    {typeOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
