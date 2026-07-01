@@ -9,7 +9,14 @@ import {
   useDeleteItemOption,
   useSeedDefaultItemOptions,
 } from '@/hooks/useSemesterChecklist';
-import { SEMESTER_CATEGORIES, SEMESTER_BASE_ITEMS } from '@/lib/semesterChecklistConstants';
+import {
+  SEMESTER_CATEGORIES,
+  SEMESTER_BASE_ITEMS,
+  FURNITURE_TYPES_CATEGORY,
+  FURNITURE_PROBLEMS_CATEGORY,
+  FURNITURE_ITEM_TYPES,
+  FURNITURE_PROBLEMS,
+} from '@/lib/semesterChecklistConstants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
