@@ -684,7 +684,12 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
             <div>
               <Label>Problemas (selecione um ou mais)</Label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1 p-3 border rounded bg-background">
-                {FURNITURE_PROBLEMS.map((p) => (
+                {problemOptions.length === 0 && (
+                  <p className="col-span-full text-xs text-muted-foreground">
+                    Nenhuma opção cadastrada. Peça ao administrador para adicionar em "Opções de Itens → Mobiliário — Problemas".
+                  </p>
+                )}
+                {problemOptions.map((p) => (
                   <label key={p} className="flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="checkbox"
@@ -701,6 +706,9 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
                   Os problemas selecionados aparecerão juntos na mesma etiqueta.
                 </p>
               )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Para incluir/editar/remover opções, acesse "Opções de Itens" na tela principal do Checklist Semestral (somente admin).
+              </p>
             </div>
 
             <div>
