@@ -508,7 +508,7 @@ function ItemRow({
         <div className="flex gap-2">
           {isFurnitureRelevant && (
             <Button size="sm" variant="outline" onClick={() => setOpenFurniture(true)}>
-              <Armchair className="h-4 w-4 mr-1" /> Detalhar carteiras/cadeiras
+              <Armchair className="h-4 w-4 mr-1" /> Detalhar
             </Button>
           )}
           {canEdit && (
