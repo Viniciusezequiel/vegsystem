@@ -594,7 +594,7 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
       observation: form.observation || null,
     });
     toast.success('Detalhe adicionado');
-    setForm({ ...form, quantity: 1, observation: '', problems: [FURNITURE_PROBLEMS[0]] });
+    setForm({ ...form, quantity: 1, observation: '', problems: problemOptions[0] ? [problemOptions[0]] : [] });
   };
 
   const totals = useMemo(() => {
