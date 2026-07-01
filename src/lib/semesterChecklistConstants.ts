@@ -61,6 +61,9 @@ export const SEMESTER_BASE_ITEMS: Record<SemesterCategory, string[]> = {
   Outros: [],
 };
 
+export const FURNITURE_TYPES_CATEGORY = '__furniture_types__';
+export const FURNITURE_PROBLEMS_CATEGORY = '__furniture_problems__';
+
 export const FURNITURE_ITEM_TYPES = ['Carteira', 'Cadeira'] as const;
 
 export const FURNITURE_PROBLEMS = [
