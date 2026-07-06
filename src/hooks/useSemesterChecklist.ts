@@ -482,3 +482,72 @@ export function useSeedDefaultItemOptions() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-item-options'] }),
   });
 }
+
+// ============ PROJECTORS ============
+export interface SemesterProjector {
+  id: string;
+  checklist_id: string;
+  patrimony: string | null;
+  model: string | null;
+  lamp_hours: number | null;
+  actions: string[];
+  others_text: string | null;
+  observation: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useProjectors(checklistId?: string) {
+  return useQuery({
+    queryKey: ['semester-projectors', checklistId],
+    queryFn: async () => {
+      if (!checklistId) return [];
+      const { data, error } = await supabase
+        .from('semester_projectors' as any)
+        .select('*')
+        .eq('checklist_id', checklistId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as SemesterProjector[];
+    },
+    enabled: !!checklistId,
+  });
+}
+
+export function useCreateProjector() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<SemesterProjector> & { checklist_id: string }) => {
+      const { data, error } = await supabase
+        .from('semester_projectors' as any)
+        .insert(payload as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as unknown as SemesterProjector;
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['semester-projectors', vars.checklist_id] }),
+  });
+}
+
+export function useUpdateProjector() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<SemesterProjector> }) => {
+      const { error } = await supabase.from('semester_projectors' as any).update(patch as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-projectors'] }),
+  });
+}
+
+export function useDeleteProjector() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('semester_projectors' as any).delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['semester-projectors'] }),
+  });
+}
