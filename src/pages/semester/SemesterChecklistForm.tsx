@@ -109,7 +109,7 @@ export default function SemesterChecklistForm() {
     if (!competencyId) return toast.error('Selecione uma competência');
     if (!roomId && !existing) return toast.error('Selecione uma sala');
     if (!responsible.trim()) return toast.error('Informe o responsável');
-    const payload = {
+    const basePayload: any = {
       competency_id: competencyId,
       room_id: roomId || existing?.room_id || null,
       room_name: room?.name ?? existing?.room_name ?? '',
@@ -122,11 +122,17 @@ export default function SemesterChecklistForm() {
     };
     try {
       if (isNew) {
+        const payload = {
+          ...basePayload,
+          created_by_id: profile?.user_id ?? null,
+          created_by_name: profile?.full_name ?? null,
+        };
         const created = await create.mutateAsync(payload as any);
         toast.success('Levantamento criado');
         navigate(`/semester/${created.id}`, { replace: true });
       } else if (id) {
-        await update.mutateAsync({ id, patch: payload as any });
+        // Never overwrite creator on updates
+        await update.mutateAsync({ id, patch: basePayload });
         toast.success('Levantamento atualizado');
       }
     } catch (e: any) {
@@ -137,7 +143,11 @@ export default function SemesterChecklistForm() {
   if (!isNew && !existing) return <div className="p-8 text-muted-foreground">Carregando...</div>;
 
   const releasedSelected = competenciesAvailable.find((c) => c.id === competencyId);
-  const canEditItems = isAdmin || (releasedSelected?.status === 'released');
+  const currentUserId = profile?.user_id ?? null;
+  const fillerLocked =
+    !!existing?.filled_by_id && !isAdmin && existing.filled_by_id !== currentUserId;
+  const canEditItems =
+    (isAdmin || releasedSelected?.status === 'released') && !fillerLocked;
 
   return (
     <MainLayout>
