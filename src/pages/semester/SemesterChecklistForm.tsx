@@ -737,3 +737,168 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
     </Dialog>
   );
 }
+
+// ============ PROJECTORS SECTION ============
+const PROJECTOR_ACTIONS = [
+  'Limpeza do filtro',
+  'Troca do filtro',
+  'Troca da lâmpada',
+  'Outros',
+] as const;
+
+function ProjectorsSection({ checklistId, canEdit }: { checklistId: string; canEdit: boolean }) {
+  const { data: projectors = [], isLoading } = useProjectors(checklistId);
+  const create = useCreateProjector();
+  const del = useDeleteProjector();
+  const [adding, setAdding] = useState(false);
+
+  const emptyForm = {
+    patrimony: '',
+    model: '',
+    lamp_hours: '' as string | number,
+    actions: [] as string[],
+    others_text: '',
+    observation: '',
+  };
+  const [form, setForm] = useState(emptyForm);
+
+  const toggleAction = (act: string) => {
+    setForm((f) => ({
+      ...f,
+      actions: f.actions.includes(act) ? f.actions.filter((a) => a !== act) : [...f.actions, act],
+    }));
+  };
+
+  const submit = async () => {
+    if (!form.patrimony.trim() && !form.model.trim()) {
+      toast.error('Informe patrimônio ou modelo');
+      return;
+    }
+    try {
+      await create.mutateAsync({
+        checklist_id: checklistId,
+        patrimony: form.patrimony.trim() || null,
+        model: form.model.trim() || null,
+        lamp_hours: form.lamp_hours === '' ? null : Number(form.lamp_hours),
+        actions: form.actions,
+        others_text: form.actions.includes('Outros') ? form.others_text.trim() || null : null,
+        observation: form.observation.trim() || null,
+      });
+      toast.success('Projetor adicionado');
+      setForm(emptyForm);
+      setAdding(false);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Projector className="h-5 w-5" /> Check List de Projetores
+          {projectors.length > 0 && <Badge variant="secondary">{projectors.length}</Badge>}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Verifique cada projetor da sala: patrimônio, modelo, ações executadas e horas da lâmpada.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
+        {!isLoading && projectors.length === 0 && !adding && (
+          <p className="text-sm text-muted-foreground">Nenhum projetor cadastrado.</p>
+        )}
+
+        {projectors.map((p) => (
+          <div key={p.id} className="border rounded-lg p-3 flex items-start justify-between gap-3">
+            <div className="text-sm space-y-1 flex-1">
+              <div className="flex flex-wrap gap-2 items-center">
+                <Badge variant="outline">Patrimônio: {p.patrimony || '—'}</Badge>
+                <Badge variant="outline">Modelo: {p.model || '—'}</Badge>
+                {typeof p.lamp_hours === 'number' && (
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                    <Lightbulb className="h-3 w-3 mr-1" /> {p.lamp_hours}h lâmpada
+                  </Badge>
+                )}
+              </div>
+              {p.actions?.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {p.actions.map((a) => (
+                    <Badge key={a} className="bg-emerald-600 text-white">{a}</Badge>
+                  ))}
+                </div>
+              )}
+              {p.others_text && <p className="text-xs"><strong>Outros:</strong> {p.others_text}</p>}
+              {p.observation && <p className="text-xs text-muted-foreground">{p.observation}</p>}
+            </div>
+            {canEdit && (
+              <Button size="icon" variant="ghost" onClick={() => {
+                if (confirm('Excluir este projetor?')) del.mutate(p.id);
+              }}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))}
+
+        {canEdit && !adding && (
+          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Adicionar projetor
+          </Button>
+        )}
+
+        {adding && (
+          <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label>Patrimônio</Label>
+                <Input value={form.patrimony} onChange={(e) => setForm({ ...form, patrimony: e.target.value })} />
+              </div>
+              <div>
+                <Label>Modelo</Label>
+                <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+              </div>
+              <div>
+                <Label>Horas da lâmpada</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.lamp_hours}
+                  onChange={(e) => setForm({ ...form, lamp_hours: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Tipo de manutenção realizada</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                {PROJECTOR_ACTIONS.map((act) => (
+                  <label key={act} className="flex items-center gap-2 text-sm border rounded-md p-2 cursor-pointer">
+                    <Checkbox checked={form.actions.includes(act)} onCheckedChange={() => toggleAction(act)} />
+                    {act}
+                  </label>
+                ))}
+              </div>
+            </div>
+            {form.actions.includes('Outros') && (
+              <div>
+                <Label>Descreva o "outros"</Label>
+                <Input value={form.others_text} onChange={(e) => setForm({ ...form, others_text: e.target.value })} />
+              </div>
+            )}
+            <div>
+              <Label>Observação</Label>
+              <Textarea rows={2} value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setForm(emptyForm); }}>Cancelar</Button>
+              <Button size="sm" onClick={submit} disabled={create.isPending}>
+                <Plus className="h-4 w-4 mr-1" /> Adicionar
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
