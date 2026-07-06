@@ -8,6 +8,7 @@ import {
   useAllItems,
   useAllFurniture,
   useCompetencyLabels,
+  useAllProjectors,
 } from '@/hooks/useSemesterChecklist';
 import { SEMESTER_CATEGORIES, competencyStatusLabel, statusColor, statusLabel } from '@/lib/semesterChecklistConstants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
