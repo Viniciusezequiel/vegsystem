@@ -38,6 +38,12 @@ export interface SemesterChecklist {
   checklist_date: string;
   general_observation: string | null;
   confirmed_categories: string[];
+  projectors_confirmed: boolean;
+  created_by_id: string | null;
+  created_by_name: string | null;
+  filled_by_id: string | null;
+  filled_by_name: string | null;
+  filled_at: string | null;
   status: SemesterItemStatus;
   created_at: string;
   updated_at: string;
