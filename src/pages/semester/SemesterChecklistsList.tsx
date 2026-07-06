@@ -50,6 +50,7 @@ export default function SemesterChecklistsList() {
   const { data: list = [], isLoading } = useSemesterChecklists(compId);
   const { data: items = [] } = useAllItems(compId);
   const { data: furniture = [] } = useAllFurniture(compId);
+  const { data: projectorsAll = [] } = useAllProjectors(compId);
   const { data: labels = [] } = useCompetencyLabels(compId);
   const del = useDeleteChecklist();
 
