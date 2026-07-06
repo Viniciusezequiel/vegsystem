@@ -209,8 +209,10 @@ export default function SemesterChecklistForm() {
 
       {!isNew && existing && (
         <>
+          <ChecklistPeopleCard checklist={existing} locked={fillerLocked} />
+          <OverallProgressCard checklist={existing} />
           <ItemsSection checklist={existing} canEdit={canEditItems} />
-          <ProjectorsSection checklistId={existing.id} canEdit={canEditItems} />
+          <ProjectorsSection checklist={existing} canEdit={canEditItems} />
         </>
       )}
 
