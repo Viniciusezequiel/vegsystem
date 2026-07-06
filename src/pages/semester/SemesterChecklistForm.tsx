@@ -198,7 +198,10 @@ export default function SemesterChecklistForm() {
       </Card>
 
       {!isNew && existing && (
-        <ItemsSection checklist={existing} canEdit={canEditItems} />
+        <>
+          <ItemsSection checklist={existing} canEdit={canEditItems} />
+          <ProjectorsSection checklistId={existing.id} canEdit={canEditItems} />
+        </>
       )}
 
       {/* Observação geral — sempre por último */}
