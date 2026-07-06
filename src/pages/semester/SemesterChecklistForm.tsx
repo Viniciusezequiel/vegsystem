@@ -758,11 +758,25 @@ const PROJECTOR_ACTIONS = [
   'Outros',
 ] as const;
 
-function ProjectorsSection({ checklistId, canEdit }: { checklistId: string; canEdit: boolean }) {
+function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean }) {
+  const checklistId = checklist.id;
   const { data: projectors = [], isLoading } = useProjectors(checklistId);
   const create = useCreateProjector();
   const del = useDeleteProjector();
+  const updateChecklist = useUpdateChecklist();
+  const stampFiller = useFillerStamp(checklist);
   const [adding, setAdding] = useState(false);
+  const projectorsConfirmed = !!checklist.projectors_confirmed;
+  const projectorsDone = projectors.length > 0 || projectorsConfirmed;
+
+  const toggleConfirm = async (v: boolean) => {
+    try {
+      await stampFiller();
+      await updateChecklist.mutateAsync({ id: checklistId, patch: { projectors_confirmed: v } as any });
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
 
   const emptyForm = {
     patrimony: '',
