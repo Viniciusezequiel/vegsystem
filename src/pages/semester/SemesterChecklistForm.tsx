@@ -327,7 +327,9 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
                     category={cat}
                     items={grouped[cat]}
                     canEdit={canEdit}
+                    stampFiller={stampFiller}
                   />
+
                 </AccordionContent>
               </AccordionItem>
             );
