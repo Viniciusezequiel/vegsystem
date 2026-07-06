@@ -931,3 +931,93 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
   );
 }
 
+// ============ FILLER TRACKING & OVERALL PROGRESS ============
+function useFillerStamp(checklist: any) {
+  const { profile } = useAuth();
+  const updateChecklist = useUpdateChecklist();
+  return async () => {
+    if (!checklist?.id) return;
+    if (checklist.filled_by_id) return;
+    if (!profile?.user_id) return;
+    try {
+      await updateChecklist.mutateAsync({
+        id: checklist.id,
+        patch: {
+          filled_by_id: profile.user_id,
+          filled_by_name: profile.full_name ?? null,
+          filled_at: new Date().toISOString(),
+        } as any,
+      });
+    } catch (e) {
+      // silent — non-critical
+      console.warn('Failed to stamp filler', e);
+    }
+  };
+}
+
+function ChecklistPeopleCard({ checklist, locked }: { checklist: any; locked: boolean }) {
+  return (
+    <Card>
+      <CardContent className="p-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <div>
+          <span className="text-muted-foreground">Criado por: </span>
+          <strong>{checklist.created_by_name ?? '—'}</strong>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Preenchido por: </span>
+          <strong>{checklist.filled_by_name ?? 'Ainda não iniciado'}</strong>
+          {checklist.filled_at && (
+            <span className="text-muted-foreground"> · desde {new Date(checklist.filled_at).toLocaleString('pt-BR')}</span>
+          )}
+        </div>
+        {locked && (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+            Somente o preenchedor original (ou um admin) pode continuar este levantamento.
+          </Badge>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function OverallProgressCard({ checklist }: { checklist: any }) {
+  const { data: items = [] } = useChecklistItems(checklist.id);
+  const { data: projectors = [] } = useProjectors(checklist.id);
+  const confirmed: string[] = checklist.confirmed_categories ?? [];
+  const projectorsDone = projectors.length > 0 || !!checklist.projectors_confirmed;
+
+  const cats = SEMESTER_CATEGORIES.map((cat) => ({
+    cat,
+    done: items.some((i) => i.category === cat) || confirmed.includes(cat),
+  }));
+  const doneCats = cats.filter((c) => c.done).length;
+  const total = SEMESTER_CATEGORIES.length + 1; // + projetores
+  const done = doneCats + (projectorsDone ? 1 : 0);
+  const pct = Math.round((done / total) * 100);
+  const color = pct === 100 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-muted-foreground';
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center justify-between gap-3">
+          <span>Progresso geral do levantamento</span>
+          <span className={`text-sm font-normal ${color}`}>{done}/{total} · {pct}%</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Progress value={pct} className="h-2" />
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {cats.map(({ cat, done }) => (
+            <Badge key={cat} variant="outline" className={done ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}>
+              {done ? '✓' : '○'} {cat}
+            </Badge>
+          ))}
+          <Badge variant="outline" className={projectorsDone ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}>
+            {projectorsDone ? '✓' : '○'} Projetores
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
