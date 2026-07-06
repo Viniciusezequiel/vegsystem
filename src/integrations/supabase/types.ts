@@ -1857,6 +1857,53 @@ export type Database = {
           },
         ]
       }
+      semester_projectors: {
+        Row: {
+          actions: string[]
+          checklist_id: string
+          created_at: string
+          id: string
+          lamp_hours: number | null
+          model: string | null
+          observation: string | null
+          others_text: string | null
+          patrimony: string | null
+          updated_at: string
+        }
+        Insert: {
+          actions?: string[]
+          checklist_id: string
+          created_at?: string
+          id?: string
+          lamp_hours?: number | null
+          model?: string | null
+          observation?: string | null
+          others_text?: string | null
+          patrimony?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actions?: string[]
+          checklist_id?: string
+          created_at?: string
+          id?: string
+          lamp_hours?: number | null
+          model?: string | null
+          observation?: string | null
+          others_text?: string | null
+          patrimony?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semester_projectors_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "semester_checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_handover_incidents: {
         Row: {
           description: string | null
