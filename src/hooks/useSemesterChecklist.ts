@@ -531,6 +531,9 @@ export function useAllProjectors(competencyId?: string) {
       return (data ?? []) as any[];
     },
   });
+}
+
+
 
 export function useCreateProjector() {
   const qc = useQueryClient();
