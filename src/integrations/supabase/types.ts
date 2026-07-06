@@ -1615,9 +1615,15 @@ export type Database = {
           competency_id: string
           confirmed_categories: string[]
           created_at: string
+          created_by_id: string | null
+          created_by_name: string | null
+          filled_at: string | null
+          filled_by_id: string | null
+          filled_by_name: string | null
           floor: string | null
           general_observation: string | null
           id: string
+          projectors_confirmed: boolean
           responsible_id: string | null
           responsible_name: string
           room_code: string | null
@@ -1632,9 +1638,15 @@ export type Database = {
           competency_id: string
           confirmed_categories?: string[]
           created_at?: string
+          created_by_id?: string | null
+          created_by_name?: string | null
+          filled_at?: string | null
+          filled_by_id?: string | null
+          filled_by_name?: string | null
           floor?: string | null
           general_observation?: string | null
           id?: string
+          projectors_confirmed?: boolean
           responsible_id?: string | null
           responsible_name: string
           room_code?: string | null
@@ -1649,9 +1661,15 @@ export type Database = {
           competency_id?: string
           confirmed_categories?: string[]
           created_at?: string
+          created_by_id?: string | null
+          created_by_name?: string | null
+          filled_at?: string | null
+          filled_by_id?: string | null
+          filled_by_name?: string | null
           floor?: string | null
           general_observation?: string | null
           id?: string
+          projectors_confirmed?: boolean
           responsible_id?: string | null
           responsible_name?: string
           room_code?: string | null

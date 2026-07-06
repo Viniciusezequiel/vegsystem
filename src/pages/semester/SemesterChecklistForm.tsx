@@ -109,7 +109,7 @@ export default function SemesterChecklistForm() {
     if (!competencyId) return toast.error('Selecione uma competência');
     if (!roomId && !existing) return toast.error('Selecione uma sala');
     if (!responsible.trim()) return toast.error('Informe o responsável');
-    const payload = {
+    const basePayload: any = {
       competency_id: competencyId,
       room_id: roomId || existing?.room_id || null,
       room_name: room?.name ?? existing?.room_name ?? '',
@@ -122,11 +122,17 @@ export default function SemesterChecklistForm() {
     };
     try {
       if (isNew) {
+        const payload = {
+          ...basePayload,
+          created_by_id: profile?.user_id ?? null,
+          created_by_name: profile?.full_name ?? null,
+        };
         const created = await create.mutateAsync(payload as any);
         toast.success('Levantamento criado');
         navigate(`/semester/${created.id}`, { replace: true });
       } else if (id) {
-        await update.mutateAsync({ id, patch: payload as any });
+        // Never overwrite creator on updates
+        await update.mutateAsync({ id, patch: basePayload });
         toast.success('Levantamento atualizado');
       }
     } catch (e: any) {
@@ -137,7 +143,11 @@ export default function SemesterChecklistForm() {
   if (!isNew && !existing) return <div className="p-8 text-muted-foreground">Carregando...</div>;
 
   const releasedSelected = competenciesAvailable.find((c) => c.id === competencyId);
-  const canEditItems = isAdmin || (releasedSelected?.status === 'released');
+  const currentUserId = profile?.user_id ?? null;
+  const fillerLocked =
+    !!existing?.filled_by_id && !isAdmin && existing.filled_by_id !== currentUserId;
+  const canEditItems =
+    (isAdmin || releasedSelected?.status === 'released') && !fillerLocked;
 
   return (
     <MainLayout>
@@ -199,8 +209,10 @@ export default function SemesterChecklistForm() {
 
       {!isNew && existing && (
         <>
+          <ChecklistPeopleCard checklist={existing} locked={fillerLocked} />
+          <OverallProgressCard checklist={existing} />
           <ItemsSection checklist={existing} canEdit={canEditItems} />
-          <ProjectorsSection checklistId={existing.id} canEdit={canEditItems} />
+          <ProjectorsSection checklist={existing} canEdit={canEditItems} />
         </>
       )}
 
@@ -227,6 +239,7 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
   const checklistId = checklist.id;
   const { data: items = [], isLoading } = useChecklistItems(checklistId);
   const updateChecklist = useUpdateChecklist();
+  const stampFiller = useFillerStamp(checklist);
   const confirmed: string[] = checklist.confirmed_categories ?? [];
 
   const grouped = useMemo(() => {
@@ -248,6 +261,7 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
       ? Array.from(new Set([...confirmed, cat]))
       : confirmed.filter((c) => c !== cat);
     try {
+      await stampFiller();
       await updateChecklist.mutateAsync({ id: checklistId, patch: { confirmed_categories: next } as any });
     } catch (e: any) {
       toast.error(e.message);
@@ -313,7 +327,9 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
                     category={cat}
                     items={grouped[cat]}
                     canEdit={canEdit}
+                    stampFiller={stampFiller}
                   />
+
                 </AccordionContent>
               </AccordionItem>
             );
@@ -330,11 +346,13 @@ function CategoryEditor({
   category,
   items,
   canEdit,
+  stampFiller,
 }: {
   checklistId: string;
   category: SemesterCategory;
   items: SemesterItem[];
   canEdit: boolean;
+  stampFiller?: () => Promise<void>;
 }) {
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
@@ -362,6 +380,7 @@ function CategoryEditor({
   const submit = async () => {
     const name = form.item_name === '__custom__' ? form.custom.trim() : form.item_name;
     if (!name) return toast.error('Informe o item');
+    if (stampFiller) await stampFiller();
     await createItem.mutateAsync({
       checklist_id: checklistId,
       category,
@@ -746,11 +765,25 @@ const PROJECTOR_ACTIONS = [
   'Outros',
 ] as const;
 
-function ProjectorsSection({ checklistId, canEdit }: { checklistId: string; canEdit: boolean }) {
+function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean }) {
+  const checklistId = checklist.id;
   const { data: projectors = [], isLoading } = useProjectors(checklistId);
   const create = useCreateProjector();
   const del = useDeleteProjector();
+  const updateChecklist = useUpdateChecklist();
+  const stampFiller = useFillerStamp(checklist);
   const [adding, setAdding] = useState(false);
+  const projectorsConfirmed = !!checklist.projectors_confirmed;
+  const projectorsDone = projectors.length > 0 || projectorsConfirmed;
+
+  const toggleConfirm = async (v: boolean) => {
+    try {
+      await stampFiller();
+      await updateChecklist.mutateAsync({ id: checklistId, patch: { projectors_confirmed: v } as any });
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
 
   const emptyForm = {
     patrimony: '',
@@ -775,6 +808,7 @@ function ProjectorsSection({ checklistId, canEdit }: { checklistId: string; canE
       return;
     }
     try {
+      await stampFiller();
       await create.mutateAsync({
         checklist_id: checklistId,
         patrimony: form.patrimony.trim() || null,
@@ -798,6 +832,11 @@ function ProjectorsSection({ checklistId, canEdit }: { checklistId: string; canE
         <CardTitle className="flex items-center gap-2">
           <Projector className="h-5 w-5" /> Check List de Projetores
           {projectors.length > 0 && <Badge variant="secondary">{projectors.length}</Badge>}
+          {projectorsDone && (
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Concluído
+            </Badge>
+          )}
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           Verifique cada projetor da sala: patrimônio, modelo, ações executadas e horas da lâmpada.
@@ -805,8 +844,22 @@ function ProjectorsSection({ checklistId, canEdit }: { checklistId: string; canE
       </CardHeader>
       <CardContent className="space-y-3">
         {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-        {!isLoading && projectors.length === 0 && !adding && (
-          <p className="text-sm text-muted-foreground">Nenhum projetor cadastrado.</p>
+        {!isLoading && projectors.length === 0 && !adding && canEdit && (
+          <div className="flex items-center justify-between gap-3 p-3 rounded-md border bg-muted/30">
+            <div className="text-sm">
+              {projectorsConfirmed
+                ? 'Seção marcada como em conformidade (nenhum projetor a registrar).'
+                : 'Nenhum projetor cadastrado. Se a sala não possui projetor ou não há nada a registrar, marque como em conformidade.'}
+            </div>
+            <Button
+              size="sm"
+              variant={projectorsConfirmed ? 'outline' : 'default'}
+              onClick={() => toggleConfirm(!projectorsConfirmed)}
+              disabled={updateChecklist.isPending}
+            >
+              {projectorsConfirmed ? 'Desmarcar' : 'Marcar como em conformidade'}
+            </Button>
+          </div>
         )}
 
         {projectors.map((p) => (
@@ -897,6 +950,96 @@ function ProjectorsSection({ checklistId, canEdit }: { checklistId: string; canE
             </div>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============ FILLER TRACKING & OVERALL PROGRESS ============
+function useFillerStamp(checklist: any) {
+  const { profile } = useAuth();
+  const updateChecklist = useUpdateChecklist();
+  return async () => {
+    if (!checklist?.id) return;
+    if (checklist.filled_by_id) return;
+    if (!profile?.user_id) return;
+    try {
+      await updateChecklist.mutateAsync({
+        id: checklist.id,
+        patch: {
+          filled_by_id: profile.user_id,
+          filled_by_name: profile.full_name ?? null,
+          filled_at: new Date().toISOString(),
+        } as any,
+      });
+    } catch (e) {
+      // silent — non-critical
+      console.warn('Failed to stamp filler', e);
+    }
+  };
+}
+
+function ChecklistPeopleCard({ checklist, locked }: { checklist: any; locked: boolean }) {
+  return (
+    <Card>
+      <CardContent className="p-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <div>
+          <span className="text-muted-foreground">Criado por: </span>
+          <strong>{checklist.created_by_name ?? '—'}</strong>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Preenchido por: </span>
+          <strong>{checklist.filled_by_name ?? 'Ainda não iniciado'}</strong>
+          {checklist.filled_at && (
+            <span className="text-muted-foreground"> · desde {new Date(checklist.filled_at).toLocaleString('pt-BR')}</span>
+          )}
+        </div>
+        {locked && (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+            Somente o preenchedor original (ou um admin) pode continuar este levantamento.
+          </Badge>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function OverallProgressCard({ checklist }: { checklist: any }) {
+  const { data: items = [] } = useChecklistItems(checklist.id);
+  const { data: projectors = [] } = useProjectors(checklist.id);
+  const confirmed: string[] = checklist.confirmed_categories ?? [];
+  const projectorsDone = projectors.length > 0 || !!checklist.projectors_confirmed;
+
+  const cats = SEMESTER_CATEGORIES.map((cat) => ({
+    cat,
+    done: items.some((i) => i.category === cat) || confirmed.includes(cat),
+  }));
+  const doneCats = cats.filter((c) => c.done).length;
+  const total = SEMESTER_CATEGORIES.length + 1; // + projetores
+  const done = doneCats + (projectorsDone ? 1 : 0);
+  const pct = Math.round((done / total) * 100);
+  const color = pct === 100 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-muted-foreground';
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center justify-between gap-3">
+          <span>Progresso geral do levantamento</span>
+          <span className={`text-sm font-normal ${color}`}>{done}/{total} · {pct}%</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Progress value={pct} className="h-2" />
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {cats.map(({ cat, done }) => (
+            <Badge key={cat} variant="outline" className={done ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}>
+              {done ? '✓' : '○'} {cat}
+            </Badge>
+          ))}
+          <Badge variant="outline" className={projectorsDone ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}>
+            {projectorsDone ? '✓' : '○'} Projetores
+          </Badge>
+        </div>
       </CardContent>
     </Card>
   );

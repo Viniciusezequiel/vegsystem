@@ -38,6 +38,12 @@ export interface SemesterChecklist {
   checklist_date: string;
   general_observation: string | null;
   confirmed_categories: string[];
+  projectors_confirmed: boolean;
+  created_by_id: string | null;
+  created_by_name: string | null;
+  filled_by_id: string | null;
+  filled_by_name: string | null;
+  filled_at: string | null;
   status: SemesterItemStatus;
   created_at: string;
   updated_at: string;
@@ -513,6 +519,21 @@ export function useProjectors(checklistId?: string) {
     enabled: !!checklistId,
   });
 }
+
+export function useAllProjectors(competencyId?: string) {
+  return useQuery({
+    queryKey: ['semester-projectors-all', competencyId ?? 'all'],
+    queryFn: async () => {
+      let q = supabase.from('semester_projectors' as any).select('*, semester_checklists!inner(*)');
+      if (competencyId) q = q.eq('semester_checklists.competency_id', competencyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+}
+
+
 
 export function useCreateProjector() {
   const qc = useQueryClient();
