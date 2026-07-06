@@ -48,7 +48,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Trash2, Armchair, Save, ShieldAlert, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Armchair, Save, ShieldAlert, CheckCircle2, Circle, Projector, Lightbulb } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { MainLayout } from '@/components/layout/MainLayout';
 
