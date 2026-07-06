@@ -239,6 +239,7 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
   const checklistId = checklist.id;
   const { data: items = [], isLoading } = useChecklistItems(checklistId);
   const updateChecklist = useUpdateChecklist();
+  const stampFiller = useFillerStamp(checklist);
   const confirmed: string[] = checklist.confirmed_categories ?? [];
 
   const grouped = useMemo(() => {
@@ -260,6 +261,7 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
       ? Array.from(new Set([...confirmed, cat]))
       : confirmed.filter((c) => c !== cat);
     try {
+      await stampFiller();
       await updateChecklist.mutateAsync({ id: checklistId, patch: { confirmed_categories: next } as any });
     } catch (e: any) {
       toast.error(e.message);
