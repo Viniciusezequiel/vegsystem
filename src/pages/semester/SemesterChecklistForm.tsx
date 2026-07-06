@@ -346,11 +346,13 @@ function CategoryEditor({
   category,
   items,
   canEdit,
+  stampFiller,
 }: {
   checklistId: string;
   category: SemesterCategory;
   items: SemesterItem[];
   canEdit: boolean;
+  stampFiller?: () => Promise<void>;
 }) {
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
@@ -378,6 +380,7 @@ function CategoryEditor({
   const submit = async () => {
     const name = form.item_name === '__custom__' ? form.custom.trim() : form.item_name;
     if (!name) return toast.error('Informe o item');
+    if (stampFiller) await stampFiller();
     await createItem.mutateAsync({
       checklist_id: checklistId,
       category,
