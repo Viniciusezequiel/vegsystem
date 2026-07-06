@@ -172,7 +172,11 @@ export default function SemesterChecklistsList() {
                 const doneCats = SEMESTER_CATEGORIES.filter(
                   (cat) => categoriesWithItems.has(cat) || confirmed.includes(cat),
                 ).length;
-                const progress = Math.round((doneCats / SEMESTER_CATEGORIES.length) * 100);
+                const hasProjectors = projectorsAll.some((p: any) => p.checklist_id === c.id);
+                const projectorsDone = hasProjectors || !!(c as any).projectors_confirmed;
+                const total = SEMESTER_CATEGORIES.length + 1;
+                const done = doneCats + (projectorsDone ? 1 : 0);
+                const progress = Math.round((done / total) * 100);
                 const progressColor =
                   progress === 100 ? 'text-emerald-600' : progress >= 50 ? 'text-amber-600' : 'text-muted-foreground';
                 return (
@@ -186,11 +190,12 @@ export default function SemesterChecklistsList() {
                       <p className="text-xs text-muted-foreground mt-1">
                         {comp?.name && `${comp.name} • `}
                         Responsável: {c.responsible_name} • {format(new Date(c.checklist_date), 'dd/MM/yyyy')}
+                        {(c as any).filled_by_name && <> • Preenchido por: {(c as any).filled_by_name}</>}
                       </p>
                       <div className="mt-2 max-w-md">
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span className="text-muted-foreground">Progresso do levantamento</span>
-                          <span className={`font-medium ${progressColor}`}>{doneCats}/{SEMESTER_CATEGORIES.length} • {progress}%</span>
+                          <span className={`font-medium ${progressColor}`}>{done}/{total} • {progress}%</span>
                         </div>
                         <Progress value={progress} className="h-2" />
                       </div>
