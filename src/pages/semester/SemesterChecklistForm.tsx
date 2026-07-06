@@ -17,7 +17,12 @@ import {
   useCreateFurniture,
   useDeleteFurniture,
   useItemOptions,
+  useProjectors,
+  useCreateProjector,
+  useUpdateProjector,
+  useDeleteProjector,
   type SemesterItem,
+  type SemesterProjector,
 } from '@/hooks/useSemesterChecklist';
 import {
   SEMESTER_CATEGORIES,
