@@ -801,6 +801,7 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
       return;
     }
     try {
+      await stampFiller();
       await create.mutateAsync({
         checklist_id: checklistId,
         patrimony: form.patrimony.trim() || null,
