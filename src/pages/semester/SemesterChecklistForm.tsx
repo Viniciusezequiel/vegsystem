@@ -827,6 +827,11 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
         <CardTitle className="flex items-center gap-2">
           <Projector className="h-5 w-5" /> Check List de Projetores
           {projectors.length > 0 && <Badge variant="secondary">{projectors.length}</Badge>}
+          {projectorsDone && (
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Concluído
+            </Badge>
+          )}
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           Verifique cada projetor da sala: patrimônio, modelo, ações executadas e horas da lâmpada.
@@ -834,8 +839,22 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
       </CardHeader>
       <CardContent className="space-y-3">
         {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-        {!isLoading && projectors.length === 0 && !adding && (
-          <p className="text-sm text-muted-foreground">Nenhum projetor cadastrado.</p>
+        {!isLoading && projectors.length === 0 && !adding && canEdit && (
+          <div className="flex items-center justify-between gap-3 p-3 rounded-md border bg-muted/30">
+            <div className="text-sm">
+              {projectorsConfirmed
+                ? 'Seção marcada como em conformidade (nenhum projetor a registrar).'
+                : 'Nenhum projetor cadastrado. Se a sala não possui projetor ou não há nada a registrar, marque como em conformidade.'}
+            </div>
+            <Button
+              size="sm"
+              variant={projectorsConfirmed ? 'outline' : 'default'}
+              onClick={() => toggleConfirm(!projectorsConfirmed)}
+              disabled={updateChecklist.isPending}
+            >
+              {projectorsConfirmed ? 'Desmarcar' : 'Marcar como em conformidade'}
+            </Button>
+          </div>
         )}
 
         {projectors.map((p) => (
