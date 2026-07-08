@@ -52,6 +52,9 @@ export default function SemesterLabels() {
     const list: Candidate[] = [];
     items.forEach((i) => {
       if (!i.needs_label) return;
+      // Mobiliário é representado individualmente por cada peça em furniture_details
+      // — não gerar etiqueta para o item pai, senão dobra a contagem.
+      if (i.category === 'Mobiliário') return;
       const ch = i.semester_checklists;
       const comp = competencies.find((c) => c.id === ch?.competency_id);
       list.push({
