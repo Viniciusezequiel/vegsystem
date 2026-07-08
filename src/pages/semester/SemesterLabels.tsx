@@ -50,13 +50,20 @@ export default function SemesterLabels() {
 
   const candidates: Candidate[] = useMemo(() => {
     const list: Candidate[] = [];
+    // IDs de itens (parent) que já possuem detalhes de mobiliário — para não duplicar
+    const parentIdsWithFurniture = new Set(
+      furniture.map((f) => f.checklist_item_id ?? f.semester_checklist_items?.id).filter(Boolean),
+    );
     items.forEach((i) => {
       if (!i.needs_label) return;
-      // Mobiliário é representado individualmente por cada peça em furniture_details
-      // — não gerar etiqueta para o item pai, senão dobra a contagem.
-      if (i.category === 'Mobiliário') return;
+      // Se o item de Mobiliário já foi detalhado por peça em furniture_details,
+      // as etiquetas vêm dos detalhes (com o problema real) e não do item pai.
+      if (i.category === 'Mobiliário' && parentIdsWithFurniture.has(i.id)) return;
       const ch = i.semester_checklists;
       const comp = competencies.find((c) => c.id === ch?.competency_id);
+      // Problema real: observação preenchida ou o próprio nome do item.
+      // Nunca cair para o nome da categoria (evita imprimir "Mobiliário" no lugar do problema).
+      const problem = (i.observation && i.observation.trim()) || i.item_name || '-';
       list.push({
         key: `item:${i.id}`,
         source: 'item',
@@ -65,7 +72,7 @@ export default function SemesterLabels() {
         competencyName: comp?.name ?? '',
         room: ch?.room_name ?? '-',
         itemType: i.item_name,
-        problem: i.observation ?? i.category,
+        problem,
         maintenance: i.maintenance_type === 'external' ? 'Externa' : 'Interna',
         responsible: ch?.responsible_name ?? '-',
         date: ch?.checklist_date ?? '',
@@ -93,6 +100,7 @@ export default function SemesterLabels() {
     });
     return list;
   }, [items, furniture, competencies]);
+
 
   const rooms = useMemo(() => Array.from(new Set(candidates.map((c) => c.room))).sort(), [candidates]);
 
