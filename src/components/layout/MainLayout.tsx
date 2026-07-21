@@ -88,14 +88,14 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Mobile Overlay */}
       {isMobile && mobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 xl:hidden"
           onClick={closeMobileMenu}
         />
       )}
       
-      {/* Sidebar - hidden on mobile unless menu is open */}
+      {/* Sidebar - hidden on mobile/tablet unless menu is open */}
       <div className={cn(
-        'lg:block',
+        'xl:block',
         isMobile && !mobileMenuOpen && 'hidden',
         isMobile && mobileMenuOpen && 'block'
       )}>
@@ -108,24 +108,24 @@ export function MainLayout({ children }: MainLayoutProps) {
       </div>
       
       <main className={cn(
-        'min-h-screen relative z-10 transition-all duration-300',
-        !isMobile && (sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'),
+        'min-h-screen relative z-10 transition-all duration-300 min-w-0',
+        !isMobile && (sidebarCollapsed ? 'xl:ml-16' : 'xl:ml-64'),
         'ml-0'
       )}>
         {/* Top Bar */}
         <div
           ref={topBarRef}
           className={cn(
-            'fixed top-0 right-0 z-20 px-4 lg:px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 transition-all duration-300 left-0',
-            !isMobile && (sidebarCollapsed ? 'lg:left-16' : 'lg:left-64')
+            'fixed top-0 right-0 z-20 px-3 sm:px-4 xl:px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 transition-all duration-300 left-0',
+            !isMobile && (sidebarCollapsed ? 'xl:left-16' : 'xl:left-64')
           )}
         >
           <div className="flex items-center justify-between max-w-[1600px] mx-auto">
-            {/* Mobile Menu Button */}
+            {/* Mobile/Tablet Menu Button */}
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="xl:hidden"
               onClick={handleToggleSidebar}
             >
               {mobileMenuOpen ? (
@@ -136,13 +136,13 @@ export function MainLayout({ children }: MainLayoutProps) {
             </Button>
 
             {/* Spacer for desktop */}
-            <div className="hidden lg:block" />
+            <div className="hidden xl:block" />
 
             <OnlineUsersIndicator />
           </div>
         </div>
         <div
-          className="p-4 lg:p-8 max-w-[1600px] mx-auto"
+          className="p-3 sm:p-4 xl:p-8 max-w-[1600px] mx-auto min-w-0 overflow-x-hidden"
           style={{ paddingTop: 'calc(var(--app-topbar-height, 96px) + 1rem)' }}
         >
           {children}
