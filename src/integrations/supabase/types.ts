@@ -2235,6 +2235,51 @@ export type Database = {
         }
         Relationships: []
       }
+      uber_requests: {
+        Row: {
+          code: string
+          created_at: string
+          destination: string
+          id: string
+          notes: string | null
+          origin: string
+          reason: string
+          requester_name: string
+          status: string
+          trip_date: string
+          trip_time: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          destination: string
+          id?: string
+          notes?: string | null
+          origin: string
+          reason: string
+          requester_name: string
+          status?: string
+          trip_date: string
+          trip_time: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          destination?: string
+          id?: string
+          notes?: string | null
+          origin?: string
+          reason?: string
+          requester_name?: string
+          status?: string
+          trip_date?: string
+          trip_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
