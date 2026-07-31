@@ -25,6 +25,8 @@ import {
   FileText,
   Tag,
   Upload,
+  Car,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
@@ -67,6 +69,7 @@ interface NavGroup {
   items: NavItem[];
   basePath: string;
   gradient?: string;
+  adminOnly?: boolean;
   module?: Module; // Maps to permission module
 }
 
@@ -190,6 +193,18 @@ const moduleGroups: NavGroup[] = [
       { name: 'Novo Modelo', href: '/labels/new', icon: PackagePlus },
     ],
   },
+  {
+    name: 'Módulo Administrativo',
+    icon: ShieldCheck,
+    basePath: '/admin-module',
+    gradient: 'from-slate-600 to-blue-600',
+    adminOnly: true,
+    items: [
+      { name: 'Visão Geral', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
+      { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
+      { name: 'Controle de Solicitações', href: '/admin-module/uber/controle', icon: FileText, adminOnly: true },
+    ],
+  },
 ];
 
 const bottomNav: NavItem[] = [
@@ -227,6 +242,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
 
   // Filter module groups based on view permissions
   const visibleModuleGroups = moduleGroups.filter(group => {
+    if (group.adminOnly && !isAdmin) return false;
     if (!group.module) return true; // No module restriction
     if (isAdmin) return true; // Admin sees everything
     return canView(group.module);

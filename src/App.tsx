@@ -89,6 +89,13 @@ import PortalNewReservation from "./pages/portal-cliente/PortalNewReservation";
 import PortalMyReservations from "./pages/portal-cliente/PortalMyReservations";
 import ExternalUsersApproval from "./pages/ExternalUsersApproval";
 
+// Módulo Administrativo
+import AdminModuleHome from "./pages/admin/AdminModuleHome";
+import UberDashboard from "./pages/admin/UberDashboard";
+import UberNewRequest from "./pages/admin/UberNewRequest";
+import UberControl from "./pages/admin/UberControl";
+import PublicUberRequest from "./pages/admin/PublicUberRequest";
+
 // PWA
 import Install from "./pages/Install";
 
@@ -402,6 +409,13 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
+              {/* Módulo Administrativo (admin only) */}
+              <Route path="/solicitar-uber" element={<PublicUberRequest />} />
+              <Route path="/admin-module" element={<ProtectedRoute requireAdmin><AdminModuleHome /></ProtectedRoute>} />
+              <Route path="/admin-module/uber" element={<ProtectedRoute requireAdmin><UberDashboard /></ProtectedRoute>} />
+              <Route path="/admin-module/uber/nova" element={<ProtectedRoute requireAdmin><UberNewRequest /></ProtectedRoute>} />
+              <Route path="/admin-module/uber/controle" element={<ProtectedRoute requireAdmin><UberControl /></ProtectedRoute>} />
+
               <Route path="*" element={<NotFound />} />
               </Routes>
             </OfflineProvider>
