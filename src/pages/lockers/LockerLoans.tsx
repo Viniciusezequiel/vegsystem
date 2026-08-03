@@ -13,12 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search, Unlock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, LockerLoan } from '@/hooks/useLockers';
+import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, useBulkReturnLockers, LockerLoan } from '@/hooks/useLockers';
 import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
 import { LockerExchangeDialog } from '@/components/lockers/LockerExchangeDialog';
 import { LockerLoanDetailsDialog } from '@/components/lockers/LockerLoanDetailsDialog';
+import { BulkReturnLockersDialog } from '@/components/lockers/BulkReturnLockersDialog';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -34,6 +35,7 @@ export default function LockerLoans() {
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [bulkReturnOpen, setBulkReturnOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<LockerLoan | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -43,6 +45,8 @@ export default function LockerLoans() {
   const { data: availableLockers } = useLockersList('available');
   const returnLocker = useReturnLocker();
   const exchangeLocker = useExchangeLocker();
+  const bulkReturn = useBulkReturnLockers();
+
 
   // Filter loans by locker code or borrower name
   const filterLoans = (loans: LockerLoan[] | undefined) => {
@@ -275,7 +279,16 @@ export default function LockerLoans() {
               <p className="text-sm text-muted-foreground">Gerencie as locações e devoluções</p>
             </div>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              className="flex-1 sm:flex-initial"
+              onClick={() => setBulkReturnOpen(true)}
+              disabled={!activeLoans?.length}
+            >
+              <Unlock className="mr-2 h-4 w-4" />
+              Liberar Escaninhos
+            </Button>
             <PdfExportButton
               title="Relatório de Locações de Escaninhos"
               filename="locacoes_escaninhos"
@@ -402,6 +415,17 @@ export default function LockerLoans() {
           isPending={exchangeLocker.isPending}
         />
       )}
+
+      {/* Bulk Return Dialog */}
+      <BulkReturnLockersDialog
+        open={bulkReturnOpen}
+        onOpenChange={setBulkReturnOpen}
+        loans={activeLoans || []}
+        isPending={bulkReturn.isPending}
+        onConfirm={(ids) =>
+          bulkReturn.mutate(ids, { onSuccess: () => setBulkReturnOpen(false) })
+        }
+      />
     </MainLayout>
   );
 }
