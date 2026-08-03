@@ -13,12 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search, Unlock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, LockerLoan } from '@/hooks/useLockers';
+import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, useBulkReturnLockers, LockerLoan } from '@/hooks/useLockers';
 import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
 import { LockerExchangeDialog } from '@/components/lockers/LockerExchangeDialog';
 import { LockerLoanDetailsDialog } from '@/components/lockers/LockerLoanDetailsDialog';
+import { BulkReturnLockersDialog } from '@/components/lockers/BulkReturnLockersDialog';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
