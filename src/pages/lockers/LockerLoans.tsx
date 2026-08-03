@@ -415,6 +415,17 @@ export default function LockerLoans() {
           isPending={exchangeLocker.isPending}
         />
       )}
+
+      {/* Bulk Return Dialog */}
+      <BulkReturnLockersDialog
+        open={bulkReturnOpen}
+        onOpenChange={setBulkReturnOpen}
+        loans={activeLoans || []}
+        isPending={bulkReturn.isPending}
+        onConfirm={(ids) =>
+          bulkReturn.mutate(ids, { onSuccess: () => setBulkReturnOpen(false) })
+        }
+      />
     </MainLayout>
   );
 }
