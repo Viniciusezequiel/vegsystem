@@ -279,7 +279,16 @@ export default function LockerLoans() {
               <p className="text-sm text-muted-foreground">Gerencie as locações e devoluções</p>
             </div>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              className="flex-1 sm:flex-initial"
+              onClick={() => setBulkReturnOpen(true)}
+              disabled={!activeLoans?.length}
+            >
+              <Unlock className="mr-2 h-4 w-4" />
+              Liberar Escaninhos
+            </Button>
             <PdfExportButton
               title="Relatório de Locações de Escaninhos"
               filename="locacoes_escaninhos"
