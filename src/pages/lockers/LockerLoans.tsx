@@ -35,6 +35,7 @@ export default function LockerLoans() {
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [bulkReturnOpen, setBulkReturnOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<LockerLoan | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -44,6 +45,8 @@ export default function LockerLoans() {
   const { data: availableLockers } = useLockersList('available');
   const returnLocker = useReturnLocker();
   const exchangeLocker = useExchangeLocker();
+  const bulkReturn = useBulkReturnLockers();
+
 
   // Filter loans by locker code or borrower name
   const filterLoans = (loans: LockerLoan[] | undefined) => {
