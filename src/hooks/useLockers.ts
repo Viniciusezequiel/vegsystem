@@ -288,6 +288,54 @@ export function useReturnLocker() {
   });
 }
 
+export function useBulkReturnLockers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (loanIds: string[]) => {
+      if (!loanIds.length) return 0;
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: loans, error: loansError } = await supabase
+        .from('locker_loans')
+        .select('id, locker_id')
+        .in('id', loanIds)
+        .eq('status', 'active');
+      if (loansError) throw loansError;
+
+      const ids = (loans || []).map((l) => l.id);
+      if (!ids.length) return 0;
+
+      const { error } = await supabase
+        .from('locker_loans')
+        .update({
+          status: 'returned',
+          actual_return_date: new Date().toISOString().split('T')[0],
+          returned_by: user?.id,
+        })
+        .in('id', ids);
+      if (error) throw error;
+
+      const lockerIds = Array.from(new Set((loans || []).map((l) => l.locker_id)));
+      const { error: lockerError } = await supabase
+        .from('lockers')
+        .update({ status: 'available' })
+        .in('id', lockerIds);
+      if (lockerError) throw lockerError;
+
+      return ids.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['lockers'] });
+      queryClient.invalidateQueries({ queryKey: ['locker-loans'] });
+      toast.success(`${count} escaninho(s) liberado(s) com sucesso!`);
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao liberar escaninhos: ' + error.message);
+    },
+  });
+}
+
 export function useExchangeLocker() {
   const queryClient = useQueryClient();
 
