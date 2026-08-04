@@ -1126,6 +1126,705 @@ export type Database = {
         }
         Relationships: []
       }
+      ps_campus_floors: {
+        Row: {
+          campus_id: string | null
+          campus_name: string | null
+          created_at: string
+          id: string
+          name: string
+          rooms: string[]
+        }
+        Insert: {
+          campus_id?: string | null
+          campus_name?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          rooms?: string[]
+        }
+        Update: {
+          campus_id?: string | null
+          campus_name?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          rooms?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ps_campus_floors_campus_id_fkey"
+            columns: ["campus_id"]
+            isOneToOne: false
+            referencedRelation: "ps_campuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ps_campuses: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      ps_candidates: {
+        Row: {
+          campus: string | null
+          cpf: string | null
+          created_at: string
+          event_id: string
+          exam_type: string | null
+          full_name: string
+          id: string
+          registration_number: string | null
+          rg: string | null
+          room: string | null
+          seat_number: string | null
+        }
+        Insert: {
+          campus?: string | null
+          cpf?: string | null
+          created_at?: string
+          event_id: string
+          exam_type?: string | null
+          full_name: string
+          id?: string
+          registration_number?: string | null
+          rg?: string | null
+          room?: string | null
+          seat_number?: string | null
+        }
+        Update: {
+          campus?: string | null
+          cpf?: string | null
+          created_at?: string
+          event_id?: string
+          exam_type?: string | null
+          full_name?: string
+          id?: string
+          registration_number?: string | null
+          rg?: string | null
+          room?: string | null
+          seat_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ps_candidates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ps_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ps_collaborators: {
+        Row: {
+          average_rating: number
+          city: string | null
+          cpf: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          journey: string | null
+          matricula: string | null
+          pcd: string
+          phone: string | null
+          pix: string | null
+          position: string | null
+          role: string | null
+          sector: string | null
+          state: string | null
+          total_events: number
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          average_rating?: number
+          city?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          journey?: string | null
+          matricula?: string | null
+          pcd?: string
+          phone?: string | null
+          pix?: string | null
+          position?: string | null
+          role?: string | null
+          sector?: string | null
+          state?: string | null
+          total_events?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          average_rating?: number
+          city?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          journey?: string | null
+          matricula?: string | null
+          pcd?: string
+          phone?: string | null
+          pix?: string | null
+          position?: string | null
+          role?: string | null
+          sector?: string | null
+          state?: string | null
+          total_events?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ps_evaluation_retifications: {
+        Row: {
+          collaborator_id: string | null
+          collaborator_name: string | null
+          coordinator_notes: string | null
+          created_at: string
+          criteria: string[]
+          evaluation_id: string
+          event_id: string
+          id: string
+          reason: string | null
+          requested_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          collaborator_id?: string | null
+          collaborator_name?: string | null
+          coordinator_notes?: string | null
+          created_at?: string
+          criteria?: string[]
+          evaluation_id: string
+          event_id: string
+          id?: string
+          reason?: string | null
+          requested_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          collaborator_id?: string | null
+          collaborator_name?: string | null
+          coordinator_notes?: string | null
+          created_at?: string
+          criteria?: string[]
+          evaluation_id?: string
+          event_id?: string
+          id?: string
+          reason?: string | null
+          requested_by?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ps_evaluation_retifications_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: false
+            referencedRelation: "ps_collaborators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ps_evaluation_retifications_evaluation_id_fkey"
+            columns: ["evaluation_id"]
+            isOneToOne: false
+            referencedRelation: "ps_evaluations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ps_evaluation_retifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ps_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ps_evaluations: {
+        Row: {
+          assigned_role: string
+          attention_vigilance: number
+          classification: string | null
+          collaborator_id: string | null
+          collaborator_name: string | null
+          communication: number
+          created_at: string
+          domain: number
+          evaluator_name: string | null
+          event_id: string
+          final_score: number
+          id: string
+          incident_management: number
+          observations: string | null
+          organization: number
+          professional_posture: number
+          punctuality: number
+          room_control: number
+          sector: string | null
+          teamwork: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_role?: string
+          attention_vigilance?: number
+          classification?: string | null
+          collaborator_id?: string | null
+          collaborator_name?: string | null
+          communication?: number
+          created_at?: string
+          domain?: number
+          evaluator_name?: string | null
+          event_id: string
+          final_score?: number
+          id?: string
+          incident_management?: number
+          observations?: string | null
+          organization?: number
+          professional_posture?: number
+          punctuality?: number
+          room_control?: number
+          sector?: string | null
+          teamwork?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_role?: string
+          attention_vigilance?: number
+          classification?: string | null
+          collaborator_id?: string | null
+          collaborator_name?: string | null
+          communication?: number
+          created_at?: string
+          domain?: number
+          evaluator_name?: string | null
+          event_id?: string
+          final_score?: number
+          id?: string
+          incident_management?: number
+          observations?: string | null
+          organization?: number
+          professional_posture?: number
+          punctuality?: number
+          room_control?: number
+          sector?: string | null
+          teamwork?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ps_evaluations_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: false
+            referencedRelation: "ps_collaborators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ps_evaluations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ps_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ps_event_collaborators: {
+        Row: {
+          absent: boolean
+          assigned_role: string | null
+          campus: string | null
+          collaborator_id: string | null
+          collaborator_name: string
+          created_at: string
+          evaluated: boolean
+          event_id: string
+          id: string
+          sector: string | null
+          signature_ip: string | null
+          signature_url: string | null
+          signed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          absent?: boolean
+          assigned_role?: string | null
+          campus?: string | null
+          collaborator_id?: string | null
+          collaborator_name: string
+          created_at?: string
+          evaluated?: boolean
+          event_id: string
+          id?: string
+          sector?: string | null
+          signature_ip?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          absent?: boolean
+          assigned_role?: string | null
+          campus?: string | null
+          collaborator_id?: string | null
+          collaborator_name?: string
+          created_at?: string
+          evaluated?: boolean
+          event_id?: string
+          id?: string
+          sector?: string | null
+          signature_ip?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ps_event_collaborators_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: false
+            referencedRelation: "ps_collaborators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ps_event_collaborators_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ps_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ps_events: {
+        Row: {
+          coordinator_name: string | null
+          created_at: string
+          date: string
+          description: string | null
+          hidden_from_evaluation: boolean
+          id: string
+          location: string | null
+          name: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          coordinator_name?: string | null
+          created_at?: string
+          date: string
+          description?: string | null
+          hidden_from_evaluation?: boolean
+          id?: string
+          location?: string | null
+          name: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          coordinator_name?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          hidden_from_evaluation?: boolean
+          id?: string
+          location?: string | null
+          name?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ps_fiscal_bank_applications: {
+        Row: {
+          agilidade_digitacao: string | null
+          created_at: string
+          datas_disponibilidade: string[]
+          dominio_ingles: string | null
+          email: string
+          escrita_portugues: string | null
+          funcoes_com_conforto: string[]
+          habilidades_ingles: string[]
+          id: string
+          instituto: string
+          leitura_portugues: string | null
+          letra_legivel: string | null
+          nome_completo: string
+          observacoes: string | null
+          setor: string
+          telefone_contato: string
+        }
+        Insert: {
+          agilidade_digitacao?: string | null
+          created_at?: string
+          datas_disponibilidade?: string[]
+          dominio_ingles?: string | null
+          email: string
+          escrita_portugues?: string | null
+          funcoes_com_conforto?: string[]
+          habilidades_ingles?: string[]
+          id?: string
+          instituto: string
+          leitura_portugues?: string | null
+          letra_legivel?: string | null
+          nome_completo: string
+          observacoes?: string | null
+          setor: string
+          telefone_contato: string
+        }
+        Update: {
+          agilidade_digitacao?: string | null
+          created_at?: string
+          datas_disponibilidade?: string[]
+          dominio_ingles?: string | null
+          email?: string
+          escrita_portugues?: string | null
+          funcoes_com_conforto?: string[]
+          habilidades_ingles?: string[]
+          id?: string
+          instituto?: string
+          leitura_portugues?: string | null
+          letra_legivel?: string | null
+          nome_completo?: string
+          observacoes?: string | null
+          setor?: string
+          telefone_contato?: string
+        }
+        Relationships: []
+      }
+      ps_fiscal_bank_config: {
+        Row: {
+          created_at: string
+          data_indisponivel_label: string
+          datas: string[]
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_indisponivel_label?: string
+          datas?: string[]
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_indisponivel_label?: string
+          datas?: string[]
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ps_general_evaluations: {
+        Row: {
+          attention_vigilance: number
+          batch_name: string
+          classification: string | null
+          collaborator_id: string | null
+          collaborator_name: string
+          collaborator_position: string | null
+          collaborator_role: string | null
+          communication: number
+          created_at: string
+          domain: number
+          evaluation_date: string
+          evaluator_name: string
+          final_score: number
+          id: string
+          incident_management: number
+          observations: string | null
+          organization: number
+          professional_posture: number
+          punctuality: number
+          room_control: number
+          teamwork: number
+          updated_at: string
+        }
+        Insert: {
+          attention_vigilance?: number
+          batch_name: string
+          classification?: string | null
+          collaborator_id?: string | null
+          collaborator_name: string
+          collaborator_position?: string | null
+          collaborator_role?: string | null
+          communication?: number
+          created_at?: string
+          domain?: number
+          evaluation_date?: string
+          evaluator_name: string
+          final_score?: number
+          id?: string
+          incident_management?: number
+          observations?: string | null
+          organization?: number
+          professional_posture?: number
+          punctuality?: number
+          room_control?: number
+          teamwork?: number
+          updated_at?: string
+        }
+        Update: {
+          attention_vigilance?: number
+          batch_name?: string
+          classification?: string | null
+          collaborator_id?: string | null
+          collaborator_name?: string
+          collaborator_position?: string | null
+          collaborator_role?: string | null
+          communication?: number
+          created_at?: string
+          domain?: number
+          evaluation_date?: string
+          evaluator_name?: string
+          final_score?: number
+          id?: string
+          incident_management?: number
+          observations?: string | null
+          organization?: number
+          professional_posture?: number
+          punctuality?: number
+          room_control?: number
+          teamwork?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ps_general_evaluations_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: false
+            referencedRelation: "ps_collaborators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ps_roles: {
+        Row: {
+          active: boolean
+          combined_roles: string[]
+          created_at: string
+          id: string
+          name: string
+          order: number
+          pay_value: number
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          active?: boolean
+          combined_roles?: string[]
+          created_at?: string
+          id?: string
+          name: string
+          order?: number
+          pay_value?: number
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          active?: boolean
+          combined_roles?: string[]
+          created_at?: string
+          id?: string
+          name?: string
+          order?: number
+          pay_value?: number
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      ps_self_evaluations: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          had_incident: boolean
+          id: string
+          identified: boolean
+          incident_comment: string | null
+          organization_comment: string | null
+          organization_rating: number | null
+          partner_fiscal_comment: string | null
+          partner_fiscal_rating: number | null
+          respondent_name: string | null
+          role: string | null
+          snack_comment: string | null
+          snack_rating: number | null
+          suggestions: string | null
+          training_comment: string | null
+          training_rating: number | null
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          had_incident?: boolean
+          id?: string
+          identified?: boolean
+          incident_comment?: string | null
+          organization_comment?: string | null
+          organization_rating?: number | null
+          partner_fiscal_comment?: string | null
+          partner_fiscal_rating?: number | null
+          respondent_name?: string | null
+          role?: string | null
+          snack_comment?: string | null
+          snack_rating?: number | null
+          suggestions?: string | null
+          training_comment?: string | null
+          training_rating?: number | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          had_incident?: boolean
+          id?: string
+          identified?: boolean
+          incident_comment?: string | null
+          organization_comment?: string | null
+          organization_rating?: number | null
+          partner_fiscal_comment?: string | null
+          partner_fiscal_rating?: number | null
+          respondent_name?: string | null
+          role?: string | null
+          snack_comment?: string | null
+          snack_rating?: number | null
+          suggestions?: string | null
+          training_comment?: string | null
+          training_rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ps_self_evaluations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ps_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservation_logs: {
         Row: {
           action: string
