@@ -96,6 +96,16 @@ import UberNewRequest from "./pages/admin/UberNewRequest";
 import UberControl from "./pages/admin/UberControl";
 import PublicUberRequest from "./pages/admin/PublicUberRequest";
 
+// Processo Seletivo
+import PsHome from "./pages/processo-seletivo/PsHome";
+import PsEvents from "./pages/processo-seletivo/PsEvents";
+import PsEventDetail from "./pages/processo-seletivo/PsEventDetail";
+import PsCollaborators from "./pages/processo-seletivo/PsCollaborators";
+import PsRoles from "./pages/processo-seletivo/PsRoles";
+import PsTalentBank from "./pages/processo-seletivo/PsTalentBank";
+import PsGeneralEvaluation from "./pages/processo-seletivo/PsGeneralEvaluation";
+
+
 // PWA
 import Install from "./pages/Install";
 
