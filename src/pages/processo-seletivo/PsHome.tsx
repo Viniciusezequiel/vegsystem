@@ -3,8 +3,8 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { GraduationCap, CalendarDays, Users, ClipboardCheck, Trophy, Settings, Wallet, ArrowRight, FileText } from 'lucide-react';
-import { usePsEvents, usePsCollaborators, usePsEvaluations, usePsRoles } from '@/hooks/useProcessoSeletivo';
+import { GraduationCap, CalendarDays, Users, ClipboardCheck, Trophy, Settings, Wallet, ArrowRight } from 'lucide-react';
+import { usePsEvents, usePsCollaborators, usePsEvaluations } from '@/hooks/useProcessoSeletivo';
 
 const shortcuts = [
   { name: 'Eventos', description: 'Processos seletivos, vínculos e avaliações.', href: '/admin-module/processo-seletivo/eventos', icon: CalendarDays },
@@ -12,28 +12,14 @@ const shortcuts = [
   { name: 'Avaliação Geral', description: 'Rodadas de avaliação fora de evento.', href: '/admin-module/processo-seletivo/avaliacao-geral', icon: ClipboardCheck },
   { name: 'Banco de Talentos', description: 'Ranking geral por nota média.', href: '/admin-module/processo-seletivo/banco-talentos', icon: Trophy },
   { name: 'Cargos e Valores', description: 'Cargos, valores R$ e funções combinadas.', href: '/admin-module/processo-seletivo/cargos', icon: Settings },
-  { name: 'Banco de Fiscais', description: 'Configuração e respostas do formulário público.', href: '/admin-module/processo-seletivo/banco-fiscais', icon: FileText },
 ];
 
 export default function PsHome() {
   const { data: events = [] } = usePsEvents();
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: evaluations = [] } = usePsEvaluations();
-  const { data: roles = [] } = usePsRoles();
 
   const running = events.filter((e: any) => e.status === 'em_andamento');
-
-  const roleValue = (slug?: string | null): number => {
-    const r: any = roles.find((x: any) => x.value === slug);
-    if (!r) return 0;
-    const combined = (r.combined_roles || []).reduce((acc: number, s: string) => {
-      const cr: any = roles.find((x: any) => x.value === s);
-      return acc + (Number(cr?.pay_value) || 0);
-    }, 0);
-    return (Number(r.pay_value) || 0) + combined;
-  };
-
-  const totalCost = 0; // calculado por evento na tela de detalhe
 
   return (
     <MainLayout>
