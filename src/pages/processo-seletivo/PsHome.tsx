@@ -54,10 +54,11 @@ export default function PsHome() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Eventos" value={events.length} icon={CalendarDays} />
-          <StatCard title="Em andamento" value={running.length} icon={Wallet} />
-          <StatCard title="Colaboradores" value={collaborators.length} icon={Users} />
-          <StatCard title="Avaliações" value={evaluations.length} icon={ClipboardCheck} />
+          <StatCard title="Eventos" value={events.length} icon={<CalendarDays className="h-5 w-5" />} />
+          <StatCard title="Em andamento" value={running.length} icon={<Wallet className="h-5 w-5" />} />
+          <StatCard title="Colaboradores" value={collaborators.length} icon={<Users className="h-5 w-5" />} />
+          <StatCard title="Avaliações" value={evaluations.length} icon={<ClipboardCheck className="h-5 w-5" />} />
+
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
