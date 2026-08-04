@@ -27,6 +27,8 @@ import {
   Upload,
   Car,
   ShieldCheck,
+  GraduationCap,
+
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
