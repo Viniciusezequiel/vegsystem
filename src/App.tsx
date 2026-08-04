@@ -426,6 +426,16 @@ const App = () => (
               <Route path="/admin-module/uber/nova" element={<ProtectedRoute requireAdmin><UberNewRequest /></ProtectedRoute>} />
               <Route path="/admin-module/uber/controle" element={<ProtectedRoute requireAdmin><UberControl /></ProtectedRoute>} />
 
+              {/* Processo Seletivo */}
+              <Route path="/admin-module/processo-seletivo" element={<ProtectedRoute requireAdmin><PsHome /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/eventos" element={<ProtectedRoute requireAdmin><PsEvents /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/eventos/:id" element={<ProtectedRoute requireAdmin><PsEventDetail /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/colaboradores" element={<ProtectedRoute requireAdmin><PsCollaborators /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/cargos" element={<ProtectedRoute requireAdmin><PsRoles /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/banco-talentos" element={<ProtectedRoute requireAdmin><PsTalentBank /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/avaliacao-geral" element={<ProtectedRoute requireAdmin><PsGeneralEvaluation /></ProtectedRoute>} />
+
+
               <Route path="*" element={<NotFound />} />
               </Routes>
             </OfflineProvider>
