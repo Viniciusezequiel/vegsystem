@@ -184,16 +184,6 @@ const moduleGroups: NavGroup[] = [
     ],
   },
   {
-    name: 'Etiquetas',
-    icon: Tag,
-    basePath: '/labels',
-    gradient: 'from-fuchsia-500 to-purple-500',
-    items: [
-      { name: 'Modelos', href: '/labels', icon: Tag },
-      { name: 'Novo Modelo', href: '/labels/new', icon: PackagePlus },
-    ],
-  },
-  {
     name: 'Módulo Administrativo',
     icon: ShieldCheck,
     basePath: '/admin-module',
@@ -203,8 +193,11 @@ const moduleGroups: NavGroup[] = [
       { name: 'Visão Geral', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
       { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
       { name: 'Controle de Solicitações', href: '/admin-module/uber/controle', icon: FileText, adminOnly: true },
+      { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
+      { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
     ],
   },
+
 ];
 
 const bottomNav: NavItem[] = [
