@@ -12,6 +12,7 @@ const shortcuts = [
   { name: 'Avaliação Geral', description: 'Rodadas de avaliação fora de evento.', href: '/admin-module/processo-seletivo/avaliacao-geral', icon: ClipboardCheck },
   { name: 'Banco de Talentos', description: 'Ranking geral por nota média.', href: '/admin-module/processo-seletivo/banco-talentos', icon: Trophy },
   { name: 'Cargos e Valores', description: 'Cargos, valores R$ e funções combinadas.', href: '/admin-module/processo-seletivo/cargos', icon: Settings },
+  { name: 'Banco de Fiscais', description: 'Inscrições públicas e datas disponíveis.', href: '/admin-module/processo-seletivo/banco-fiscais', icon: Wallet },
 ];
 
 export default function PsHome() {
