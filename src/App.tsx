@@ -439,6 +439,14 @@ const App = () => (
               <Route path="/admin-module/processo-seletivo/cargos" element={<ProtectedRoute requireAdmin><PsRoles /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo/banco-talentos" element={<ProtectedRoute requireAdmin><PsTalentBank /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo/avaliacao-geral" element={<ProtectedRoute requireAdmin><PsGeneralEvaluation /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/banco-fiscais" element={<ProtectedRoute requireAdmin><PsFiscalBank /></ProtectedRoute>} />
+              <Route path="/ps/avaliacao" element={<PsPublicEvaluation />} />
+              <Route path="/ps/avaliacao/:eventId" element={<PsPublicEvaluation />} />
+              <Route path="/ps/autoavaliacao" element={<PsPublicSelfEvaluation />} />
+              <Route path="/ps/autoavaliacao/:eventId" element={<PsPublicSelfEvaluation />} />
+              <Route path="/ps/presenca" element={<PsPublicAttendance />} />
+              <Route path="/ps/presenca/:eventId" element={<PsPublicAttendance />} />
+              <Route path="/ps/banco-fiscais" element={<PsPublicFiscalBank />} />
 
 
               <Route path="*" element={<NotFound />} />
