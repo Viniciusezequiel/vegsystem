@@ -104,6 +104,11 @@ import PsCollaborators from "./pages/processo-seletivo/PsCollaborators";
 import PsRoles from "./pages/processo-seletivo/PsRoles";
 import PsTalentBank from "./pages/processo-seletivo/PsTalentBank";
 import PsGeneralEvaluation from "./pages/processo-seletivo/PsGeneralEvaluation";
+import PsFiscalBank from "./pages/processo-seletivo/PsFiscalBank";
+import PsPublicEvaluation from "./pages/processo-seletivo/public/PsPublicEvaluation";
+import PsPublicSelfEvaluation from "./pages/processo-seletivo/public/PsPublicSelfEvaluation";
+import PsPublicAttendance from "./pages/processo-seletivo/public/PsPublicAttendance";
+import PsPublicFiscalBank from "./pages/processo-seletivo/public/PsPublicFiscalBank";
 
 
 // PWA
