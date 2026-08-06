@@ -134,6 +134,24 @@ export default function PsEventDetail() {
     XLSX.writeFile(wb, `presencas-${event?.name || 'evento'}.xlsx`);
   };
 
+  const slug = (event?.name || 'evento').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  const eventInfo = () => ({
+    name: event?.name || '',
+    date: event?.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
+    location: event?.location || '',
+  });
+
+  const exportBadges = () => {
+    if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
+    generatePsBadgesPdf(eventInfo(), links as any).save(`etiquetas-${slug}.pdf`);
+  };
+
+  const exportAttendancePdf = () => {
+    if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
+    generatePsAttendancePdf(eventInfo(), links as any).save(`lista-presenca-${slug}.pdf`);
+  };
+
   if (!event) {
     return <MainLayout><p className="text-muted-foreground">Carregando evento...</p></MainLayout>;
   }
