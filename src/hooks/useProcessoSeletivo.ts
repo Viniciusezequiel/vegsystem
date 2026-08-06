@@ -251,6 +251,146 @@ export function usePsEventCollaboratorMutations(eventId?: string) {
   return { add, update, remove };
 }
 
+/* ---------------- Importação da equipe do evento (planilha oficial) ---------------- */
+export type PsTeamImportRow = {
+  full_name: string;
+  identity_doc?: string | null;
+  cpf?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  unit?: string | null;
+  sector?: string | null;
+  institution?: string | null;
+  role_name?: string | null;
+  building?: string | null;
+  floor?: string | null;
+  room?: string | null;
+  pay_value?: number;
+  deposit_info?: string | null;
+  pix?: string | null;
+};
+
+export function usePsImportEventTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ eventId, rows }: { eventId: string; rows: PsTeamImportRow[] }) => {
+      // 1. Reaproveita colaboradores já existentes (mesma pessoa em vários eventos = 1 cadastro)
+      const { data: existing, error: exErr } = await supabase
+        .from('ps_collaborators')
+        .select('id, full_name, cpf');
+      if (exErr) throw exErr;
+
+      const byCpf = new Map<string, string>();
+      const byName = new Map<string, string>();
+      (existing || []).forEach((c: any) => {
+        if (c.cpf) byCpf.set(String(c.cpf).replace(/\D/g, ''), c.id);
+        byName.set(String(c.full_name || '').trim().toLowerCase(), c.id);
+      });
+
+      let created = 0;
+      const resolved: { row: PsTeamImportRow; collaboratorId: string }[] = [];
+
+      for (const row of rows) {
+        const cpfDigits = (row.cpf || '').replace(/\D/g, '');
+        const nameKey = row.full_name.trim().toLowerCase();
+        let id = (cpfDigits && byCpf.get(cpfDigits)) || byName.get(nameKey);
+
+        if (!id) {
+          const { data, error } = await supabase
+            .from('ps_collaborators')
+            .insert({
+              full_name: row.full_name.trim(),
+              cpf: row.cpf || null,
+              identity_doc: row.identity_doc || null,
+              email: row.email || null,
+              phone: row.phone || row.mobile || null,
+              mobile: row.mobile || null,
+              unit: row.unit || null,
+              sector: row.sector || null,
+              institution: row.institution || null,
+              pix: row.pix || null,
+              active: true,
+            })
+            .select('id')
+            .single();
+          if (error) throw error;
+          id = data.id;
+          created += 1;
+          if (cpfDigits) byCpf.set(cpfDigits, id);
+          byName.set(nameKey, id);
+        }
+        resolved.push({ row, collaboratorId: id });
+      }
+
+      // 2. Vincula ao evento (sem duplicar a mesma pessoa no mesmo evento)
+      const { data: links, error: linkErr } = await supabase
+        .from('ps_event_collaborators')
+        .select('collaborator_id')
+        .eq('event_id', eventId);
+      if (linkErr) throw linkErr;
+      const linked = new Set((links || []).map((l: any) => l.collaborator_id));
+
+      const importTag = `import-${Date.now()}`;
+      const toInsert = resolved
+        .filter((r) => !linked.has(r.collaboratorId))
+        .map(({ row, collaboratorId }) => ({
+          event_id: eventId,
+          collaborator_id: collaboratorId,
+          collaborator_name: row.full_name.trim(),
+          role_name: row.role_name || null,
+          assigned_role: row.role_name || null,
+          sector: row.sector || null,
+          unit: row.unit || null,
+          institution: row.institution || null,
+          building: row.building || null,
+          floor: row.floor || null,
+          room: row.room || null,
+          cpf: row.cpf || null,
+          identity_doc: row.identity_doc || null,
+          email: row.email || null,
+          phone: row.phone || null,
+          mobile: row.mobile || null,
+          pay_value: Number(row.pay_value || 0),
+          deposit_info: row.deposit_info || null,
+          pix: row.pix || null,
+          import_tag: importTag,
+        }));
+
+      if (toInsert.length) {
+        const { error } = await supabase.from('ps_event_collaborators').insert(toInsert);
+        if (error) throw error;
+      }
+
+      return { created, linked: toInsert.length, skipped: resolved.length - toInsert.length, importTag };
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['ps_event_collaborators'] });
+      qc.invalidateQueries({ queryKey: ['ps_collaborators'] });
+      toast.success(
+        `${r.linked} vinculados ao evento (${r.created} novos colaboradores, ${r.skipped} já estavam no evento).`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function usePsClearEventTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await supabase.from('ps_event_collaborators').delete().eq('event_id', eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ps_event_collaborators'] });
+      toast.success('Equipe do evento removida!');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+}
+
 /* ---------------- Candidatos ---------------- */
 export function usePsCandidates(eventId?: string) {
   return useQuery({
