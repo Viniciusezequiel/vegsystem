@@ -354,6 +354,67 @@ export default function PsEventDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Importar planilha da equipe */}
+      <PsEventTeamImportDialog eventId={id!} open={importOpen} onOpenChange={setImportOpen} />
+
+      {/* Editar item importado */}
+      <Dialog open={!!editLink} onOpenChange={(o) => !o && setEditLink(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader><DialogTitle>Editar dados no evento</DialogTitle></DialogHeader>
+          {editLink && (
+            <div className="space-y-3">
+              <div><Label>Nome</Label><Input value={editLink.collaborator_name || ''} onChange={(e) => setEditLink({ ...editLink, collaborator_name: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Função</Label><Input value={editLink.role_name || ''} onChange={(e) => setEditLink({ ...editLink, role_name: e.target.value })} /></div>
+                <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={editLink.pay_value ?? 0} onChange={(e) => setEditLink({ ...editLink, pay_value: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Prédio</Label><Input value={editLink.building || ''} onChange={(e) => setEditLink({ ...editLink, building: e.target.value })} /></div>
+                <div><Label>Andar</Label><Input value={editLink.floor || ''} onChange={(e) => setEditLink({ ...editLink, floor: e.target.value })} /></div>
+                <div><Label>Sala</Label><Input value={editLink.room || ''} onChange={(e) => setEditLink({ ...editLink, room: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Setor</Label><Input value={editLink.sector || ''} onChange={(e) => setEditLink({ ...editLink, sector: e.target.value })} /></div>
+                <div><Label>Unidade</Label><Input value={editLink.unit || ''} onChange={(e) => setEditLink({ ...editLink, unit: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>E-mail</Label><Input value={editLink.email || ''} onChange={(e) => setEditLink({ ...editLink, email: e.target.value })} /></div>
+                <div><Label>Telefone</Label><Input value={editLink.phone || ''} onChange={(e) => setEditLink({ ...editLink, phone: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>PIX</Label><Input value={editLink.pix || ''} onChange={(e) => setEditLink({ ...editLink, pix: e.target.value })} /></div>
+                <div><Label>Depósito</Label><Input value={editLink.deposit_info || ''} onChange={(e) => setEditLink({ ...editLink, deposit_info: e.target.value })} /></div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditLink(null)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                update.mutate({
+                  id: editLink.id,
+                  collaborator_name: editLink.collaborator_name,
+                  role_name: editLink.role_name,
+                  pay_value: Number(editLink.pay_value) || 0,
+                  building: editLink.building || null,
+                  floor: editLink.floor || null,
+                  room: editLink.room || null,
+                  sector: editLink.sector || null,
+                  unit: editLink.unit || null,
+                  email: editLink.email || null,
+                  phone: editLink.phone || null,
+                  pix: editLink.pix || null,
+                  deposit_info: editLink.deposit_info || null,
+                });
+                setEditLink(null);
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
