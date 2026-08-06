@@ -12,14 +12,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
+import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventTeamImportDialog';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
   usePsCollaborators, usePsRoles, usePsEvaluations, usePsSaveEvaluation, usePsCandidates,
-  usePsCandidateMutations, usePsSelfEvaluations,
+  usePsCandidateMutations, usePsSelfEvaluations, usePsClearEventTeam,
 } from '@/hooks/useProcessoSeletivo';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -37,8 +38,11 @@ export default function PsEventDetail() {
   const { data: candidates = [] } = usePsCandidates(id);
   const { addMany, removeAll } = usePsCandidateMutations();
   const { profile } = useAuth();
+  const clearTeam = usePsClearEventTeam();
 
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [editLink, setEditLink] = useState<any>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [roleValue, setRoleValue] = useState('');
   const [evalTarget, setEvalTarget] = useState<any>(null);
@@ -188,7 +192,15 @@ export default function PsEventDetail() {
           </TabsList>
 
           <TabsContent value="fiscais" className="space-y-3 pt-4">
-            <Button onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" />Vincular fiscais</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Importar planilha</Button>
+              <Button variant="outline" onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" />Vincular manualmente</Button>
+              {links.length > 0 && (
+                <Button variant="outline" onClick={() => { if (confirm('Remover toda a equipe deste evento? Os cadastros e as avaliações dos colaboradores são mantidos.')) clearTeam.mutate(id!); }}>
+                  <Trash2 className="mr-2 h-4 w-4" />Limpar equipe
+                </Button>
+              )}
+            </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {links.map((l: any) => (
                 <Card key={l.id} className="rounded-2xl">
@@ -197,16 +209,12 @@ export default function PsEventDetail() {
                       <CardTitle className="text-base">{l.collaborator_name}</CardTitle>
                       {l.evaluated && <Badge variant="secondary">Avaliado</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground">{l.role_name} · R$ {Number(l.pay_value || 0).toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[l.role_name, `R$ ${Number(l.pay_value || 0).toFixed(2)}`, l.building, l.floor, l.room && `Sala ${l.room}`]
+                        .filter(Boolean).join(' · ')}
+                    </p>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <div>
-                      <Label className="text-xs">Sala</Label>
-                      <Input
-                        defaultValue={l.room || ''}
-                        onBlur={(e) => e.target.value !== (l.room || '') && update.mutate({ id: l.id, room: e.target.value })}
-                      />
-                    </div>
                     <div className="flex items-center justify-between"><Label className="text-xs">Presente</Label>
                       <Switch checked={!!l.present} onCheckedChange={(v) => update.mutate({ id: l.id, present: v })} /></div>
                     <div className="flex items-center justify-between"><Label className="text-xs">Ausente</Label>
@@ -215,6 +223,7 @@ export default function PsEventDetail() {
                       <Button size="sm" className="flex-1" onClick={() => { setEvalTarget(l); setCriteria(emptyCriteria()); }}>
                         <Star className="mr-1 h-4 w-4" />Avaliar
                       </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditLink(l)}><Pencil className="h-4 w-4" /></Button>
                       <Button size="sm" variant="outline" onClick={() => { if (confirm('Remover vínculo?')) remove.mutate(l.id); }}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </CardContent>
@@ -342,6 +351,67 @@ export default function PsEventDetail() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEvalTarget(null)}>Cancelar</Button>
             <Button onClick={submitEvaluation} disabled={saveEval.isPending}>Salvar avaliação</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Importar planilha da equipe */}
+      <PsEventTeamImportDialog eventId={id!} open={importOpen} onOpenChange={setImportOpen} />
+
+      {/* Editar item importado */}
+      <Dialog open={!!editLink} onOpenChange={(o) => !o && setEditLink(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader><DialogTitle>Editar dados no evento</DialogTitle></DialogHeader>
+          {editLink && (
+            <div className="space-y-3">
+              <div><Label>Nome</Label><Input value={editLink.collaborator_name || ''} onChange={(e) => setEditLink({ ...editLink, collaborator_name: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Função</Label><Input value={editLink.role_name || ''} onChange={(e) => setEditLink({ ...editLink, role_name: e.target.value })} /></div>
+                <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={editLink.pay_value ?? 0} onChange={(e) => setEditLink({ ...editLink, pay_value: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Prédio</Label><Input value={editLink.building || ''} onChange={(e) => setEditLink({ ...editLink, building: e.target.value })} /></div>
+                <div><Label>Andar</Label><Input value={editLink.floor || ''} onChange={(e) => setEditLink({ ...editLink, floor: e.target.value })} /></div>
+                <div><Label>Sala</Label><Input value={editLink.room || ''} onChange={(e) => setEditLink({ ...editLink, room: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Setor</Label><Input value={editLink.sector || ''} onChange={(e) => setEditLink({ ...editLink, sector: e.target.value })} /></div>
+                <div><Label>Unidade</Label><Input value={editLink.unit || ''} onChange={(e) => setEditLink({ ...editLink, unit: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>E-mail</Label><Input value={editLink.email || ''} onChange={(e) => setEditLink({ ...editLink, email: e.target.value })} /></div>
+                <div><Label>Telefone</Label><Input value={editLink.phone || ''} onChange={(e) => setEditLink({ ...editLink, phone: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>PIX</Label><Input value={editLink.pix || ''} onChange={(e) => setEditLink({ ...editLink, pix: e.target.value })} /></div>
+                <div><Label>Depósito</Label><Input value={editLink.deposit_info || ''} onChange={(e) => setEditLink({ ...editLink, deposit_info: e.target.value })} /></div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditLink(null)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                update.mutate({
+                  id: editLink.id,
+                  collaborator_name: editLink.collaborator_name,
+                  role_name: editLink.role_name,
+                  pay_value: Number(editLink.pay_value) || 0,
+                  building: editLink.building || null,
+                  floor: editLink.floor || null,
+                  room: editLink.room || null,
+                  sector: editLink.sector || null,
+                  unit: editLink.unit || null,
+                  email: editLink.email || null,
+                  phone: editLink.phone || null,
+                  pix: editLink.pix || null,
+                  deposit_info: editLink.deposit_info || null,
+                });
+                setEditLink(null);
+              }}
+            >
+              Salvar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
