@@ -20,7 +20,8 @@ import {
 } from '@/hooks/useProcessoSeletivo';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature } from 'lucide-react';
+import { generatePsBadgesPdf, generatePsAttendancePdf } from '@/lib/psEventPdf';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
