@@ -1231,6 +1231,7 @@ export type Database = {
       }
       ps_collaborators: {
         Row: {
+          active: boolean
           average_rating: number
           city: string | null
           cpf: string | null
@@ -1238,12 +1239,17 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          identity_doc: string | null
+          institution: string | null
           journey: string | null
           matricula: string | null
+          mobile: string | null
+          notes: string | null
           pcd: string
           phone: string | null
           pix: string | null
           position: string | null
+          preferred_role: string | null
           role: string | null
           sector: string | null
           state: string | null
@@ -1252,6 +1258,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active?: boolean
           average_rating?: number
           city?: string | null
           cpf?: string | null
@@ -1259,12 +1266,17 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          identity_doc?: string | null
+          institution?: string | null
           journey?: string | null
           matricula?: string | null
+          mobile?: string | null
+          notes?: string | null
           pcd?: string
           phone?: string | null
           pix?: string | null
           position?: string | null
+          preferred_role?: string | null
           role?: string | null
           sector?: string | null
           state?: string | null
@@ -1273,6 +1285,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active?: boolean
           average_rating?: number
           city?: string | null
           cpf?: string | null
@@ -1280,12 +1293,17 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          identity_doc?: string | null
+          institution?: string | null
           journey?: string | null
           matricula?: string | null
+          mobile?: string | null
+          notes?: string | null
           pcd?: string
           phone?: string | null
           pix?: string | null
           position?: string | null
+          preferred_role?: string | null
           role?: string | null
           sector?: string | null
           state?: string | null
@@ -1453,49 +1471,103 @@ export type Database = {
         Row: {
           absent: boolean
           assigned_role: string | null
+          building: string | null
           campus: string | null
           collaborator_id: string | null
           collaborator_name: string
+          cpf: string | null
           created_at: string
+          deposit_info: string | null
+          email: string | null
           evaluated: boolean
           event_id: string
+          floor: string | null
           id: string
+          identity_doc: string | null
+          import_tag: string | null
+          institution: string | null
+          mobile: string | null
+          notes: string | null
+          pay_value: number
+          phone: string | null
+          pix: string | null
+          present: boolean
+          role_name: string | null
+          role_value: string | null
+          room: string | null
           sector: string | null
           signature_ip: string | null
           signature_url: string | null
           signed_at: string | null
+          unit: string | null
           updated_at: string
         }
         Insert: {
           absent?: boolean
           assigned_role?: string | null
+          building?: string | null
           campus?: string | null
           collaborator_id?: string | null
           collaborator_name: string
+          cpf?: string | null
           created_at?: string
+          deposit_info?: string | null
+          email?: string | null
           evaluated?: boolean
           event_id: string
+          floor?: string | null
           id?: string
+          identity_doc?: string | null
+          import_tag?: string | null
+          institution?: string | null
+          mobile?: string | null
+          notes?: string | null
+          pay_value?: number
+          phone?: string | null
+          pix?: string | null
+          present?: boolean
+          role_name?: string | null
+          role_value?: string | null
+          room?: string | null
           sector?: string | null
           signature_ip?: string | null
           signature_url?: string | null
           signed_at?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Update: {
           absent?: boolean
           assigned_role?: string | null
+          building?: string | null
           campus?: string | null
           collaborator_id?: string | null
           collaborator_name?: string
+          cpf?: string | null
           created_at?: string
+          deposit_info?: string | null
+          email?: string | null
           evaluated?: boolean
           event_id?: string
+          floor?: string | null
           id?: string
+          identity_doc?: string | null
+          import_tag?: string | null
+          institution?: string | null
+          mobile?: string | null
+          notes?: string | null
+          pay_value?: number
+          phone?: string | null
+          pix?: string | null
+          present?: boolean
+          role_name?: string | null
+          role_value?: string | null
+          room?: string | null
           sector?: string | null
           signature_ip?: string | null
           signature_url?: string | null
           signed_at?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Relationships: [
