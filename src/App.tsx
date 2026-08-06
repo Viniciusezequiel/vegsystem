@@ -437,9 +437,9 @@ const App = () => (
               <Route path="/admin-module/processo-seletivo/eventos/:id" element={<ProtectedRoute requireAdmin><PsEventDetail /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo/colaboradores" element={<ProtectedRoute requireAdmin><PsCollaborators /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo/cargos" element={<ProtectedRoute requireAdmin><PsRoles /></ProtectedRoute>} />
-              <Route path="/admin-module/processo-seletivo/banco-talentos" element={<ProtectedRoute requireAdmin><PsTalentBank /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/banco-talentos" element={<Navigate to="/admin-module/processo-seletivo/colaboradores" replace />} />
               <Route path="/admin-module/processo-seletivo/avaliacao-geral" element={<ProtectedRoute requireAdmin><PsGeneralEvaluation /></ProtectedRoute>} />
-              <Route path="/admin-module/processo-seletivo/banco-fiscais" element={<ProtectedRoute requireAdmin><PsFiscalBank /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/banco-fiscais" element={<Navigate to="/admin-module/processo-seletivo/colaboradores" replace />} />
               <Route path="/ps/avaliacao" element={<PsPublicEvaluation />} />
               <Route path="/ps/avaliacao/:eventId" element={<PsPublicEvaluation />} />
               <Route path="/ps/autoavaliacao" element={<PsPublicSelfEvaluation />} />
