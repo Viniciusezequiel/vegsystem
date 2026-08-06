@@ -170,7 +170,7 @@ export default function PsEventDetail() {
             </div>
             <Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'}>{PS_EVENT_STATUS[event.status]}</Badge>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={exportBadges}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
             <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
             <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />Presenças (XLSX)</Button>
