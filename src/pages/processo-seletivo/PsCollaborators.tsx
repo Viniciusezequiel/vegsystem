@@ -160,7 +160,7 @@ export default function PsCollaborators() {
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{PS_CLASSIFICATION_LABEL[c.classification]}</Badge>
                       <Badge className="gap-1"><Star className="h-3 w-3" />{Number(c.average_rating || 0).toFixed(2)}</Badge>
-                      <Button size="sm" variant="outline" onClick={() => { setForm(c); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => { const { evaluations_count, events_evaluated, classification, ...rest } = c; setForm(rest); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
                       <Button size="sm" variant="outline" onClick={() => { if (confirm('Excluir colaborador?')) remove.mutate(c.id); }}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
