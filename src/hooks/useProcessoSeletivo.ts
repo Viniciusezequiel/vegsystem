@@ -389,7 +389,6 @@ export function usePsClearEventTeam() {
     onError: (e: Error) => toast.error(e.message),
   });
 }
-}
 
 /* ---------------- Candidatos ---------------- */
 export function usePsCandidates(eventId?: string) {
