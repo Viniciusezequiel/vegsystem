@@ -20,7 +20,8 @@ import {
 } from '@/hooks/useProcessoSeletivo';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature } from 'lucide-react';
+import { generatePsBadgesPdf, generatePsAttendancePdf } from '@/lib/psEventPdf';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -133,6 +134,24 @@ export default function PsEventDetail() {
     XLSX.writeFile(wb, `presencas-${event?.name || 'evento'}.xlsx`);
   };
 
+  const slug = (event?.name || 'evento').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  const eventInfo = () => ({
+    name: event?.name || '',
+    date: event?.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
+    location: event?.location || '',
+  });
+
+  const exportBadges = () => {
+    if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
+    generatePsBadgesPdf(eventInfo(), links as any).save(`etiquetas-${slug}.pdf`);
+  };
+
+  const exportAttendancePdf = () => {
+    if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
+    generatePsAttendancePdf(eventInfo(), links as any).save(`lista-presenca-${slug}.pdf`);
+  };
+
   if (!event) {
     return <MainLayout><p className="text-muted-foreground">Carregando evento...</p></MainLayout>;
   }
@@ -151,8 +170,10 @@ export default function PsEventDetail() {
             </div>
             <Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'}>{PS_EVENT_STATUS[event.status]}</Badge>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />Presenças</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={exportBadges}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
+            <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
+            <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />Presenças (XLSX)</Button>
             {event.status !== 'finalizado' && (
               <Button onClick={() => { if (confirm('Finalizar evento?')) finalize.mutate(event.id); }}>
                 <CheckCircle2 className="mr-2 h-4 w-4" />Finalizar
