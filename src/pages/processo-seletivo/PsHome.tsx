@@ -3,7 +3,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { GraduationCap, CalendarDays, Users, ClipboardCheck, Trophy, Settings, Wallet, ArrowRight } from 'lucide-react';
+import { GraduationCap, CalendarDays, Users, ClipboardCheck, Settings, Wallet, ArrowRight } from 'lucide-react';
 import { usePsEvents, usePsCollaborators, usePsEvaluations } from '@/hooks/useProcessoSeletivo';
 
 const shortcuts = [
