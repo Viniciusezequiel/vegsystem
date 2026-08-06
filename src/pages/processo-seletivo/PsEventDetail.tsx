@@ -192,7 +192,15 @@ export default function PsEventDetail() {
           </TabsList>
 
           <TabsContent value="fiscais" className="space-y-3 pt-4">
-            <Button onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" />Vincular fiscais</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Importar planilha</Button>
+              <Button variant="outline" onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" />Vincular manualmente</Button>
+              {links.length > 0 && (
+                <Button variant="outline" onClick={() => { if (confirm('Remover toda a equipe deste evento? Os cadastros e as avaliações dos colaboradores são mantidos.')) clearTeam.mutate(id!); }}>
+                  <Trash2 className="mr-2 h-4 w-4" />Limpar equipe
+                </Button>
+              )}
+            </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {links.map((l: any) => (
                 <Card key={l.id} className="rounded-2xl">
@@ -201,16 +209,12 @@ export default function PsEventDetail() {
                       <CardTitle className="text-base">{l.collaborator_name}</CardTitle>
                       {l.evaluated && <Badge variant="secondary">Avaliado</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground">{l.role_name} · R$ {Number(l.pay_value || 0).toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[l.role_name, `R$ ${Number(l.pay_value || 0).toFixed(2)}`, l.building, l.floor, l.room && `Sala ${l.room}`]
+                        .filter(Boolean).join(' · ')}
+                    </p>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <div>
-                      <Label className="text-xs">Sala</Label>
-                      <Input
-                        defaultValue={l.room || ''}
-                        onBlur={(e) => e.target.value !== (l.room || '') && update.mutate({ id: l.id, room: e.target.value })}
-                      />
-                    </div>
                     <div className="flex items-center justify-between"><Label className="text-xs">Presente</Label>
                       <Switch checked={!!l.present} onCheckedChange={(v) => update.mutate({ id: l.id, present: v })} /></div>
                     <div className="flex items-center justify-between"><Label className="text-xs">Ausente</Label>
@@ -219,6 +223,7 @@ export default function PsEventDetail() {
                       <Button size="sm" className="flex-1" onClick={() => { setEvalTarget(l); setCriteria(emptyCriteria()); }}>
                         <Star className="mr-1 h-4 w-4" />Avaliar
                       </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditLink(l)}><Pencil className="h-4 w-4" /></Button>
                       <Button size="sm" variant="outline" onClick={() => { if (confirm('Remover vínculo?')) remove.mutate(l.id); }}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </CardContent>
