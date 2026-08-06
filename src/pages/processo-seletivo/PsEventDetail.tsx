@@ -38,8 +38,11 @@ export default function PsEventDetail() {
   const { data: candidates = [] } = usePsCandidates(id);
   const { addMany, removeAll } = usePsCandidateMutations();
   const { profile } = useAuth();
+  const clearTeam = usePsClearEventTeam();
 
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [editLink, setEditLink] = useState<any>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [roleValue, setRoleValue] = useState('');
   const [evalTarget, setEvalTarget] = useState<any>(null);
