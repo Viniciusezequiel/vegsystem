@@ -51,10 +51,8 @@ export default function CommentWithAttachments({ onSubmit, isPending }: CommentW
               .from('task-attachments')
               .upload(path, file);
             if (error) throw error;
-            const { data: urlData } = supabase.storage
-              .from('task-attachments')
-              .getPublicUrl(path);
-            return urlData.publicUrl;
+            // Private bucket: store the object path, signed URLs are created on read
+            return path;
           })
         );
         attachmentUrls = uploads;
