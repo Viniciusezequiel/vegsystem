@@ -91,6 +91,7 @@
     "vite": "^5.4.19"
   },
   "overrides": {
+    "ws": "^8.21.3",
     "ajv": "^8.20.0",
     "brace-expansion": "^5.0.9",
     "fast-uri": "^4.1.2",
