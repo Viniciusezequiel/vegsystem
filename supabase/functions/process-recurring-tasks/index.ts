@@ -15,6 +15,37 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // ---- Authorization: cron secret OR an authenticated admin user ----
+    const cronSecret = Deno.env.get("RECURRING_TASKS_CRON_SECRET");
+    const providedSecret = req.headers.get("x-cron-secret");
+    let authorized = !!cronSecret && providedSecret === cronSecret;
+
+    if (!authorized) {
+      const authHeader = req.headers.get("Authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const anonClient = createClient(
+          supabaseUrl,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: authHeader } } },
+        );
+        const token = authHeader.replace("Bearer ", "");
+        const { data: claims } = await anonClient.auth.getClaims(token);
+        const userId = claims?.claims?.sub as string | undefined;
+        if (userId) {
+          const { data: isAdmin } = await supabase.rpc("is_admin", { _user_id: userId });
+          authorized = !!isAdmin;
+        }
+      }
+    }
+
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
     // Use America/Sao_Paulo for day-of-week calculation
     const tzNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
     const today = tzNow.toISOString().split("T")[0];

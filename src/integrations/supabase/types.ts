@@ -3106,6 +3106,10 @@ export type Database = {
             }
             Returns: boolean
           }
+      create_public_classroom_call: {
+        Args: { p_campus: string; p_reason: string; p_room_name: string }
+        Returns: string
+      }
       expire_old_lost_items: { Args: never; Returns: undefined }
       find_available_rooms:
         | {
@@ -3144,6 +3148,15 @@ export type Database = {
             }[]
           }
       get_linked_rooms: { Args: { p_room_id: string }; Returns: string[] }
+      get_public_classroom_call_status: {
+        Args: { p_id: string }
+        Returns: {
+          accepted_at: string
+          accepted_by_name: string
+          response_message: string
+          status: string
+        }[]
+      }
       get_public_reservations: {
         Args: { p_end: string; p_start: string }
         Returns: {
@@ -3172,6 +3185,33 @@ export type Database = {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_admin_or_analista: { Args: { _user_id: string }; Returns: boolean }
       is_internal_user: { Args: { _user_id: string }; Returns: boolean }
+      ps_public_event_roster: {
+        Args: { p_event_id: string }
+        Returns: {
+          assigned_role: string
+          collaborator_id: string
+          collaborator_name: string
+          id: string
+          role_name: string
+          sector: string
+          signed_at: string
+        }[]
+      }
+      ps_public_sign_attendance: {
+        Args: { p_link_id: string; p_signature: string }
+        Returns: undefined
+      }
+      ps_public_submit_evaluation: {
+        Args: {
+          p_assigned_role: string
+          p_criteria: Json
+          p_evaluator_name: string
+          p_event_id: string
+          p_link_id: string
+          p_observations: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role:

@@ -226,20 +226,8 @@ export function useCreateTask() {
               .single();
 
             if (assigneeProfile?.email) {
-              const taskAny = taskData as Record<string, unknown>;
               supabase.functions.invoke('notify-task-assignment', {
-                body: {
-                  taskTitle: taskData.title,
-                  taskDescription: taskData.description,
-                  taskCategory: taskData.category,
-                  taskPriority: taskData.priority,
-                  assignedToEmail: assigneeProfile.email,
-                  assignedToName: data.assigned_to_name,
-                  createdByName: actorName,
-                  dueDate: taskData.due_date,
-                  eventStart: taskAny.event_start_datetime,
-                  eventEnd: taskAny.event_end_datetime,
-                },
+                body: { taskId: taskData.id },
               }).catch((e) => console.warn('Email notification failed:', e));
             }
           } catch (emailError) {
