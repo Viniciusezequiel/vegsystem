@@ -92,14 +92,11 @@ export default function UberDashboard() {
               <Car className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Controle de Viagens Uber</h1>
-              <p className="text-muted-foreground">Registro e acompanhamento de solicitações de transporte.</p>
+              <h1 className="text-2xl font-bold">Uber Corporativo</h1>
+              <p className="text-muted-foreground">Registro, acompanhamento e histórico das solicitações de transporte.</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/admin-module/uber/controle">Controle de Solicitações</Link>
-            </Button>
             <Button asChild className="transition-transform hover:-translate-y-0.5">
               <Link to="/admin-module/uber/nova">
                 <Plus className="mr-2 h-4 w-4" /> Nova solicitação de Uber
@@ -108,8 +105,17 @@ export default function UberDashboard() {
           </div>
         </div>
 
+        <Tabs value={tab} onValueChange={(v) => setParams({ tab: v })}>
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="visao">Visão geral</TabsTrigger>
+            <TabsTrigger value="solicitacoes">Solicitações</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="visao" className="space-y-6 pt-4">
+
         <Card className="rounded-2xl">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+
             <div className="flex min-w-0 items-center gap-2 text-sm">
               <Link2 className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate text-muted-foreground">Link externo (sem login): {publicLink}</span>
