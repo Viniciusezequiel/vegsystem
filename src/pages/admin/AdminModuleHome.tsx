@@ -1,14 +1,26 @@
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Car, ShieldCheck, ArrowRight, GraduationCap, Tag } from 'lucide-react';
 
 const modules = [
   {
     name: 'Uber Corporativo',
-    description: 'Controle de viagens: solicitações, comprovantes, histórico e relatórios.',
+    description: 'Solicitações, comprovantes, histórico e indicadores em uma única tela.',
     href: '/admin-module/uber',
     icon: Car,
+  },
+  {
+    name: 'Processo Seletivo',
+    description: 'Eventos, colaboradores, avaliações, presenças e banco de fiscais.',
+    href: '/admin-module/processo-seletivo',
+    icon: GraduationCap,
+  },
+  {
+    name: 'Etiquetas',
+    description: 'Modelos de etiquetas, editor visual e geração em PDF via planilha.',
+    href: '/labels',
+    icon: Tag,
   },
 ];
 
