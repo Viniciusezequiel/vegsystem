@@ -52,7 +52,8 @@ export const LazyItemImage = memo(function LazyItemImage({
   }, []);
 
   // Only fetch image when visible
-  const { data: imageUrl, isLoading } = useLostItemImage(itemId, isVisible);
+  const { data: storedUrl, isLoading } = useLostItemImage(itemId, isVisible);
+  const { url: imageUrl, isResolving } = useSignedImageUrl(storedUrl);
 
   // Show image if we have a valid URL (HTTP or base64)
   const showImage = imageUrl && !hasError && (
