@@ -113,14 +113,17 @@ export default function UberControl({ embedded }: { embedded?: boolean } = {}) {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <Button variant="ghost" asChild className="mb-1 -ml-2">
-              <Link to="/admin-module/uber">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-              </Link>
-            </Button>
-            <h1 className="text-2xl font-bold">Controle de Solicitações</h1>
+            {!embedded && (
+              <Button variant="ghost" asChild className="mb-1 -ml-2">
+                <Link to="/admin-module/uber">
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                </Link>
+              </Button>
+            )}
+            {!embedded && <h1 className="text-2xl font-bold">Controle de Solicitações</h1>}
             <p className="text-muted-foreground">{filtered.length} registro(s) encontrado(s).</p>
           </div>
+
           <Button onClick={exportExcel} variant="outline" className="transition-transform hover:-translate-y-0.5">
             <FileSpreadsheet className="mr-2 h-4 w-4" /> Exportar histórico (Excel)
           </Button>
