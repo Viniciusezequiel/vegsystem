@@ -8,9 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ClipboardCheck, CheckCircle2 } from 'lucide-react';
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
-import { usePsEvents, usePsEventCollaborators, usePsRoles } from '@/hooks/useProcessoSeletivo';
+import { useQuery } from '@tanstack/react-query';
+import { usePsEvents, usePsRoles } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
-import { psFinalScore, psClassification, PS_CRITERIA } from '@/lib/psConstants';
+import { PS_CRITERIA } from '@/lib/psConstants';
 import { toast } from 'sonner';
 
 export default function PsPublicEvaluation() {
@@ -22,7 +23,15 @@ export default function PsPublicEvaluation() {
   );
 
   const [eventId, setEventId] = useState<string>(routeEventId || '');
-  const { data: links = [] } = usePsEventCollaborators(eventId || undefined);
+  const { data: links = [] } = useQuery({
+    queryKey: ['ps_public_roster', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('ps_public_event_roster', { p_event_id: eventId });
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const { data: roles = [] } = usePsRoles();
 
   const [collaboratorId, setCollaboratorId] = useState('');
@@ -33,7 +42,7 @@ export default function PsPublicEvaluation() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
-  const selected = links.find((l: any) => l.collaborator_id === collaboratorId || l.id === collaboratorId);
+  const selected = links.find((l: any) => l.id === collaboratorId);
 
   const submit = async () => {
     if (!eventId || !selected || !evaluatorName.trim()) {
@@ -45,19 +54,14 @@ export default function PsPublicEvaluation() {
       return;
     }
     setSaving(true);
-    const final_score = psFinalScore(criteria);
-    const { error } = await supabase.from('ps_evaluations').insert({
-      event_id: eventId,
-      collaborator_id: selected.collaborator_id,
-      collaborator_name: selected.collaborator_name,
-      sector: selected.sector,
-      assigned_role: assignedRole || selected.assigned_role || 'fiscal_sala',
-      evaluator_name: evaluatorName.trim(),
-      observations: observations.trim() || null,
-      ...criteria,
-      final_score,
-      classification: psClassification(final_score),
-    } as any);
+    const { error } = await supabase.rpc('ps_public_submit_evaluation', {
+      p_event_id: eventId,
+      p_link_id: selected.id,
+      p_assigned_role: assignedRole || selected.assigned_role || 'fiscal_sala',
+      p_evaluator_name: evaluatorName.trim(),
+      p_observations: observations.trim() || null,
+      p_criteria: criteria as any,
+    });
     setSaving(false);
     if (error) {
       toast.error(error.message);
@@ -126,7 +130,7 @@ export default function PsPublicEvaluation() {
                 <SelectTrigger><SelectValue placeholder="Selecione o fiscal" /></SelectTrigger>
                 <SelectContent>
                   {links.map((l: any) => (
-                    <SelectItem key={l.id} value={l.collaborator_id || l.id}>{l.collaborator_name}</SelectItem>
+                    <SelectItem key={l.id} value={l.id}>{l.collaborator_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
