@@ -7,21 +7,115 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const escapeHtml = (value: unknown): string =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // ---- Authentication: only signed-in internal users may trigger emails ----
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonClient = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth
+      .getClaims(token);
+    const userId = claimsData?.claims?.sub as string | undefined;
+    if (claimsError || !userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const admin = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const { data: isInternal } = await admin.rpc("is_internal_user", {
+      _user_id: userId,
+    });
+    if (!isInternal) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ---- Input validation: only a task id is accepted ----
+    const body = await req.json().catch(() => ({}));
+    const taskId = typeof body?.taskId === "string" ? body.taskId.trim() : "";
+    if (!UUID_RE.test(taskId)) {
+      return new Response(JSON.stringify({ error: "Invalid taskId" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
-    const { taskTitle, taskDescription, taskCategory, taskPriority, assignedToEmail, assignedToName, createdByName, dueDate, eventStart, eventEnd } = await req.json();
+    // ---- Everything below is derived server-side, never from the caller ----
+    const { data: task, error: taskError } = await admin
+      .from("tasks")
+      .select(
+        "id, title, description, category, priority, due_date, assigned_to, assigned_to_name, created_by_name, event_start_datetime, event_end_datetime",
+      )
+      .eq("id", taskId)
+      .maybeSingle();
 
-    if (!assignedToEmail || !taskTitle) {
-      throw new Error("Missing required fields: assignedToEmail, taskTitle");
+    if (taskError) throw taskError;
+    if (!task || !task.assigned_to) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Task or assignee not found" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("email, full_name")
+      .eq("user_id", task.assigned_to)
+      .maybeSingle();
+
+    const assignedToEmail = profile?.email;
+    if (!assignedToEmail) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Assignee has no email" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const priorityLabels: Record<string, string> = {
@@ -31,20 +125,27 @@ serve(async (req) => {
       urgent: "Urgente",
     };
 
-    const priorityLabel = priorityLabels[taskPriority] || taskPriority || "Normal";
+    const priorityLabel = priorityLabels[task.priority as string] ||
+      task.priority || "Normal";
+    const assignedToName = profile?.full_name || task.assigned_to_name ||
+      "Colaborador";
 
     let eventInfo = "";
-    if (eventStart && eventEnd) {
-      const startDate = new Date(eventStart);
-      const endDate = new Date(eventEnd);
+    if (task.event_start_datetime && task.event_end_datetime) {
+      const startDate = new Date(task.event_start_datetime as string);
+      const endDate = new Date(task.event_end_datetime as string);
       const formatDate = (d: Date) =>
-        d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) +
+        d.toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }) +
         " às " +
         d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       eventInfo = `
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;">Evento</td>
-          <td style="padding:8px 12px;color:#4b5563;">${formatDate(startDate)} → ${formatDate(endDate)}</td>
+          <td style="padding:8px 12px;color:#4b5563;">${escapeHtml(formatDate(startDate))} → ${escapeHtml(formatDate(endDate))}</td>
         </tr>`;
     }
 
@@ -55,31 +156,31 @@ serve(async (req) => {
       </div>
       <div style="padding:24px 32px;">
         <p style="color:#374151;font-size:16px;margin-bottom:16px;">
-          Olá <strong>${assignedToName || "Colaborador"}</strong>,
+          Olá <strong>${escapeHtml(assignedToName)}</strong>,
         </p>
         <p style="color:#4b5563;font-size:14px;margin-bottom:20px;">
-          Uma nova demanda foi atribuída a você por <strong>${createdByName || "Sistema"}</strong>.
+          Uma nova demanda foi atribuída a você por <strong>${escapeHtml(task.created_by_name || "Sistema")}</strong>.
         </p>
         <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;overflow:hidden;margin-bottom:20px;">
           <tr style="border-bottom:1px solid #e5e7eb;">
             <td style="padding:8px 12px;font-weight:600;color:#374151;width:120px;">Título</td>
-            <td style="padding:8px 12px;color:#4b5563;">${taskTitle}</td>
+            <td style="padding:8px 12px;color:#4b5563;">${escapeHtml(task.title)}</td>
           </tr>
-          ${taskDescription ? `<tr style="border-bottom:1px solid #e5e7eb;">
+          ${task.description ? `<tr style="border-bottom:1px solid #e5e7eb;">
             <td style="padding:8px 12px;font-weight:600;color:#374151;">Descrição</td>
-            <td style="padding:8px 12px;color:#4b5563;">${taskDescription}</td>
+            <td style="padding:8px 12px;color:#4b5563;">${escapeHtml(task.description)}</td>
           </tr>` : ""}
-          ${taskCategory ? `<tr style="border-bottom:1px solid #e5e7eb;">
+          ${task.category ? `<tr style="border-bottom:1px solid #e5e7eb;">
             <td style="padding:8px 12px;font-weight:600;color:#374151;">Categoria</td>
-            <td style="padding:8px 12px;color:#4b5563;">${taskCategory}</td>
+            <td style="padding:8px 12px;color:#4b5563;">${escapeHtml(task.category)}</td>
           </tr>` : ""}
           <tr style="border-bottom:1px solid #e5e7eb;">
             <td style="padding:8px 12px;font-weight:600;color:#374151;">Prioridade</td>
-            <td style="padding:8px 12px;color:#4b5563;">${priorityLabel}</td>
+            <td style="padding:8px 12px;color:#4b5563;">${escapeHtml(priorityLabel)}</td>
           </tr>
-          ${dueDate ? `<tr style="border-bottom:1px solid #e5e7eb;">
+          ${task.due_date ? `<tr style="border-bottom:1px solid #e5e7eb;">
             <td style="padding:8px 12px;font-weight:600;color:#374151;">Prazo</td>
-            <td style="padding:8px 12px;color:#4b5563;">${new Date(dueDate).toLocaleDateString("pt-BR")}</td>
+            <td style="padding:8px 12px;color:#4b5563;">${escapeHtml(new Date(task.due_date as string).toLocaleDateString("pt-BR"))}</td>
           </tr>` : ""}
           ${eventInfo}
         </table>
@@ -98,7 +199,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: "VEG System <onboarding@resend.dev>",
         to: [assignedToEmail],
-        subject: `Nova Demanda: ${taskTitle}`,
+        subject: `Nova Demanda: ${task.title}`,
         html: htmlBody,
       }),
     });
@@ -107,7 +208,13 @@ serve(async (req) => {
 
     if (!resendResponse.ok) {
       console.error("Resend error:", resendData);
-      throw new Error(`Resend API error [${resendResponse.status}]: ${JSON.stringify(resendData)}`);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to send email" }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(JSON.stringify({ success: true, id: resendData.id }), {
@@ -116,10 +223,12 @@ serve(async (req) => {
     });
   } catch (error: unknown) {
     console.error("Error sending task notification:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ success: false, error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: "Internal error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

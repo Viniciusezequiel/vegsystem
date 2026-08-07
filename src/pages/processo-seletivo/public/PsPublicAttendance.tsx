@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import { PenLine, CheckCircle2, Search } from 'lucide-react';
-import { usePsEvents, usePsEventCollaborators } from '@/hooks/useProcessoSeletivo';
+import { usePsEvents } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -16,7 +17,16 @@ export default function PsPublicAttendance() {
   const { eventId: routeEventId } = useParams();
   const { data: events = [] } = usePsEvents();
   const [eventId, setEventId] = useState(routeEventId || '');
-  const { data: links = [], refetch } = usePsEventCollaborators(eventId || undefined);
+
+  const { data: links = [], refetch } = useQuery({
+    queryKey: ['ps_public_roster', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('ps_public_event_roster', { p_event_id: eventId });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
@@ -34,10 +44,10 @@ export default function PsPublicAttendance() {
     if (!selected) { toast.error('Selecione seu nome na lista.'); return; }
     if (!signature) { toast.error('Assine no campo indicado.'); return; }
     setSaving(true);
-    const { error } = await supabase
-      .from('ps_event_collaborators')
-      .update({ signature_url: signature, signed_at: new Date().toISOString() })
-      .eq('id', selected.id);
+    const { error } = await supabase.rpc('ps_public_sign_attendance', {
+      p_link_id: selected.id,
+      p_signature: signature,
+    });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     refetch();
