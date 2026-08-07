@@ -37,6 +37,9 @@ import { formatDateBR } from '@/lib/uberReceipt';
 const PIE_COLORS = ['hsl(var(--primary))', '#0ea5e9', '#f59e0b', '#22c55e', '#ef4444'];
 
 export default function UberDashboard() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'solicitacoes' ? 'solicitacoes' : 'visao';
+
   const { data: requests = [], isLoading } = useUberRequests();
 
   const stats = useMemo(() => {
