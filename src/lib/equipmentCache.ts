@@ -80,17 +80,32 @@ export function isEquipmentCacheStale(): boolean {
  * Save equipment loans to cache
  */
 export function saveLoansToCache(data: EquipmentLoan[]): void {
-  try {
+  const write = (items: EquipmentLoan[]) => {
     const cacheEntry: CachedLoans = {
       version: CACHE_VERSION,
       timestamp: Date.now(),
-      data,
+      data: items,
     };
     localStorage.setItem(LOANS_CACHE_KEY, JSON.stringify(cacheEntry));
-  } catch (e) {
-    console.warn('Failed to cache equipment loans:', e);
+  };
+
+  try {
+    write(data);
+  } catch {
+    // Storage quota exceeded: retry with progressively smaller slices
+    for (const limit of [500, 200, 50]) {
+      try {
+        localStorage.removeItem(LOANS_CACHE_KEY);
+        write(data.slice(0, limit));
+        return;
+      } catch {
+        // try a smaller slice
+      }
+    }
+    localStorage.removeItem(LOANS_CACHE_KEY);
   }
 }
+
 
 /**
  * Load equipment loans from cache
