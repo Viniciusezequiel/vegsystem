@@ -218,16 +218,16 @@ export default function Users() {
 
   if (isLoading) {
     return (
-      <MainLayout>
+      <Shell>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </MainLayout>
+      </Shell>
     );
   }
 
   return (
-    <MainLayout>
+    <Shell>
       <div className="page-header flex flex-col sm:flex-row items-start justify-between gap-4">
         <div>
           <h1 className="page-title">Gerenciar Usuários</h1>
@@ -689,6 +689,6 @@ export default function Users() {
           userName={activityUser.full_name}
         />
       )}
-    </MainLayout>
+    </Shell>
   );
 }

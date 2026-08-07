@@ -313,16 +313,16 @@ export default function Settings() {
   
   if (isLoading || !settings) {
     return (
-      <MainLayout>
+      <Shell>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </MainLayout>
+      </Shell>
     );
   }
 
   return (
-    <MainLayout>
+    <Shell>
       <div className="page-header">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 flex items-center justify-center shadow-lg">
@@ -583,6 +583,6 @@ export default function Settings() {
           </Button>
         </div>
       )}
-    </MainLayout>
+    </Shell>
   );
 }

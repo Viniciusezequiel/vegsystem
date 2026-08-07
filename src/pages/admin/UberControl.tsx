@@ -106,7 +106,7 @@ export default function UberControl() {
   };
 
   return (
-    <MainLayout>
+    <Shell>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -335,6 +335,6 @@ export default function UberControl() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </MainLayout>
+    </Shell>
   );
 }

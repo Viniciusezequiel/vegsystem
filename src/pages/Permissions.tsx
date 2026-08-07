@@ -78,16 +78,16 @@ export default function Permissions() {
 
   if (isLoading) {
     return (
-      <MainLayout>
+      <Shell>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </MainLayout>
+      </Shell>
     );
   }
 
   return (
-    <MainLayout>
+    <Shell>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Matriz de Permissões</h1>
@@ -243,6 +243,6 @@ export default function Permissions() {
           </CardContent>
         </Card>
       </div>
-    </MainLayout>
+    </Shell>
   );
 }
