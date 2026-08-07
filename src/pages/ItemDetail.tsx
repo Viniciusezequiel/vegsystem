@@ -51,6 +51,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Constants } from '@/integrations/supabase/types';
 import { SignaturePad } from '@/components/ui/SignaturePad';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 const campusOptions = Constants.public.Enums.campus_enum;
 
@@ -63,6 +64,7 @@ export default function ItemDetail() {
   const updateItem = useUpdateLostItem();
   const deliverItem = useDeliverLostItem();
   const deleteItem = useDeleteLostItem();
+  const { url: resolvedImageUrl } = useSignedImageUrl(item?.image_url);
 
   // Fetch the name of who registered the item
   const { data: registeredByName } = useQuery({
@@ -292,10 +294,10 @@ export default function ItemDetail() {
         <div className="lg:col-span-1">
           <div className="bg-card rounded-xl border border-border overflow-hidden animate-fade-in">
             <div className="aspect-square relative group">
-              {item.image_url ? (
+              {resolvedImageUrl ? (
                 <>
                   <img
-                    src={item.image_url}
+                    src={resolvedImageUrl}
                     alt={item.description}
                     className="w-full h-full object-cover"
                   />

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLostItemImage } from '@/hooks/useLostItemImage';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface LazyItemImageProps {
   itemId: string;
@@ -52,7 +53,8 @@ export const LazyItemImage = memo(function LazyItemImage({
   }, []);
 
   // Only fetch image when visible
-  const { data: imageUrl, isLoading } = useLostItemImage(itemId, isVisible);
+  const { data: storedUrl, isLoading } = useLostItemImage(itemId, isVisible);
+  const { url: imageUrl, isResolving } = useSignedImageUrl(storedUrl);
 
   // Show image if we have a valid URL (HTTP or base64)
   const showImage = imageUrl && !hasError && (
@@ -79,7 +81,7 @@ export const LazyItemImage = memo(function LazyItemImage({
           loading="lazy"
           decoding="async"
         />
-      ) : isLoading && isVisible ? (
+      ) : (isLoading || isResolving) && isVisible ? (
         <div className="w-8 h-8 rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/50 animate-spin" />
       ) : (
         <Package className="w-8 h-8 text-muted-foreground/50" />
