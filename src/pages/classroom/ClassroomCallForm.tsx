@@ -123,34 +123,33 @@ export default function ClassroomCallForm() {
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
   const selectedIssue = selectedRoom?.issues.find(i => i.id === selectedIssueId);
 
-  // Subscribe to real-time updates for the submitted call
+  // Poll public status of the submitted call (no public read access to the table)
   useEffect(() => {
     if (!submittedCallId) return;
 
-    const channel = supabase
-      .channel(`call-${submittedCallId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'classroom_calls',
-          filter: `id=eq.${submittedCallId}`,
-        },
-        (payload) => {
-          const newData = payload.new as any;
-          setCallStatus({
-            status: newData.status,
-            accepted_by_name: newData.accepted_by_name,
-            accepted_at: newData.accepted_at,
-            response_message: newData.response_message,
-          });
-        }
-      )
-      .subscribe();
+    let active = true;
+    const fetchStatus = async () => {
+      const { data, error } = await supabase.rpc('get_public_classroom_call_status', {
+        p_id: submittedCallId,
+      });
+      if (!active || error) return;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) {
+        setCallStatus({
+          status: (row as any).status,
+          accepted_by_name: (row as any).accepted_by_name,
+          accepted_at: (row as any).accepted_at,
+          response_message: (row as any).response_message,
+        });
+      }
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 2500);
 
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
+      clearInterval(interval);
     };
   }, [submittedCallId]);
 
@@ -189,24 +188,19 @@ export default function ClassroomCallForm() {
         reason = additionalInfo.trim();
       }
 
-      const { data, error } = await supabase
-        .from('classroom_calls')
-        .insert({
-          room_name: roomName,
-          reason: reason,
-          status: 'pending',
-          campus: selectedRoom.campus,
-        })
-        .select('id, status')
-        .single();
+      const { data, error } = await supabase.rpc('create_public_classroom_call', {
+        p_room_name: roomName,
+        p_reason: reason,
+        p_campus: selectedRoom.campus,
+      });
 
       if (error) {
         throw new Error(error.message || 'Erro ao criar chamado');
       }
 
       setSubmittedRoomName(roomName);
-      setSubmittedCallId(data.id);
-      setCallStatus({ status: data.status as 'pending' });
+      setSubmittedCallId(data as unknown as string);
+      setCallStatus({ status: 'pending' });
     } catch (error: any) {
       console.error('Error creating call:', error);
       createCall.mutate({ room_name: selectedRoom.name, reason: selectedIssue?.description || additionalInfo });

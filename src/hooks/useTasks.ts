@@ -226,7 +226,6 @@ export function useCreateTask() {
               .single();
 
             if (assigneeProfile?.email) {
-              const taskAny = taskData as Record<string, unknown>;
               supabase.functions.invoke('notify-task-assignment', {
                 body: { taskId: taskData.id },
               }).catch((e) => console.warn('Email notification failed:', e));
