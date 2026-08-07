@@ -74,15 +74,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Only internal staff (users with a role in user_roles) may use this endpoint
+    const { data: roleRows, error: roleError } = await adminClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (roleError || !roleRows || roleRows.length === 0) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { id } = await req.json();
-    if (!id || typeof id !== 'string') {
-      return new Response(JSON.stringify({ error: 'Missing id' }), {
+    if (!id || typeof id !== 'string' || !/^[0-9a-fA-F-]{36}$/.test(id)) {
+      return new Response(JSON.stringify({ error: 'Missing or invalid id' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: row, error: rowError } = await adminClient
       .from('lost_items')
