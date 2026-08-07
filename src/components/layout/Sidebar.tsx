@@ -196,6 +196,7 @@ const bottomNav: NavItem[] = [
   { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
   { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
   { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
+
 ];
 
 
