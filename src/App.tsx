@@ -395,22 +395,15 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
-              {/* System - Admin only */}
-              <Route path="/users" element={
-                <ProtectedRoute requireAdmin>
-                  <Users />
-                </ProtectedRoute>
-              } />
-              <Route path="/permissions" element={
-                <ProtectedRoute requireAdmin>
-                  <Permissions />
-                </ProtectedRoute>
-              } />
+              {/* Administração do Sistema (Configurações + Usuários + Permissões) */}
+              <Route path="/users" element={<Navigate to="/settings?tab=usuarios" replace />} />
+              <Route path="/permissions" element={<Navigate to="/settings?tab=permissoes" replace />} />
               <Route path="/settings" element={
                 <ProtectedRoute>
-                  <Settings />
+                  <SystemAdmin />
                 </ProtectedRoute>
               } />
+
               <Route path="/reports" element={
                 <ProtectedRoute>
                   <Reports />
