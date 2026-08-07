@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+
+const EmbeddedShell = ({ children }: { children?: import('react').ReactNode }) => <>{children}</>;
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -33,7 +35,8 @@ const MODULES: Module[] = [
 const ACTIONS: Action[] = ['view', 'create', 'edit', 'delete', 'approve'];
 const ROLES: AppRole[] = ['admin', 'supervisor', 'analista', 'assistente', 'visualizador'];
 
-export default function Permissions() {
+export default function Permissions({ embedded }: { embedded?: boolean } = {}) {
+  const Shell = embedded ? EmbeddedShell : MainLayout;
   const { data: permissions, isLoading } = useRolePermissions();
   const updatePermission = useUpdatePermission();
   const [selectedRole, setSelectedRole] = useState<AppRole>('analista');
@@ -78,16 +81,16 @@ export default function Permissions() {
 
   if (isLoading) {
     return (
-      <MainLayout>
+      <Shell>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </MainLayout>
+      </Shell>
     );
   }
 
   return (
-    <MainLayout>
+    <Shell>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Matriz de Permissões</h1>
@@ -243,6 +246,6 @@ export default function Permissions() {
           </CardContent>
         </Card>
       </div>
-    </MainLayout>
+    </Shell>
   );
 }

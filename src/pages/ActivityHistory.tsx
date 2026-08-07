@@ -30,8 +30,14 @@ import {
   Box,
   Settings,
   FileText,
-  Building2
+  Building2,
+  ClipboardCheck,
+  Bell,
+  Car,
+  Tag,
+  GraduationCap
 } from 'lucide-react';
+
 import { useActivityLogs, getActionLabel, getModuleLabel, ActivityLog } from '@/hooks/useActivityLogs';
 import { ActivityDetailDialog } from '@/components/activity/ActivityDetailDialog';
 import { format, parseISO } from 'date-fns';
@@ -47,7 +53,14 @@ const moduleOptions = [
   { value: 'tasks', label: 'Demandas', icon: FileText },
   { value: 'users', label: 'Usuários', icon: User },
   { value: 'rooms', label: 'Salas', icon: Building2 },
+  { value: 'semester', label: 'Checklist Semestral', icon: ClipboardCheck },
+  { value: 'classroom-calls', label: 'Chamados de Sala', icon: Bell },
+  { value: 'uber', label: 'Uber Corporativo', icon: Car },
+  { value: 'labels', label: 'Etiquetas', icon: Tag },
+  { value: 'processo-seletivo', label: 'Processo Seletivo', icon: GraduationCap },
+  { value: 'settings', label: 'Configurações', icon: Settings },
 ];
+
 
 const actionVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   create: 'default',

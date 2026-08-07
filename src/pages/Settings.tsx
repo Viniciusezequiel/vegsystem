@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+
+const EmbeddedShell = ({ children }: { children?: import('react').ReactNode }) => <>{children}</>;
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -239,7 +241,8 @@ function TaskCategoriesSettings() {
   );
 }
 
-export default function Settings() {
+export default function Settings({ embedded }: { embedded?: boolean } = {}) {
+  const Shell = embedded ? EmbeddedShell : MainLayout;
   const { isAdmin } = useAuth();
   const { data: savedSettings, isLoading } = useSystemSettings();
   const updateSettings = useUpdateSystemSettings();
@@ -313,16 +316,16 @@ export default function Settings() {
   
   if (isLoading || !settings) {
     return (
-      <MainLayout>
+      <Shell>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      </MainLayout>
+      </Shell>
     );
   }
 
   return (
-    <MainLayout>
+    <Shell>
       <div className="page-header">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 flex items-center justify-center shadow-lg">
@@ -583,6 +586,6 @@ export default function Settings() {
           </Button>
         </div>
       )}
-    </MainLayout>
+    </Shell>
   );
 }

@@ -1181,39 +1181,51 @@ export type Database = {
       }
       ps_candidates: {
         Row: {
+          barcode: string | null
           campus: string | null
           cpf: string | null
           created_at: string
+          email: string | null
           event_id: string
           exam_type: string | null
           full_name: string
           id: string
+          phone: string | null
+          process_name: string | null
           registration_number: string | null
           rg: string | null
           room: string | null
           seat_number: string | null
         }
         Insert: {
+          barcode?: string | null
           campus?: string | null
           cpf?: string | null
           created_at?: string
+          email?: string | null
           event_id: string
           exam_type?: string | null
           full_name: string
           id?: string
+          phone?: string | null
+          process_name?: string | null
           registration_number?: string | null
           rg?: string | null
           room?: string | null
           seat_number?: string | null
         }
         Update: {
+          barcode?: string | null
           campus?: string | null
           cpf?: string | null
           created_at?: string
+          email?: string | null
           event_id?: string
           exam_type?: string | null
           full_name?: string
           id?: string
+          phone?: string | null
+          process_name?: string | null
           registration_number?: string | null
           rg?: string | null
           room?: string | null

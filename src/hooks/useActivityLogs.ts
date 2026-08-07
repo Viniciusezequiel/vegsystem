@@ -144,6 +144,12 @@ export function getModuleLabel(module: string): string {
     'rooms': 'Salas',
     'tasks': 'Demandas',
     'settings': 'Configurações',
+    'semester': 'Checklist Semestral',
+    'classroom-calls': 'Chamados de Sala',
+    'uber': 'Uber Corporativo',
+    'labels': 'Etiquetas',
+    'processo-seletivo': 'Processo Seletivo',
   };
   return labels[module] || module;
 }
+

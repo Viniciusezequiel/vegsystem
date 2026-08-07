@@ -16,12 +16,10 @@ import ItemsList from "./pages/ItemsList";
 import ArchivedItemsList from "./pages/ArchivedItemsList";
 import ItemDetail from "./pages/ItemDetail";
 import History from "./pages/History";
-import Users from "./pages/Users";
-import Settings from "./pages/Settings";
+import SystemAdmin from "./pages/SystemAdmin";
 import Reports from "./pages/Reports";
 import DashboardStats from "./pages/DashboardStats";
 import NotFound from "./pages/NotFound";
-import Permissions from "./pages/Permissions";
 import ActivityHistory from "./pages/ActivityHistory";
 import ChangePassword from "./pages/ChangePassword";
 
@@ -93,7 +91,6 @@ import ExternalUsersApproval from "./pages/ExternalUsersApproval";
 import AdminModuleHome from "./pages/admin/AdminModuleHome";
 import UberDashboard from "./pages/admin/UberDashboard";
 import UberNewRequest from "./pages/admin/UberNewRequest";
-import UberControl from "./pages/admin/UberControl";
 import PublicUberRequest from "./pages/admin/PublicUberRequest";
 
 // Processo Seletivo
@@ -395,22 +392,15 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
-              {/* System - Admin only */}
-              <Route path="/users" element={
-                <ProtectedRoute requireAdmin>
-                  <Users />
-                </ProtectedRoute>
-              } />
-              <Route path="/permissions" element={
-                <ProtectedRoute requireAdmin>
-                  <Permissions />
-                </ProtectedRoute>
-              } />
+              {/* Administração do Sistema (Configurações + Usuários + Permissões) */}
+              <Route path="/users" element={<Navigate to="/settings?tab=usuarios" replace />} />
+              <Route path="/permissions" element={<Navigate to="/settings?tab=permissoes" replace />} />
               <Route path="/settings" element={
                 <ProtectedRoute>
-                  <Settings />
+                  <SystemAdmin />
                 </ProtectedRoute>
               } />
+
               <Route path="/reports" element={
                 <ProtectedRoute>
                   <Reports />
@@ -427,7 +417,7 @@ const App = () => (
               <Route path="/admin-module" element={<ProtectedRoute requireAdmin><AdminModuleHome /></ProtectedRoute>} />
               <Route path="/admin-module/uber" element={<ProtectedRoute requireAdmin><UberDashboard /></ProtectedRoute>} />
               <Route path="/admin-module/uber/nova" element={<ProtectedRoute requireAdmin><UberNewRequest /></ProtectedRoute>} />
-              <Route path="/admin-module/uber/controle" element={<ProtectedRoute requireAdmin><UberControl /></ProtectedRoute>} />
+              <Route path="/admin-module/uber/controle" element={<Navigate to="/admin-module/uber?tab=solicitacoes" replace />} />
 
               {/* Processo Seletivo */}
               <Route path="/admin-module/processo-seletivo" element={<ProtectedRoute requireAdmin><PsHome /></ProtectedRoute>} />

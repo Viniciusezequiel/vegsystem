@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { MainLayout } from '@/components/layout/MainLayout';
+
+const EmbeddedShell = ({ children }: { children?: import('react').ReactNode }) => <>{children}</>;
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +45,8 @@ import { formatDateBR, formatDateTimeBR } from '@/lib/uberReceipt';
 
 const ALL = '__all__';
 
-export default function UberControl() {
+export default function UberControl({ embedded }: { embedded?: boolean } = {}) {
+  const Shell = embedded ? EmbeddedShell : MainLayout;
   const { data: requests = [], isLoading } = useUberRequests();
   const updateRequest = useUpdateUberRequest();
   const deleteRequest = useDeleteUberRequest();
@@ -106,18 +109,21 @@ export default function UberControl() {
   };
 
   return (
-    <MainLayout>
+    <Shell>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <Button variant="ghost" asChild className="mb-1 -ml-2">
-              <Link to="/admin-module/uber">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-              </Link>
-            </Button>
-            <h1 className="text-2xl font-bold">Controle de Solicitações</h1>
+            {!embedded && (
+              <Button variant="ghost" asChild className="mb-1 -ml-2">
+                <Link to="/admin-module/uber">
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                </Link>
+              </Button>
+            )}
+            {!embedded && <h1 className="text-2xl font-bold">Controle de Solicitações</h1>}
             <p className="text-muted-foreground">{filtered.length} registro(s) encontrado(s).</p>
           </div>
+
           <Button onClick={exportExcel} variant="outline" className="transition-transform hover:-translate-y-0.5">
             <FileSpreadsheet className="mr-2 h-4 w-4" /> Exportar histórico (Excel)
           </Button>
@@ -335,6 +341,6 @@ export default function UberControl() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </MainLayout>
+    </Shell>
   );
 }
