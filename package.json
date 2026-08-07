@@ -98,8 +98,8 @@
     "minimatch": "^10.2.6",
     "picomatch": "^4.0.5",
     "rollup": "^4.62.4",
-    "serialize-javascript": "^6.0.2",
+    "serialize-javascript": "^7.0.7",
     "lodash": "^4.17.21",
-    "@babel/plugin-transform-modules-systemjs": "^7.28.6"
+    "@babel/plugin-transform-modules-systemjs": "^8.0.1"
   }
 }
