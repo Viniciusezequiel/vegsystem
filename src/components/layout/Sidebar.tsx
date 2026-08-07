@@ -185,31 +185,19 @@ const moduleGroups: NavGroup[] = [
       { name: 'Configurações', href: '/classroom-calls/settings', icon: Settings, adminOnly: true },
     ],
   },
-  {
-    name: 'Módulo Administrativo',
-    icon: ShieldCheck,
-    basePath: '/admin-module',
-    gradient: 'from-slate-600 to-blue-600',
-    adminOnly: true,
-    items: [
-      { name: 'Visão Geral', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
-      { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
-      { name: 'Controle de Solicitações', href: '/admin-module/uber/controle', icon: FileText, adminOnly: true },
-      { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
-      { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
-    ],
-  },
-
 ];
 
 const bottomNav: NavItem[] = [
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
   { name: 'Histórico de Atividades', href: '/activity-history', icon: History, module: 'activityHistory' },
-  { name: 'Usuários', href: '/users', icon: Users, adminOnly: true, module: 'users' },
   { name: 'Aprovação de Clientes', href: '/external-users-approval', icon: Users, adminOnly: true },
-  { name: 'Permissões', href: '/permissions', icon: Shield, adminOnly: true },
-  { name: 'Configurações', href: '/settings', icon: Settings, module: 'settings' },
+  { name: 'Administração do Sistema', href: '/settings', icon: Settings, module: 'settings' },
+  { name: 'Módulo Administrativo', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
+  { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
+  { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
+  { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
 ];
+
 
 interface SidebarProps {
   collapsed: boolean;
