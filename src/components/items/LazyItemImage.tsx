@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLostItemImage } from '@/hooks/useLostItemImage';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface LazyItemImageProps {
   itemId: string;
