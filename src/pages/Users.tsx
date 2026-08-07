@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+
+const EmbeddedShell = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +52,8 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ElementType; colo
   atendente: { label: 'Atendente de Chamados', icon: Bell, color: 'text-orange-500' },
 };
 
-export default function Users() {
+export default function Users({ embedded }: { embedded?: boolean } = {}) {
+  const Shell = embedded ? EmbeddedShell : MainLayout;
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);

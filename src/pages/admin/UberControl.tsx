@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { MainLayout } from '@/components/layout/MainLayout';
+
+const EmbeddedShell = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +45,8 @@ import { formatDateBR, formatDateTimeBR } from '@/lib/uberReceipt';
 
 const ALL = '__all__';
 
-export default function UberControl() {
+export default function UberControl({ embedded }: { embedded?: boolean } = {}) {
+  const Shell = embedded ? EmbeddedShell : MainLayout;
   const { data: requests = [], isLoading } = useUberRequests();
   const updateRequest = useUpdateUberRequest();
   const deleteRequest = useDeleteUberRequest();

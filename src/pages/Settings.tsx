@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+
+const EmbeddedShell = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -239,7 +241,8 @@ function TaskCategoriesSettings() {
   );
 }
 
-export default function Settings() {
+export default function Settings({ embedded }: { embedded?: boolean } = {}) {
+  const Shell = embedded ? EmbeddedShell : MainLayout;
   const { isAdmin } = useAuth();
   const { data: savedSettings, isLoading } = useSystemSettings();
   const updateSettings = useUpdateSystemSettings();
