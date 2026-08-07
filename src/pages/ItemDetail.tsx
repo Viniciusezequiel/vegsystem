@@ -51,6 +51,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Constants } from '@/integrations/supabase/types';
 import { SignaturePad } from '@/components/ui/SignaturePad';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 const campusOptions = Constants.public.Enums.campus_enum;
 

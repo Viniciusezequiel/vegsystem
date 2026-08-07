@@ -81,7 +81,7 @@ export const LazyItemImage = memo(function LazyItemImage({
           loading="lazy"
           decoding="async"
         />
-      ) : isLoading && isVisible ? (
+      ) : (isLoading || isResolving) && isVisible ? (
         <div className="w-8 h-8 rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/50 animate-spin" />
       ) : (
         <Package className="w-8 h-8 text-muted-foreground/50" />
