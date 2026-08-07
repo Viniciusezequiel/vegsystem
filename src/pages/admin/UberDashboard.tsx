@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import UberControl from './UberControl';
+
 import {
   Car,
   Plus,
@@ -217,7 +220,14 @@ export default function UberDashboard() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="solicitacoes" className="pt-4">
+            <UberControl embedded />
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
+
   );
 }
