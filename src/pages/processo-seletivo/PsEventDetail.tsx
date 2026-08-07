@@ -106,17 +106,31 @@ export default function PsEventDetail() {
   const importCandidates = async (file: File) => {
     const wb = XLSX.read(await file.arrayBuffer());
     const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+    const pick = (r: any, keys: string[]) => {
+      for (const k of keys) {
+        const found = Object.keys(r).find((c) => c.trim().toUpperCase() === k.toUpperCase());
+        if (found && String(r[found]).trim()) return String(r[found]).trim();
+      }
+      return '';
+    };
     const mapped = rows.map((r) => ({
       event_id: id,
-      full_name: String(r['Nome'] ?? r['NOME'] ?? r['nome'] ?? '').trim(),
-      document: String(r['CPF'] ?? r['Documento'] ?? '').trim() || null,
-      room: String(r['Sala'] ?? r['SALA'] ?? '').trim() || null,
-      seat: String(r['Carteira'] ?? r['Assento'] ?? '').trim() || null,
-      campus: String(r['Campus'] ?? '').trim() || null,
-      pcd_type: String(r['PCD'] ?? r['Tipo'] ?? 'NORMAL').trim().toUpperCase() || 'NORMAL',
+      process_name: pick(r, ['PROCESSO SELETIVO', 'PROCESSO']) || null,
+      registration_number: pick(r, ['INSCRIÇÃO', 'INSCRICAO', 'Inscrição']) || null,
+      full_name: pick(r, ['CANDIDATO', 'NOME', 'Nome']),
+      phone: pick(r, ['CELULAR', 'TELEFONE']) || null,
+      email: pick(r, ['E-MAIL', 'EMAIL']) || null,
+      rg: pick(r, ['IDENTIDADE', 'RG']) || null,
+      cpf: pick(r, ['CPF', 'DOCUMENTO']) || null,
+      exam_type: pick(r, ['TIPO DE PROVA', 'TIPO']) || null,
+      campus: pick(r, ['LOCAL DE PROVA', 'CAMPUS', 'LOCAL']) || null,
+      room: pick(r, ['SALA']) || null,
+      barcode: pick(r, ['CÓD DE BARRAS', 'COD DE BARRAS', 'CODIGO DE BARRAS']) || null,
+      seat_number: pick(r, ['CARTEIRA', 'ASSENTO']) || null,
     })).filter((r) => r.full_name);
     if (mapped.length) addMany.mutate(mapped);
   };
+
 
   const exportPresence = () => {
     const rows = links.map((l: any) => ({
