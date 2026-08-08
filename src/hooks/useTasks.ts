@@ -273,7 +273,7 @@ export function useUpdateTask() {
 
       const { data: task, error } = await supabase
         .from('tasks')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id)
         .select()
         .single();

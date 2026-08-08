@@ -185,7 +185,7 @@ export function useUpdateMaterialRequest() {
       
       const { error } = await supabase
         .from('material_requests')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id);
       
       if (error) throw error;

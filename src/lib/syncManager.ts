@@ -67,7 +67,7 @@ async function processLostItemOperation(op: OfflineOperation): Promise<boolean> 
       const { id, ...updateData } = payload;
       const { error } = await supabase
         .from('lost_items')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id as string);
       
       if (error) throw error;
@@ -127,7 +127,7 @@ async function processEquipmentOperation(op: OfflineOperation): Promise<boolean>
       const { id, ...updateData } = payload;
       const { error } = await supabase
         .from('equipment')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id as string);
       
       if (error) throw error;

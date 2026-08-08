@@ -40,25 +40,11 @@ export async function resolveStorageUrl(value: string | null | undefined): Promi
   const pending = inFlight.get(key);
   if (pending) return pending;
 
-  const request = (async () => {
-    try {
-      const { data, error } = await supabase.storage
-        .from(parsed.bucket)
-        .createSignedUrl(parsed.path, SIGNED_URL_TTL_SECONDS);
-
-      if (error || !data?.signedUrl) return null;
-
-      signedUrlCache.set(key, {
-        url: data.signedUrl,
-        expiresAt: Date.now() + SIGNED_URL_TTL_SECONDS * 1000,
-      });
-      return data.signedUrl;
-    } catch {
-      return null;
-    } finally {
-      inFlight.delete(key);
-    }
-  })();
+  const request = new Promise<string | null>((resolve) => {
+    enqueue(parsed.bucket, parsed.path, key, resolve);
+  }).finally(() => {
+    inFlight.delete(key);
+  });
 
   inFlight.set(key, request);
   return request;
@@ -68,3 +54,82 @@ export async function resolveStorageUrl(value: string | null | undefined): Promi
 export async function resolveStorageUrls(values: (string | null | undefined)[]) {
   return Promise.all(values.map((value) => resolveStorageUrl(value)));
 }
+
+/* ---------------------------------------------------------------------------
+ * Batched signing: many components ask for URLs at the same time (lists with
+ * dozens of images). Signing one-by-one floods the storage API and makes
+ * images fail to load, so requests are grouped per bucket.
+ * ------------------------------------------------------------------------ */
+
+const BATCH_WINDOW_MS = 40;
+const MAX_BATCH_SIZE = 50;
+
+type QueueItem = { path: string; key: string; resolve: (url: string | null) => void };
+const queues = new Map<string, QueueItem[]>();
+const timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function enqueue(bucket: string, path: string, key: string, resolve: (url: string | null) => void) {
+  const queue = queues.get(bucket) ?? [];
+  queue.push({ path, key, resolve });
+  queues.set(bucket, queue);
+
+  if (queue.length >= MAX_BATCH_SIZE) {
+    const timer = timers.get(bucket);
+    if (timer) clearTimeout(timer);
+    timers.delete(bucket);
+    void flush(bucket);
+    return;
+  }
+
+  if (!timers.has(bucket)) {
+    timers.set(
+      bucket,
+      setTimeout(() => {
+        timers.delete(bucket);
+        void flush(bucket);
+      }, BATCH_WINDOW_MS)
+    );
+  }
+}
+
+async function flush(bucket: string) {
+  const queue = queues.get(bucket);
+  if (!queue || queue.length === 0) return;
+  queues.set(bucket, []);
+
+  const batch = queue.slice(0, MAX_BATCH_SIZE);
+  const rest = queue.slice(MAX_BATCH_SIZE);
+  if (rest.length) {
+    queues.set(bucket, rest);
+    setTimeout(() => void flush(bucket), 0);
+  }
+
+  const paths = batch.map((item) => item.path);
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+
+    if (error || !data) {
+      batch.forEach((item) => item.resolve(null));
+      return;
+    }
+
+    const byPath = new Map<string, string>();
+    for (const entry of data) {
+      // `path` comes back exactly as requested when successful
+      if (entry.signedUrl && entry.path) byPath.set(entry.path, entry.signedUrl);
+    }
+
+    const expiresAt = Date.now() + SIGNED_URL_TTL_SECONDS * 1000;
+    batch.forEach((item) => {
+      const url = byPath.get(item.path) ?? null;
+      if (url) signedUrlCache.set(item.key, { url, expiresAt });
+      item.resolve(url);
+    });
+  } catch {
+    batch.forEach((item) => item.resolve(null));
+  }
+}
+

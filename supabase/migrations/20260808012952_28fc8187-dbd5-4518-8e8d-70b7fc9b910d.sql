@@ -1,0 +1,1 @@
+DELETE FROM public.classroom_calls WHERE room_name = 'TESTE DIAG' AND reason = 'teste diagnostico';
