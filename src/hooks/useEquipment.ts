@@ -170,7 +170,7 @@ export function useCreateEquipment() {
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from('equipment')
-        .insert({ ...equipment, created_by: user?.id })
+        .insert({ ...equipment, created_by: user?.id } as never)
         .select()
         .single();
       if (error) throw error;
@@ -193,7 +193,7 @@ export function useUpdateEquipment() {
     mutationFn: async ({ id, ...equipment }: Partial<Equipment> & { id: string }) => {
       const { data, error } = await supabase
         .from('equipment')
-        .update(equipment)
+        .update(equipment as never)
         .eq('id', id)
         .select()
         .single();

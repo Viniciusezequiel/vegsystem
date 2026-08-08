@@ -114,7 +114,7 @@ export function useUpdateRoom() {
     mutationFn: async ({ id, ...room }: Partial<Omit<Room, 'checklist_items'>> & { id: string; checklist_items?: RoomChecklistItem[] }) => {
       const { data, error } = await supabase
         .from('rooms')
-        .update(room as Record<string, unknown>)
+        .update(room as never)
         .eq('id', id)
         .select()
         .single();
