@@ -27,7 +27,7 @@ export function useClassroomCalls(status?: string, campus?: string) {
   // Set up realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel('classroom-calls-changes')
+      .channel(`classroom-calls-changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
@@ -45,6 +45,7 @@ export function useClassroomCalls(status?: string, campus?: string) {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
 
   return useQuery({
     queryKey: ['classroom-calls', status, campus],
