@@ -75,16 +75,24 @@ export function useCreateUberRequest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: UberRequestInput) => {
-      const code = generateUberCode();
-      const payload = {
+      const { data, error } = await supabase.rpc('create_public_uber_request', {
+        p_requester_name: input.requester_name,
+        p_origin: input.origin,
+        p_destination: input.destination,
+        p_trip_date: input.trip_date,
+        p_trip_time: input.trip_time,
+        p_reason: input.reason,
+        p_notes: input.notes || null,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
         ...input,
         notes: input.notes || null,
-        code,
+        code: row?.code ?? '',
         status: 'registrada' as const,
+        created_at: row?.created_at ?? new Date().toISOString(),
       };
-      const { error } = await supabase.from('uber_requests').insert(payload);
-      if (error) throw error;
-      return { ...payload, created_at: new Date().toISOString() };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['uber-requests'] });
@@ -94,6 +102,7 @@ export function useCreateUberRequest() {
     },
   });
 }
+
 
 export function useUpdateUberRequest() {
   const queryClient = useQueryClient();

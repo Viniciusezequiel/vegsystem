@@ -237,7 +237,7 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
   // Set up realtime subscription for loans
   useEffect(() => {
     const channel = supabase
-      .channel('equipment-loans-changes')
+      .channel(`equipment-loans-changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
@@ -256,6 +256,7 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
 
   return useQuery({
     queryKey: ['equipment-loans', status],
