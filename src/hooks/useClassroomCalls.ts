@@ -77,7 +77,7 @@ export function usePendingCallsCount(campus?: string) {
   // Set up realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel('pending-calls-count')
+      .channel(`pending-calls-count-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
