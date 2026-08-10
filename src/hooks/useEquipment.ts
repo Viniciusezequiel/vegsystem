@@ -260,6 +260,7 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
 
   return useQuery({
     queryKey: ['equipment-loans', status],
+    staleTime: 60_000,
     initialData: cachedLoans ? (status ? cachedLoans.filter(l => l.status === status) : cachedLoans) : undefined,
     queryFn: async () => {
       // OFFLINE: serve from cache
@@ -279,6 +280,11 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
       if (status) {
         query = query.eq('status', status);
       }
+
+      if (status === 'returned') {
+        query = query.limit(300);
+      }
+
 
       try {
         const { data, error } = await query;
