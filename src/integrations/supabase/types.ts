@@ -3110,6 +3110,22 @@ export type Database = {
         Args: { p_campus: string; p_reason: string; p_room_name: string }
         Returns: string
       }
+      create_public_uber_request: {
+        Args: {
+          p_destination: string
+          p_notes?: string
+          p_origin: string
+          p_reason: string
+          p_requester_name: string
+          p_trip_date: string
+          p_trip_time: string
+        }
+        Returns: {
+          code: string
+          created_at: string
+          id: string
+        }[]
+      }
       expire_old_lost_items: { Args: never; Returns: undefined }
       find_available_rooms:
         | {

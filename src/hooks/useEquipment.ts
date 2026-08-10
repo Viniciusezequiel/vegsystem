@@ -237,7 +237,7 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
   // Set up realtime subscription for loans
   useEffect(() => {
     const channel = supabase
-      .channel('equipment-loans-changes')
+      .channel(`equipment-loans-changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
@@ -257,8 +257,10 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
     };
   }, [queryClient]);
 
+
   return useQuery({
     queryKey: ['equipment-loans', status],
+    staleTime: 60_000,
     initialData: cachedLoans ? (status ? cachedLoans.filter(l => l.status === status) : cachedLoans) : undefined,
     queryFn: async () => {
       // OFFLINE: serve from cache
@@ -278,6 +280,11 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
       if (status) {
         query = query.eq('status', status);
       }
+
+      if (status === 'returned') {
+        query = query.limit(300);
+      }
+
 
       try {
         const { data, error } = await query;
