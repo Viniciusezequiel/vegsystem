@@ -66,7 +66,7 @@ export function useEquipmentList(search?: string) {
   // Set up realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel('equipment-changes')
+      .channel(`equipment-changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {

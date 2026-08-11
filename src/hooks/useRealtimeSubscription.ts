@@ -84,7 +84,7 @@ export function useRealtimeSubscription(tables: TableName[] = []) {
 
     tables.forEach((table) => {
       const channel = supabase
-        .channel(`realtime-${table}`)
+        .channel(`realtime-${table}-${Math.random().toString(36).slice(2)}`)
         .on(
           'postgres_changes',
           {
