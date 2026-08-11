@@ -109,9 +109,12 @@ import PsPublicFiscalBank from "./pages/processo-seletivo/public/PsPublicFiscalB
 // PWA
 import Install from "./pages/Install";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
 const queryClient = new QueryClient();
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
@@ -445,6 +448,7 @@ const App = () => (
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
