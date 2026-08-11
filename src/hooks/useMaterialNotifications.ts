@@ -51,7 +51,7 @@ export function useMaterialNotifications() {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel('material-assigned-notifications')
+      .channel(`material-assigned-notifications-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
@@ -100,7 +100,7 @@ export function useMaterialNotifications() {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel('material-requester-notifications')
+      .channel(`material-requester-notifications-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {

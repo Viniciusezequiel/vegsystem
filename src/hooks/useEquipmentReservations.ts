@@ -43,7 +43,7 @@ export function useEquipmentReservations(status?: string) {
 
   useEffect(() => {
     const channel = supabase
-      .channel('equipment-reservations-changes')
+      .channel(`equipment-reservations-changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'equipment_reservations' },

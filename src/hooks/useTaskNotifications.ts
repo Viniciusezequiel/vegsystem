@@ -38,7 +38,7 @@ export function useTaskNotifications() {
     }, 3000);
 
     const channel = supabase
-      .channel('task-notifications')
+      .channel(`task-notifications-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
@@ -91,7 +91,7 @@ export function useTaskNotifications() {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel('task-reassign-notifications')
+      .channel(`task-reassign-notifications-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
