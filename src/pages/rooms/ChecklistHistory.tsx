@@ -79,20 +79,34 @@ export default function ChecklistHistory() {
   const handleExport = async () => {
     if (!filteredChecklists.length) return;
     try {
+      const chunk = <T,>(arr: T[], size: number): T[][] => {
+        const out: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+        return out;
+      };
+
       const ids = filteredChecklists.map(c => c.id);
 
-      const userIds = [...new Set(filteredChecklists.map(c => c.filled_by).filter(Boolean))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', userIds);
-      const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
+      const userIds = [...new Set(filteredChecklists.map(c => c.filled_by).filter(Boolean))] as string[];
+      const profileMap = new Map<string, string>();
+      for (const part of chunk(userIds, 100)) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', part);
+        (profiles || []).forEach(p => profileMap.set(p.user_id, p.full_name));
+      }
 
-      const { data: answers, error: ansErr } = await supabase
-        .from('checklist_answers')
-        .select('checklist_id, answer, notes, question:checklist_questions(question, category)')
-        .in('checklist_id', ids);
-      if (ansErr) throw ansErr;
+      const answers: any[] = [];
+      for (const part of chunk(ids, 100)) {
+        const { data, error: ansErr } = await supabase
+          .from('checklist_answers')
+          .select('checklist_id, answer, notes, question:checklist_questions(question, category)')
+          .in('checklist_id', part)
+          .limit(10000);
+        if (ansErr) throw ansErr;
+        answers.push(...(data || []));
+      }
 
       const answersByChecklist = new Map<string, any[]>();
       (answers || []).forEach((a: any) => {
@@ -100,6 +114,7 @@ export default function ChecklistHistory() {
         arr.push(a);
         answersByChecklist.set(a.checklist_id, arr);
       });
+
 
       const parseObs = (observations: string | null) => {
         if (!observations) return { customItems: null as any, generalObservations: null as string | null };
