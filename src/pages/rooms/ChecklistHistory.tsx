@@ -185,18 +185,22 @@ export default function ChecklistHistory() {
   const handleCleanup = async () => {
     if (!filteredChecklists.length) return;
     const ids = filteredChecklists.map(c => c.id);
-    // Delete answers first, then checklists
-    for (const id of ids) {
-      await supabase.from('checklist_answers').delete().eq('checklist_id', id);
-    }
-    const { error } = await supabase.from('room_checklists').delete().in('id', ids);
-    if (error) {
-      toast.error('Erro ao limpar checklists: ' + error.message);
-    } else {
+    const batches: string[][] = [];
+    for (let i = 0; i < ids.length; i += 100) batches.push(ids.slice(i, i + 100));
+    try {
+      for (const part of batches) {
+        const { error: ansErr } = await supabase.from('checklist_answers').delete().in('checklist_id', part);
+        if (ansErr) throw ansErr;
+        const { error } = await supabase.from('room_checklists').delete().in('id', part);
+        if (error) throw error;
+      }
       toast.success(`${ids.length} checklist(s) removido(s).`);
       queryClient.invalidateQueries({ queryKey: ['room-checklists'] });
+    } catch (e: any) {
+      toast.error('Erro ao limpar checklists: ' + (e.message || e));
     }
   };
+
 
   const formatDate = (date: string) => {
     return format(parseISO(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
