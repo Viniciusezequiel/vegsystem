@@ -79,20 +79,34 @@ export default function ChecklistHistory() {
   const handleExport = async () => {
     if (!filteredChecklists.length) return;
     try {
+      const chunk = <T,>(arr: T[], size: number): T[][] => {
+        const out: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+        return out;
+      };
+
       const ids = filteredChecklists.map(c => c.id);
 
-      const userIds = [...new Set(filteredChecklists.map(c => c.filled_by).filter(Boolean))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', userIds);
-      const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
+      const userIds = [...new Set(filteredChecklists.map(c => c.filled_by).filter(Boolean))] as string[];
+      const profileMap = new Map<string, string>();
+      for (const part of chunk(userIds, 100)) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', part);
+        (profiles || []).forEach(p => profileMap.set(p.user_id, p.full_name));
+      }
 
-      const { data: answers, error: ansErr } = await supabase
-        .from('checklist_answers')
-        .select('checklist_id, answer, notes, question:checklist_questions(question, category)')
-        .in('checklist_id', ids);
-      if (ansErr) throw ansErr;
+      const answers: any[] = [];
+      for (const part of chunk(ids, 100)) {
+        const { data, error: ansErr } = await supabase
+          .from('checklist_answers')
+          .select('checklist_id, answer, notes, question:checklist_questions(question, category)')
+          .in('checklist_id', part)
+          .limit(10000);
+        if (ansErr) throw ansErr;
+        answers.push(...(data || []));
+      }
 
       const answersByChecklist = new Map<string, any[]>();
       (answers || []).forEach((a: any) => {
@@ -100,6 +114,7 @@ export default function ChecklistHistory() {
         arr.push(a);
         answersByChecklist.set(a.checklist_id, arr);
       });
+
 
       const parseObs = (observations: string | null) => {
         if (!observations) return { customItems: null as any, generalObservations: null as string | null };
@@ -170,18 +185,22 @@ export default function ChecklistHistory() {
   const handleCleanup = async () => {
     if (!filteredChecklists.length) return;
     const ids = filteredChecklists.map(c => c.id);
-    // Delete answers first, then checklists
-    for (const id of ids) {
-      await supabase.from('checklist_answers').delete().eq('checklist_id', id);
-    }
-    const { error } = await supabase.from('room_checklists').delete().in('id', ids);
-    if (error) {
-      toast.error('Erro ao limpar checklists: ' + error.message);
-    } else {
+    const batches: string[][] = [];
+    for (let i = 0; i < ids.length; i += 100) batches.push(ids.slice(i, i + 100));
+    try {
+      for (const part of batches) {
+        const { error: ansErr } = await supabase.from('checklist_answers').delete().in('checklist_id', part);
+        if (ansErr) throw ansErr;
+        const { error } = await supabase.from('room_checklists').delete().in('id', part);
+        if (error) throw error;
+      }
       toast.success(`${ids.length} checklist(s) removido(s).`);
       queryClient.invalidateQueries({ queryKey: ['room-checklists'] });
+    } catch (e: any) {
+      toast.error('Erro ao limpar checklists: ' + (e.message || e));
     }
   };
+
 
   const formatDate = (date: string) => {
     return format(parseISO(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
