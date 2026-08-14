@@ -113,8 +113,11 @@ export function usePendingCallsCount(campus?: string) {
       if (error) throw error;
       return count || 0;
     },
-    staleTime: 2000,
-    refetchInterval: 2000,
+    staleTime: 10_000,
+    // Realtime já invalida na hora; o polling é apenas rede de segurança
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: false,
+
   });
 }
 
