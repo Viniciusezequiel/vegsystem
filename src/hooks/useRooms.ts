@@ -184,6 +184,7 @@ export function useRoomChecklists(roomId?: string) {
       if (error) throw error;
       return data as RoomChecklist[];
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
