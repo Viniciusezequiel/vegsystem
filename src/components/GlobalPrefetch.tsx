@@ -26,8 +26,14 @@ const EQUIPMENT_QUERY_KEY = ['equipment', undefined];
 const LOANS_QUERY_KEY = ['equipment-loans', undefined];
 
 // Batch size for prefetching images (to avoid overwhelming the database)
+// Batch size for prefetching images (to avoid overwhelming the database)
 const IMAGE_PREFETCH_BATCH_SIZE = 20;
 const IMAGE_PREFETCH_DELAY_MS = 100;
+
+// Avoid re-fetching the whole dataset on every mount / token refresh
+const PREFETCH_MIN_INTERVAL_MS = 5 * 60 * 1000;
+let lastPrefetchAt = 0;
+
 
 /**
  * Global prefetch component that:
@@ -84,8 +90,13 @@ export function GlobalPrefetch() {
     // STEP 2: Fetch fresh data (ONLY when authenticated), and cache it
     const fetchFreshData = async () => {
       try {
+        // Throttle: avoid refetching everything on every mount/token refresh
+        const now = Date.now();
+        if (now - lastPrefetchAt < PREFETCH_MIN_INTERVAL_MS) return;
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return; // don't poison cache with unauthenticated empty results
+        lastPrefetchAt = now;
+
 
         // Fetch items, counts, equipment, and loans in parallel
         const [itemsResult, countsResult, equipmentResult, loansResult] = await Promise.all([
@@ -170,11 +181,12 @@ export function GlobalPrefetch() {
       }
     };
 
-    // Try immediately, and also when the user logs in
+    // Try immediately, and also when the user signs in
     fetchFreshData();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) fetchFreshData();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && event === 'SIGNED_IN') fetchFreshData();
     });
+
 
     return () => subscription.unsubscribe();
   }, [queryClient]);

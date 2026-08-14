@@ -80,44 +80,43 @@ export function useRealtimeSubscription(tables: TableName[] = []) {
   useEffect(() => {
     if (tables.length === 0) return;
 
-    const channels: RealtimeChannel[] = [];
+    // Coalesce bursts of events (mass inserts/deletes) into a single refetch round
+    const pending = new Set<string>();
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    tables.forEach((table) => {
-      const channel = supabase
-        .channel(`realtime-${table}-${Math.random().toString(36).slice(2)}`)
-        .on(
+    const flush = () => {
+      timer = null;
+      const keys = Array.from(pending);
+      pending.clear();
+      keys.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+    };
+
+    const schedule = (keys: string[]) => {
+      keys.forEach((k) => pending.add(k));
+      if (timer) return;
+      timer = setTimeout(flush, 800);
+    };
+
+    // One single channel for all tables (instead of one websocket topic per table)
+    const channel: RealtimeChannel = tables.reduce(
+      (ch, table) =>
+        ch.on(
           'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table,
-          },
-          (payload) => {
-            console.log(`Realtime update on ${table}:`, payload.eventType);
-            
-            // Invalidate all related queries
-            const queryKeys = tableToQueryKeyMap[table] || [table];
-            queryKeys.forEach((key) => {
-              queryClient.invalidateQueries({ queryKey: [key] });
-            });
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            console.log(`Subscribed to realtime updates for ${table}`);
-          }
-        });
+          { event: '*', schema: 'public', table },
+          () => schedule(tableToQueryKeyMap[table] || [table]),
+        ),
+      supabase.channel(`realtime-multi-${Math.random().toString(36).slice(2)}`) as any,
+    );
 
-      channels.push(channel);
-    });
+    channel.subscribe();
 
     return () => {
-      channels.forEach((channel) => {
-        supabase.removeChannel(channel);
-      });
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
     };
   }, [tables.join(','), queryClient]);
 }
+
 
 // Hook for subscribing to all main tables
 export function useGlobalRealtimeSubscription() {
