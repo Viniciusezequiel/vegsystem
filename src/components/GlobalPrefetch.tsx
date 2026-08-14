@@ -181,11 +181,12 @@ export function GlobalPrefetch() {
       }
     };
 
-    // Try immediately, and also when the user logs in
+    // Try immediately, and also when the user signs in
     fetchFreshData();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) fetchFreshData();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && event === 'SIGNED_IN') fetchFreshData();
     });
+
 
     return () => subscription.unsubscribe();
   }, [queryClient]);
