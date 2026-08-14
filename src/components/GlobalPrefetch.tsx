@@ -26,8 +26,14 @@ const EQUIPMENT_QUERY_KEY = ['equipment', undefined];
 const LOANS_QUERY_KEY = ['equipment-loans', undefined];
 
 // Batch size for prefetching images (to avoid overwhelming the database)
+// Batch size for prefetching images (to avoid overwhelming the database)
 const IMAGE_PREFETCH_BATCH_SIZE = 20;
 const IMAGE_PREFETCH_DELAY_MS = 100;
+
+// Avoid re-fetching the whole dataset on every mount / token refresh
+const PREFETCH_MIN_INTERVAL_MS = 5 * 60 * 1000;
+let lastPrefetchAt = 0;
+
 
 /**
  * Global prefetch component that:
