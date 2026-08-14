@@ -84,8 +84,13 @@ export function GlobalPrefetch() {
     // STEP 2: Fetch fresh data (ONLY when authenticated), and cache it
     const fetchFreshData = async () => {
       try {
+        // Throttle: avoid refetching everything on every mount/token refresh
+        const now = Date.now();
+        if (now - lastPrefetchAt < PREFETCH_MIN_INTERVAL_MS) return;
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return; // don't poison cache with unauthenticated empty results
+        lastPrefetchAt = now;
+
 
         // Fetch items, counts, equipment, and loans in parallel
         const [itemsResult, countsResult, equipmentResult, loansResult] = await Promise.all([
