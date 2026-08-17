@@ -139,8 +139,8 @@ export function GlobalPrefetch() {
             saveLostItemsToCache(itemsData);
           }
 
-          // STEP 3: Prefetch images for all items in background
-          prefetchImagesForItems(queryClient, items);
+          // STEP 3: Prefetch images only for the first visible page (rest is lazy)
+          prefetchImagesForItems(queryClient, items.slice(0, 24));
         }
 
         // Process counts
