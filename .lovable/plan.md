@@ -1,108 +1,51 @@
-## Escopo
+# Investigação do consumo de créditos
 
-Quatro frentes no módulo de Reservas de Sala, **sem mexer em outros módulos**.
+## O que os dados mostram
 
----
+Período atual (25/jul a 25/ago) — 216,90 créditos usados:
 
-### 1. Filtros da página `/reservations` (limpeza visual)
+| Item | Créditos |
+|---|---|
+| Cloud compute large (instância do backend) | 116,60 |
+| Mensagens de build | 80,80 |
+| Egress (tráfego de dados) | 17,10 |
+| Realtime / storage / functions / worker | ~1,40 |
+| Mensagens de plan | 1,00 |
 
-- Manter visíveis: **Busca**, **Data (range)**, **Status**.
-- Mover para dropdown "Mais filtros" (popover): **Sala**, **Campus**, **Tipo (interna/externa)**, **Fixa**, **Solicitante**.
-- Badges abaixo mostram filtros ativos com X para remover individualmente.
-- Botão "Limpar filtros" quando houver qualquer ativo.
+Período anterior (25/mai a 25/jul, dois meses) — 147,51 créditos:
 
-### 2. Configuração de Salas (Gestão de Salas → Salas de Reserva)
+| Item | Créditos |
+|---|---|
+| Mensagens de build | 102,50 |
+| Cloud compute large | 36,91 |
+| Egress | 7,21 |
+| Demais itens | ~0,9 |
 
-Adicionar dois campos novos em `reservation_rooms`:
-- **`observations`** (text) — observações livres sobre o espaço.
-- **`equipment`** (jsonb) — lista de equipamentos já presentes (ex.: projetor, lousa, ar-condicionado).
+Conclusão: o salto não veio de mensagens de IA (elas até caíram). Veio da **instância de banco no tamanho "large"**, que passou a rodar 24/7 e agora custa ~117 créditos por mês sozinha — mais da metade de todo o consumo. O egress também mais que dobrou, mas é secundário (~17 créditos).
 
-Atualizar o formulário de criar/editar sala com:
-- Textarea "Observações".
-- Campo de tags/lista dinâmica "Equipamentos disponíveis".
+## A instância está superdimensionada
 
-Exibir essas infos nos cards de seleção de sala (busca de disponibilidade) e no painel público.
+Snapshot atual de saúde do banco:
 
-### 3. Visualização das reservas — Calendário + Lista
+- Memória: 18% usada
+- Conexões: 29 de 160
+- Clientes do pool: 12 de 800
+- Disco de dados: 9% usado
+- Reinícios desde o boot: 0
 
-Na página `/reservations`, adicionar **toggle no topo**: `[ Lista ] [ Calendário ]`.
+Nenhum indicador chega perto do limite. O "large" foi provavelmente ativado durante os problemas de lentidão/tela preta — que na verdade eram bugs de realtime já corrigidos, não falta de CPU.
 
-- **Lista**: layout atual já existente, mantido.
-- **Calendário**: novo componente com visões **Mês / Semana / Dia**, eventos coloridos por status, clique abre o detalhe da reserva (reaproveita dialog existente). Filtros aplicados afetam ambos.
+## Plano
 
-Usar `react-big-calendar` (já compatível com o stack) ou implementação custom leve baseada em date-fns. Vou usar `react-big-calendar` para entrega rápida.
-
-### 4. Portal externo de clientes (`/portal-cliente`)
-
-**Fluxo de cadastro (auto-cadastro + aprovação manual):**
-- Rota pública `/portal-cliente/cadastro`: cliente preenche nome, email, telefone, CPF, organização, senha.
-- Cria registro em `auth.users` + linha em `external_users` com novo campo **`approval_status`** (`pending` | `approved` | `rejected`).
-- Enquanto `pending`, login é bloqueado com mensagem "Cadastro em análise".
-- Internos veem fila de aprovação em nova aba dentro de **Usuários Externos** (área admin existente). Botões Aprovar/Rejeitar.
-
-**Área logada do cliente (`/portal-cliente/*`):**
-- **Dashboard**: próximas reservas + atalhos.
-- **Nova reserva**: reusa lógica de "buscar disponibilidade" (find_available_rooms) em layout mais visual e guiado (passo a passo: data → horário → participantes → sala disponível → confirmar).
-- **Minhas reservas**: tabs `Futuras` / `Passadas` / `Canceladas`, com cards mostrando sala, data, status.
-- **Ações por reserva**: 
-  - **Cancelar** (políticas RLS já permitem).
-  - **Remarcar**: cria nova reserva com vínculo à original; status pendente até aprovação interna.
-- Visual independente do sistema interno: layout limpo, sem sidebar admin, header próprio com nome do cliente e logout.
-
-**Segurança:**
-- RLS: clientes externos só veem/alteram suas próprias reservas (já parcialmente implementado via `requester_email = auth.email()`).
-- Adicionar política de bloqueio em login client-side: se `approval_status != 'approved'`, faz signOut com mensagem.
-- Reservas criadas pelo portal entram com `status = 'pending'` e `is_external = true`.
-
----
+1. **Reduzir o tamanho da instância** (principal economia). Proponho descer para um tamanho menor via aprovação no chat e monitorar. Se aparecer qualquer sinal de saturação, subimos de novo — o redimensionamento leva alguns minutos e não perde dados.
+2. **Reduzir o egress**, sem tirar funcionalidade:
+   - Limitar o prefetch global de imagens de Achados e Perdidos: hoje ele baixa URLs de até 100 itens a cada sessão. Passar a prefetchar apenas o que está visível e manter o cache de URLs assinadas por mais tempo.
+   - Aumentar o TTL do cache de URLs assinadas (1h → 6h) para cortar chamadas repetidas de assinatura.
+   - Arquivar/paginar `activity_logs` e o histórico de checklists (tabelas grandes lidas inteiras em algumas telas).
+3. **Mensagens de IA**: pedidos pontuais custam bem menos que "revise tudo o projeto". Isso já é a menor parte do problema hoje.
 
 ## Detalhes técnicos
 
-**Migrações:**
-```sql
-ALTER TABLE reservation_rooms 
-  ADD COLUMN observations text,
-  ADD COLUMN equipment jsonb DEFAULT '[]'::jsonb;
-
-ALTER TABLE external_users 
-  ADD COLUMN approval_status text NOT NULL DEFAULT 'pending',
-  ADD COLUMN approved_by uuid,
-  ADD COLUMN approved_at timestamptz,
-  ADD COLUMN rejection_reason text;
-
--- RLS: external_users self-insert continua, mas approval_status só admin altera
-```
-
-**Novas rotas:**
-- `/portal-cliente` (landing/login)
-- `/portal-cliente/cadastro`
-- `/portal-cliente/dashboard` (protegida)
-- `/portal-cliente/nova-reserva`
-- `/portal-cliente/minhas-reservas`
-- `/portal-cliente/reserva/:id`
-
-**Arquivos novos:**
-- `src/pages/portal-cliente/*` (Login, Cadastro, Dashboard, NovaReserva, MinhasReservas, ReservaDetalhe, Layout)
-- `src/components/portal-cliente/PortalLayout.tsx`, `ExternalProtectedRoute.tsx`
-- `src/hooks/useExternalReservations.ts`
-- `src/components/reservations/ReservationsCalendar.tsx`
-- `src/components/reservations/FiltersBar.tsx` (refator dos filtros existentes — **isolado, só usado em RoomReservationsList**)
-- `src/components/rooms/RoomEquipmentInput.tsx`
-
-**Arquivos editados (apenas dentro do módulo de reservas/salas):**
-- `src/pages/reservations/RoomReservationsList.tsx`
-- `src/pages/reservations/ReservationRoomsManagement.tsx`
-- `src/pages/Users.tsx` (aba de aprovação de externos — única edição fora de reservas, necessária para o fluxo de aprovação)
-- `src/App.tsx` (registrar rotas do portal)
-
-**Dependências:** `react-big-calendar` + tipos.
-
----
-
-## Entrega
-
-Pela amplitude, sugiro implementar em 2 PRs lógicos no mesmo turno:
-1. **Bloco A**: filtros + observações/equipamentos da sala + calendário (mexe só em reservas).
-2. **Bloco B**: portal externo completo + aprovação.
-
-Vou entregar tudo em sequência, validando o build entre eles. Confirma para eu começar?
+- Redimensionamento feito pela ferramenta de compute do Lovable Cloud (com card de aprovação) ou em Backend > Configurações avançadas > Atualizar instância.
+- Ajustes de egress ficam em `src/components/GlobalPrefetch.tsx`, `src/lib/storageUrl.ts`, `src/hooks/useRooms.ts` e `src/hooks/useActivityLogs.ts`.
+- Nenhuma alteração de schema, RLS ou fluxo de uso.
