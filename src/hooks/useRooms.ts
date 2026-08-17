@@ -171,7 +171,7 @@ export function useRoomChecklists(roomId?: string) {
       let query = supabase
         .from('room_checklists')
         .select(`
-          id, room_id, shift, filled_by, filled_at, observations, created_at,
+          id, room_id, shift, filled_by, filled_at, observations,
           room:rooms(id, name, campus, building, floor)
         `)
         .order('filled_at', { ascending: false })
