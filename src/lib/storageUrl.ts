@@ -8,8 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
  *  - data: URLs (legacy base64) -> returned unchanged
  */
 
-const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour
-const REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh 5 min before expiry
+const SIGNED_URL_TTL_SECONDS = 6 * 60 * 60; // 6 hours (fewer signing round-trips)
+const REFRESH_MARGIN_MS = 10 * 60 * 1000; // refresh 10 min before expiry
 
 type CacheEntry = { url: string; expiresAt: number };
 const signedUrlCache = new Map<string, CacheEntry>();

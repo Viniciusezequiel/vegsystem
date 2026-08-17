@@ -46,12 +46,13 @@ export function useActivityLogs(filters?: {
 }) {
   return useQuery({
     queryKey: ['activity-logs', filters],
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       let query = supabase
         .from('activity_logs')
-        .select('*')
+        .select('id, user_id, user_name, module, action, entity_id, entity_description, details, created_at')
         .order('created_at', { ascending: false })
-        .limit(500);
+        .limit(200);
 
       if (filters?.module) {
         query = query.eq('module', filters.module);
