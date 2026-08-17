@@ -82,10 +82,8 @@ export function GlobalPrefetch() {
       }
     }
 
-    // If we have cached items but no (valid) images cache, prefetch images for cached items
-    if (cachedItems && !hasCachedImages) {
-      prefetchImagesForItems(queryClient, cachedItems.items);
-    }
+    // Images are loaded on demand (lazy) to keep background traffic low;
+    // the localStorage cache above already gives instant rendering for known items.
 
     // STEP 2: Fetch fresh data (ONLY when authenticated), and cache it
     const fetchFreshData = async () => {
@@ -141,8 +139,8 @@ export function GlobalPrefetch() {
             saveLostItemsToCache(itemsData);
           }
 
-          // STEP 3: Prefetch images for all items in background
-          prefetchImagesForItems(queryClient, items);
+          // STEP 3: Prefetch images only for the first visible page (rest is lazy)
+          prefetchImagesForItems(queryClient, items.slice(0, 24));
         }
 
         // Process counts

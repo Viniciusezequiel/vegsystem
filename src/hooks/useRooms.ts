@@ -171,10 +171,11 @@ export function useRoomChecklists(roomId?: string) {
       let query = supabase
         .from('room_checklists')
         .select(`
-          *,
-          room:rooms(*)
+          id, room_id, shift, filled_by, filled_at, observations,
+          room:rooms(id, name, campus, building, floor)
         `)
-        .order('filled_at', { ascending: false });
+        .order('filled_at', { ascending: false })
+        .limit(3000);
 
       if (roomId) {
         query = query.eq('room_id', roomId);
