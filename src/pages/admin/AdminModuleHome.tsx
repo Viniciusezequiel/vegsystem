@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, ShieldCheck, ArrowRight, GraduationCap, Tag, BarChart3 } from 'lucide-react';
+import { Car, ShieldCheck, ArrowRight, GraduationCap, Tag, BarChart3, DatabaseBackup } from 'lucide-react';
 
 const modules = [
   {
@@ -27,6 +27,12 @@ const modules = [
     description: 'Indicadores e exportações consolidadas dos módulos do sistema.',
     href: '/reports',
     icon: BarChart3,
+  },
+  {
+    name: 'Migração do backend',
+    description: 'Copia banco, arquivos e usuários para o Supabase externo. Uso temporário.',
+    href: '/admin-module/migracao',
+    icon: DatabaseBackup,
   },
 ];
 
