@@ -1,4 +1,5 @@
-import json, subprocess, sys
+import json, re, subprocess, sys
+from collections import defaultdict
 
 def q(sql):
     r = subprocess.run(["psql","-tAc", "select coalesce(json_agg(t),'[]') from ("+sql+") t"],
@@ -107,12 +108,88 @@ order by tablename, indexname"""):
 
 # FUNCTIONS
 w("\n-- ============ FUNCOES ============\n")
-for f in q("""
-select pg_get_functiondef(p.oid) as def
+
+functions = q("""
+select p.oid::text as oid, p.proname as name,
+  pg_get_function_identity_arguments(p.oid) as args,
+  pg_get_functiondef(p.oid) as def
 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
 where n.nspname='public' and p.prokind in ('f','p')
-order by p.proname"""):
-    w(f['def'].rstrip().rstrip(';') + ";\n")
+order by p.proname, pg_get_function_identity_arguments(p.oid)""")
+
+# pg_depend does not record routine calls written inside quoted SQL/PLpgSQL
+# bodies. Combine catalog dependencies with calls found in the stored source,
+# then topologically sort the complete graph (including transitive edges).
+by_oid = {f['oid']: f for f in functions}
+oids_by_name = defaultdict(list)
+for f in functions:
+    oids_by_name[f['name']].append(f['oid'])
+
+dependencies = {oid: set() for oid in by_oid}
+for dep in q("""
+select caller.oid::text as caller_oid, callee.oid::text as callee_oid
+from pg_depend d
+join pg_proc caller on caller.oid=d.objid
+join pg_namespace caller_ns on caller_ns.oid=caller.pronamespace
+join pg_proc callee on callee.oid=d.refobjid
+join pg_namespace callee_ns on callee_ns.oid=callee.pronamespace
+where d.classid='pg_proc'::regclass
+  and d.refclassid='pg_proc'::regclass
+  and caller_ns.nspname='public' and callee_ns.nspname='public'
+"""):
+    if dep['caller_oid'] in dependencies and dep['callee_oid'] in by_oid:
+        dependencies[dep['caller_oid']].add(dep['callee_oid'])
+
+names = sorted(oids_by_name, key=len, reverse=True)
+call_re = re.compile(r'(?<![\w.])(' + '|'.join(re.escape(name) for name in names) + r')\s*\(', re.IGNORECASE)
+
+def qualify_and_detect_calls(function):
+    definition = function['def']
+    declaration_end = definition.find('\n')
+    head = definition if declaration_end < 0 else definition[:declaration_end]
+    body = '' if declaration_end < 0 else definition[declaration_end:]
+    found = set()
+
+    def qualify(match):
+        name = match.group(1)
+        canonical = next((n for n in oids_by_name if n.lower() == name.lower()), name)
+        found.update(oids_by_name.get(canonical, []))
+        return 'public.' + canonical + '('
+
+    # Keep CREATE FUNCTION public.name(...) intact; qualify only body calls.
+    qualified_body = call_re.sub(qualify, body)
+    found.discard(function['oid'])
+    return head + qualified_body, found
+
+for f in functions:
+    f['def'], found = qualify_and_detect_calls(f)
+    dependencies[f['oid']].update(found)
+
+ordered = []
+temporary = set()
+permanent = set()
+
+def visit(oid, path):
+    if oid in permanent:
+        return
+    if oid in temporary:
+        cycle = ' -> '.join(by_oid[item]['name'] for item in path + [oid])
+        raise RuntimeError('Ciclo de dependencias entre funcoes: ' + cycle)
+    temporary.add(oid)
+    for dependency_oid in sorted(
+        dependencies[oid],
+        key=lambda item: (by_oid[item]['name'], by_oid[item]['args'])
+    ):
+        visit(dependency_oid, path + [oid])
+    temporary.remove(oid)
+    permanent.add(oid)
+    ordered.append(oid)
+
+for oid in sorted(by_oid, key=lambda item: (by_oid[item]['name'], by_oid[item]['args'])):
+    visit(oid, [])
+
+for oid in ordered:
+    w(by_oid[oid]['def'].rstrip().rstrip(';') + ";\n")
 
 # TRIGGERS
 w("\n-- ============ TRIGGERS ============\n")

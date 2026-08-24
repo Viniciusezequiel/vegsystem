@@ -1067,6 +1067,48 @@ CREATE INDEX IF NOT EXISTS idx_uber_requests_created_at ON public.uber_requests 
 
 -- ============ FUNCOES ============
 
+CREATE OR REPLACE FUNCTION public.check_reservation_conflict(p_room_id uuid, p_start_datetime timestamp with time zone, p_end_datetime timestamp with time zone, p_exclude_reservation_id uuid DEFAULT NULL::uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+    linked_rooms UUID[];
+    parent_rooms UUID[];
+BEGIN
+    -- Get rooms linked to this room
+    SELECT ARRAY_AGG(linked_room_id) INTO linked_rooms
+    FROM public.room_combinations
+    WHERE parent_room_id = p_room_id;
+    
+    -- Get parent rooms that link to this room
+    SELECT ARRAY_AGG(parent_room_id) INTO parent_rooms
+    FROM public.room_combinations
+    WHERE linked_room_id = p_room_id;
+    
+    linked_rooms := COALESCE(linked_rooms, ARRAY[]::UUID[]);
+    parent_rooms := COALESCE(parent_rooms, ARRAY[]::UUID[]);
+
+    RETURN EXISTS (
+        SELECT 1
+        FROM public.reservations
+        WHERE status NOT IN ('cancelled')
+          AND (p_exclude_reservation_id IS NULL OR id != p_exclude_reservation_id)
+          AND (
+              (p_start_datetime >= start_datetime AND p_start_datetime < end_datetime)
+              OR (p_end_datetime > start_datetime AND p_end_datetime <= end_datetime)
+              OR (p_start_datetime <= start_datetime AND p_end_datetime >= end_datetime)
+          )
+          AND (
+              room_id = p_room_id
+              OR room_id = ANY(linked_rooms)
+              OR room_id = ANY(parent_rooms)
+          )
+    );
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.check_reservation_conflict(p_room_id uuid, p_start_datetime timestamp with time zone, p_end_datetime timestamp with time zone, p_exclude_reservation_id uuid DEFAULT NULL::uuid, p_is_external boolean DEFAULT false)
  RETURNS boolean
  LANGUAGE plpgsql
@@ -1110,48 +1152,6 @@ BEGIN
               (check_start >= start_datetime AND check_start < end_datetime)
               OR (check_end > start_datetime AND check_end <= end_datetime)
               OR (check_start <= start_datetime AND check_end >= end_datetime)
-          )
-          AND (
-              room_id = p_room_id
-              OR room_id = ANY(linked_rooms)
-              OR room_id = ANY(parent_rooms)
-          )
-    );
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.check_reservation_conflict(p_room_id uuid, p_start_datetime timestamp with time zone, p_end_datetime timestamp with time zone, p_exclude_reservation_id uuid DEFAULT NULL::uuid)
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-    linked_rooms UUID[];
-    parent_rooms UUID[];
-BEGIN
-    -- Get rooms linked to this room
-    SELECT ARRAY_AGG(linked_room_id) INTO linked_rooms
-    FROM public.room_combinations
-    WHERE parent_room_id = p_room_id;
-    
-    -- Get parent rooms that link to this room
-    SELECT ARRAY_AGG(parent_room_id) INTO parent_rooms
-    FROM public.room_combinations
-    WHERE linked_room_id = p_room_id;
-    
-    linked_rooms := COALESCE(linked_rooms, ARRAY[]::UUID[]);
-    parent_rooms := COALESCE(parent_rooms, ARRAY[]::UUID[]);
-
-    RETURN EXISTS (
-        SELECT 1
-        FROM public.reservations
-        WHERE status NOT IN ('cancelled')
-          AND (p_exclude_reservation_id IS NULL OR id != p_exclude_reservation_id)
-          AND (
-              (p_start_datetime >= start_datetime AND p_start_datetime < end_datetime)
-              OR (p_end_datetime > start_datetime AND p_end_datetime <= end_datetime)
-              OR (p_start_datetime <= start_datetime AND p_end_datetime >= end_datetime)
           )
           AND (
               room_id = p_room_id
@@ -1264,6 +1264,79 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.get_linked_rooms(p_room_id uuid)
+ RETURNS uuid[]
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+    result UUID[];
+BEGIN
+    -- Get rooms linked to this room (as parent)
+    SELECT ARRAY_AGG(linked_room_id) INTO result
+    FROM public.room_combinations
+    WHERE parent_room_id = p_room_id;
+    
+    RETURN COALESCE(result, ARRAY[]::UUID[]);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.find_available_rooms(p_start_datetime timestamp with time zone, p_end_datetime timestamp with time zone, p_attendees_count integer DEFAULT 1, p_campus campus_enum DEFAULT NULL::campus_enum)
+ RETURNS TABLE(id uuid, name text, code text, capacity integer, description text, location text, campus campus_enum)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        rr.id,
+        rr.name,
+        rr.code,
+        rr.capacity,
+        rr.description,
+        rr.location,
+        rr.campus
+    FROM public.reservation_rooms rr
+    WHERE rr.is_active = true
+      AND rr.capacity >= p_attendees_count
+      AND (p_campus IS NULL OR rr.campus = p_campus)
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.reservations r
+          WHERE r.status NOT IN ('cancelled')
+            AND (
+                (p_start_datetime >= r.start_datetime AND p_start_datetime < r.end_datetime)
+                OR (p_end_datetime > r.start_datetime AND p_end_datetime <= r.end_datetime)
+                OR (p_start_datetime <= r.start_datetime AND p_end_datetime >= r.end_datetime)
+            )
+            AND (
+                -- Direct reservation on this room
+                r.room_id = rr.id
+                -- Reservation on a linked room (this room is parent)
+                OR rr.id = ANY(public.get_linked_rooms(r.room_id))
+                -- Reservation on a parent room (this room is linked)
+                OR r.room_id = ANY(
+                    SELECT rc.parent_room_id FROM public.room_combinations rc WHERE rc.linked_room_id = rr.id
+                )
+                -- NEW: This room is a parent and one of its linked rooms has a reservation
+                OR EXISTS (
+                    SELECT 1 FROM public.room_combinations rc 
+                    WHERE rc.parent_room_id = rr.id AND rc.linked_room_id = r.room_id
+                )
+                -- NEW: This room is a parent and one of its linked rooms is blocked by another parent
+                OR EXISTS (
+                    SELECT 1 FROM public.room_combinations rc 
+                    WHERE rc.parent_room_id = rr.id 
+                    AND rc.linked_room_id = ANY(public.get_linked_rooms(r.room_id))
+                )
+            )
+      )
+    ORDER BY rr.code;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.find_available_rooms(p_start_datetime timestamp with time zone, p_end_datetime timestamp with time zone, p_attendees_count integer DEFAULT 1, p_campus campus_enum DEFAULT NULL::campus_enum, p_is_external boolean DEFAULT false)
  RETURNS TABLE(id uuid, name text, code text, capacity integer, description text, location text, campus campus_enum)
  LANGUAGE plpgsql
@@ -1309,7 +1382,7 @@ BEGIN
                 -- Direct reservation on this room
                 r.room_id = rr.id
                 -- Reservation on a linked room (this room is parent)
-                OR rr.id = ANY(get_linked_rooms(r.room_id))
+                OR rr.id = ANY(public.get_linked_rooms(r.room_id))
                 -- Reservation on a parent room (this room is linked)
                 OR r.room_id = ANY(
                     SELECT rc.parent_room_id FROM public.room_combinations rc WHERE rc.linked_room_id = rr.id
@@ -1323,84 +1396,11 @@ BEGIN
                 OR EXISTS (
                     SELECT 1 FROM public.room_combinations rc 
                     WHERE rc.parent_room_id = rr.id 
-                    AND rc.linked_room_id = ANY(get_linked_rooms(r.room_id))
+                    AND rc.linked_room_id = ANY(public.get_linked_rooms(r.room_id))
                 )
             )
       )
     ORDER BY rr.code;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.find_available_rooms(p_start_datetime timestamp with time zone, p_end_datetime timestamp with time zone, p_attendees_count integer DEFAULT 1, p_campus campus_enum DEFAULT NULL::campus_enum)
- RETURNS TABLE(id uuid, name text, code text, capacity integer, description text, location text, campus campus_enum)
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        rr.id,
-        rr.name,
-        rr.code,
-        rr.capacity,
-        rr.description,
-        rr.location,
-        rr.campus
-    FROM public.reservation_rooms rr
-    WHERE rr.is_active = true
-      AND rr.capacity >= p_attendees_count
-      AND (p_campus IS NULL OR rr.campus = p_campus)
-      AND NOT EXISTS (
-          SELECT 1
-          FROM public.reservations r
-          WHERE r.status NOT IN ('cancelled')
-            AND (
-                (p_start_datetime >= r.start_datetime AND p_start_datetime < r.end_datetime)
-                OR (p_end_datetime > r.start_datetime AND p_end_datetime <= r.end_datetime)
-                OR (p_start_datetime <= r.start_datetime AND p_end_datetime >= r.end_datetime)
-            )
-            AND (
-                -- Direct reservation on this room
-                r.room_id = rr.id
-                -- Reservation on a linked room (this room is parent)
-                OR rr.id = ANY(get_linked_rooms(r.room_id))
-                -- Reservation on a parent room (this room is linked)
-                OR r.room_id = ANY(
-                    SELECT rc.parent_room_id FROM public.room_combinations rc WHERE rc.linked_room_id = rr.id
-                )
-                -- NEW: This room is a parent and one of its linked rooms has a reservation
-                OR EXISTS (
-                    SELECT 1 FROM public.room_combinations rc 
-                    WHERE rc.parent_room_id = rr.id AND rc.linked_room_id = r.room_id
-                )
-                -- NEW: This room is a parent and one of its linked rooms is blocked by another parent
-                OR EXISTS (
-                    SELECT 1 FROM public.room_combinations rc 
-                    WHERE rc.parent_room_id = rr.id 
-                    AND rc.linked_room_id = ANY(get_linked_rooms(r.room_id))
-                )
-            )
-      )
-    ORDER BY rr.code;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_linked_rooms(p_room_id uuid)
- RETURNS uuid[]
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-    result UUID[];
-BEGIN
-    -- Get rooms linked to this room (as parent)
-    SELECT ARRAY_AGG(linked_room_id) INTO result
-    FROM public.room_combinations
-    WHERE parent_room_id = p_room_id;
-    
-    RETURN COALESCE(result, ARRAY[]::UUID[]);
 END;
 $function$;
 
@@ -1428,6 +1428,20 @@ AS $function$
     AND start_datetime <= p_end;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.is_admin(_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = _user_id
+      AND role = 'admin'
+  )
+$function$;
+
 CREATE OR REPLACE FUNCTION public.has_permission(_user_id uuid, _module text, _action text)
  RETURNS boolean
  LANGUAGE sql
@@ -1444,7 +1458,7 @@ AS $function$
      LIMIT 1),
     -- Default: admin has all permissions, others depend on action type
     CASE 
-      WHEN is_admin(_user_id) THEN true
+      WHEN public.is_admin(_user_id) THEN true
       ELSE false
     END
   )
@@ -1461,20 +1475,6 @@ AS $function$
     FROM public.user_roles
     WHERE user_id = _user_id
       AND role = _role
-  )
-$function$;
-
-CREATE OR REPLACE FUNCTION public.is_admin(_user_id uuid)
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_roles
-    WHERE user_id = _user_id
-      AND role = 'admin'
   )
 $function$;
 
