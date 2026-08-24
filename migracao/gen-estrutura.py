@@ -76,7 +76,7 @@ join pg_namespace n on n.oid=rel.relnamespace
 where n.nspname='public' order by rel.relname, con.contype, con.conname""")
 def emit_con(c):
     w(f"DO $$ BEGIN ALTER TABLE public.{c['tbl']} ADD CONSTRAINT {c['name']} {c['def']}; "
-      f"EXCEPTION WHEN duplicate_table THEN NULL WHEN duplicate_object THEN NULL WHEN invalid_table_definition THEN NULL; END $$;")
+      f"EXCEPTION WHEN duplicate_table OR duplicate_object OR invalid_table_definition THEN NULL; END $$;")
 for c in cons:
     if c['typ'] in ('p','u','c'):
         emit_con(c)
