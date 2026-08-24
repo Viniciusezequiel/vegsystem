@@ -92,6 +92,7 @@ import AdminModuleHome from "./pages/admin/AdminModuleHome";
 import UberDashboard from "./pages/admin/UberDashboard";
 import UberNewRequest from "./pages/admin/UberNewRequest";
 import PublicUberRequest from "./pages/admin/PublicUberRequest";
+import MigracaoBackend from "./pages/admin/MigracaoBackend";
 
 // Processo Seletivo
 import PsHome from "./pages/processo-seletivo/PsHome";
