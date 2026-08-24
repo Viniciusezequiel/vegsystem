@@ -431,7 +431,7 @@ const App = () => (
               <Route path="/admin-module" element={<ProtectedRoute requireAdmin><AdminModuleHome /></ProtectedRoute>} />
               <Route path="/admin-module/uber" element={<ProtectedRoute requireAdmin><UberDashboard /></ProtectedRoute>} />
               <Route path="/admin-module/uber/nova" element={<ProtectedRoute requireAdmin><UberNewRequest /></ProtectedRoute>} />
-              <Route path="/admin-module/uber/controle" element={<Navigate to="/admin-module/uber?tab=solicitacoes" replace />} />
+              <Route path="/admin-module/migracao" element={<ProtectedRoute requireAdmin><MigracaoBackend /></ProtectedRoute>} />
 
               {/* Processo Seletivo */}
               <Route path="/admin-module/processo-seletivo" element={<ProtectedRoute requireAdmin><PsHome /></ProtectedRoute>} />
