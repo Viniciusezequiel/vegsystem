@@ -84,3 +84,37 @@ Carregue com `source migracao/.env.migracao` antes de cada script.
 ## Rollback
 
 Enquanto o Cloud não for desligado, basta reconectar o projeto antigo em Connectors. Depois do desligamento, o único recurso é o conteúdo de `migracao/dump/` — guarde essa pasta em local seguro.
+
+---
+
+## Caminho ATIVO: migração por dentro do Cloud
+
+As credenciais da origem (`SRC_DB_URL`, `SRC_SERVICE_KEY`) **não são acessíveis** no Lovable Cloud.
+Por isso os scripts `01-export.sh`, `02-import.sh`, `03-storage-copy.mjs` e `06-verify.mjs` ficam como
+**alternativos** — só servem se você conseguir a credencial de banco da origem com o suporte.
+
+O caminho ativo usa três funções temporárias que rodam dentro do backend atual e escrevem no destino
+com a service key **do destino** (segredo `DST_SERVICE_KEY`).
+
+### Passo a passo
+
+1. No projeto destino, SQL Editor: aplicar `migracao/dump/01_estrutura.sql`
+   (replay cronológico das 128 migrações — recria tabelas, enums, funções, triggers, RLS e GRANTs).
+2. No destino, criar os buckets **privados** `lost-items` e `task-attachments`.
+3. No Lovable, cadastrar o segredo `DST_SERVICE_KEY` (service role do destino).
+4. No sistema, acessar **Administrativo → Migração do backend** (`/admin-module/migracao`) como admin e rodar, na ordem:
+   1. Usuários — recria as contas com o mesmo UUID (senhas **não** migram)
+   2. Dados das tabelas — 59 tabelas, ordem de dependência, páginas de 500 (100 nas tabelas pesadas)
+   3. Arquivos — buckets copiados em levas de 50
+   4. Conferência — contagem de linhas origem x destino
+5. Publicar as edge functions no destino (`04-deploy-functions.sh`) e cadastrar `RESEND_API_KEY` e `RECURRING_TASKS_CRON_SECRET`.
+6. Rodar `05-cron.sql` no destino.
+7. Seguir `07-checklist-virada.md` a partir do item de `GRANT EXECUTE ... TO anon`.
+8. Depois de tudo verde: conectar o projeto novo em Connectors, testar, remover as funções
+   `export-migracao`, `export-storage-migracao`, `export-users-migracao`, a página `/admin-module/migracao`
+   e o segredo `DST_SERVICE_KEY`. Só então desligar o Cloud.
+
+### Senhas
+
+`auth.users` não expõe hashes por API. Todos os usuários precisarão usar
+"esqueci minha senha" no primeiro acesso ao novo backend. Avise a equipe antes da virada.
