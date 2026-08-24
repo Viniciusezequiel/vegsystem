@@ -11,7 +11,17 @@ out = []
 w = out.append
 
 w("-- Estrutura completa do banco (estado real atual)\n-- Gerada a partir dos catalogos do Postgres\n")
-w("SET statement_timeout = 0;\nSET client_min_messages = warning;\nCREATE EXTENSION IF NOT EXISTS pgcrypto;\nCREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n")
+w("""SET statement_timeout = 0;
+SET client_min_messages = warning;
+
+-- Extensoes devem existir antes de tabelas, defaults, funcoes e indices dependentes.
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\" WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+""")
 
 # ENUMS
 w("\n-- ============ ENUMS ============\n")
