@@ -38,6 +38,7 @@ Carregue com `source migracao/.env.migracao` antes de cada script.
 
 | # | Comando | O que faz |
 |---|---------|-----------|
+| 0 | `bash migracao/00-preflight.sh` | Confere ferramentas, variáveis e conexão com os dois bancos |
 | 1 | `bash migracao/01-export.sh` | Gera dumps de `public`, `auth` e `storage` em `migracao/dump/` |
 | 2 | `bash migracao/02-import.sh` | Restaura estrutura + dados no projeto destino |
 | 3 | `node migracao/03-storage-copy.mjs` | Copia os arquivos dos buckets `lost-items` e `task-attachments` |
