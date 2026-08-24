@@ -1,2 +1,4 @@
 .env.migracao
-dump/
+dump/*.json
+dump/*.tar
+dump/dados*
