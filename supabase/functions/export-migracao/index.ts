@@ -59,15 +59,21 @@ Deno.serve(async (req) => {
       let erro: string | null = null;
 
       try {
+        let orderById = true;
         // eslint-disable-next-line no-constant-condition
         while (true) {
-          const { data, error } = await src
-            .from(table)
-            .select("*")
-            .order("id", { ascending: true })
-            .range(from, from + limit - 1);
+          let query = src.from(table).select("*");
+          if (orderById) query = query.order("id", { ascending: true });
+          const { data, error } = await query.range(from, from + limit - 1);
 
-          if (error) throw new Error(error.message);
+          if (error) {
+            // Tabelas sem coluna "id": repagina sem ordenação explícita.
+            if (orderById && /column .*id.* does not exist|42703/i.test(error.message)) {
+              orderById = false;
+              continue;
+            }
+            throw new Error(error.message);
+          }
           if (!data || data.length === 0) break;
 
           await upsertToDestination(table, data);
