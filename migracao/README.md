@@ -48,6 +48,8 @@ Carregue com `source migracao/.env.migracao` antes de cada script.
 | 7 | — | Trocar a conexão do app (veja abaixo) e rodar o checklist de testes |
 | 8 | — | Só depois de tudo OK: Cloud → Advanced → Disconnect |
 
+> Roteiro marcável, passo a passo, em [`07-checklist-virada.md`](./07-checklist-virada.md).
+
 ## Passo 7 – apontar o app para o seu Supabase
 
 1. No Lovable, abra **Connectors → Supabase** e conecte a sua conta / selecione o projeto destino.
