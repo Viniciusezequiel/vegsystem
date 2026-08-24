@@ -22,12 +22,15 @@ export SRC_DB_URL="postgresql://postgres:SENHA@db.<ref-origem>.supabase.co:5432/
 export SRC_URL="https://<ref-origem>.supabase.co"
 export SRC_SERVICE_KEY="<service_role da origem>"
 
-# DESTINO (sua conta)
-export DST_DB_URL="postgresql://postgres:SENHA@db.<ref-destino>.supabase.co:5432/postgres"
-export DST_URL="https://<ref-destino>.supabase.co"
-export DST_SERVICE_KEY="<service_role do destino>"
-export DST_REF="<ref-destino>"
+# DESTINO (sua conta) – projeto já criado
+export DST_DB_URL="postgresql://postgres:SENHA@db.sshyjnyvihdheofjzsca.supabase.co:5432/postgres"
+export DST_URL="https://sshyjnyvihdheofjzsca.supabase.co"
+export DST_SERVICE_KEY="<service_role do destino>"   # Settings → API → service_role
+export DST_REF="sshyjnyvihdheofjzsca"
 ```
+
+> A chave **publicável** do destino (`sb_publishable_...`) não entra aqui: ela é gravada
+> automaticamente no `.env` do frontend quando você conecta o projeto em Connectors.
 
 Carregue com `source migracao/.env.migracao` antes de cada script.
 

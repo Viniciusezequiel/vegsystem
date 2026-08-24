@@ -2,7 +2,7 @@
 # Publica as edge functions no projeto de destino
 set -euo pipefail
 
-: "${DST_REF:?defina DST_REF (referência do projeto destino)}"
+DST_REF="${DST_REF:-sshyjnyvihdheofjzsca}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

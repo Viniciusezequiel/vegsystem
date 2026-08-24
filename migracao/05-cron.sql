@@ -1,5 +1,5 @@
--- Recria os agendamentos automáticos no projeto de destino.
--- Substitua <DST_REF>, <SERVICE_ROLE_KEY> e <CRON_SECRET> antes de rodar.
+-- Recria os agendamentos automáticos no projeto de destino (sshyjnyvihdheofjzsca).
+-- Substitua <SERVICE_ROLE_KEY> e <CRON_SECRET> antes de rodar.
 
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
@@ -23,7 +23,7 @@ select cron.schedule(
   '30 3 * * *',
   $$
   select net.http_post(
-    url     := 'https://<DST_REF>.supabase.co/functions/v1/process-recurring-tasks',
+    url     := 'https://sshyjnyvihdheofjzsca.supabase.co/functions/v1/process-recurring-tasks',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer <SERVICE_ROLE_KEY>',
