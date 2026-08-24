@@ -5650,3 +5650,42 @@ $$;
 
 REVOKE ALL ON FUNCTION public.create_public_uber_request(text, text, text, date, time, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.create_public_uber_request(text, text, text, date, time, text, text) TO anon, authenticated;
+-- ------------------------------------------------------------
+-- BLOCO FINAL: garantia de GRANTs (Data API / PostgREST)
+-- Executa após todas as migrações para assegurar que nenhuma
+-- tabela do schema public fique inacessível ao app.
+-- ------------------------------------------------------------
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', r.tablename);
+    EXECUTE format('GRANT ALL ON public.%I TO service_role', r.tablename);
+  END LOOP;
+END $$;
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+-- Funções públicas (chamadas por usuários não autenticados nas rotas externas)
+GRANT EXECUTE ON FUNCTION public.create_public_classroom_call(text, text, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_public_uber_request(text, text, text, date, time without time zone, text, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_classroom_call_status(uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_reservations(timestamptz, timestamptz) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ps_public_event_roster(uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ps_public_sign_attendance(uuid, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ps_public_submit_evaluation(uuid, uuid, text, text, text, jsonb) TO anon, authenticated;
+
+-- Leitura anônima estritamente onde as políticas já permitem
+GRANT SELECT ON public.reservation_rooms TO anon;
+GRANT SELECT ON public.classroom_call_rooms TO anon;
+GRANT SELECT ON public.classroom_call_room_issues TO anon;
+GRANT SELECT ON public.ps_fiscal_bank_config TO anon;
+GRANT INSERT ON public.ps_fiscal_bank_applications TO anon;
+
+-- ------------------------------------------------------------
+-- Fim da estrutura.
+-- Próximos passos (não execute agora): criar os buckets privados
+-- 'lost-items' e 'task-attachments' no destino, depois rodar a
+-- cópia de usuários, dados e arquivos pela tela Administrativo →
+-- Migração do backend.
+-- ------------------------------------------------------------
