@@ -395,6 +395,13 @@ Deno.serve(async (req) => {
       return json({ step, results });
     }
 
+    if (step === "peek") {
+      const t: string = body.table;
+      const id: string = body.id;
+      const rows = await dstSelect(t, "*", `&id=eq.${id}`);
+      return json({ step, destino: rows[0] ?? null });
+    }
+
     return json({ error: `step desconhecido: ${step}` }, 400);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
