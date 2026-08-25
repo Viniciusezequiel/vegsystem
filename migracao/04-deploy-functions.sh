@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Publica as edge functions no projeto de destino
+# Publica SOMENTE as Edge Functions definitivas no projeto de destino.
+# Uso:  supabase login   &&   bash migracao/04-deploy-functions.sh
 set -euo pipefail
 
 DST_REF="${DST_REF:-sshyjnyvihdheofjzsca}"
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# Funções definitivas (as export-*-migracao são temporárias e NÃO entram)
 FUNCTIONS=(
   create-classroom-call
   create-user
@@ -22,22 +23,44 @@ FUNCTIONS=(
   update-user-email
 )
 
-echo "### Login e vínculo com o projeto destino"
-supabase link --project-ref "$DST_REF"
+echo "== 1/4 Validando Supabase CLI"
+command -v supabase >/dev/null 2>&1 || { echo "ERRO: Supabase CLI não encontrado. Instale: https://supabase.com/docs/guides/cli"; exit 1; }
+supabase --version
 
-echo
-echo "### Segredos (rode manualmente com os valores reais antes do deploy)"
-cat <<'TXT'
-supabase secrets set RESEND_API_KEY=...
-supabase secrets set RECURRING_TASKS_CRON_SECRET=...
-# SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY são automáticos.
-TXT
-echo
+echo "== 2/4 Validando autenticação"
+if ! supabase projects list >/dev/null 2>&1; then
+  echo "ERRO: não autenticado. Rode 'supabase login' e tente novamente."; exit 1
+fi
+
+echo "== 3/4 Validando project ref '$DST_REF'"
+if ! supabase projects list | grep -q "$DST_REF"; then
+  echo "ERRO: o project ref '$DST_REF' não aparece na sua conta."; exit 1
+fi
 
 for fn in "${FUNCTIONS[@]}"; do
-  echo "==> deploy $fn"
-  supabase functions deploy "$fn" --project-ref "$DST_REF"
+  [ -f "supabase/functions/$fn/index.ts" ] || { echo "ERRO: supabase/functions/$fn/index.ts não existe"; exit 1; }
+done
+
+echo "== 4/4 Deploy (${#FUNCTIONS[@]} funções)"
+OK=(); FAIL=()
+for fn in "${FUNCTIONS[@]}"; do
+  echo "---- deploy $fn"
+  if supabase functions deploy "$fn" --project-ref "$DST_REF"; then
+    OK+=("$fn")
+  else
+    FAIL+=("$fn")
+    echo "ERRO no deploy de $fn — interrompendo."
+    break
+  fi
 done
 
 echo
-echo "Deploy concluído. Confira 'supabase/config.toml' para as funções com verify_jwt = false."
+echo "===== RESULTADO ====="
+for f in "${OK[@]:-}";   do [ -n "$f" ] && echo "OK       $f"; done
+for f in "${FAIL[@]:-}"; do [ -n "$f" ] && echo "FALHOU   $f"; done
+[ ${#FAIL[@]} -eq 0 ] || exit 1
+
+echo
+echo "Deploy concluído. verify_jwt=false vem de supabase/config.toml para:"
+echo "  setup-first-admin, create-classroom-call, update-user-email, get-classroom-call-config, notify-task-assignment"
+echo "Próximo passo: bash migracao/06-configure-secrets.sh"

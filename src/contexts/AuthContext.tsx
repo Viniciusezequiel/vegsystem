@@ -27,6 +27,9 @@ interface AuthContextType {
   isSupervisor: boolean;
 }
 
+// Derivado do projeto configurado em .env — evita chave fixa de um project ref específico
+const AUTH_STORAGE_KEY = `sb-${import.meta.env.VITE_SUPABASE_PROJECT_ID}-auth-token`;
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_BOOT_TIMEOUT_MS = 8000;
@@ -155,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleSignedOut = () => {
       // Force clear localStorage on signout
-      localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
+      localStorage.removeItem(AUTH_STORAGE_KEY);
       clearCachedUserData();
       resetUserState();
       setRoleChecked(true);
@@ -187,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Handle token refresh errors - clear corrupted tokens
       if (event === 'TOKEN_REFRESHED' && !nextSession) {
         console.warn('Token refresh failed, clearing corrupted session...');
-        localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
+        localStorage.removeItem(AUTH_STORAGE_KEY);
         clearCachedUserData();
         await supabase.auth.signOut();
         resetUserState();
@@ -231,7 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If there's an error getting session, clear potentially corrupted storage
         if (error) {
           console.warn('Error getting session, clearing corrupted tokens:', error.message);
-          localStorage.removeItem('sb-ugzrewnbpljswwboctfh-auth-token');
+          localStorage.removeItem(AUTH_STORAGE_KEY);
           clearCachedUserData();
           await supabase.auth.signOut();
           resetUserState();

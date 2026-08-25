@@ -50,7 +50,7 @@ export default function AdminAuth() {
 
     setForgotLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${window.location.origin}/admin-auth`,
+      redirectTo: `${window.location.origin}/change-password`,
     });
     setForgotLoading(false);
 
