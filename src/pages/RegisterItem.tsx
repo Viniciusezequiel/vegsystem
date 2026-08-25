@@ -129,11 +129,8 @@ export default function RegisterItem() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('lost-items')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
+      // Store the object path (bucket is private and the host may change).
+      return filePath;
     } catch (err) {
       console.error('Error uploading image:', err);
       return null;

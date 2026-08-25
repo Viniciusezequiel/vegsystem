@@ -26,12 +26,20 @@ export function parseStorageUrl(value: string): { bucket: string; path: string }
  * Resolves a stored image value into a renderable URL.
  * Returns null when the value is empty or the signed URL could not be created.
  */
-export async function resolveStorageUrl(value: string | null | undefined): Promise<string | null> {
+export async function resolveStorageUrl(
+  value: string | null | undefined,
+  defaultBucket = 'lost-items'
+): Promise<string | null> {
   if (!value) return null;
   if (value.startsWith('data:')) return value;
 
-  const parsed = parseStorageUrl(value);
-  if (!parsed) return value.startsWith('http') ? value : null;
+  // Accepts: full storage URL (any project host), or a bare object path.
+  const parsed = parseStorageUrl(value)
+    ?? (value.startsWith('http')
+      ? null
+      : { bucket: defaultBucket, path: value.replace(/^\/+/, '') });
+  if (!parsed) return value;
+
 
   const key = `${parsed.bucket}/${parsed.path}`;
   const cached = signedUrlCache.get(key);

@@ -156,11 +156,8 @@ export default function ItemDetail() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('lost-items')
-        .getPublicUrl(filePath);
-
-      updateItem.mutate({ id: item.id, image_url: publicUrl });
+      // Store the object path (bucket is private and the host may change).
+      updateItem.mutate({ id: item.id, image_url: filePath });
 
       toast({
         title: 'Foto atualizada',
