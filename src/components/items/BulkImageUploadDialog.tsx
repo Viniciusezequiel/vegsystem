@@ -89,15 +89,10 @@ export function BulkImageUploadDialog({ open, onOpenChange }: BulkImageUploadDia
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('lost-items')
-          .getPublicUrl(filePath);
-
-        // Update item with image URL
+        // Store the object path (private bucket; host may change)
         const { error: updateError } = await supabase
           .from('lost_items')
-          .update({ image_url: urlData.publicUrl })
+          .update({ image_url: filePath })
           .eq('id', item.id);
 
         if (updateError) throw updateError;
