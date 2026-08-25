@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      _grants_backup_virada: {
+        Row: {
+          grantee: string
+          id: number
+          privilege_type: string
+          table_name: string
+          taken_at: string
+        }
+        Insert: {
+          grantee: string
+          id?: number
+          privilege_type: string
+          table_name: string
+          taken_at?: string
+        }
+        Update: {
+          grantee?: string
+          id?: number
+          privilege_type?: string
+          table_name?: string
+          taken_at?: string
+        }
+        Relationships: []
+      }
       activity_logs: {
         Row: {
           action: string
