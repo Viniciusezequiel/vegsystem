@@ -30,7 +30,7 @@ APLICAR_EXCLUSOES="${APLICAR_EXCLUSOES:-NAO}"
 mkdir -p migracao/relatorios
 
 python3 - "$SRC_URL" "$SRC_SERVICE_KEY" "$DST_URL" "$DST_SERVICE_KEY" "$CORTE" "$APLICAR_EXCLUSOES" <<'PY'
-import csv, json, sys, time, urllib.error, urllib.request
+import csv, json, sys, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timezone
 
 SRC, SKEY, DST, DKEY, CORTE, APLICAR = sys.argv[1:7]
@@ -193,8 +193,7 @@ else:
         for i in range(0, len(ids), 100):
             lote = ids[i:i+100]
             lista = ",".join(f'"{x}"' for x in lote)
-            ainda, _ = req(f"{DST}/rest/v1/{t}?select=id&id=in.({lista})".replace(DST, SRC)
-                           .replace("rest/v1", "rest/v1"), SKEY)
+            ainda, _ = req(f"{SRC}/rest/v1/{t}?select=id&id=in.({lista})", SKEY)
             presentes = {r["id"] for r in ainda}
             confirmados += [x for x in lote if x not in presentes]
         for i in range(0, len(confirmados), 100):
@@ -236,7 +235,6 @@ def download(base, key, bucket, path):
                            key, raw=True)
     return payload, headers.get("content-type", "application/octet-stream")
 
-import urllib.parse
 storage_resumo = []
 for b in BUCKETS:
     try:
