@@ -37,12 +37,23 @@ test('autenticação, sessão e guards por role', async ({ browser, page }) => {
 
   const admin = await browser.newContext({ storageState: ADMIN_STATE });
   const adminPage = await admin.newPage();
-  await adminPage.goto('/admin-module/uber');
-  await expect(adminPage).not.toHaveURL(/admin-auth/);
-  if (await adminPage.getByText(/Acesso Negado/i).isVisible({ timeout: 5_000 }).catch(() => false)) {
-    await adminPage.reload();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await adminPage.goto('/admin-module/uber');
+    if (await adminPage.getByText(/Uber Corporativo/i).first().isVisible({ timeout: 10_000 }).catch(() => false)) break;
   }
+  await expect(adminPage).not.toHaveURL(/admin-auth/);
   await expect(adminPage.getByText(/Uber Corporativo/i).first()).toBeVisible({ timeout: 20_000 });
+
+  await adminPage.goto('/admin-module');
+  const adminContent = adminPage.locator('main');
+  await expect(adminContent.getByRole('heading', { name: 'Administração' })).toBeVisible();
+  await expect(adminContent.getByText('Ferramentas e configurações exclusivas para administradores.')).toBeVisible();
+  await expect(adminContent.getByRole('link', { name: /Usuários e perfis/i })).toHaveAttribute('href', '/settings?tab=usuarios');
+  await expect(adminContent.getByRole('link', { name: /Roles e permissões/i })).toHaveAttribute('href', '/settings?tab=permissoes');
+  for (const duplicateHref of ['/admin-module/uber', '/admin-module/processo-seletivo', '/labels', '/reports', '/admin-module/migracao']) {
+    await expect(adminContent.locator(`a[href="${duplicateHref}"]`)).toHaveCount(0);
+  }
+
   await adminPage.getByRole('link', { name: /Dashboard/i }).first().click();
   await expect(adminPage).toHaveURL(/\/$/);
 

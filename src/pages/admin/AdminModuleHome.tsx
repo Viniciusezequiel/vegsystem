@@ -1,38 +1,20 @@
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, ShieldCheck, ArrowRight, GraduationCap, Tag, BarChart3, DatabaseBackup } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Users, KeyRound } from 'lucide-react';
 
 const modules = [
   {
-    name: 'Uber Corporativo',
-    description: 'Solicitações, comprovantes, histórico e indicadores em uma única tela.',
-    href: '/admin-module/uber',
-    icon: Car,
+    name: 'Usuários e perfis',
+    description: 'Cadastre usuários, mantenha perfis, roles e status de acesso.',
+    href: '/settings?tab=usuarios',
+    icon: Users,
   },
   {
-    name: 'Processo Seletivo',
-    description: 'Eventos, colaboradores, avaliações, presenças e banco de fiscais.',
-    href: '/admin-module/processo-seletivo',
-    icon: GraduationCap,
-  },
-  {
-    name: 'Etiquetas',
-    description: 'Modelos de etiquetas, editor visual e geração em PDF via planilha.',
-    href: '/labels',
-    icon: Tag,
-  },
-  {
-    name: 'Relatórios',
-    description: 'Indicadores e exportações consolidadas dos módulos do sistema.',
-    href: '/reports',
-    icon: BarChart3,
-  },
-  {
-    name: 'Migração do backend',
-    description: 'Copia banco, arquivos e usuários para o Supabase externo. Uso temporário.',
-    href: '/admin-module/migracao',
-    icon: DatabaseBackup,
+    name: 'Roles e permissões',
+    description: 'Gerencie a matriz de acesso dos perfis internos por módulo e ação.',
+    href: '/settings?tab=permissoes',
+    icon: KeyRound,
   },
 ];
 
@@ -46,8 +28,8 @@ export default function AdminModuleHome() {
             <ShieldCheck className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Módulo Administrativo</h1>
-            <p className="text-muted-foreground">Área restrita a administradores.</p>
+            <h1 className="text-2xl font-bold">Administração</h1>
+            <p className="text-muted-foreground">Ferramentas e configurações exclusivas para administradores.</p>
           </div>
         </div>
 
