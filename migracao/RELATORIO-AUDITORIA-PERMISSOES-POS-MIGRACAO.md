@@ -158,3 +158,28 @@ Tabelas com `RLS_BLOCK` para o papel `assistente` (`equipment`, `rooms`, `locker
 ## 8. Aguardando autorização
 
 O arquivo `migracao/14-corrigir-permissoes-pos-migracao.sql` está pronto e **não foi executado**.
+
+---
+
+## 9. Reconciliação com a auditoria estática do kit de migração
+
+Três auditorias paralelas (frontend, `01_estrutura.sql`, kit `migracao/`) concluíram, por análise estática, que a ausência de `GRANT ... ON public.<tabela>` no dump deixaria o app "logado porém sem escrita". **Essa hipótese foi testada e refutada no destino:**
+
+- O gerador (`gen-estrutura.py:238-249`) consultou `information_schema.role_table_grants`, que filtra por visibilidade do papel executor — por isso a seção de GRANTs saiu vazia. É artefato de extração, não ausência real na origem (confirmado por `pg_class.relacl`).
+- No destino, os *default privileges* do Supabase aplicaram os GRANTs no `CREATE TABLE` executado como `postgres`. Sondagem com chave publicável e com JWT de usuário interno retornou **sempre** `42501 row-level security` ou erro de constraint — nunca `permission denied for table`.
+- Os testes de prontidão anteriores de fato usaram `service_role` (mascarariam o problema), mas a auditoria atual usou `anon` e `authenticated` reais.
+
+**Conclusão:** o script 14 não precisa restaurar GRANTs de tabela. Ele apenas remove excesso e corrige `EXECUTE`.
+
+### Achados complementares (fora do escopo de permissões, para acompanhamento)
+
+| # | Achado | Situação no destino | Recomendação |
+|---|---|---|---|
+| 1 | `useCreateClassroomCall` faz INSERT direto em `classroom_calls` como fallback do RPC | INSERT anônimo é **barrado pela RLS** (não existe policy `WITH CHECK (true)`) | manter; o fallback só funciona para usuário interno |
+| 2 | Edge Function `create-classroom-call` órfã (tem rate-limit e sanitização que o RPC não tem) | não invocada pelo frontend | portar rate-limit para o RPC ou remover a function |
+| 3 | Leitura pública de reservas duplicada: policy `anon SELECT` + RPC `get_public_reservations` | ambas ativas | consolidar no RPC |
+| 4 | `activity_logs` / `task_history` inseridos pelo cliente | funcional | migrar para trigger/`SECURITY DEFINER` para rastreabilidade confiável |
+| 5 | `BulkImageUploadDialog` usa `upsert: true` | funcional | garantir path com UUID único |
+| 6 | Módulo PS: 11 tabelas com `FOR ALL USING (is_internal_user())` | igual à origem | segregar por sub-papel se desejado |
+| 7 | Inserts públicos (`ps_fiscal_bank_applications`, `PortalSignup`) sem captcha/rate-limit | igual à origem | avaliar proteção anti-flood |
+| 8 | Cron do destino criado com `active = false` | inativo | ativar via `05b-ativar-cron-na-virada.sql` após a virada de domínio |
