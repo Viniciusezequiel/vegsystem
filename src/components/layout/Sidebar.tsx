@@ -39,7 +39,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions, type Module } from '@/hooks/usePermissions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useState, createContext, useContext, useCallback } from 'react';
+import { useState, createContext, useContext, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -73,6 +73,14 @@ interface NavGroup {
   gradient?: string;
   adminOnly?: boolean;
   module?: Module; // Maps to permission module
+}
+
+interface NavSection {
+  key: string;
+  name: string;
+  groups?: NavGroup[];
+  items?: NavItem[];
+  adminOnly?: boolean;
 }
 
 const mainNav: NavItem[] = [
@@ -187,18 +195,35 @@ const moduleGroups: NavGroup[] = [
   },
 ];
 
-const bottomNav: NavItem[] = [
-  { name: 'Relatórios', href: '/reports', icon: BarChart3 },
-  { name: 'Histórico de Atividades', href: '/activity-history', icon: History, module: 'activityHistory' },
-  { name: 'Aprovação de Clientes', href: '/external-users-approval', icon: Users, adminOnly: true },
-  { name: 'Administração do Sistema', href: '/settings', icon: Settings, module: 'settings' },
-  { name: 'Módulo Administrativo', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
+const managementNav: NavItem[] = [
   { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
   { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
   { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
-
+  { name: 'Aprovações', href: '/external-users-approval', icon: Users, adminOnly: true },
+  { name: 'Relatórios', href: '/reports', icon: BarChart3 },
+  { name: 'Histórico', href: '/activity-history', icon: History, module: 'activityHistory' },
 ];
 
+const administrationNav: NavItem[] = [
+  { name: 'Configurações', href: '/settings', icon: Settings, module: 'settings' },
+  { name: 'Administração', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
+];
+
+const navSections: NavSection[] = [
+  {
+    key: 'operation',
+    name: 'Operação',
+    groups: moduleGroups.filter(group => ['Demandas', 'Achados e Perdidos', 'Equipamentos', 'Chamados de Sala', 'Escaninhos', 'Materiais'].includes(group.name)),
+  },
+  {
+    key: 'rooms',
+    name: 'Salas e Checklists',
+    groups: moduleGroups.filter(group => ['Gestão de Salas', 'Checklist de Salas', 'Checklist Semestral'].includes(group.name)),
+  },
+  { key: 'management', name: 'Gestão', items: managementNav },
+  { key: 'administration', name: 'Administração', items: administrationNav },
+  { key: 'system', name: 'Sistema', items: [], adminOnly: true },
+];
 
 interface SidebarProps {
   collapsed: boolean;
@@ -224,13 +249,32 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
     prefetchLostItemsOnHover(queryClient);
   }, [queryClient]);
 
-  // Filter module groups based on view permissions
-  const visibleModuleGroups = moduleGroups.filter(group => {
+  const isGroupVisible = (group: NavGroup) => {
     if (group.adminOnly && !isAdmin) return false;
-    if (!group.module) return true; // No module restriction
-    if (isAdmin) return true; // Admin sees everything
+    if (!group.module || isAdmin) return true;
     return canView(group.module);
-  });
+  };
+
+  const isItemVisible = (item: NavItem) => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.module && !isAdmin && !canView(item.module)) return false;
+    return true;
+  };
+
+  const visibleSections = navSections
+    .filter(section => !section.adminOnly || isAdmin)
+    .map(section => ({
+      ...section,
+      groups: (section.groups ?? []).filter(isGroupVisible),
+      items: (section.items ?? []).filter(isItemVisible),
+    }))
+    .filter(section => section.key === 'system' || section.groups.length > 0 || section.items.length > 0);
+
+  const routeCandidates = visibleSections.flatMap(section => [
+    ...section.groups.map(group => ({ sectionKey: section.key, path: group.basePath })),
+    ...section.items.map(item => ({ sectionKey: section.key, path: item.href })),
+  ]).filter(candidate => location.pathname === candidate.path || location.pathname.startsWith(`${candidate.path}/`));
+  const activeSectionKey = routeCandidates.sort((a, b) => b.path.length - a.path.length)[0]?.sectionKey;
 
   // Close mobile menu on navigation
   const handleNavClick = () => {
@@ -245,6 +289,35 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
     );
     return currentGroup ? [currentGroup.basePath] : [];
   });
+
+  const [openSections, setOpenSections] = useState<string[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('sidebar-open-sections') || '[]');
+      return Array.isArray(stored) ? stored : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (!activeSectionKey) return;
+    setOpenSections(prev => prev.includes(activeSectionKey) ? prev : [...prev, activeSectionKey]);
+  }, [activeSectionKey]);
+
+  useEffect(() => {
+    const currentGroup = moduleGroups.find(group => location.pathname.startsWith(group.basePath));
+    if (!currentGroup) return;
+    setOpenGroups(prev => prev.includes(currentGroup.basePath) ? prev : [...prev, currentGroup.basePath]);
+  }, [location.pathname]);
+
+  const toggleSection = (sectionKey: string) => {
+    if (collapsed) return;
+    setOpenSections(prev => {
+      const next = prev.includes(sectionKey) ? prev.filter(key => key !== sectionKey) : [...prev, sectionKey];
+      localStorage.setItem('sidebar-open-sections', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const toggleGroup = (basePath: string) => {
     if (collapsed) return;
@@ -303,6 +376,115 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
     </>
   );
 
+  const renderSimpleItem = (item: NavItem) => {
+    const isActive = location.pathname === item.href;
+    const link = (
+      <RouterNavLink
+        to={item.href}
+        onClick={handleNavClick}
+        className={cn('sidebar-link', isActive && 'sidebar-link-active', collapsed && 'justify-center px-2')}
+      >
+        <NavItemContent item={item} isActive={isActive} />
+      </RouterNavLink>
+    );
+
+    return collapsed ? (
+      <Tooltip key={item.href}>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">{item.name}</TooltipContent>
+      </Tooltip>
+    ) : <div key={item.href}>{link}</div>;
+  };
+
+  const renderModuleGroup = (group: NavGroup) => {
+    const isGroupActive = location.pathname.startsWith(group.basePath);
+    const isOpen = openGroups.includes(group.basePath) && !collapsed;
+
+    if (collapsed) {
+      return (
+        <Tooltip key={group.basePath}>
+          <TooltipTrigger asChild>
+            <RouterNavLink
+              to={group.items[0].href}
+              onClick={handleNavClick}
+              className={cn('sidebar-link justify-center px-2', isGroupActive && 'sidebar-link-active')}
+            >
+              <div className={cn(
+                'w-8 h-8 rounded-lg flex items-center justify-center transition-all relative',
+                isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
+              )}>
+                <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
+                {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
+                  </span>
+                )}
+              </div>
+            </RouterNavLink>
+          </TooltipTrigger>
+          <TooltipContent side="right">{group.name}</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return (
+      <Collapsible
+        key={group.basePath}
+        open={isOpen}
+        onOpenChange={() => toggleGroup(group.basePath)}
+        onMouseEnter={group.basePath === '/lost-found' ? handleLostItemsHover : undefined}
+      >
+        <CollapsibleTrigger className={cn('sidebar-link w-full justify-between', isGroupActive && 'text-primary')}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={cn(
+              'w-8 h-8 rounded-lg flex items-center justify-center transition-all relative shrink-0',
+              isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
+            )}>
+              <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
+              {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
+                </span>
+              )}
+            </div>
+            <span className="font-medium text-sm whitespace-normal leading-tight text-left">{group.name}</span>
+          </div>
+          <ChevronDown className={cn('w-4 h-4 transition-transform duration-200 shrink-0', isOpen && 'rotate-180')} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pl-5 space-y-1 pt-1 animate-accordion-down">
+          {group.items.filter(item => !item.adminOnly || isAdmin).map(item => {
+            const isActive = location.pathname === item.href;
+            const badgeCount = item.hasBadge
+              ? (group.basePath === '/materials' ? pendingMaterialsCount : pendingTasksCount)
+              : 0;
+            const showBadge = item.hasBadge && badgeCount && badgeCount > 0;
+            return (
+              <RouterNavLink
+                key={item.href}
+                to={item.href}
+                onClick={handleNavClick}
+                className={cn('sidebar-link text-sm py-2', isActive && 'sidebar-link-active')}
+              >
+                <div className="relative shrink-0">
+                  <item.icon className="w-4 h-4" />
+                  {showBadge && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary text-primary-foreground text-[8px] font-bold rounded-full flex items-center justify-center">
+                      {badgeCount > 9 ? '9+' : badgeCount}
+                    </span>
+                  )}
+                </div>
+                <span className="whitespace-normal leading-tight">{item.name}</span>
+                {showBadge && (
+                  <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badgeCount}</span>
+                )}
+              </RouterNavLink>
+            );
+          })}
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside className={cn(
@@ -332,6 +514,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
           variant="ghost"
           size="icon"
           onClick={onToggle}
+          aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
           className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-sidebar border border-sidebar-border shadow-md hover:bg-sidebar-accent z-50"
         >
           {collapsed ? (
@@ -372,162 +555,48 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
             ) : link;
           })}
 
-          {!collapsed && (
-            <div className="pt-5 pb-2">
-              <span className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest px-3">
-                Módulos
-              </span>
-            </div>
-          )}
-
           {collapsed && <div className="h-4" />}
 
-          {/* Module Groups */}
-          {visibleModuleGroups.map((group) => {
-            const isGroupActive = location.pathname.startsWith(group.basePath);
-            const isOpen = openGroups.includes(group.basePath) && !collapsed;
+          {visibleSections.map(section => {
+            const isSectionOpen = openSections.includes(section.key) && !collapsed;
+            const isSectionActive = activeSectionKey === section.key;
 
             if (collapsed) {
               return (
-                <Tooltip key={group.basePath}>
-                  <TooltipTrigger asChild>
-                    <RouterNavLink
-                      to={group.items[0].href}
-                      onClick={handleNavClick}
-                      className={cn(
-                        'sidebar-link justify-center px-2',
-                        isGroupActive && 'sidebar-link-active'
-                      )}
-                    >
-                      <div className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center transition-all relative',
-                        isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
-                      )}>
-                        <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
-                        {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
-                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                            {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
-                          </span>
-                        )}
-                      </div>
-                    </RouterNavLink>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{group.name}</TooltipContent>
-                </Tooltip>
+                <div key={section.key} className="space-y-1">
+                  {section.groups.map(renderModuleGroup)}
+                  {section.items.map(renderSimpleItem)}
+                </div>
               );
             }
 
             return (
-              <Collapsible 
-                key={group.basePath} 
-                open={isOpen}
-                onOpenChange={() => toggleGroup(group.basePath)}
-                onMouseEnter={group.basePath === '/lost-found' ? handleLostItemsHover : undefined}
+              <Collapsible
+                key={section.key}
+                open={isSectionOpen}
+                onOpenChange={() => toggleSection(section.key)}
+                className="pt-2"
+                data-testid={`sidebar-section-${section.key}`}
               >
-                <CollapsibleTrigger className={cn(
-                  'sidebar-link w-full justify-between',
-                  isGroupActive && 'text-primary'
-                )}>
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      'w-8 h-8 rounded-lg flex items-center justify-center transition-all relative',
-                      isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
-                    )}>
-                      <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
-                      {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                          {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-medium text-sm truncate">{group.name}</span>
-                  </div>
-                  <ChevronDown className={cn(
-                    'w-4 h-4 transition-transform duration-300 shrink-0',
-                    isOpen && 'rotate-180'
-                  )} />
+                <CollapsibleTrigger
+                  aria-label={`${isSectionOpen ? 'Recolher' : 'Expandir'} ${section.name}`}
+                  className={cn(
+                    'w-full flex items-center justify-between rounded-md px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors duration-200',
+                    isSectionActive ? 'text-primary bg-sidebar-accent/40' : 'text-sidebar-foreground/45 hover:text-sidebar-foreground/70 hover:bg-sidebar-accent/25'
+                  )}
+                >
+                  <span>{section.name}</span>
+                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', isSectionOpen && 'rotate-180')} />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="pl-5 space-y-1 pt-1 animate-accordion-down">
-                  {group.items
-                    .filter(item => !item.adminOnly || isAdmin)
-                    .map((item) => {
-                    const isActive = location.pathname === item.href;
-                    // Determine which notification count to show based on module
-                    const badgeCount = item.hasBadge 
-                      ? (group.basePath === '/materials' ? pendingMaterialsCount 
-                        : pendingTasksCount)
-                      : 0;
-                    const showBadge = item.hasBadge && badgeCount && badgeCount > 0;
-                    return (
-                      <RouterNavLink
-                        key={item.href}
-                        to={item.href}
-                        onClick={handleNavClick}
-                        className={cn(
-                          'sidebar-link text-sm py-2',
-                          isActive && 'sidebar-link-active'
-                        )}
-                      >
-                        <div className="relative">
-                          <item.icon className="w-4 h-4" />
-                          {showBadge && (
-                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary text-primary-foreground text-[8px] font-bold rounded-full flex items-center justify-center">
-                              {badgeCount > 9 ? '9+' : badgeCount}
-                            </span>
-                          )}
-                        </div>
-                        <span className="truncate">{item.name}</span>
-                        {showBadge && (
-                          <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                            {badgeCount}
-                          </span>
-                        )}
-                      </RouterNavLink>
-                    );
-                  })}
+                <CollapsibleContent className="space-y-1 pt-1 animate-accordion-down">
+                  {section.groups.map(renderModuleGroup)}
+                  {section.items.map(renderSimpleItem)}
+                  {section.key === 'system' && (
+                    <p className="px-3 py-2 text-xs text-sidebar-foreground/35">Reservado para recursos técnicos.</p>
+                  )}
                 </CollapsibleContent>
               </Collapsible>
             );
-          })}
-
-          {!collapsed && (
-            <div className="pt-5 pb-2">
-              <span className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest px-3">
-                Sistema
-              </span>
-            </div>
-          )}
-
-          {collapsed && <div className="h-4" />}
-
-          {/* Bottom Nav */}
-          {bottomNav.map((item) => {
-            // Check adminOnly flag first
-            if (item.adminOnly && !isAdmin) return null;
-            // Check module permission if specified
-            if (item.module && !isAdmin && !canView(item.module)) return null;
-            const isActive = location.pathname === item.href;
-            const link = (
-              <RouterNavLink
-                key={item.name}
-                to={item.href}
-                onClick={handleNavClick}
-                className={cn(
-                  'sidebar-link',
-                  isActive && 'sidebar-link-active',
-                  collapsed && 'justify-center px-2'
-                )}
-              >
-                <NavItemContent item={item} isActive={isActive} />
-              </RouterNavLink>
-            );
-
-            return collapsed ? (
-              <Tooltip key={item.name}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right">{item.name}</TooltipContent>
-              </Tooltip>
-            ) : link;
           })}
         </nav>
 
@@ -576,6 +645,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                 <button 
                   onClick={handleLogout}
                   disabled={isLoggingOut}
+                  aria-label="Sair do Sistema"
                   className="sidebar-link w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 justify-center px-2"
                 >
                   {isLoggingOut ? (

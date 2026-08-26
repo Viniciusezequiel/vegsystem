@@ -39,7 +39,41 @@ test('autenticação, sessão e guards por role', async ({ browser, page }) => {
   const adminPage = await admin.newPage();
   await adminPage.goto('/admin-module/uber');
   await expect(adminPage).not.toHaveURL(/admin-auth/);
+  if (await adminPage.getByText(/Acesso Negado/i).isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await adminPage.reload();
+  }
   await expect(adminPage.getByText(/Uber Corporativo/i).first()).toBeVisible({ timeout: 20_000 });
+  await adminPage.getByRole('link', { name: /Dashboard/i }).first().click();
+  await expect(adminPage).toHaveURL(/\/$/);
+
+  for (const sectionName of ['Operação', 'Salas e Checklists', 'Gestão', 'Administração', 'Sistema']) {
+    const section = adminPage.getByTestId(`sidebar-section-${sectionName === 'Operação' ? 'operation'
+      : sectionName === 'Salas e Checklists' ? 'rooms'
+      : sectionName === 'Gestão' ? 'management'
+      : sectionName === 'Administração' ? 'administration'
+      : 'system'}`);
+    const trigger = section.getByRole('button', { name: new RegExp(sectionName, 'i') });
+    if ((await trigger.getAttribute('aria-label'))?.startsWith('Recolher')) await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-label', `Expandir ${sectionName}`);
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-label', `Recolher ${sectionName}`);
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-label', `Expandir ${sectionName}`);
+  }
+
+  await adminPage.getByRole('button', { name: 'Expandir Operação' }).click();
+  await adminPage.getByRole('button', { name: /Achados e Perdidos/i }).click();
+  await expect(adminPage.getByRole('link', { name: /Buscar Itens/i })).toBeVisible();
+  await adminPage.getByRole('link', { name: /Dashboard/i }).first().click();
+  await expect(adminPage).toHaveURL(/\/$/);
+
+  await adminPage.goto('/admin-module/uber');
+  await expect(adminPage.getByRole('button', { name: 'Recolher Gestão' })).toBeVisible({ timeout: 20_000 });
+  await expect(adminPage.getByRole('link', { name: /Uber Corporativo/i })).toBeVisible();
+
+  await adminPage.getByRole('button', { name: 'Recolher menu lateral' }).click();
+  await expect(adminPage.locator('aside')).toHaveClass(/w-16/);
+  await expect(adminPage.getByRole('button', { name: 'Sair do Sistema' })).toBeVisible();
   await admin.close();
 
   await page.goto('/equipment');
