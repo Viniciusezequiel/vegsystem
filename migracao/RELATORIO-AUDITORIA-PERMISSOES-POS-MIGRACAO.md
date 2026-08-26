@@ -21,13 +21,13 @@
 
 ## 2. Diagnóstico principal (contraintuitivo)
 
-**Os GRANTs de tabela não estão faltando no destino.** Em 31 tabelas sondadas, `anon` e `authenticated` possuem SELECT/INSERT/UPDATE/DELETE; todas as recusas retornaram RLS, nunca "permission denied". As tabelas foram criadas pelo papel `postgres`, então os *default privileges* do Supabase aplicaram os GRANTs automaticamente, compensando a ausência deles no dump `01_estrutura.sql`.
+**Os GRANTs de tabela não estão faltando no destino.** A auditoria anterior sondou `anon` e `authenticated`; a repetição atual cobriu as 58 tabelas com `anon`. Nenhuma resposta foi `permission denied for table`: SELECT retornou 200, UPDATE/DELETE não destrutivos retornaram 204 e os INSERTs chegaram à validação do payload. As tabelas foram criadas pelo papel `postgres`, então os *default privileges* do destino aplicaram os GRANTs automaticamente, compensando a ausência deles no dump `01_estrutura.sql`.
 
 O problema real é o inverso: **o destino está mais permissivo que a origem** em dois eixos, e há um ponto operacional de ambiguidade de RPC.
 
 | # | Achado | Severidade |
 |---|--------|-----------|
-| A | `anon` possui privilégios em 7 tabelas onde a origem já os havia removido | Alta (exposição) |
+| A | `anon` possui privilégios em 4 tabelas onde a origem já os havia removido | Alta (exposição) |
 | B | Todas as funções `SECURITY DEFINER` ficaram com `EXECUTE` para `PUBLIC` (default do PostgreSQL); o dump não trouxe os `REVOKE`/`GRANT` | Crítica |
 | C | `expire_old_lost_items()` — rotina de manutenção que **altera dados** — é executável por `anon` | Crítica |
 | D | RPCs sobrecarregadas (`find_available_rooms`, `check_reservation_conflict`) retornam `PGRST203` quando chamadas sem `p_is_external` | Média (funcional) |
@@ -48,12 +48,9 @@ Comparação objetiva snapshot da origem × destino. **Não foi identificado nen
 | `ps_evaluations` | anon | nenhum | SELECT, INSERT, UPDATE, DELETE | acesso interno + RPC `ps_public_submit_evaluation` | Avaliações expostas à Data API anônima | `REVOKE ALL ... FROM anon` |
 | `ps_event_collaborators` | anon | nenhum | SELECT, INSERT, UPDATE, DELETE | acesso via `ps_public_event_roster` | Roster/assinaturas expostos | `REVOKE ALL ... FROM anon` |
 | `uber_requests` | anon | nenhum | SELECT, INSERT, UPDATE, DELETE | criação via `create_public_uber_request` | Solicitações corporativas expostas | `REVOKE ALL ... FROM anon` |
-| `ps_events` | anon | somente `D,x,t,m` (sem DML/SELECT) | SELECT, INSERT, UPDATE, DELETE | interno | Eventos de PS expostos | `REVOKE SELECT,INSERT,UPDATE,DELETE FROM anon` |
-| `ps_roles` | anon | somente `D,x,t,m` | SELECT, INSERT, UPDATE, DELETE | interno | Cargos de PS expostos | idem |
-| `room_combinations` | anon | somente `D,x,t,m` | SELECT, INSERT, UPDATE, DELETE | interno | Estrutura de salas exposta | idem |
 | `_grants_backup_virada` | anon / authenticated | n/a (artefato) | SELECT, INSERT, UPDATE, DELETE | sem RLS | Vazamento do mapa de privilégios | `REVOKE ALL` |
 
-As demais **51 tabelas** têm paridade exata (`anon`: SELECT+INSERT+UPDATE+DELETE; `authenticated`: idem; `service_role`: total) — **nenhuma alteração**.
+As demais **54 tabelas** têm paridade de DML com o snapshot (`anon`: INSERT+UPDATE+DELETE; `authenticated`: idem). O SELECT foi auditado separadamente pelas ACLs e pelas sondagens REST — **nenhuma alteração de tabela de negócio** além das quatro acima.
 
 ### 3.2 Funções — `EXECUTE` divergente
 
@@ -102,13 +99,47 @@ Tabelas com `RLS_BLOCK` para o papel `assistente` (`equipment`, `rooms`, `locker
 
 ---
 
+## 4.1 Matriz completa: snapshot da origem × destino
+
+A matriz CSV anexa cobre as **58 tabelas** e os papéis `anon` e `authenticated` (116 linhas): `matriz-permissoes-origem-destino.csv`.
+
+Critério usado:
+
+- **Origem:** `_grants_backup_virada`, capturado antes do modo somente leitura. Ele contém INSERT/UPDATE/DELETE; SELECT foi preservado fora do snapshot.
+- **Destino/anon:** sondagem REST não destrutiva por tabela: `SELECT limit=0`, INSERT com UUID propositalmente inválido e UPDATE/DELETE sobre UUID inexistente. Resultado: nenhuma resposta `permission denied for table`; os 58 INSERTs chegaram à validação de tipo (`22P02`) e os 58 UPDATE/DELETE chegaram ao executor (`204`). Em conjunto com a sondagem anterior e as ACLs, isso não indica GRANT ausente; nenhuma linha foi gravada ou alterada.
+- **Destino/authenticated:** a repetição independente com usuário interno comum ficou **bloqueada nesta execução**, pois não há uma sessão/JWT de usuário do projeto externo disponível no ambiente (`LOVABLE_BROWSER_AUTH_STATUS=signed_out`). O relatório anterior testou um usuário temporário `assistente`, removido depois. Portanto a matriz marca essa parte como “não reexecutada”, sem apresentar inferência como novo teste.
+
+Resumo objetivo do snapshot:
+
+| Papel | Tabelas com I/U/D na origem | Ausências |
+|---|---:|---|
+| `authenticated` | 58/58 | nenhuma |
+| `anon` | 54/58 | `classroom_calls`, `ps_evaluations`, `ps_event_collaborators`, `uber_requests` |
+
+O snapshot confirma expressamente INSERT/UPDATE/DELETE de `anon` em `ps_events`, `ps_roles` e `room_combinations`. A versão anterior do relatório interpretou incorretamente essas três tabelas como excessos; o rascunho do script 14 foi corrigido para **não revogar** seus privilégios.
+
+### Testes funcionais solicitados
+
+| Cenário | Escritas envolvidas | Resultado atual |
+|---|---|---|
+| INSERT | tabela específica do fluxo | GRANT de `anon` confirmado nas 58 tabelas; `authenticated` já havia passado na sondagem anterior, mas não foi repetido sem JWT comum |
+| UPDATE | tabela específica do fluxo | idem; UPDATE não destrutivo retornou 204 para `anon` nas 58 tabelas |
+| DELETE | tabela específica do fluxo | idem; DELETE não destrutivo retornou 204 para `anon` nas 58 tabelas |
+| Baixa de item | UPDATE em `lost_items` + INSERT em `activity_logs` | caminho frontend confirmado; autorização funcional como usuário comum não reexecutada sem sessão |
+| Criação de chamado | público: RPC `create_public_classroom_call`; interno: INSERT em `classroom_calls` | RPC pública é o caminho correto; o acesso direto anônimo deve ser removido pelo script 14 |
+| Envio de formulário | varia por formulário; chamados/Uber/avaliação PS usam RPCs públicas | superfície mapeada; teste autenticado real pendente pelo mesmo bloqueio de sessão |
+
+**Conclusão estrita:** não há evidência de GRANT ausente. A hipótese compatível com falhas de escrita permanece **RLS/identidade** (papel ausente, `auth.uid()` diferente do esperado ou sessão apontando para a origem antiga), não GRANT. Para atribuir uma falha concreta a uma policy específica, é necessário capturar a requisição real com usuário interno comum autenticado no frontend externo.
+
+---
+
 ## 5. Objetos afetados pelo script 14
 
 | Categoria | Quantidade |
 |---|---|
-| Tabelas com REVOKE para `anon` | 8 |
+| Tabelas com REVOKE para `anon` | 5 (4 de negócio + 1 artefato) |
 | Tabelas com GRANT explícito para `service_role` | 18 |
-| Tabelas inalteradas | 50 |
+| Tabelas de negócio inalteradas | 54 |
 | Funções com `REVOKE ... FROM PUBLIC` | 21 (todas) |
 | Funções com GRANT para `authenticated` | 9 |
 | Funções com GRANT para `anon` (rotas públicas) | 7 |
