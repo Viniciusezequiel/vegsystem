@@ -147,12 +147,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: publicData } = adminClient.storage.from('lost-items').getPublicUrl(path);
-    const publicUrl = publicData.publicUrl;
-
     const { error: updateError } = await adminClient
       .from('lost_items')
-      .update({ image_url: publicUrl })
+      .update({ image_url: path })
       .eq('id', id);
 
     if (updateError) {
@@ -162,7 +159,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, status: 'migrated', image_url: publicUrl }), {
+    return new Response(JSON.stringify({ success: true, status: 'migrated', image_url: path }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

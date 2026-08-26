@@ -11,6 +11,7 @@ import {
   markAsFailed,
   type OfflineOperation,
 } from './offlineQueue';
+import { normalizeLostItemImagePath } from './lostItemImageValue';
 
 type SyncCallback = (success: boolean, synced: number, failed: number) => void;
 
@@ -54,8 +55,11 @@ async function processLostItemOperation(op: OfflineOperation): Promise<boolean> 
   switch (action) {
     case 'create': {
       const { data: { user } } = await supabase.auth.getUser();
+      const normalizedPayload = 'image_url' in payload
+        ? { ...payload, image_url: normalizeLostItemImagePath(payload.image_url as string | null | undefined) }
+        : payload;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const insertData = { ...payload, registered_by: user?.id } as any;
+      const insertData = { ...normalizedPayload, registered_by: user?.id } as any;
       const { error } = await supabase
         .from('lost_items')
         .insert(insertData);
@@ -65,9 +69,12 @@ async function processLostItemOperation(op: OfflineOperation): Promise<boolean> 
     }
     case 'update': {
       const { id, ...updateData } = payload;
+      const normalizedUpdate = 'image_url' in updateData
+        ? { ...updateData, image_url: normalizeLostItemImagePath(updateData.image_url as string | null | undefined) }
+        : updateData;
       const { error } = await supabase
         .from('lost_items')
-        .update(updateData as never)
+        .update(normalizedUpdate as never)
         .eq('id', id as string);
       
       if (error) throw error;

@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 import { loadLostItemsFromCache, saveLostItemsToCache } from '@/lib/lostItemsCache';
 import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
+import { normalizeLostItemImagePath } from '@/lib/lostItemImageValue';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -258,6 +259,7 @@ export function useCreateLostItem() {
       delivered_by_name: string;
       delivered_by_contact?: string;
     }) => {
+      const imagePath = normalizeLostItemImagePath(data.image_url);
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase
         .from('profiles')
@@ -269,6 +271,7 @@ export function useCreateLostItem() {
         .from('lost_items')
         .insert({
           ...data,
+          image_url: imagePath,
           registered_by: user?.id,
         })
         .select()
@@ -313,6 +316,9 @@ export function useUpdateLostItem() {
 
   return useMutation({
     mutationFn: async ({ id, ...data }: Partial<LostItem> & { id: string }) => {
+      const updateData = 'image_url' in data
+        ? { ...data, image_url: normalizeLostItemImagePath(data.image_url) }
+        : data;
       // Get current user info for activity log
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase
@@ -330,7 +336,7 @@ export function useUpdateLostItem() {
 
       const { data: item, error } = await supabase
         .from('lost_items')
-        .update(data)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -340,7 +346,7 @@ export function useUpdateLostItem() {
       // Build details of what changed
       const changedFields: string[] = [];
       if (existingItem) {
-        if (data.description && data.description !== existingItem.description) changedFields.push('descrição');
+        if (updateData.description && updateData.description !== existingItem.description) changedFields.push('descrição');
         if (data.campus && data.campus !== existingItem.campus) changedFields.push('campus');
         if (data.found_location && data.found_location !== existingItem.found_location) changedFields.push('local encontrado');
         if (data.found_date && data.found_date !== existingItem.found_date) changedFields.push('data encontrado');

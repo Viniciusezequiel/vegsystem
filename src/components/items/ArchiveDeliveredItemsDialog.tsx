@@ -18,6 +18,7 @@ import { Archive, AlertTriangle, Loader2, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generatePdf } from '@/lib/pdfService';
+import { assertNoInlineLostItemImage } from '@/lib/lostItemImageValue';
 
 interface ArchiveDeliveredItemsDialogProps {
   open: boolean;
@@ -163,6 +164,10 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
 
       const processChunk = async (chunk: any[], chunkIndex: number): Promise<number> => {
         if (abortRef.current) return 0;
+
+        // Archiving only copies the stored reference. It must never carry an
+        // inline image payload into the archive table.
+        chunk.forEach((item) => assertNoInlineLostItemImage(item.image_url));
 
         const archiveRecords = chunk.map((item) => ({
           original_id: item.id,

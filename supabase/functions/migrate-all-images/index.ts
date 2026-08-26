@@ -158,12 +158,9 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const { data: publicData } = adminClient.storage.from('lost-items').getPublicUrl(path);
-        const publicUrl = publicData.publicUrl;
-
         const { error: updateError } = await adminClient
           .from('lost_items')
-          .update({ image_url: publicUrl })
+          .update({ image_url: path })
           .eq('id', item.id);
 
         if (updateError) {
@@ -174,7 +171,7 @@ Deno.serve(async (req) => {
         }
 
         migrated++;
-        console.log(`Migrated ${item.id} -> ${publicUrl}`);
+        console.log(`Migrated ${item.id} -> ${path}`);
       } catch (e) {
         failed++;
         const msg = e instanceof Error ? e.message : 'Unknown error';
