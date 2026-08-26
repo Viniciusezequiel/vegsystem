@@ -141,7 +141,13 @@ SELECT status, count(*) FROM public.lost_items GROUP BY 1 ORDER BY 1;
 
 SELECT title, due_date, count(*)
 FROM public.tasks
-WHERE is_recurring_instance IS TRUE
-  AND created_at > now() - interval '2 days'
+WHERE created_at > now() - interval '2 days'
 GROUP BY 1, 2
-HAVING count(*) > 1;   -- ESPERADO: 0 linhas
+HAVING count(*) > 1;   -- ESPERADO: 0 linhas (sem clones duplicados)
+
+-- Marcação de execução das recorrentes (deve avançar a cada dia processado):
+SELECT id, title, recurrence_type, recurrence_days, recurrence_last_run_date
+FROM public.tasks
+WHERE recurrence_type IS NOT NULL
+ORDER BY recurrence_last_run_date DESC NULLS LAST
+LIMIT 20;
