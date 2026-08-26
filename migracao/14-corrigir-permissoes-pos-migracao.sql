@@ -44,7 +44,7 @@ REVOKE ALL ON TABLE public.uber_requests          FROM anon;
 REVOKE ALL ON TABLE public._grants_backup_virada FROM anon, authenticated;
 
 -- ---------------------------------------------------------------------
--- 3. anon/authenticated nas demais 51 tabelas: MANTER como está
+-- 3. anon/authenticated nas demais 54 tabelas: MANTER como está
 --    (origem concedia SELECT+INSERT+UPDATE+DELETE; o acesso real é filtrado
 --     pelas policies RLS já migradas). Nada a alterar — bloco documental.
 -- ---------------------------------------------------------------------

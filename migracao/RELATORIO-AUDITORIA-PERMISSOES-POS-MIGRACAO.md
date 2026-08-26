@@ -21,7 +21,7 @@
 
 ## 2. Diagnóstico principal (contraintuitivo)
 
-**Os GRANTs de tabela não estão faltando no destino.** Em 31 tabelas sondadas, `anon` e `authenticated` possuem SELECT/INSERT/UPDATE/DELETE; todas as recusas retornaram RLS, nunca "permission denied". As tabelas foram criadas pelo papel `postgres`, então os *default privileges* do Supabase aplicaram os GRANTs automaticamente, compensando a ausência deles no dump `01_estrutura.sql`.
+**Os GRANTs de tabela não estão faltando no destino.** A auditoria anterior sondou `anon` e `authenticated`; a repetição atual cobriu as 58 tabelas com `anon`. Nenhuma resposta foi `permission denied for table`: SELECT retornou 200, UPDATE/DELETE não destrutivos retornaram 204 e os INSERTs chegaram à validação do payload. As tabelas foram criadas pelo papel `postgres`, então os *default privileges* do destino aplicaram os GRANTs automaticamente, compensando a ausência deles no dump `01_estrutura.sql`.
 
 O problema real é o inverso: **o destino está mais permissivo que a origem** em dois eixos, e há um ponto operacional de ambiguidade de RPC.
 
@@ -106,7 +106,7 @@ A matriz CSV anexa cobre as **58 tabelas** e os papéis `anon` e `authenticated`
 Critério usado:
 
 - **Origem:** `_grants_backup_virada`, capturado antes do modo somente leitura. Ele contém INSERT/UPDATE/DELETE; SELECT foi preservado fora do snapshot.
-- **Destino/anon:** sondagem REST não destrutiva por tabela: `SELECT limit=0`, INSERT com UUID propositalmente inválido e UPDATE/DELETE sobre UUID inexistente. Resultado: nenhuma resposta `permission denied for table`; os 58 INSERTs chegaram à validação de tipo (`22P02`) e os 58 UPDATE/DELETE chegaram ao executor (`204`). Isso comprova que os GRANTs existem, sem gravar ou alterar linhas.
+- **Destino/anon:** sondagem REST não destrutiva por tabela: `SELECT limit=0`, INSERT com UUID propositalmente inválido e UPDATE/DELETE sobre UUID inexistente. Resultado: nenhuma resposta `permission denied for table`; os 58 INSERTs chegaram à validação de tipo (`22P02`) e os 58 UPDATE/DELETE chegaram ao executor (`204`). Em conjunto com a sondagem anterior e as ACLs, isso não indica GRANT ausente; nenhuma linha foi gravada ou alterada.
 - **Destino/authenticated:** a repetição independente com usuário interno comum ficou **bloqueada nesta execução**, pois não há uma sessão/JWT de usuário do projeto externo disponível no ambiente (`LOVABLE_BROWSER_AUTH_STATUS=signed_out`). O relatório anterior testou um usuário temporário `assistente`, removido depois. Portanto a matriz marca essa parte como “não reexecutada”, sem apresentar inferência como novo teste.
 
 Resumo objetivo do snapshot:
