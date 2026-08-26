@@ -13,7 +13,7 @@
 --   * O destino está MAIS PERMISSIVO que a origem em dois pontos:
 --       (a) anon recebeu privilégios em tabelas onde a origem já os havia
 --           removido (classroom_calls, ps_evaluations, ps_event_collaborators,
---           uber_requests, ps_events, ps_roles, room_combinations);
+--           uber_requests);
 --       (b) todas as funções SECURITY DEFINER ficaram com EXECUTE para PUBLIC
 --           (default do PostgreSQL), inclusive rotinas privilegiadas.
 --   * Portanto este script RESTAURA PARIDADE (majoritariamente REVOKE) e não
@@ -39,11 +39,6 @@ REVOKE ALL ON TABLE public.classroom_calls        FROM anon;
 REVOKE ALL ON TABLE public.ps_evaluations         FROM anon;
 REVOKE ALL ON TABLE public.ps_event_collaborators FROM anon;
 REVOKE ALL ON TABLE public.uber_requests          FROM anon;
-
---    (tabelas em que a origem mantinha anon SEM SELECT/INSERT/UPDATE/DELETE)
-REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE public.ps_events        FROM anon;
-REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE public.ps_roles         FROM anon;
-REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE public.room_combinations FROM anon;
 
 -- Tabela auxiliar de migração: nunca deve ser exposta pela Data API
 REVOKE ALL ON TABLE public._grants_backup_virada FROM anon, authenticated;
@@ -205,8 +200,7 @@ COMMIT;
 -- VERIFICAÇÕES PÓS-APLICAÇÃO
 -- =====================================================================
 -- a) Privilégios de anon que restaram (esperado: sem classroom_calls,
---    ps_evaluations, ps_event_collaborators, uber_requests, ps_events,
---    ps_roles, room_combinations):
+--    ps_evaluations, ps_event_collaborators e uber_requests):
 --   SELECT table_name, string_agg(privilege_type, ',') FROM information_schema.role_table_grants
 --   WHERE table_schema='public' AND grantee='anon' GROUP BY 1 ORDER BY 1;
 --

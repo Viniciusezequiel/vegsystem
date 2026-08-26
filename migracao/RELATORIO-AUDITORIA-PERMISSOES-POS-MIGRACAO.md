@@ -27,7 +27,7 @@ O problema real é o inverso: **o destino está mais permissivo que a origem** e
 
 | # | Achado | Severidade |
 |---|--------|-----------|
-| A | `anon` possui privilégios em 7 tabelas onde a origem já os havia removido | Alta (exposição) |
+| A | `anon` possui privilégios em 4 tabelas onde a origem já os havia removido | Alta (exposição) |
 | B | Todas as funções `SECURITY DEFINER` ficaram com `EXECUTE` para `PUBLIC` (default do PostgreSQL); o dump não trouxe os `REVOKE`/`GRANT` | Crítica |
 | C | `expire_old_lost_items()` — rotina de manutenção que **altera dados** — é executável por `anon` | Crítica |
 | D | RPCs sobrecarregadas (`find_available_rooms`, `check_reservation_conflict`) retornam `PGRST203` quando chamadas sem `p_is_external` | Média (funcional) |
@@ -48,12 +48,9 @@ Comparação objetiva snapshot da origem × destino. **Não foi identificado nen
 | `ps_evaluations` | anon | nenhum | SELECT, INSERT, UPDATE, DELETE | acesso interno + RPC `ps_public_submit_evaluation` | Avaliações expostas à Data API anônima | `REVOKE ALL ... FROM anon` |
 | `ps_event_collaborators` | anon | nenhum | SELECT, INSERT, UPDATE, DELETE | acesso via `ps_public_event_roster` | Roster/assinaturas expostos | `REVOKE ALL ... FROM anon` |
 | `uber_requests` | anon | nenhum | SELECT, INSERT, UPDATE, DELETE | criação via `create_public_uber_request` | Solicitações corporativas expostas | `REVOKE ALL ... FROM anon` |
-| `ps_events` | anon | somente `D,x,t,m` (sem DML/SELECT) | SELECT, INSERT, UPDATE, DELETE | interno | Eventos de PS expostos | `REVOKE SELECT,INSERT,UPDATE,DELETE FROM anon` |
-| `ps_roles` | anon | somente `D,x,t,m` | SELECT, INSERT, UPDATE, DELETE | interno | Cargos de PS expostos | idem |
-| `room_combinations` | anon | somente `D,x,t,m` | SELECT, INSERT, UPDATE, DELETE | interno | Estrutura de salas exposta | idem |
 | `_grants_backup_virada` | anon / authenticated | n/a (artefato) | SELECT, INSERT, UPDATE, DELETE | sem RLS | Vazamento do mapa de privilégios | `REVOKE ALL` |
 
-As demais **51 tabelas** têm paridade exata (`anon`: SELECT+INSERT+UPDATE+DELETE; `authenticated`: idem; `service_role`: total) — **nenhuma alteração**.
+As demais **54 tabelas** têm paridade de DML com o snapshot (`anon`: INSERT+UPDATE+DELETE; `authenticated`: idem). O SELECT foi auditado separadamente pelas ACLs e pelas sondagens REST — **nenhuma alteração de tabela de negócio** além das quatro acima.
 
 ### 3.2 Funções — `EXECUTE` divergente
 
@@ -119,7 +116,7 @@ Resumo objetivo do snapshot:
 | `authenticated` | 58/58 | nenhuma |
 | `anon` | 54/58 | `classroom_calls`, `ps_evaluations`, `ps_event_collaborators`, `uber_requests` |
 
-Além dessas quatro ausências totais, as ACLs da origem indicaram que `ps_events`, `ps_roles` e `room_combinations` não tinham DML/SELECT útil para `anon`; por isso aparecem no conjunto de excessos do destino.
+O snapshot confirma expressamente INSERT/UPDATE/DELETE de `anon` em `ps_events`, `ps_roles` e `room_combinations`. A versão anterior do relatório interpretou incorretamente essas três tabelas como excessos; o rascunho do script 14 foi corrigido para **não revogar** seus privilégios.
 
 ### Testes funcionais solicitados
 
@@ -140,9 +137,9 @@ Além dessas quatro ausências totais, as ACLs da origem indicaram que `ps_event
 
 | Categoria | Quantidade |
 |---|---|
-| Tabelas com REVOKE para `anon` | 8 |
+| Tabelas com REVOKE para `anon` | 5 (4 de negócio + 1 artefato) |
 | Tabelas com GRANT explícito para `service_role` | 18 |
-| Tabelas inalteradas | 50 |
+| Tabelas de negócio inalteradas | 54 |
 | Funções com `REVOKE ... FROM PUBLIC` | 21 (todas) |
 | Funções com GRANT para `authenticated` | 9 |
 | Funções com GRANT para `anon` (rotas públicas) | 7 |
