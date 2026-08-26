@@ -50,6 +50,45 @@ REVOKE ALL ON TABLE public._grants_backup_virada FROM anon, authenticated;
 -- ---------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------
+-- 3b. PARIDADE FUNCIONAL DE RLS (correção de regressão real)
+--
+--  Teste funcional executado em 2026-08-26 no destino com usuário interno
+--  real (papel 'assistente', login via publishable key):
+--    tasks / lost_items / reservations / equipment_loans / classroom_calls
+--      -> INSERT OK, UPDATE OK, DELETE bloqueado (idêntico à origem: apenas
+--         admin apaga) ................................................ OK
+--    uber_requests -> INSERT 42501 (RLS) para usuário interno não-admin.
+--
+--  Na ORIGEM existe a policy:
+--    "Internal staff can create uber requests" INSERT TO authenticated
+--       WITH CHECK (is_internal_user(auth.uid()))
+--  No DESTINO essa policy não veio na clonagem (restaram só as de admin),
+--  o que quebrou o cadastro de solicitações de Uber Corporativo pelos
+--  usuários internos. Recriada abaixo de forma idempotente.
+-- ---------------------------------------------------------------------
+DROP POLICY IF EXISTS "Internal staff can create uber requests" ON public.uber_requests;
+CREATE POLICY "Internal staff can create uber requests"
+  ON public.uber_requests FOR INSERT TO authenticated
+  WITH CHECK (public.is_internal_user(auth.uid()));
+
+-- Demais policies de uber_requests: reafirmadas para paridade com a origem
+DROP POLICY IF EXISTS "Admins can view uber requests" ON public.uber_requests;
+CREATE POLICY "Admins can view uber requests"
+  ON public.uber_requests FOR SELECT TO authenticated
+  USING (public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can update uber requests" ON public.uber_requests;
+CREATE POLICY "Admins can update uber requests"
+  ON public.uber_requests FOR UPDATE TO authenticated
+  USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can delete uber requests" ON public.uber_requests;
+CREATE POLICY "Admins can delete uber requests"
+  ON public.uber_requests FOR DELETE TO authenticated
+  USING (public.is_admin(auth.uid()));
+
+
+-- ---------------------------------------------------------------------
 -- 4. Sequences
 --    Auditoria: a única sequence do schema public é
 --    _grants_backup_virada_id_seq (artefato de migração). Nenhuma tabela de
