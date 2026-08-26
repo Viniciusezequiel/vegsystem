@@ -3110,6 +3110,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_system_health: { Args: never; Returns: Json }
       check_reservation_conflict:
         | {
             Args: {

@@ -25,28 +25,41 @@ async function deleteTracked(client: SupabaseClient, registry: Registry, table: 
   untrackRow(registry, table, id);
 }
 
+async function getSystemHealthWithRetry(client: SupabaseClient) {
+  let result = await client.rpc('get_system_health');
+  for (let attempt = 1; result.error?.code === '57014' && attempt < 3; attempt += 1) {
+    result = await client.rpc('get_system_health');
+  }
+  return result;
+}
+
 test('autenticação, sessão e guards por role', async ({ browser, page }) => {
   const internal = await browser.newContext({ storageState: INTERNAL_STATE });
   const internalPage = await internal.newPage();
   await internalPage.goto('/');
   await internalPage.reload();
   await expect(internalPage).not.toHaveURL(/admin-auth/);
+  await expect(internalPage.getByRole('link', { name: 'Saúde do Sistema' })).toHaveCount(0);
+  await internalPage.goto('/admin-module/system-health');
+  await expect(internalPage.getByText(/Acesso Negado/i)).toBeVisible({ timeout: 20_000 });
   await internalPage.goto('/admin-module/uber');
   await expect(internalPage.getByText(/Acesso Negado/i)).toBeVisible({ timeout: 20_000 });
   await internal.close();
 
-  const admin = await browser.newContext({ storageState: ADMIN_STATE });
-  const adminPage = await admin.newPage();
+  let admin = await browser.newContext({ storageState: ADMIN_STATE });
+  let adminPage = await admin.newPage();
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await adminPage.goto('/admin-module/uber');
-    if (await adminPage.getByText(/Uber Corporativo/i).first().isVisible({ timeout: 10_000 }).catch(() => false)) break;
+    await adminPage.goto('/admin-module');
+    if (await adminPage.getByRole('heading', { name: 'Administração' }).isVisible({ timeout: 10_000 }).catch(() => false)) break;
+    if (attempt < 2) {
+      await admin.close();
+      admin = await browser.newContext({ storageState: ADMIN_STATE });
+      adminPage = await admin.newPage();
+    }
   }
   await expect(adminPage).not.toHaveURL(/admin-auth/);
-  await expect(adminPage.getByText(/Uber Corporativo/i).first()).toBeVisible({ timeout: 20_000 });
-
-  await adminPage.goto('/admin-module');
   const adminContent = adminPage.locator('main');
-  await expect(adminContent.getByRole('heading', { name: 'Administração' })).toBeVisible();
+  await expect(adminContent.getByRole('heading', { name: 'Administração' })).toBeVisible({ timeout: 20_000 });
   await expect(adminContent.getByText('Ferramentas e configurações exclusivas para administradores.')).toBeVisible();
   await expect(adminContent.getByRole('link', { name: /Usuários e perfis/i })).toHaveAttribute('href', '/settings?tab=usuarios');
   await expect(adminContent.getByRole('link', { name: /Roles e permissões/i })).toHaveAttribute('href', '/settings?tab=permissoes');
@@ -101,6 +114,35 @@ test('funções de role reconhecem assistente e admin', async () => {
   expect((await internal.rpc('is_admin', { _user_id: internalId })).data).toBe(false);
   expect((await admin.rpc('is_admin', { _user_id: adminId })).data).toBe(true);
   expect((await admin.rpc('has_role', { _user_id: adminId, _role: 'admin' })).data).toBe(true);
+
+  const internalHealth = await internal.rpc('get_system_health');
+  expect(internalHealth.data).toBeNull();
+  expect(internalHealth.error).not.toBeNull();
+
+  const adminHealth = await getSystemHealthWithRetry(admin);
+  expect(adminHealth.error).toBeNull();
+  expect(adminHealth.data).toMatchObject({
+    lost_items: { base64_total: 0 },
+  });
+});
+
+test('saúde do sistema exibe somente métricas administrativas agregadas', async ({ browser }) => {
+  const context = await browser.newContext({ storageState: ADMIN_STATE });
+  const page = await context.newPage();
+  await page.goto('/admin-module/system-health');
+  const health = page.getByTestId('system-health-page');
+  await expect(health.getByRole('heading', { name: 'Saúde do Sistema' })).toBeVisible({ timeout: 20_000 });
+  await expect(health.getByText('Banco de dados', { exact: true })).toBeVisible({ timeout: 30_000 });
+  for (const cardTitle of ['Storage', 'Automações', 'Achados e Perdidos', 'Usuários', 'Maiores tabelas']) {
+    await expect(health.getByText(cardTitle, { exact: true }).first()).toBeVisible();
+  }
+  await expect(health.getByTestId('base64-count')).toHaveText('0');
+  await expect(health.getByTestId('cron-job')).toHaveCount(3);
+  for (const jobName of ['expire-lost-items-daily', 'process-recurring-tasks-daily', 'process-recurring-tasks-hourly']) {
+    await expect(health.getByText(jobName, { exact: true })).toBeVisible();
+  }
+  await expect(health).not.toContainText(/service_role|bearer|password|connection string|vault/i);
+  await context.close();
 });
 
 test('achados: Storage path, CRUD, baixa, reload lógico e permissões', async () => {

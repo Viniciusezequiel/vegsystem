@@ -28,6 +28,7 @@ import {
   Car,
   ShieldCheck,
   GraduationCap,
+  HeartPulse,
 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -209,6 +210,10 @@ const administrationNav: NavItem[] = [
   { name: 'Administração', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
 ];
 
+const systemNav: NavItem[] = [
+  { name: 'Saúde do Sistema', href: '/admin-module/system-health', icon: HeartPulse, adminOnly: true },
+];
+
 const navSections: NavSection[] = [
   {
     key: 'operation',
@@ -222,7 +227,7 @@ const navSections: NavSection[] = [
   },
   { key: 'management', name: 'Gestão', items: managementNav },
   { key: 'administration', name: 'Administração', items: administrationNav },
-  { key: 'system', name: 'Sistema', items: [], adminOnly: true },
+  { key: 'system', name: 'Sistema', items: systemNav, adminOnly: true },
 ];
 
 interface SidebarProps {
