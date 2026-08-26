@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Bell, CheckCircle, Loader2, Navigation, Clock, MessageSquare } from 'lucide-react';
-import { useCreateClassroomCall } from '@/hooks/useClassroomCalls';
+import { useToast } from '@/hooks/use-toast';
 
 interface CallStatus {
   status: 'pending' | 'accepted' | 'resolved';
@@ -25,7 +25,7 @@ interface RoomConfig {
 
 export default function ClassroomCallForm() {
   const [searchParams] = useSearchParams();
-  const createCall = useCreateClassroomCall();
+  const { toast } = useToast();
   const [selectedCampus, setSelectedCampus] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [selectedIssueId, setSelectedIssueId] = useState('');
@@ -203,7 +203,11 @@ export default function ClassroomCallForm() {
       setCallStatus({ status: 'pending' });
     } catch (error: any) {
       console.error('Error creating call:', error);
-      createCall.mutate({ room_name: selectedRoom.name, reason: selectedIssue?.description || additionalInfo });
+      toast({
+        title: 'Erro ao enviar chamado',
+        description: error.message || 'Não foi possível criar o chamado. Tente novamente.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
