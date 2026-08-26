@@ -102,6 +102,40 @@ Tabelas com `RLS_BLOCK` para o papel `assistente` (`equipment`, `rooms`, `locker
 
 ---
 
+## 4.1 Matriz completa: snapshot da origem × destino
+
+A matriz CSV anexa cobre as **58 tabelas** e os papéis `anon` e `authenticated` (116 linhas): `matriz-permissoes-origem-destino.csv`.
+
+Critério usado:
+
+- **Origem:** `_grants_backup_virada`, capturado antes do modo somente leitura. Ele contém INSERT/UPDATE/DELETE; SELECT foi preservado fora do snapshot.
+- **Destino/anon:** sondagem REST não destrutiva por tabela: `SELECT limit=0`, INSERT com UUID propositalmente inválido e UPDATE/DELETE sobre UUID inexistente. Resultado: nenhuma resposta `permission denied for table`; os 58 INSERTs chegaram à validação de tipo (`22P02`) e os 58 UPDATE/DELETE chegaram ao executor (`204`). Isso comprova que os GRANTs existem, sem gravar ou alterar linhas.
+- **Destino/authenticated:** a repetição independente com usuário interno comum ficou **bloqueada nesta execução**, pois não há uma sessão/JWT de usuário do projeto externo disponível no ambiente (`LOVABLE_BROWSER_AUTH_STATUS=signed_out`). O relatório anterior testou um usuário temporário `assistente`, removido depois. Portanto a matriz marca essa parte como “não reexecutada”, sem apresentar inferência como novo teste.
+
+Resumo objetivo do snapshot:
+
+| Papel | Tabelas com I/U/D na origem | Ausências |
+|---|---:|---|
+| `authenticated` | 58/58 | nenhuma |
+| `anon` | 54/58 | `classroom_calls`, `ps_evaluations`, `ps_event_collaborators`, `uber_requests` |
+
+Além dessas quatro ausências totais, as ACLs da origem indicaram que `ps_events`, `ps_roles` e `room_combinations` não tinham DML/SELECT útil para `anon`; por isso aparecem no conjunto de excessos do destino.
+
+### Testes funcionais solicitados
+
+| Cenário | Escritas envolvidas | Resultado atual |
+|---|---|---|
+| INSERT | tabela específica do fluxo | GRANT de `anon` confirmado nas 58 tabelas; `authenticated` já havia passado na sondagem anterior, mas não foi repetido sem JWT comum |
+| UPDATE | tabela específica do fluxo | idem; UPDATE não destrutivo retornou 204 para `anon` nas 58 tabelas |
+| DELETE | tabela específica do fluxo | idem; DELETE não destrutivo retornou 204 para `anon` nas 58 tabelas |
+| Baixa de item | UPDATE em `lost_items` + INSERT em `activity_logs` | caminho frontend confirmado; autorização funcional como usuário comum não reexecutada sem sessão |
+| Criação de chamado | público: RPC `create_public_classroom_call`; interno: INSERT em `classroom_calls` | RPC pública é o caminho correto; o acesso direto anônimo deve ser removido pelo script 14 |
+| Envio de formulário | varia por formulário; chamados/Uber/avaliação PS usam RPCs públicas | superfície mapeada; teste autenticado real pendente pelo mesmo bloqueio de sessão |
+
+**Conclusão estrita:** não há evidência de GRANT ausente. A hipótese compatível com falhas de escrita permanece **RLS/identidade** (papel ausente, `auth.uid()` diferente do esperado ou sessão apontando para a origem antiga), não GRANT. Para atribuir uma falha concreta a uma policy específica, é necessário capturar a requisição real com usuário interno comum autenticado no frontend externo.
+
+---
+
 ## 5. Objetos afetados pelo script 14
 
 | Categoria | Quantidade |
