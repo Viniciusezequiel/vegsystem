@@ -95,8 +95,7 @@ export default function EquipmentLoans() {
   const [editDateDialogOpen, setEditDateDialogOpen] = useState(false);
   const [groupToEditDate, setGroupToEditDate] = useState<GroupedLoan | null>(null);
   
-  const { profile } = useAuth();
-  const isAdmin = profile?.position === 'admin'; // fallback check
+  const { isAdmin } = useAuth();
   
   const { data: activeLoans } = useEquipmentLoans('active');
   const { data: awaitingReservations } = useEquipmentReservations('awaiting_pickup');
