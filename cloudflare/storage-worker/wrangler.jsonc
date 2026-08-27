@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vegsystem-storage",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-08-27",
+  "workers_dev": true,
+  "preview_urls": false,
+  "keep_vars": true,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true
+    }
+  },
+  "r2_buckets": [
+    {
+      "binding": "LOST_ITEMS_BUCKET",
+      "bucket_name": "vegsystem-lost-items-prod"
+    }
+  ]
+}
