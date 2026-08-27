@@ -13,7 +13,7 @@ export default async function globalTeardown() {
   const { error: loginError } = await client.auth.signInWithPassword({ email, password });
   if (loginError) throw new Error(`Cleanup sem autenticação admin: ${loginError.message}`);
 
-  const tableOrder = ['task_history', 'task_comments', 'tasks', 'uber_requests', 'reservations', 'equipment_loans', 'lost_items'];
+  const tableOrder = ['task_history', 'task_comments', 'tasks', 'uber_requests', 'reservations', 'equipment_loans', 'lost_items_archive', 'lost_items'];
   const failures: string[] = [];
   for (const table of tableOrder) {
     for (const id of [...(registry.rows[table] ?? [])]) {

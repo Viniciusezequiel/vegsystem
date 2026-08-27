@@ -12,20 +12,24 @@ import {
   Building2, 
   FileDown, 
   Archive,
-  ArrowLeft
+  ArrowLeft,
+  Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useArchivedLostItems, ArchivedLostItem } from '@/hooks/useArchivedLostItems';
+import { useArchivedLostItems, useDeleteArchivedLostItems, ArchivedLostItem } from '@/hooks/useArchivedLostItems';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -36,6 +40,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { generatePdf } from '@/lib/pdfService';
 import type { Database } from '@/integrations/supabase/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -44,11 +49,17 @@ const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Camp
 export default function ArchivedItemsList() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
+  const deleteArchivedItems = useDeleteArchivedLostItems();
   const [searchQuery, setSearchQuery] = useState('');
   const [campusFilter, setCampusFilter] = useState<CampusEnum | 'all'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedItem, setSelectedItem] = useState<ArchivedLostItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteTargets, setDeleteTargets] = useState<ArchivedLostItem[]>([]);
+  const [backupConfirmed, setBackupConfirmed] = useState(false);
+  const [deletePhrase, setDeletePhrase] = useState('');
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { 
@@ -172,6 +183,46 @@ export default function ArchivedItemsList() {
 
   const hasActiveFilters = searchQuery || campusFilter !== 'all' || dateFrom || dateTo;
 
+  const openDeleteConfirmation = (items: ArchivedLostItem[]) => {
+    setDeleteTargets(items);
+    setBackupConfirmed(false);
+    setDeletePhrase('');
+  };
+
+  const closeDeleteConfirmation = () => {
+    if (deleteArchivedItems.isPending) return;
+    setDeleteTargets([]);
+    setBackupConfirmed(false);
+    setDeletePhrase('');
+  };
+
+  const confirmDelete = async () => {
+    try {
+      const summary = await deleteArchivedItems.mutateAsync(deleteTargets);
+      setSelectedIds(current => {
+        const next = new Set(current);
+        deleteTargets.forEach(item => next.delete(item.id));
+        return next;
+      });
+      if (selectedItem && deleteTargets.some(item => item.id === selectedItem.id)) setSelectedItem(null);
+      toast({
+        title: `${summary.itemsDeleted} ${summary.itemsDeleted === 1 ? 'item excluído' : 'itens excluídos'}`,
+        description: `${summary.imagesRemoved} ${summary.imagesRemoved === 1 ? 'imagem removida' : 'imagens removidas'} · ${summary.imagesPreserved} ${summary.imagesPreserved === 1 ? 'imagem preservada' : 'imagens preservadas'}`,
+      });
+      closeDeleteConfirmation();
+    } catch {
+      toast({
+        title: 'Não foi possível concluir a exclusão',
+        description: 'Nenhum item fora da seleção foi alterado. Atualize a página e tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const selectedItems = allItems.filter(item => selectedIds.has(item.id));
+  const requiresPhrase = deleteTargets.length > 5;
+  const canConfirmDelete = backupConfirmed && (!requiresPhrase || deletePhrase === 'EXCLUIR');
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -192,10 +243,18 @@ export default function ArchivedItemsList() {
             </div>
           </div>
           
-          <Button variant="outline" size="sm" onClick={exportToPdf} disabled={filteredItems.length === 0}>
-            <FileDown className="w-4 h-4 mr-2" />
-            Exportar PDF
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {isAdmin && selectedItems.length > 0 && (
+              <Button variant="destructive" size="sm" onClick={() => openDeleteConfirmation(selectedItems)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir selecionados
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={exportToPdf} disabled={filteredItems.length === 0}>
+              <FileDown className="w-4 h-4 mr-2" />
+              Exportar PDF
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -260,6 +319,7 @@ export default function ArchivedItemsList() {
         {/* Results count */}
         <div className="text-sm text-muted-foreground">
           {isLoading ? 'Carregando...' : `${filteredItems.length} item(ns) carregado(s)${hasNextPage ? ' (mais disponíveis)' : ''}`}
+          {isAdmin && selectedItems.length > 0 && <span className="ml-3 font-medium text-foreground">{selectedItems.length} itens selecionados</span>}
         </div>
 
         {/* Items list */}
@@ -283,6 +343,20 @@ export default function ArchivedItemsList() {
                     "bg-card rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
                   )}
                 >
+                  {isAdmin && (
+                    <div className="mb-3 flex items-center gap-2" onClick={event => event.stopPropagation()}>
+                      <Checkbox
+                        aria-label={`Selecionar item ${item.code}`}
+                        checked={selectedIds.has(item.id)}
+                        onCheckedChange={(checked) => setSelectedIds(current => {
+                          const next = new Set(current);
+                          if (checked) next.add(item.id); else next.delete(item.id);
+                          return next;
+                        })}
+                      />
+                      <span className="text-xs text-muted-foreground">Selecionar</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-mono text-sm font-semibold text-primary">{item.code}</span>
                     <span className="text-xs bg-muted px-2 py-0.5 rounded">Arquivado</span>
@@ -414,8 +488,47 @@ export default function ArchivedItemsList() {
                   </div>
                 </div>
               </div>
+
+              {isAdmin && (
+                <div className="flex justify-end border-t pt-4">
+                  <Button variant="destructive" onClick={() => openDeleteConfirmation([selectedItem])}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir definitivamente
+                  </Button>
+                </div>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteTargets.length > 0} onOpenChange={(open) => { if (!open) closeDeleteConfirmation(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir item arquivado definitivamente?</DialogTitle>
+            <DialogDescription>
+              Esta ação removerá permanentemente {deleteTargets.length === 1 ? 'este registro' : `estes ${deleteTargets.length} registros`} e, quando seguro, sua imagem armazenada. Esta ação não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <label className="flex items-start gap-3 text-sm">
+              <Checkbox checked={backupConfirmed} onCheckedChange={checked => setBackupConfirmed(checked === true)} />
+              <span>Confirmo que já gerei ou salvei o PDF/backup necessário.</span>
+            </label>
+            {requiresPhrase && (
+              <div className="space-y-2">
+                <Label htmlFor="archive-delete-phrase">Digite EXCLUIR para confirmar</Label>
+                <Input id="archive-delete-phrase" value={deletePhrase} onChange={event => setDeletePhrase(event.target.value)} autoComplete="off" />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDeleteConfirmation} disabled={deleteArchivedItems.isPending}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => void confirmDelete()} disabled={!canConfirmDelete || deleteArchivedItems.isPending}>
+              {deleteArchivedItems.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Excluir definitivamente
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </MainLayout>

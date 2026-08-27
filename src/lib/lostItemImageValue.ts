@@ -37,3 +37,15 @@ export function normalizeLostItemImagePath(
 
   return trimmed.replace(/^\/+/, '');
 }
+
+/** Returns only conservative, deletable object paths from the lost-items bucket. */
+export function getDeletableLostItemImagePath(value: string | null | undefined): string | null {
+  try {
+    const path = normalizeLostItemImagePath(value);
+    if (!path || /[\u0000-\u001f]/.test(path)) return null;
+    if (path.split('/').some(segment => !segment || segment === '.' || segment === '..')) return null;
+    return path;
+  } catch {
+    return null;
+  }
+}

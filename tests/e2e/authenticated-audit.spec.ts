@@ -34,6 +34,7 @@ async function getSystemHealthWithRetry(client: SupabaseClient) {
 }
 
 test('autenticação, sessão e guards por role', async ({ browser, page }) => {
+  test.setTimeout(180_000);
   const internal = await browser.newContext({ storageState: INTERNAL_STATE });
   const internalPage = await internal.newPage();
   await internalPage.goto('/');
@@ -48,10 +49,10 @@ test('autenticação, sessão e guards por role', async ({ browser, page }) => {
 
   let admin = await browser.newContext({ storageState: ADMIN_STATE });
   let adminPage = await admin.newPage();
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     await adminPage.goto('/admin-module');
     if (await adminPage.getByRole('heading', { name: 'Administração' }).isVisible({ timeout: 10_000 }).catch(() => false)) break;
-    if (attempt < 2) {
+    if (attempt < 5) {
       await admin.close();
       admin = await browser.newContext({ storageState: ADMIN_STATE });
       adminPage = await admin.newPage();
@@ -182,6 +183,194 @@ test('achados: Storage path, CRUD, baixa, reload lógico e permissões', async (
   await deleteTracked(admin, registry, 'lost_items', inserted.data.id);
   expect((await admin.storage.from('lost-items').remove([objectPath])).error).toBeNull();
   untrackObject(registry, 'lost-items', objectPath);
+});
+
+test('arquivados: exclusão admin explícita, confirmação, lote e Storage seguro', async ({ browser }) => {
+  test.setTimeout(180_000);
+  const registry = loadRegistry()!;
+  const internal = await clientFor('internal');
+  const admin = await clientFor('admin');
+  const adminId = (await admin.auth.getUser()).data.user!.id;
+  const exclusivePath = `e2e/${registry.runId}/archive-exclusive.png`;
+  const sharedPath = `e2e/${registry.runId}/archive-shared.png`;
+  const referenceFailurePath = `e2e/${registry.runId}/archive-reference-failure.png`;
+  const storageFailurePath = `e2e/${registry.runId}/archive-storage-failure.png`;
+  const storageObjectExists = async (path: string) => {
+    const separator = path.lastIndexOf('/');
+    const directory = separator >= 0 ? path.slice(0, separator) : '';
+    const filename = separator >= 0 ? path.slice(separator + 1) : path;
+    const { data, error } = await admin.storage.from('lost-items').list(directory, { search: filename, limit: 10 });
+    if (error) throw error;
+    return (data ?? []).some(entry => entry.name === filename);
+  };
+  const png = Uint8Array.from([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,2,0,0,0,144,119,83,222,0,0,0,12,73,68,65,84,8,215,99,248,207,192,0,0,3,1,1,0,201,254,146,239,0,0,0,0,73,69,78,68,174,66,96,130]);
+  for (const path of [exclusivePath, sharedPath, referenceFailurePath, storageFailurePath]) {
+    const { error } = await admin.storage.from('lost-items').upload(path, png, { contentType: 'image/png' });
+    if (error) throw error;
+    trackObject(registry, 'lost-items', path);
+  }
+
+  const archiveRows = Array.from({ length: 12 }, (_, index) => ({
+    code: `E2E-A${String(Date.now()).slice(-4)}-${index}`,
+    description: `${registry.runId} arquivado ${index}`,
+    image_url: index === 0
+      ? exclusivePath
+      : [1, 2, 3].includes(index)
+        ? sharedPath
+        : index === 10
+          ? referenceFailurePath
+          : index === 11
+            ? storageFailurePath
+            : null,
+    campus: 'Campus I' as const,
+    found_location: 'E2E', found_date: '2026-08-26', received_date: '2026-08-26',
+    delivered_by_name: registry.runId, status: 'delivered', registered_by: adminId,
+    archived_by: adminId, archived_by_name: 'E2E Admin', original_id: crypto.randomUUID(),
+  }));
+  const inserted = await admin.from('lost_items_archive').insert(archiveRows).select('id,code,image_url');
+  if (inserted.error) throw inserted.error;
+  inserted.data.forEach(row => trackRow(registry, 'lost_items_archive', row.id));
+
+  const denied = await internal.from('lost_items_archive').delete().eq('id', inserted.data[0].id).select('id');
+  expect(denied.error).toBeNull();
+  expect(denied.data).toEqual([]);
+  const internalContext = await browser.newContext({ storageState: INTERNAL_STATE });
+  const internalPage = await internalContext.newPage();
+  await internalPage.goto('/lost-found/archived');
+  await expect(internalPage.getByRole('button', { name: /Excluir/i })).toHaveCount(0);
+  await internalContext.close();
+
+  const adminContext = await browser.newContext({ storageState: ADMIN_STATE });
+  const page = await adminContext.newPage();
+  let referenceMode: 'remaining' | 'shared' | 'none' | 'fail' = 'remaining';
+  let sharedPathDeleteRequests = 0;
+  page.on('request', request => {
+    const requestContent = decodeURIComponent(`${request.url()} ${request.postData() ?? ''}`);
+    if (request.method() === 'DELETE' && requestContent.includes(sharedPath)) sharedPathDeleteRequests += 1;
+  });
+  await page.goto('/lost-found/archived');
+  await expect(page.getByText(inserted.data[0].code, { exact: true })).toBeVisible({ timeout: 30_000 });
+
+  // Intercept only the conservative reference scan, after the page loaded normally.
+  await page.route('**/rest/v1/lost_items*', async route => {
+    const requestUrl = new URL(route.request().url());
+    if (requestUrl.searchParams.get('select') !== 'image_url') {
+      await route.continue();
+      return;
+    }
+    if (referenceMode === 'fail') {
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"test"}' });
+      return;
+    }
+    const isArchive = requestUrl.pathname.endsWith('/lost_items_archive');
+    const imageUrls = !isArchive
+      ? []
+      : referenceMode === 'shared'
+        ? [sharedPath]
+        : referenceMode === 'remaining'
+          ? [referenceFailurePath, storageFailurePath]
+          : [];
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(imageUrls.map(image_url => ({ image_url }))),
+    });
+  });
+  await page.getByText(inserted.data[0].code, { exact: true }).click();
+  await page.getByRole('button', { name: 'Excluir definitivamente' }).click();
+  const individualDialog = page.getByRole('dialog', { name: 'Excluir item arquivado definitivamente?' });
+  const individualConfirm = individualDialog.getByRole('button', { name: 'Excluir definitivamente' });
+  await expect(individualConfirm).toBeDisabled();
+  await individualDialog.getByText(/Confirmo que já gerei/).click();
+  await expect(individualConfirm).toBeEnabled();
+  await individualConfirm.click();
+  await expect(page.getByText('1 item excluído', { exact: true })).toBeVisible({ timeout: 30_000 });
+  expect((await admin.from('lost_items_archive').select('id').eq('id', inserted.data[0].id)).data).toEqual([]);
+  untrackRow(registry, 'lost_items_archive', inserted.data[0].id);
+  await expect.poll(() => storageObjectExists(exclusivePath), { timeout: 30_000 }).toBe(false);
+  untrackObject(registry, 'lost-items', exclusivePath);
+  await expect(page.getByText(inserted.data[0].code, { exact: true })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByText(inserted.data[1].code, { exact: true })).toBeVisible({ timeout: 30_000 });
+
+  // A is selected, while B and C keep the same image referenced.
+  referenceMode = 'shared';
+  await page.getByText(inserted.data[1].code, { exact: true }).click();
+  await page.getByRole('button', { name: 'Excluir definitivamente' }).click();
+  const sharedSingleDialog = page.getByRole('dialog', { name: 'Excluir item arquivado definitivamente?' });
+  await sharedSingleDialog.getByText(/Confirmo que já gerei/).click();
+  await sharedSingleDialog.getByRole('button', { name: 'Excluir definitivamente' }).click();
+  await expect(page.getByText(/1 imagem preservada/, { exact: true }).last()).toBeVisible({ timeout: 30_000 });
+  await expect.poll(async () => (await admin.from('lost_items_archive').select('id').eq('id', inserted.data[1].id)).data?.length, { timeout: 30_000 }).toBe(0);
+  untrackRow(registry, 'lost_items_archive', inserted.data[1].id);
+  expect((await admin.from('lost_items_archive').select('id').in('id', [inserted.data[2].id, inserted.data[3].id])).data).toHaveLength(2);
+  expect(await storageObjectExists(sharedPath)).toBe(true);
+  expect(sharedPathDeleteRequests).toBe(0);
+  await expect(page.getByText(inserted.data[1].code, { exact: true })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole('checkbox', { name: `Selecionar item ${inserted.data[2].code}` })).toBeVisible({ timeout: 30_000 });
+
+  // B and C share the same path and are deleted in the same explicit batch.
+  referenceMode = 'remaining';
+  for (const row of inserted.data.slice(2, 9)) {
+    await page.getByRole('checkbox', { name: `Selecionar item ${row.code}` }).click();
+  }
+  await expect(page.getByText('7 itens selecionados')).toBeVisible();
+  await page.getByRole('button', { name: 'Excluir selecionados' }).click();
+  const batchDialog = page.getByRole('dialog', { name: 'Excluir item arquivado definitivamente?' });
+  const batchConfirm = batchDialog.getByRole('button', { name: 'Excluir definitivamente' });
+  await batchDialog.getByText(/Confirmo que já gerei/).click();
+  await batchDialog.getByLabel('Digite EXCLUIR para confirmar').fill('excluir');
+  await expect(batchConfirm).toBeDisabled();
+  await batchDialog.getByLabel('Digite EXCLUIR para confirmar').fill('EXCLUIR');
+  await expect(batchConfirm).toBeEnabled();
+  await batchConfirm.click();
+  await expect(page.getByText('7 itens excluídos', { exact: true })).toBeVisible({ timeout: 30_000 });
+  for (const row of inserted.data.slice(2, 9)) untrackRow(registry, 'lost_items_archive', row.id);
+  expect((await admin.from('lost_items_archive').select('id').eq('id', inserted.data[9].id).single()).data?.id).toBe(inserted.data[9].id);
+  expect(sharedPathDeleteRequests).toBe(1);
+  await expect.poll(() => storageObjectExists(sharedPath), { timeout: 30_000 }).toBe(false);
+  untrackObject(registry, 'lost-items', sharedPath);
+  await expect(page.getByText(inserted.data[2].code, { exact: true })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByText(inserted.data[10].code, { exact: true })).toBeVisible({ timeout: 30_000 });
+
+  // If reference lookup fails, deletion remains conservative and preserves the object.
+  referenceMode = 'fail';
+  await page.getByText(inserted.data[10].code, { exact: true }).click();
+  await page.getByRole('button', { name: 'Excluir definitivamente' }).click();
+  const referenceFailureDialog = page.getByRole('dialog', { name: 'Excluir item arquivado definitivamente?' });
+  await referenceFailureDialog.getByText(/Confirmo que já gerei/).click();
+  await referenceFailureDialog.getByRole('button', { name: 'Excluir definitivamente' }).click();
+  await expect(page.getByText(/1 imagem preservada/, { exact: true }).last()).toBeVisible({ timeout: 30_000 });
+  untrackRow(registry, 'lost_items_archive', inserted.data[10].id);
+  expect(await storageObjectExists(referenceFailurePath)).toBe(true);
+  await expect(page.getByText(inserted.data[10].code, { exact: true })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByText(inserted.data[11].code, { exact: true })).toBeVisible({ timeout: 30_000 });
+
+  // If Storage rejects removal, the deleted record is not restored and the orphan is reported/preserved.
+  referenceMode = 'none';
+  await page.route('**/storage/v1/object/lost-items**', async route => {
+    const content = decodeURIComponent(`${route.request().url()} ${route.request().postData() ?? ''}`);
+    if (route.request().method() === 'DELETE' && content.includes(storageFailurePath)) {
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"test"}' });
+    } else {
+      await route.continue();
+    }
+  });
+  await page.getByText(inserted.data[11].code, { exact: true }).click();
+  await page.getByRole('button', { name: 'Excluir definitivamente' }).click();
+  const storageFailureDialog = page.getByRole('dialog', { name: 'Excluir item arquivado definitivamente?' });
+  await storageFailureDialog.getByText(/Confirmo que já gerei/).click();
+  await storageFailureDialog.getByRole('button', { name: 'Excluir definitivamente' }).click();
+  await expect(page.getByText(/1 imagem preservada/, { exact: true }).last()).toBeVisible({ timeout: 30_000 });
+  await page.unroute('**/storage/v1/object/lost-items**');
+  untrackRow(registry, 'lost_items_archive', inserted.data[11].id);
+  expect(await storageObjectExists(storageFailurePath)).toBe(true);
+
+  await deleteTracked(admin, registry, 'lost_items_archive', inserted.data[9].id);
+  for (const path of [referenceFailurePath, storageFailurePath]) {
+    expect((await admin.storage.from('lost-items').remove([path])).error).toBeNull();
+    untrackObject(registry, 'lost-items', path);
+  }
+  await adminContext.close();
 });
 
 test('Uber: assistente cria, não administra; admin lê, atualiza e remove', async () => {

@@ -1,5 +1,6 @@
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getDeletableLostItemImagePath } from '@/lib/lostItemImageValue';
 
 export interface ArchivedLostItem {
   id: string;
@@ -70,6 +71,87 @@ export function useArchivedLostItemsCount() {
 
       if (error) throw error;
       return count || 0;
+    },
+  });
+}
+
+export type ArchivedItemsDeleteSummary = {
+  itemsDeleted: number;
+  imagesRemoved: number;
+  imagesPreserved: number;
+};
+
+async function loadReferencedImagePaths() {
+  const paths = new Set<string>();
+  for (const table of ['lost_items', 'lost_items_archive'] as const) {
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from(table)
+        .select('image_url')
+        .not('image_url', 'is', null)
+        .range(from, from + 999);
+      if (error) throw error;
+      for (const row of data ?? []) {
+        const path = getDeletableLostItemImagePath(row.image_url);
+        if (path) paths.add(path);
+      }
+      if (!data || data.length < 1000) break;
+    }
+  }
+  return paths;
+}
+
+export function useDeleteArchivedLostItems() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (items: ArchivedLostItem[]): Promise<ArchivedItemsDeleteSummary> => {
+      const uniqueItems = [...new Map(items.map(item => [item.id, item])).values()];
+      if (uniqueItems.length === 0) throw new Error('Selecione ao menos um item arquivado.');
+
+      const ids = uniqueItems.map(item => item.id);
+      const { data: deleted, error: deleteError } = await supabase
+        .from('lost_items_archive')
+        .delete()
+        .in('id', ids)
+        .select('id');
+      if (deleteError) throw new Error('Não foi possível excluir os itens selecionados.');
+      if ((deleted?.length ?? 0) !== ids.length) {
+        throw new Error('A exclusão não foi concluída integralmente. Atualize a página antes de tentar novamente.');
+      }
+
+      const candidatePaths = new Set(
+        uniqueItems
+          .map(item => getDeletableLostItemImagePath(item.image_url))
+          .filter((path): path is string => Boolean(path)),
+      );
+      let imagesRemoved = 0;
+      let imagesPreserved = uniqueItems.filter(item => item.image_url && !getDeletableLostItemImagePath(item.image_url)).length;
+
+      if (candidatePaths.size > 0) {
+        let referencedPaths: Set<string>;
+        try {
+          referencedPaths = await loadReferencedImagePaths();
+        } catch {
+          return { itemsDeleted: ids.length, imagesRemoved: 0, imagesPreserved: imagesPreserved + candidatePaths.size };
+        }
+
+        for (const path of candidatePaths) {
+          if (referencedPaths.has(path)) {
+            imagesPreserved += 1;
+            continue;
+          }
+          const { error } = await supabase.storage.from('lost-items').remove([path]);
+          if (error) imagesPreserved += 1;
+          else imagesRemoved += 1;
+        }
+      }
+
+      return { itemsDeleted: ids.length, imagesRemoved, imagesPreserved };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lost-items-archive'] });
+      queryClient.invalidateQueries({ queryKey: ['lost-items-archive-count'] });
     },
   });
 }

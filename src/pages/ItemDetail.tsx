@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,50 +105,14 @@ export default function ItemDetail() {
     delivered_by_contact: '',
   });
 
-  // Compress image helper
-  const compressImage = (file: File, maxWidth: number, quality: number): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width;
-          width = maxWidth;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { reject(new Error('No canvas context')); return; }
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) { reject(new Error('No blob')); return; }
-            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-          },
-          'image/jpeg',
-          quality,
-        );
-      };
-      img.onerror = reject;
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !item) return;
 
     setIsUploadingPhoto(true);
     try {
-      // Compress if > 2MB
-      let uploadFile = file;
-      if (file.size > 2 * 1024 * 1024) {
-        uploadFile = await compressImage(file, 1200, 0.7);
-      }
-
-      const ext = uploadFile.name.split('.').pop() || 'jpg';
+      const uploadFile = await optimizeImage(file);
+      const ext = optimizedImageExtension(uploadFile.type);
       const filePath = `${item.code}-${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
@@ -157,7 +122,12 @@ export default function ItemDetail() {
       if (uploadError) throw uploadError;
 
       // Store the object path (bucket is private and the host may change).
-      updateItem.mutate({ id: item.id, image_url: filePath });
+      try {
+        await updateItem.mutateAsync({ id: item.id, image_url: filePath });
+      } catch (error) {
+        await supabase.storage.from('lost-items').remove([filePath]);
+        throw error;
+      }
 
       toast({
         title: 'Foto atualizada',

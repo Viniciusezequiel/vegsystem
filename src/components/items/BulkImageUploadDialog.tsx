@@ -12,6 +12,7 @@ import { Upload, ImageIcon, CheckCircle, XCircle, AlertCircle } from 'lucide-rea
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 
 interface BulkImageUploadDialogProps {
   open: boolean;
@@ -79,13 +80,13 @@ export function BulkImageUploadDialog({ open, onOpenChange }: BulkImageUploadDia
           continue;
         }
 
-        // Upload image to storage
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${item.id}.${fileExt}`;
+        const optimizedFile = await optimizeImage(file);
+        const fileExt = optimizedImageExtension(optimizedFile.type);
+        const filePath = `${item.id}-${Date.now()}-${i}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('lost-items')
-          .upload(filePath, file, { upsert: true });
+          .upload(filePath, optimizedFile, { upsert: false });
 
         if (uploadError) throw uploadError;
 
@@ -95,7 +96,10 @@ export function BulkImageUploadDialog({ open, onOpenChange }: BulkImageUploadDia
           .update({ image_url: filePath })
           .eq('id', item.id);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          await supabase.storage.from('lost-items').remove([filePath]);
+          throw updateError;
+        }
 
         uploadResults.push({
           filename: file.name,

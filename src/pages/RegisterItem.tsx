@@ -24,6 +24,7 @@ import { Camera, CheckCircle, Loader2, Copy, Check, Image as ImageIcon } from 'l
 import { useCreateLostItem, useLostItems } from '@/hooks/useLostItems';
 import { useStorageConfig } from '@/hooks/useStorageConfig';
 import type { Database } from '@/integrations/supabase/types';
+import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -43,37 +44,6 @@ const generateUniqueCode = (existingCodes: string[]): string => {
   return code;
 };
 
-// Compress image to reduce file size
-const compressImage = (file: File, maxWidth: number, quality: number): Promise<File> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-      if (width > maxWidth) {
-        height = (height * maxWidth) / width;
-        width = maxWidth;
-      }
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { reject(new Error('No canvas context')); return; }
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { reject(new Error('No blob')); return; }
-          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-        },
-        'image/jpeg',
-        quality,
-      );
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
-};
-
 export default function RegisterItem() {
   const navigate = useNavigate();
   const createLostItem = useCreateLostItem();
@@ -82,6 +52,7 @@ export default function RegisterItem() {
   
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isOptimizingImage, setIsOptimizingImage] = useState(false);
   const [campus, setCampus] = useState<CampusEnum | ''>('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -99,28 +70,28 @@ export default function RegisterItem() {
   const [copied, setCopied] = useState(false);
   const isSubmittingRef = useRef(false);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Compress if > 2MB
-      if (file.size > 2 * 1024 * 1024) {
-        compressImage(file, 1200, 0.7).then((compressed) => {
-          setImageFile(compressed);
-        }).catch(() => {
-          setImageFile(file);
-        });
-      } else {
-        setImageFile(file);
-      }
-      // Create a preview URL (lightweight, no base64 in memory)
-      const objectUrl = URL.createObjectURL(file);
-      setImagePreview(objectUrl);
+    if (!file) return;
+    setIsOptimizingImage(true);
+    try {
+      const optimized = await optimizeImage(file);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setImageFile(optimized);
+      setImagePreview(URL.createObjectURL(optimized));
+    } catch (error) {
+      setImageFile(null);
+      const { toast } = await import('sonner');
+      toast.error(error instanceof Error ? error.message : 'Não foi possível otimizar a imagem.');
+    } finally {
+      setIsOptimizingImage(false);
+      e.target.value = '';
     }
   };
 
   const uploadImageToStorage = async (file: File, itemCode: string): Promise<string | null> => {
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
+      const ext = optimizedImageExtension(file.type);
       const filePath = `${itemCode}-${Date.now()}.${ext}`;
       
       const { error: uploadError } = await supabase.storage
@@ -146,7 +117,7 @@ export default function RegisterItem() {
       toast.error('É obrigatório adicionar uma foto do item');
       return;
     }
-    if (isSubmittingRef.current || createLostItem.isPending) return;
+    if (isSubmittingRef.current || createLostItem.isPending || isOptimizingImage) return;
     isSubmittingRef.current = true;
 
     // Generate unique 6-digit code
@@ -157,7 +128,13 @@ export default function RegisterItem() {
     let imageUrl: string | undefined;
     if (imageFile) {
       const url = await uploadImageToStorage(imageFile, newCode);
-      imageUrl = url || undefined;
+      if (!url) {
+        const { toast } = await import('sonner');
+        toast.error('Não foi possível enviar a imagem. O item não foi cadastrado; tente novamente.');
+        isSubmittingRef.current = false;
+        return;
+      }
+      imageUrl = url;
     }
     
     createLostItem.mutate({
@@ -471,8 +448,8 @@ export default function RegisterItem() {
           <Button type="button" variant="outline" onClick={() => navigate('/lost-found')}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={createLostItem.isPending}>
-            {createLostItem.isPending ? (
+          <Button type="submit" disabled={createLostItem.isPending || isOptimizingImage}>
+            {createLostItem.isPending || isOptimizingImage ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Registrando...
