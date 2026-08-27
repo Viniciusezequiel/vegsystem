@@ -1,4 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getStorageProvider, R2CapabilityResolver } from '@/lib/r2CapabilityResolver.mjs';
+
+export { getStorageProvider } from '@/lib/r2CapabilityResolver.mjs';
 
 /**
  * The lost-items bucket is private. Legacy records store the old public URL
@@ -14,6 +17,23 @@ const REFRESH_MARGIN_MS = 10 * 60 * 1000; // refresh 10 min before expiry
 type CacheEntry = { url: string; expiresAt: number };
 const signedUrlCache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<string | null>>();
+
+const r2CapabilityResolver = new R2CapabilityResolver({
+  workerUrl: import.meta.env.VITE_STORAGE_WORKER_URL,
+  getAccessToken: async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return null;
+    return data.session?.access_token ?? null;
+  },
+});
+
+// A capability must never leak across authenticated users in the same SPA.
+// Token refresh keeps the same session and does not require cache invalidation.
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+    r2CapabilityResolver.clear();
+  }
+});
 
 /** Extracts { bucket, path } from a Supabase storage URL, or null when not one. */
 export function parseStorageUrl(value: string): { bucket: string; path: string } | null {
@@ -32,6 +52,7 @@ export async function resolveStorageUrl(
 ): Promise<string | null> {
   if (!value) return null;
   if (value.startsWith('data:')) return value;
+  if (getStorageProvider(value) === 'r2') return r2CapabilityResolver.resolve(value);
 
   // Accepts: full storage URL (any project host), or a bare object path.
   const parsed = parseStorageUrl(value)
@@ -64,6 +85,11 @@ export async function resolveStorageUrls(
   defaultBucket = 'lost-items',
 ) {
   return Promise.all(values.map((value) => resolveStorageUrl(value, defaultBucket)));
+}
+
+/** Resolves only R2 locators, preserving input order and batching up to 50. */
+export async function resolveR2Locators(values: string[]) {
+  return r2CapabilityResolver.resolveMany(values);
 }
 
 /* ---------------------------------------------------------------------------
