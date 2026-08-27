@@ -7,7 +7,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { GlobalPrefetch } from "@/components/GlobalPrefetch";
 import AdminAuth from "./pages/AdminAuth";
 import Setup from "./pages/Setup";
 import Home from "./pages/Home";
@@ -132,7 +131,6 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <GlobalPrefetch />
         <BrowserRouter>
           <AuthProvider>
             <OfflineProvider>

@@ -1,6 +1,7 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getDeletableLostItemImagePath } from '@/lib/lostItemImageValue';
+import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
 
 export interface ArchivedLostItem {
   id: string;
@@ -33,14 +34,45 @@ export interface ArchivedLostItem {
 }
 
 const PAGE_SIZE = 50;
+const ARCHIVED_ITEMS_LIST_SELECT = [
+  'id',
+  'original_id',
+  'code',
+  'description',
+  'image_url',
+  'campus',
+  'found_location',
+  'received_date',
+  'status',
+  'shelf',
+  'box',
+  'archived_at',
+].join(',');
+
+const ARCHIVED_ITEM_DETAIL_SELECT = [
+  'id',
+  'code',
+  'description',
+  'campus',
+  'found_location',
+  'received_date',
+  'shelf',
+  'box',
+  'owner_name',
+  'owner_phone',
+  'owner_email',
+  'delivered_at',
+  'archived_at',
+  'archived_by_name',
+].join(',');
 
 export function useArchivedLostItems(campus?: 'Campus I' | 'Campus II' | 'Campus IV' | 'Campus HUCM Adm' | 'all') {
   return useInfiniteQuery({
-    queryKey: ['lost-items-archive', campus],
+    queryKey: lostItemsQueryKeys.archiveList(campus),
     queryFn: async ({ pageParam }) => {
       let query = supabase
         .from('lost_items_archive')
-        .select('*')
+        .select(ARCHIVED_ITEMS_LIST_SELECT)
         .order('archived_at', { ascending: false })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
 
@@ -58,12 +90,37 @@ export function useArchivedLostItems(campus?: 'Campus I' | 'Campus II' | 'Campus
     },
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.pageParam + 1 : undefined,
     initialPageParam: 0,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+}
+
+export function useArchivedLostItem(id?: string) {
+  return useQuery({
+    queryKey: lostItemsQueryKeys.archiveDetail(id),
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from('lost_items_archive')
+        .select(ARCHIVED_ITEM_DETAIL_SELECT)
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as Partial<ArchivedLostItem> | null;
+    },
+    enabled: Boolean(id),
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
 export function useArchivedLostItemsCount() {
   return useQuery({
-    queryKey: ['lost-items-archive-count'],
+    queryKey: lostItemsQueryKeys.archiveCount,
     queryFn: async () => {
       const { count, error } = await supabase
         .from('lost_items_archive')
@@ -150,8 +207,8 @@ export function useDeleteArchivedLostItems() {
       return { itemsDeleted: ids.length, imagesRemoved, imagesPreserved };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost-items-archive'] });
-      queryClient.invalidateQueries({ queryKey: ['lost-items-archive-count'] });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.archive });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.archiveCount });
     },
   });
 }

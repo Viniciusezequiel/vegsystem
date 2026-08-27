@@ -10,21 +10,11 @@ export const LOST_ITEMS_LIST_SELECT = [
   'found_location',
   'found_date',
   'received_date',
+  'status',
   'shelf',
   'box',
+  'box_number',
   'seal_number',
-  'delivered_by_name',
-  'delivered_by_contact',
-  'registered_by',
-  'status',
-  'owner_name',
-  'owner_email',
-  'owner_phone',
-  'owner_signature',
-  'delivered_at',
-  'delivered_by_team_member',
-  'created_at',
-  'updated_at',
 ].join(',');
 
 // Minimal select for counting (avoids loading any large data)

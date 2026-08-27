@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generatePdf } from '@/lib/pdfService';
 import { assertNoInlineLostItemImage } from '@/lib/lostItemImageValue';
+import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
 
 interface ArchiveDeliveredItemsDialogProps {
   open: boolean;
@@ -135,6 +136,24 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
         throw new Error('Nenhum item válido para arquivar');
       }
 
+      // The list intentionally carries only card fields. Load complete records
+      // only for this explicit archive operation so contacts/signatures never
+      // inflate normal list traffic and image paths are still preserved.
+      const fullById = new Map<string, any>();
+      for (let index = 0; index < validItems.length; index += 100) {
+        const ids = validItems.slice(index, index + 100).map(item => item.id);
+        const { data: fullItems, error: fullItemsError } = await supabase
+          .from('lost_items')
+          .select('*')
+          .in('id', ids);
+        if (fullItemsError) throw new Error(`Leitura dos itens: ${fullItemsError.message}`);
+        for (const item of fullItems ?? []) fullById.set(item.id, item);
+      }
+      const itemsToPersist = validItems.map(item => fullById.get(item.id)).filter(Boolean);
+      if (itemsToPersist.length !== validItems.length) {
+        throw new Error('Um ou mais itens mudaram antes do arquivamento. Atualize a lista e tente novamente.');
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user?.id) {
@@ -149,7 +168,7 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
 
       const userName = profile?.full_name || user.email || 'Sistema';
       const CHUNK_SIZE = 100; // Larger chunks for speed
-      const totalChunks = Math.ceil(validItems.length / CHUNK_SIZE);
+      const totalChunks = Math.ceil(itemsToPersist.length / CHUNK_SIZE);
       let archivedCount = 0;
       const errors: string[] = [];
 
@@ -158,8 +177,8 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
       // Process chunks with concurrency limit of 3
       const CONCURRENCY = 3;
       const chunks: any[][] = [];
-      for (let i = 0; i < validItems.length; i += CHUNK_SIZE) {
-        chunks.push(validItems.slice(i, i + CHUNK_SIZE));
+      for (let i = 0; i < itemsToPersist.length; i += CHUNK_SIZE) {
+        chunks.push(itemsToPersist.slice(i, i + CHUNK_SIZE));
       }
 
       const processChunk = async (chunk: any[], chunkIndex: number): Promise<number> => {
@@ -275,9 +294,10 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
       return { archivedCount, errors };
     },
     onSuccess: ({ archivedCount, errors }) => {
-      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
-      queryClient.invalidateQueries({ queryKey: ['lost-items-archive'] });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.archive });
       
       if (errors.length > 0) {
         toast({

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useArchivedLostItems, useDeleteArchivedLostItems, ArchivedLostItem } from '@/hooks/useArchivedLostItems';
+import { useArchivedLostItem, useArchivedLostItems, useDeleteArchivedLostItems, ArchivedLostItem } from '@/hooks/useArchivedLostItems';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
@@ -61,6 +61,7 @@ export default function ArchivedItemsList() {
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [deletePhrase, setDeletePhrase] = useState('');
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const { data: selectedItemDetails } = useArchivedLostItem(selectedItem?.id);
 
   const { 
     data, 
@@ -113,6 +114,13 @@ export default function ArchivedItemsList() {
       return true;
     });
   }, [allItems, searchQuery, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!selectedItemDetails?.id) return;
+    setSelectedItem(current => current?.id === selectedItemDetails.id
+      ? { ...current, ...selectedItemDetails }
+      : current);
+  }, [selectedItemDetails]);
 
   // Infinite scroll observer
   useEffect(() => {

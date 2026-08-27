@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
+import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
 
 interface BulkImageUploadDialogProps {
   open: boolean;
@@ -126,7 +127,8 @@ export function BulkImageUploadDialog({ open, onOpenChange }: BulkImageUploadDia
     const notFoundCount = uploadResults.filter(r => r.status === 'not_found').length;
     const errorCount = uploadResults.filter(r => r.status === 'error').length;
 
-    queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+    queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
+    queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
 
     toast({
       title: 'Upload concluído',

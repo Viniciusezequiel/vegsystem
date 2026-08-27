@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FileText, Download } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { resolveStorageUrls } from '@/lib/storageUrl';
 
 interface CommentAttachmentDisplayProps {
   urls: string[];
@@ -33,13 +33,11 @@ export default function CommentAttachmentDisplay({ urls }: CommentAttachmentDisp
 
     (async () => {
       const paths = urls.map(toObjectPath);
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrls(paths, 60 * 60);
-      if (!active || error || !data) return;
+      const data = await resolveStorageUrls(paths, BUCKET);
+      if (!active) return;
       const map: Record<string, string> = {};
       data.forEach((item, i) => {
-        if (item.signedUrl) map[urls[i]] = item.signedUrl;
+        if (item) map[urls[i]] = item;
       });
       setSigned(map);
     })();
@@ -77,6 +75,8 @@ export default function CommentAttachmentDisplay({ urls }: CommentAttachmentDisp
                 src={href}
                 alt={name}
                 className="max-h-[150px] max-w-[200px] rounded-md border object-cover transition-opacity hover:opacity-80"
+                loading="lazy"
+                decoding="async"
               />
             </a>
           );

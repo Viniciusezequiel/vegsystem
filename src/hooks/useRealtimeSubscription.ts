@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
 
 type TableName = 
   | 'equipment'
@@ -46,8 +47,14 @@ const tableToQueryKeyMap: Record<TableName, string[]> = {
   lockers: ['lockers'],
   locker_loans: ['locker-loans'],
   locker_exchanges: ['locker-exchanges'],
-  lost_items: ['lost-items', 'lost-item', 'lost-items-counts'],
-  lost_items_archive: ['archived-items'],
+  lost_items: [
+    lostItemsQueryKeys.lists[0],
+    lostItemsQueryKeys.infiniteLists[0],
+    lostItemsQueryKeys.detail[0],
+    lostItemsQueryKeys.images[0],
+    lostItemsQueryKeys.counts[0],
+  ],
+  lost_items_archive: [lostItemsQueryKeys.archive[0], lostItemsQueryKeys.archiveCount[0]],
   material_requests: ['material-requests'],
   classroom_calls: ['classroom-calls'],
   classroom_call_rooms: ['classroom-call-rooms'],

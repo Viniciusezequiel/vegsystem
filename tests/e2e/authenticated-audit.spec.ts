@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Browser } from '@playwright/test';
 import {
   ADMIN_STATE, INTERNAL_STATE, loadRegistry, trackObject, trackRow,
   untrackObject, untrackRow, type Registry,
@@ -19,6 +19,14 @@ async function clientFor(kind: 'internal' | 'admin') {
   return client;
 }
 
+async function authenticatedContext(browser: Browser, storageState: string) {
+  const context = await browser.newContext({ storageState });
+  // UI/security tests use tiny explicit fixtures and do not need to download
+  // unrelated real binaries from the private lost-items bucket.
+  await context.route('**/storage/v1/object/sign/lost-items/**', route => route.abort('blockedbyclient'));
+  return context;
+}
+
 async function deleteTracked(client: SupabaseClient, registry: Registry, table: string, id: string) {
   const { error } = await client.from(table).delete().eq('id', id);
   if (error) throw error;
@@ -35,7 +43,7 @@ async function getSystemHealthWithRetry(client: SupabaseClient) {
 
 test('autenticação, sessão e guards por role', async ({ browser, page }) => {
   test.setTimeout(180_000);
-  const internal = await browser.newContext({ storageState: INTERNAL_STATE });
+  const internal = await authenticatedContext(browser, INTERNAL_STATE);
   const internalPage = await internal.newPage();
   await internalPage.goto('/');
   await internalPage.reload();
@@ -47,14 +55,14 @@ test('autenticação, sessão e guards por role', async ({ browser, page }) => {
   await expect(internalPage.getByText(/Acesso Negado/i)).toBeVisible({ timeout: 20_000 });
   await internal.close();
 
-  let admin = await browser.newContext({ storageState: ADMIN_STATE });
+  let admin = await authenticatedContext(browser, ADMIN_STATE);
   let adminPage = await admin.newPage();
   for (let attempt = 0; attempt < 6; attempt += 1) {
     await adminPage.goto('/admin-module');
     if (await adminPage.getByRole('heading', { name: 'Administração' }).isVisible({ timeout: 10_000 }).catch(() => false)) break;
     if (attempt < 5) {
       await admin.close();
-      admin = await browser.newContext({ storageState: ADMIN_STATE });
+      admin = await authenticatedContext(browser, ADMIN_STATE);
       adminPage = await admin.newPage();
     }
   }
@@ -128,7 +136,7 @@ test('funções de role reconhecem assistente e admin', async () => {
 });
 
 test('saúde do sistema exibe somente métricas administrativas agregadas', async ({ browser }) => {
-  const context = await browser.newContext({ storageState: ADMIN_STATE });
+  const context = await authenticatedContext(browser, ADMIN_STATE);
   const page = await context.newPage();
   await page.goto('/admin-module/system-health');
   const health = page.getByTestId('system-health-page');
@@ -234,13 +242,13 @@ test('arquivados: exclusão admin explícita, confirmação, lote e Storage segu
   const denied = await internal.from('lost_items_archive').delete().eq('id', inserted.data[0].id).select('id');
   expect(denied.error).toBeNull();
   expect(denied.data).toEqual([]);
-  const internalContext = await browser.newContext({ storageState: INTERNAL_STATE });
+  const internalContext = await authenticatedContext(browser, INTERNAL_STATE);
   const internalPage = await internalContext.newPage();
   await internalPage.goto('/lost-found/archived');
   await expect(internalPage.getByRole('button', { name: /Excluir/i })).toHaveCount(0);
   await internalContext.close();
 
-  const adminContext = await browser.newContext({ storageState: ADMIN_STATE });
+  const adminContext = await authenticatedContext(browser, ADMIN_STATE);
   const page = await adminContext.newPage();
   let referenceMode: 'remaining' | 'shared' | 'none' | 'fail' = 'remaining';
   let sharedPathDeleteRequests = 0;
@@ -406,7 +414,7 @@ test('arquivados: selecionar todos atua somente sobre itens carregados', async (
   }));
   const deletedIds = new Set<string>();
   let requestedDeleteIds: string[] = [];
-  const context = await browser.newContext({ storageState: ADMIN_STATE });
+  const context = await authenticatedContext(browser, ADMIN_STATE);
   const page = await context.newPage();
 
   // Keep pagination deterministic: additional records load only after the explicit button click.
@@ -519,7 +527,7 @@ test('Uber: assistente cria, não administra; admin lê, atualiza e remove', asy
 test('equipamentos: leitura e autorização admin por role; escrita ignorada por segurança', async ({ browser }) => {
   const internal = await clientFor('internal');
   expect((await internal.from('equipment').select('id').limit(1)).error).toBeNull();
-  const context = await browser.newContext({ storageState: ADMIN_STATE });
+  const context = await authenticatedContext(browser, ADMIN_STATE);
   const page = await context.newPage();
   await page.goto('/equipment/loans');
   await expect(page).not.toHaveURL(/admin-auth/);
@@ -562,7 +570,7 @@ test('tarefas e task-attachments: admin CRUD/history/storage; assistente negado'
 });
 
 test('logout remove sessão', async ({ browser }) => {
-  const context = await browser.newContext({ storageState: INTERNAL_STATE });
+  const context = await authenticatedContext(browser, INTERNAL_STATE);
   const page = await context.newPage();
   await page.goto('/');
   await page.getByText('Sair do Sistema').first().click();

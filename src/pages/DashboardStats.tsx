@@ -13,7 +13,6 @@ import {
 import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
 import { useEquipmentList, useEquipmentLoans } from '@/hooks/useEquipment';
 import { useLockersList, useLockerLoans } from '@/hooks/useLockers';
-import { useLostItemsGlobalPrefetch } from '@/hooks/useLostItemsGlobalPrefetch';
 import { 
   PieChart,
   Pie,
@@ -26,9 +25,6 @@ import {
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'];
 
 export default function DashboardStats() {
-  // Prefetch lost items data for instant loading when navigating
-  useLostItemsGlobalPrefetch();
-
   const { data: lostItemsStats } = useLostItemsCounts();
   const { data: equipment } = useEquipmentList();
   const { data: activeLoans } = useEquipmentLoans('active');

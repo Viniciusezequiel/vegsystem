@@ -59,8 +59,11 @@ export async function resolveStorageUrl(
 }
 
 /** Resolves several stored values at once, preserving input order. */
-export async function resolveStorageUrls(values: (string | null | undefined)[]) {
-  return Promise.all(values.map((value) => resolveStorageUrl(value)));
+export async function resolveStorageUrls(
+  values: (string | null | undefined)[],
+  defaultBucket = 'lost-items',
+) {
+  return Promise.all(values.map((value) => resolveStorageUrl(value, defaultBucket)));
 }
 
 /* ---------------------------------------------------------------------------
@@ -140,4 +143,3 @@ async function flush(bucket: string) {
     batch.forEach((item) => item.resolve(null));
   }
 }
-

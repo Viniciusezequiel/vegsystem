@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
-import { loadLostItemsFromCache, saveLostItemsToCache } from '@/lib/lostItemsCache';
+import { loadLostItemsFromCache, saveImagesToCache, saveLostItemsToCache } from '@/lib/lostItemsCache';
 import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
-import { normalizeLostItemImagePath } from '@/lib/lostItemImageValue';
+import { getDeletableLostItemImagePath, normalizeLostItemImagePath } from '@/lib/lostItemImageValue';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -130,7 +131,7 @@ export function useLostItems(filters?: {
   };
 
   return useQuery({
-    queryKey: ['lost-items', filters?.status, filters?.search, page, pageSize, filters?.campus, filters?.dateFrom, filters?.dateTo, filters?.destination],
+    queryKey: [...lostItemsQueryKeys.lists, filters?.status, filters?.search, page, pageSize, filters?.campus, filters?.dateFrom, filters?.dateTo, filters?.destination],
     placeholderData: (previousData) => previousData ?? initialData,
     initialData: initialData ?? undefined,
     queryFn: async () => {
@@ -216,6 +217,7 @@ export function useLostItems(filters?: {
     staleTime: 30 * 1000, // 30 seconds - faster filter response
     gcTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: true,
   });
 }
@@ -293,7 +295,8 @@ export function useCreateLostItem() {
       return item;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       toast({
         title: 'Item cadastrado',
@@ -373,9 +376,13 @@ export function useUpdateLostItem() {
 
       return item;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
-      queryClient.invalidateQueries({ queryKey: ['lost-item'] });
+    onSuccess: (item) => {
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.detail });
+      const imagePath = getDeletableLostItemImagePath(item.image_url);
+      queryClient.setQueryData(lostItemsQueryKeys.image(item.id), imagePath);
+      saveImagesToCache({ [item.id]: imagePath });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       toast({
         title: 'Item atualizado',
@@ -464,7 +471,8 @@ export function useDeliverLostItem() {
       return item;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
       queryClient.invalidateQueries({ queryKey: ['lost-item'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       toast({
@@ -510,7 +518,8 @@ export function useBulkDeliverLostItems() {
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
       const action = variables.destination === 'donation' ? 'doação' : 'descarte';
       toast({
         title: 'Itens atualizados',
@@ -600,7 +609,8 @@ export function useBulkCreateLostItems() {
       return { data: (data ?? []) as LostItem[], duplicateCount };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
       const extra = result.duplicateCount > 0
         ? ` (${result.duplicateCount} duplicado(s) no arquivo foram mesclados pelo código)`
         : '';
@@ -633,7 +643,8 @@ export function useDeleteLostItem() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost-items'] });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
+      queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
       toast({
         title: 'Item excluído',
         description: 'O item foi excluído com sucesso.',

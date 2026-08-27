@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { loadImagesFromCache, saveImagesToCache } from '@/lib/lostItemsCache';
+import { getDeletableLostItemImagePath } from '@/lib/lostItemImageValue';
+import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
 
 /**
  * Fetches image_url for a single lost item.
@@ -8,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export function useLostItemImage(itemId: string | null, enabled: boolean = true) {
   return useQuery({
-    queryKey: ['lost-item-image', itemId],
+    queryKey: lostItemsQueryKeys.image(itemId),
     queryFn: async () => {
       if (!itemId) return null;
       
@@ -23,11 +26,17 @@ export function useLostItemImage(itemId: string | null, enabled: boolean = true)
         return null;
       }
 
-      return data?.image_url || null;
+      const path = getDeletableLostItemImagePath(data?.image_url);
+      saveImagesToCache({ [itemId]: path });
+      return path;
     },
+    initialData: () => itemId ? loadImagesFromCache()?.[itemId] : undefined,
     enabled: enabled && !!itemId,
     staleTime: 10 * 60 * 1000, // 10 minutes - images don't change often
     gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
     retry: 1,
   });
 }

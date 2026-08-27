@@ -4,11 +4,12 @@
  */
 
 import type { LostItem } from '@/hooks/useLostItems';
+import { getDeletableLostItemImagePath } from '@/lib/lostItemImageValue';
 
 const CACHE_KEY = 'lost-items-cache';
 const COUNTS_CACHE_KEY = 'lost-items-counts-cache';
 const IMAGES_CACHE_KEY = 'lost-items-images-cache';
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
 
 interface CachedData {
@@ -147,16 +148,17 @@ export function loadCountsFromCache(): CachedCounts['data'] | null {
  */
 export function saveImagesToCache(images: Record<string, string | null>): void {
   try {
-    // We only persist valid URLs.
-    // Storing nulls would "poison" the cache and prevent newly-migrated images from showing.
+    // Persist only validated object paths. Never keep Base64, blob/external URLs,
+    // signed URLs or private binary content in localStorage.
     const existing = loadImagesFromCache() || {};
 
     const merged: Record<string, string> = { ...existing };
 
-    for (const [itemId, url] of Object.entries(images)) {
-      if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
-        merged[itemId] = url;
-      } else if (url === null) {
+    for (const [itemId, value] of Object.entries(images)) {
+      const path = getDeletableLostItemImagePath(value);
+      if (path) {
+        merged[itemId] = path;
+      } else if (value === null) {
         // Remove any previously cached URL if caller explicitly sets null
         delete merged[itemId];
       }
@@ -191,10 +193,9 @@ export function loadImagesFromCache(): Record<string, string | null> | null {
 
     // Filter out null/invalid entries from older versions or partial migrations
     const filtered: Record<string, string> = {};
-    for (const [itemId, url] of Object.entries(cached.data || {})) {
-      if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
-        filtered[itemId] = url;
-      }
+    for (const [itemId, value] of Object.entries(cached.data || {})) {
+      const path = getDeletableLostItemImagePath(value);
+      if (path) filtered[itemId] = path;
     }
 
     return filtered;

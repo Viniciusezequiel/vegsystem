@@ -6,21 +6,36 @@ test('normalização continua bloqueando Base64, blob e URL externa', async ({ p
   const result = await page.evaluate(async () => {
     const modulePath = '/src/lib/lostItemImageValue.ts';
     const { normalizeLostItemImagePath, getDeletableLostItemImagePath } = await import(/* @vite-ignore */ modulePath);
+    const cacheModulePath = '/src/lib/lostItemsCache.ts';
+    const { saveImagesToCache, loadImagesFromCache, clearLostItemsCache } = await import(/* @vite-ignore */ cacheModulePath);
     const rejected = ['data:image/png;base64,AAAA', 'blob:https://example.test/id', 'https://external.test/image.jpg']
       .map(value => {
         try { normalizeLostItemImagePath(value); return false; } catch { return true; }
       });
+    clearLostItemsCache();
+    saveImagesToCache({
+      pure: 'valid/path.webp',
+      legacy: 'https://old.supabase.co/storage/v1/object/public/lost-items/legacy/foto.webp',
+      data: 'data:image/png;base64,AAAA',
+      blob: 'blob:https://example.test/id',
+      external: 'https://external.test/image.jpg',
+      unsafe: '../fora.webp',
+    });
+    const cachedPaths = loadImagesFromCache();
+    clearLostItemsCache();
     return {
       rejected,
       purePath: normalizeLostItemImagePath('legacy/foto antiga.jpg'),
       oldStorageUrl: normalizeLostItemImagePath('https://old.supabase.co/storage/v1/object/public/lost-items/legacy/foto.webp'),
       unsafeDeletePath: getDeletableLostItemImagePath('../fora.webp'),
+      cachedPaths,
     };
   });
   expect(result.rejected).toEqual([true, true, true]);
   expect(result.purePath).toBe('legacy/foto antiga.jpg');
   expect(result.oldStorageUrl).toBe('legacy/foto.webp');
   expect(result.unsafeDeletePath).toBeNull();
+  expect(result.cachedPaths).toEqual({ pure: 'valid/path.webp', legacy: 'legacy/foto.webp' });
 });
 
 test('imagem grande é redimensionada e convertida sem ampliação', async ({ page }, testInfo) => {

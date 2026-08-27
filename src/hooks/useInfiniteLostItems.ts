@@ -4,6 +4,7 @@ import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
 import { loadLostItemsFromCache } from '@/lib/lostItemsCache';
 import type { Database } from '@/integrations/supabase/types';
 import { LostItem } from './useLostItems';
+import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -20,7 +21,7 @@ const PAGE_SIZE = 50;
 
 export function useInfiniteLostItems(filters?: InfiniteFilters) {
   return useInfiniteQuery({
-    queryKey: ['lost-items-infinite', filters?.status, filters?.search, filters?.campus, filters?.dateFrom, filters?.dateTo, filters?.destination],
+    queryKey: lostItemsQueryKeys.infinite(filters),
     queryFn: async ({ pageParam = 0 }) => {
       // OFFLINE: serve from cache
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -118,5 +119,6 @@ export function useInfiniteLostItems(filters?: InfiniteFilters) {
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
