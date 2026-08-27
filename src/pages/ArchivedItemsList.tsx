@@ -220,6 +220,23 @@ export default function ArchivedItemsList() {
   };
 
   const selectedItems = allItems.filter(item => selectedIds.has(item.id));
+  const visibleItemIds = useMemo(() => filteredItems.map(item => item.id), [filteredItems]);
+  const selectedVisibleCount = useMemo(
+    () => visibleItemIds.reduce((count, id) => count + (selectedIds.has(id) ? 1 : 0), 0),
+    [selectedIds, visibleItemIds],
+  );
+  const allVisibleSelected = visibleItemIds.length > 0 && selectedVisibleCount === visibleItemIds.length;
+  const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected;
+
+  const toggleAllVisible = useCallback((checked: boolean) => {
+    setSelectedIds(current => {
+      const next = new Set(current);
+      if (checked) visibleItemIds.forEach(id => next.add(id));
+      else visibleItemIds.forEach(id => next.delete(id));
+      return next;
+    });
+  }, [visibleItemIds]);
+
   const requiresPhrase = deleteTargets.length > 5;
   const canConfirmDelete = backupConfirmed && (!requiresPhrase || deletePhrase === 'EXCLUIR');
 
@@ -317,9 +334,30 @@ export default function ArchivedItemsList() {
         </div>
 
         {/* Results count */}
-        <div className="text-sm text-muted-foreground">
-          {isLoading ? 'Carregando...' : `${filteredItems.length} item(ns) carregado(s)${hasNextPage ? ' (mais disponíveis)' : ''}`}
-          {isAdmin && selectedItems.length > 0 && <span className="ml-3 font-medium text-foreground">{selectedItems.length} itens selecionados</span>}
+        <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div>{isLoading ? 'Carregando...' : `${filteredItems.length} item(ns) carregado(s)${hasNextPage ? ' (mais disponíveis)' : ''}`}</div>
+            {isAdmin && selectedItems.length > 0 && (
+              <div className="font-medium text-foreground">
+                {selectedItems.length} {selectedItems.length === 1 ? 'item selecionado' : 'itens selecionados'}
+                {allVisibleSelected && (
+                  <div className="text-xs font-normal text-muted-foreground">
+                    Selecionados todos os itens carregados nesta página.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {isAdmin && filteredItems.length > 0 && (
+            <label className="flex cursor-pointer items-center gap-2 font-medium text-foreground">
+              <Checkbox
+                aria-label="Selecionar todos os itens carregados"
+                checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
+                onCheckedChange={checked => toggleAllVisible(checked === true)}
+              />
+              <span>Selecionar todos</span>
+            </label>
+          )}
         </div>
 
         {/* Items list */}
@@ -505,9 +543,13 @@ export default function ArchivedItemsList() {
       <Dialog open={deleteTargets.length > 0} onOpenChange={(open) => { if (!open) closeDeleteConfirmation(); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Excluir item arquivado definitivamente?</DialogTitle>
+            <DialogTitle>
+              {deleteTargets.length === 1
+                ? 'Excluir item arquivado definitivamente?'
+                : `Excluir ${deleteTargets.length} itens arquivados definitivamente?`}
+            </DialogTitle>
             <DialogDescription>
-              Esta ação removerá permanentemente {deleteTargets.length === 1 ? 'este registro' : `estes ${deleteTargets.length} registros`} e, quando seguro, sua imagem armazenada. Esta ação não poderá ser desfeita.
+              Esta ação removerá permanentemente {deleteTargets.length === 1 ? 'o registro selecionado' : 'os registros selecionados'} e, quando seguro, {deleteTargets.length === 1 ? 'sua imagem' : 'suas imagens'} do armazenamento. Esta ação não poderá ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">

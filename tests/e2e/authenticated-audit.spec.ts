@@ -315,7 +315,7 @@ test('arquivados: exclusão admin explícita, confirmação, lote e Storage segu
   }
   await expect(page.getByText('7 itens selecionados')).toBeVisible();
   await page.getByRole('button', { name: 'Excluir selecionados' }).click();
-  const batchDialog = page.getByRole('dialog', { name: 'Excluir item arquivado definitivamente?' });
+  const batchDialog = page.getByRole('dialog', { name: 'Excluir 7 itens arquivados definitivamente?' });
   const batchConfirm = batchDialog.getByRole('button', { name: 'Excluir definitivamente' });
   await batchDialog.getByText(/Confirmo que já gerei/).click();
   await batchDialog.getByLabel('Digite EXCLUIR para confirmar').fill('excluir');
@@ -371,6 +371,129 @@ test('arquivados: exclusão admin explícita, confirmação, lote e Storage segu
     untrackObject(registry, 'lost-items', path);
   }
   await adminContext.close();
+});
+
+test('arquivados: selecionar todos atua somente sobre itens carregados', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const items = Array.from({ length: 75 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    original_id: `10000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    code: `E2E-SELECT-${String(index + 1).padStart(3, '0')}`,
+    description: `__E2E_SELECT_ALL__ item ${index + 1}`,
+    image_url: null,
+    campus: 'Campus I',
+    found_location: 'E2E',
+    found_date: '2026-08-27',
+    received_date: '2026-08-27',
+    delivered_by_name: 'E2E',
+    delivered_by_contact: null,
+    delivered_by_team_member: null,
+    owner_name: null,
+    owner_phone: null,
+    owner_email: null,
+    owner_signature: null,
+    status: 'delivered',
+    delivered_at: '2026-08-27T00:00:00.000Z',
+    registered_by: null,
+    shelf: null,
+    box: null,
+    seal_number: null,
+    created_at: '2026-08-27T00:00:00.000Z',
+    updated_at: '2026-08-27T00:00:00.000Z',
+    archived_at: `2026-08-27T00:${String(59 - (index % 60)).padStart(2, '0')}:00.000Z`,
+    archived_by: null,
+    archived_by_name: 'E2E Admin',
+  }));
+  const deletedIds = new Set<string>();
+  let requestedDeleteIds: string[] = [];
+  const context = await browser.newContext({ storageState: ADMIN_STATE });
+  const page = await context.newPage();
+
+  // Keep pagination deterministic: additional records load only after the explicit button click.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'IntersectionObserver', {
+      configurable: true,
+      value: class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    });
+  });
+  await page.route('**/rest/v1/lost_items_archive*', async route => {
+    const request = route.request();
+    const requestUrl = new URL(request.url());
+    if (request.method() === 'DELETE') {
+      const decodedUrl = decodeURIComponent(request.url());
+      requestedDeleteIds = items.filter(item => decodedUrl.includes(item.id)).map(item => item.id);
+      requestedDeleteIds.forEach(id => deletedIds.add(id));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(requestedDeleteIds.map(id => ({ id }))),
+      });
+      return;
+    }
+    if (requestUrl.searchParams.get('select') === 'image_url') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      return;
+    }
+    const from = Number(requestUrl.searchParams.get('offset') ?? 0);
+    const limit = Number(requestUrl.searchParams.get('limit') ?? 50);
+    const to = from + limit - 1;
+    const available = items.filter(item => !deletedIds.has(item.id));
+    const pageItems = available.slice(from, to + 1);
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-range': `${from}-${from + Math.max(pageItems.length - 1, 0)}/${available.length}` },
+      contentType: 'application/json',
+      body: JSON.stringify(pageItems),
+    });
+  });
+
+  await page.goto('/lost-found/archived');
+  const selectAll = page.getByRole('checkbox', { name: 'Selecionar todos os itens carregados' });
+  const itemCheckboxes = page.getByRole('checkbox', { name: /^Selecionar item E2E-SELECT-/ });
+  await expect(page.getByText('50 item(ns) carregado(s) (mais disponíveis)')).toBeVisible();
+
+  await selectAll.click();
+  await expect(itemCheckboxes).toHaveCount(50);
+  for (let index = 0; index < 50; index += 1) await expect(itemCheckboxes.nth(index)).toBeChecked();
+  await expect(page.getByText('50 itens selecionados')).toBeVisible();
+  await expect(page.getByText('Selecionados todos os itens carregados nesta página.')).toBeVisible();
+
+  await selectAll.click();
+  await expect(page.getByText('50 itens selecionados')).toHaveCount(0);
+  await expect(itemCheckboxes.first()).not.toBeChecked();
+
+  await itemCheckboxes.first().click();
+  await expect(selectAll).toHaveAttribute('data-state', 'indeterminate');
+  await itemCheckboxes.first().click();
+
+  await selectAll.click();
+  await page.getByRole('button', { name: 'Carregar mais' }).click();
+  await expect(page.getByText('75 item(ns) carregado(s)')).toBeVisible();
+  await expect(itemCheckboxes).toHaveCount(75);
+  await expect(page.getByText('50 itens selecionados')).toBeVisible();
+  await expect(selectAll).toHaveAttribute('data-state', 'indeterminate');
+  await expect(itemCheckboxes.nth(50)).not.toBeChecked();
+
+  // Clear the loaded selection, then verify that DELETE receives only two explicit UUIDs.
+  await selectAll.click();
+  await selectAll.click();
+  await itemCheckboxes.nth(3).click();
+  await itemCheckboxes.nth(61).click();
+  const expectedIds = [items[3].id, items[61].id];
+  await expect(page.getByText('2 itens selecionados')).toBeVisible();
+  await page.getByRole('button', { name: 'Excluir selecionados' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Excluir 2 itens arquivados definitivamente?' });
+  await dialog.getByText(/Confirmo que já gerei/).click();
+  await dialog.getByRole('button', { name: 'Excluir definitivamente' }).click();
+  await expect(page.getByText('2 itens excluídos', { exact: true })).toBeVisible();
+  expect(new Set(requestedDeleteIds)).toEqual(new Set(expectedIds));
+  expect(requestedDeleteIds).toHaveLength(2);
+
+  await context.close();
 });
 
 test('Uber: assistente cria, não administra; admin lê, atualiza e remove', async () => {
