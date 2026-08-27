@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vegsystem-storage",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-08-27",
+  "workers_dev": false,
+  "secrets": {
+    "required": [
+      "CAPABILITY_SIGNING_SECRET"
+    ]
+  },
+  "vars": {
+    "SUPABASE_URL": "https://sshyjnyvihdheofjzsca.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "REPLACE_WITH_SUPABASE_PUBLISHABLE_KEY",
+    "ALLOWED_ORIGINS": "https://www.vegsystem.site",
+    "ENVIRONMENT": "production",
+    "FILE_URL_TTL_SECONDS": "300",
+    "MAX_LOST_ITEM_BYTES": "10485760"
+  },
+  "r2_buckets": [
+    {
+      "binding": "LOST_ITEMS_BUCKET",
+      "bucket_name": "REPLACE_WITH_LOST_ITEMS_BUCKET"
+    }
+  ]
+}

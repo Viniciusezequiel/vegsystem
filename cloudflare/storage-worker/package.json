@@ -1,0 +1,10 @@
+{
+  "name": "vegsystem-r2-storage-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/*.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}
