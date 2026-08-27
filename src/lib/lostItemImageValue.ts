@@ -1,4 +1,5 @@
 import { parseStorageUrl } from '@/lib/storageUrl';
+import { validateR2LostItemLocator } from '@/lib/lostItemStorageCore.mjs';
 
 const DATA_URL_PATTERN = /^\s*data:/i;
 
@@ -22,6 +23,12 @@ export function normalizeLostItemImagePath(
   const trimmed = value.trim();
   if (!trimmed) return null;
   assertNoInlineLostItemImage(trimmed);
+
+  if (trimmed.startsWith('r2/')) {
+    const parsedR2 = validateR2LostItemLocator(trimmed);
+    if (!parsedR2) throw new Error('Locator R2 inválido para Achados e Perdidos.');
+    return parsedR2.locator;
+  }
 
   const parsed = parseStorageUrl(trimmed);
   if (parsed) {

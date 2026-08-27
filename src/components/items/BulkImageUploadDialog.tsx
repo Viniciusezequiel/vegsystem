@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
+import { deleteLostItemImageIfUnreferenced, deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
+import { replaceImageSafely } from '@/lib/lostItemStorageCore.mjs';
 
 interface BulkImageUploadDialogProps {
   open: boolean;
@@ -65,7 +67,7 @@ export function BulkImageUploadDialog({ open, onOpenChange }: BulkImageUploadDia
         // Check if item with this code exists
         const { data: item, error: findError } = await supabase
           .from('lost_items')
-          .select('id, code')
+          .select('id, code, image_url')
           .eq('code', code)
           .maybeSingle();
 
@@ -83,24 +85,19 @@ export function BulkImageUploadDialog({ open, onOpenChange }: BulkImageUploadDia
 
         const optimizedFile = await optimizeImage(file);
         const fileExt = optimizedImageExtension(optimizedFile.type);
-        const filePath = `${item.id}-${Date.now()}-${i}.${fileExt}`;
+        const supabasePath = `${item.id}-${Date.now()}-${i}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('lost-items')
-          .upload(filePath, optimizedFile, { upsert: false });
-
-        if (uploadError) throw uploadError;
-
-        // Store the object path (private bucket; host may change)
-        const { error: updateError } = await supabase
-          .from('lost_items')
-          .update({ image_url: filePath })
-          .eq('id', item.id);
-
-        if (updateError) {
-          await supabase.storage.from('lost-items').remove([filePath]);
-          throw updateError;
-        }
+        await replaceImageSafely({
+          oldLocator: item.image_url,
+          upload: () => uploadLostItemImage(optimizedFile, supabasePath),
+          update: async (imageUrl: string) => {
+            const { error } = await supabase.from('lost_items').update({ image_url: imageUrl }).eq('id', item.id);
+            if (error) throw error;
+            return item.id;
+          },
+          cleanupNew: deleteStorageObjectSafely,
+          cleanupOld: deleteLostItemImageIfUnreferenced,
+        });
 
         uploadResults.push({
           filename: file.name,
@@ -109,11 +106,19 @@ export function BulkImageUploadDialog({ open, onOpenChange }: BulkImageUploadDia
           message: 'Imagem vinculada com sucesso',
         });
       } catch (error) {
+        if ((error as any)?.possibleOrphanLocator) {
+          console.error('Bulk lost-items image cleanup failed.', {
+            locator: (error as any).possibleOrphanLocator,
+            cleanupCode: (error as any).cleanupError?.code,
+          });
+        }
         uploadResults.push({
           filename: file.name,
           code,
           status: 'error',
-          message: error instanceof Error ? error.message : 'Erro desconhecido',
+          message: (error as any)?.possibleOrphanLocator
+            ? 'Falha no vínculo; possível objeto órfão identificado para revisão'
+            : error instanceof Error ? error.message : 'Erro desconhecido',
         });
       }
 

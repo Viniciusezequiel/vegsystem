@@ -6,6 +6,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { loadLostItemsFromCache, saveImagesToCache, saveLostItemsToCache } from '@/lib/lostItemsCache';
 import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
 import { getDeletableLostItemImagePath, normalizeLostItemImagePath } from '@/lib/lostItemImageValue';
+import { deleteLostItemImageIfUnreferenced } from '@/lib/lostItemStorage';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -635,19 +636,32 @@ export function useDeleteLostItem() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data: existing, error: loadError } = await supabase
+        .from('lost_items')
+        .select('id, image_url')
+        .eq('id', id)
+        .single();
+      if (loadError) throw loadError;
+
+      const { data: deleted, error } = await supabase
         .from('lost_items')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id')
+        .single();
 
       if (error) throw error;
+      if (!deleted) throw new Error('O item não foi excluído. Atualize a página e tente novamente.');
+      return deleteLostItemImageIfUnreferenced(existing.image_url);
     },
-    onSuccess: () => {
+    onSuccess: (imageCleanup) => {
       queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.lists });
       queryClient.invalidateQueries({ queryKey: lostItemsQueryKeys.infiniteLists });
       toast({
         title: 'Item excluído',
-        description: 'O item foi excluído com sucesso.',
+        description: imageCleanup?.preserved
+          ? 'O item foi excluído; a imagem foi preservada por segurança.'
+          : 'O item e sua imagem exclusiva foram excluídos com sucesso.',
       });
     },
     onError: (error: Error) => {

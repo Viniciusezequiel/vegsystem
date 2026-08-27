@@ -127,16 +127,7 @@ test('ausência de sessão ou Worker é segura', async () => {
   assert.equal(await unconfigured.resolve(locators[0]), null);
 });
 
-test('capabilities não são persistidas e uploads continuam Supabase', () => {
+test('capabilities não são persistidas', () => {
   const core = fs.readFileSync(new URL('../../src/lib/r2CapabilityResolver.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(core, /localStorage|sessionStorage/);
-  for (const relative of [
-    '../../src/pages/RegisterItem.tsx',
-    '../../src/pages/ItemDetail.tsx',
-    '../../src/components/items/BulkImageUploadDialog.tsx',
-  ]) {
-    const source = fs.readFileSync(new URL(relative, import.meta.url), 'utf8');
-    assert.match(source, /supabase\.storage[\s\S]*?\.from\(['"]lost-items['"]\)[\s\S]*?\.upload\(/);
-    assert.doesNotMatch(source, /\/v1\/files\/lost-items|VITE_R2_NEW_UPLOADS_ENABLED/);
-  }
 });

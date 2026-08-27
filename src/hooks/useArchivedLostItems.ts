@@ -2,6 +2,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { supabase } from '@/integrations/supabase/client';
 import { getDeletableLostItemImagePath } from '@/lib/lostItemImageValue';
 import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
+import { deleteStorageObjectSafely, loadReferencedLostItemImagePaths } from '@/lib/lostItemStorage';
 
 export interface ArchivedLostItem {
   id: string;
@@ -138,26 +139,6 @@ export type ArchivedItemsDeleteSummary = {
   imagesPreserved: number;
 };
 
-async function loadReferencedImagePaths() {
-  const paths = new Set<string>();
-  for (const table of ['lost_items', 'lost_items_archive'] as const) {
-    for (let from = 0; ; from += 1000) {
-      const { data, error } = await supabase
-        .from(table)
-        .select('image_url')
-        .not('image_url', 'is', null)
-        .range(from, from + 999);
-      if (error) throw error;
-      for (const row of data ?? []) {
-        const path = getDeletableLostItemImagePath(row.image_url);
-        if (path) paths.add(path);
-      }
-      if (!data || data.length < 1000) break;
-    }
-  }
-  return paths;
-}
-
 export function useDeleteArchivedLostItems() {
   const queryClient = useQueryClient();
 
@@ -188,7 +169,7 @@ export function useDeleteArchivedLostItems() {
       if (candidatePaths.size > 0) {
         let referencedPaths: Set<string>;
         try {
-          referencedPaths = await loadReferencedImagePaths();
+          referencedPaths = await loadReferencedLostItemImagePaths();
         } catch {
           return { itemsDeleted: ids.length, imagesRemoved: 0, imagesPreserved: imagesPreserved + candidatePaths.size };
         }
@@ -198,9 +179,13 @@ export function useDeleteArchivedLostItems() {
             imagesPreserved += 1;
             continue;
           }
-          const { error } = await supabase.storage.from('lost-items').remove([path]);
-          if (error) imagesPreserved += 1;
-          else imagesRemoved += 1;
+          try {
+            const result = await deleteStorageObjectSafely(path);
+            if (result.removed) imagesRemoved += 1;
+            else imagesPreserved += 1;
+          } catch {
+            imagesPreserved += 1;
+          }
         }
       }
 

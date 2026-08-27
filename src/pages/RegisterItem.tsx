@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -25,6 +24,8 @@ import { useCreateLostItem, useLostItems } from '@/hooks/useLostItems';
 import { useStorageConfig } from '@/hooks/useStorageConfig';
 import type { Database } from '@/integrations/supabase/types';
 import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
+import { deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
+import { persistNewImageSafely } from '@/lib/lostItemStorageCore.mjs';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -89,25 +90,6 @@ export default function RegisterItem() {
     }
   };
 
-  const uploadImageToStorage = async (file: File, itemCode: string): Promise<string | null> => {
-    try {
-      const ext = optimizedImageExtension(file.type);
-      const filePath = `${itemCode}-${Date.now()}.${ext}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('lost-items')
-        .upload(filePath, file, { cacheControl: '3600', upsert: false });
-
-      if (uploadError) throw uploadError;
-
-      // Store the object path (bucket is private and the host may change).
-      return filePath;
-    } catch (err) {
-      console.error('Error uploading image:', err);
-      return null;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -124,35 +106,34 @@ export default function RegisterItem() {
     const existingCodes = existingItems?.items?.map(item => item.code) || [];
     const newCode = generateUniqueCode(existingCodes);
 
-    // Upload image to Storage if exists (instead of sending base64)
-    let imageUrl: string | undefined;
-    if (imageFile) {
-      const url = await uploadImageToStorage(imageFile, newCode);
-      if (!url) {
-        const { toast } = await import('sonner');
-        toast.error('Não foi possível enviar a imagem. O item não foi cadastrado; tente novamente.');
-        isSubmittingRef.current = false;
-        return;
-      }
-      imageUrl = url;
-    }
-    
-    createLostItem.mutate({
-      code: newCode,
-      description,
-      campus: campus as CampusEnum,
-      found_location: location,
-      found_date: foundDate,
-      received_date: receivedDate,
-      shelf: shelf || undefined,
-      box: box || undefined,
-      box_number: boxNumber || undefined,
-      seal_number: sealNumber || undefined,
-      delivered_by_name: deliveredBy,
-      delivered_by_contact: contact || undefined,
-      image_url: imageUrl,
-    }, {
-      onSuccess: () => {
+    const ext = optimizedImageExtension(imageFile.type);
+    const supabasePath = `${newCode}-${Date.now()}.${ext}`;
+    let databaseInsertStarted = false;
+
+    try {
+      await persistNewImageSafely({
+        upload: () => uploadLostItemImage(imageFile, supabasePath),
+        persist: (imageUrl: string) => {
+          databaseInsertStarted = true;
+          return createLostItem.mutateAsync({
+            code: newCode,
+            description,
+            campus: campus as CampusEnum,
+            found_location: location,
+            found_date: foundDate,
+            received_date: receivedDate,
+            shelf: shelf || undefined,
+            box: box || undefined,
+            box_number: boxNumber || undefined,
+            seal_number: sealNumber || undefined,
+            delivered_by_name: deliveredBy,
+            delivered_by_contact: contact || undefined,
+            image_url: imageUrl,
+          });
+        },
+        cleanupNew: deleteStorageObjectSafely,
+      });
+
         setCreatedCode(newCode);
         setSuccessDialogOpen(true);
         
@@ -171,12 +152,20 @@ export default function RegisterItem() {
         setSealNumber('');
         setDeliveredBy('');
         setContact('');
-        isSubmittingRef.current = false;
-      },
-      onError: () => {
-        isSubmittingRef.current = false;
+    } catch (error: any) {
+      const { toast } = await import('sonner');
+      if (error?.possibleOrphanLocator) {
+        console.error('Lost-items image cleanup failed after insert error.', {
+          locator: error.possibleOrphanLocator,
+          cleanupCode: error.cleanupError?.code,
+        });
+        toast.error('O cadastro falhou e a limpeza da imagem também falhou. Há um possível objeto órfão identificado para revisão.');
+      } else if (!databaseInsertStarted) {
+        toast.error(error?.message || 'Não foi possível enviar a imagem. O item não foi cadastrado; tente novamente.');
       }
-    });
+    } finally {
+      isSubmittingRef.current = false;
+    }
   };
 
   const handleCopyCode = () => {

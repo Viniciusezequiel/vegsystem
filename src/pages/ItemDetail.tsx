@@ -53,6 +53,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Constants } from '@/integrations/supabase/types';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import { deleteLostItemImageIfUnreferenced, deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
+import { replaceImageSafely } from '@/lib/lostItemStorageCore.mjs';
 
 const campusOptions = Constants.public.Enums.campus_enum;
 
@@ -113,30 +115,34 @@ export default function ItemDetail() {
     try {
       const uploadFile = await optimizeImage(file);
       const ext = optimizedImageExtension(uploadFile.type);
-      const filePath = `${item.code}-${Date.now()}.${ext}`;
+      const supabasePath = `${item.code}-${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('lost-items')
-        .upload(filePath, uploadFile, { cacheControl: '3600', upsert: false });
-
-      if (uploadError) throw uploadError;
-
-      // Store the object path (bucket is private and the host may change).
-      try {
-        await updateItem.mutateAsync({ id: item.id, image_url: filePath });
-      } catch (error) {
-        await supabase.storage.from('lost-items').remove([filePath]);
-        throw error;
-      }
+      const result = await replaceImageSafely({
+        oldLocator: item.image_url,
+        upload: () => uploadLostItemImage(uploadFile, supabasePath),
+        update: (imageUrl: string) => updateItem.mutateAsync({ id: item.id, image_url: imageUrl }),
+        cleanupNew: deleteStorageObjectSafely,
+        cleanupOld: deleteLostItemImageIfUnreferenced,
+      });
 
       toast({
         title: 'Foto atualizada',
-        description: 'A foto do item foi atualizada com sucesso.',
+        description: result.oldCleanup?.preserved
+          ? 'A foto foi atualizada. A imagem anterior foi preservada por segurança.'
+          : 'A foto do item foi atualizada com sucesso.',
       });
     } catch (err: any) {
+      if (err?.possibleOrphanLocator) {
+        console.error('Lost-items replacement cleanup failed.', {
+          locator: err.possibleOrphanLocator,
+          cleanupCode: err.cleanupError?.code,
+        });
+      }
       toast({
         title: 'Erro ao atualizar foto',
-        description: err.message || 'Não foi possível fazer upload da foto.',
+        description: err?.possibleOrphanLocator
+          ? 'A atualização falhou e a nova imagem pode ter ficado órfã; o objeto foi identificado para revisão.'
+          : err.message || 'Não foi possível fazer upload da foto.',
         variant: 'destructive',
       });
     } finally {
