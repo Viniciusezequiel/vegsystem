@@ -12,6 +12,7 @@ import {
 
 const workerUrl = 'https://worker.example.test';
 const r2Locator = 'r2/lost-items/2026/08/123e4567-e89b-42d3-a456-426614174000-0123456789abcdef.webp';
+const replacementR2Locator = 'r2/lost-items/2026/08/223e4567-e89b-42d3-a456-426614174000-fedcba9876543210.webp';
 const file = new Blob(['RIFFmockWEBP'], { type: 'image/webp' });
 
 function response(status, body = {}) {
@@ -53,6 +54,59 @@ test('upload R2 retorna locator validado', async () => {
   const h = harness();
   assert.deepEqual(await h.client.upload(file, 'unused.webp'), { locator: r2Locator, provider: 'r2' });
   assert.equal(h.calls[0].url, `${workerUrl}/v1/files/lost-items`);
+});
+
+test('cadastro inicial e replace fazem exatamente um POST cada e aguardam seus 201', async () => {
+  const calls = [];
+  let releaseReplacement;
+  const replacementResponse = new Promise(resolve => { releaseReplacement = resolve; });
+  const client = new LostItemStorageClient({
+    uploadsFlag: 'true', workerUrl,
+    getAccessToken: async () => 'access-token',
+    uploadSupabase: async () => { throw new Error('unexpected Supabase upload'); },
+    deleteSupabase: async () => { throw new Error('unexpected Supabase delete'); },
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      if (calls.length === 1) return response(201, { locator: r2Locator });
+      if (calls.length === 2) return replacementResponse;
+      throw new Error('duplicate request');
+    },
+  });
+
+  const inserted = await persistNewImageSafely({
+    upload: () => client.upload(file, 'initial.webp'),
+    persist: async locator => locator,
+    cleanupNew: async () => {},
+  });
+  assert.equal(inserted.uploaded.locator, r2Locator);
+
+  const order = [];
+  let replaceSettled = false;
+  const replacing = replaceImageSafely({
+    oldLocator: r2Locator,
+    upload: () => client.upload(file, 'replacement.webp'),
+    update: async locator => { order.push(`update:${locator}`); return locator; },
+    cleanupNew: async locator => order.push(`cleanup-new:${locator}`),
+    cleanupOld: async locator => { order.push(`cleanup-old:${locator}`); return { removed: true }; },
+  }).then(result => { replaceSettled = true; return result; });
+
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(replaceSettled, false);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(order, []);
+  releaseReplacement(response(201, { locator: replacementR2Locator }));
+
+  const replaced = await replacing;
+  assert.equal(replaced.uploaded.locator, replacementR2Locator);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.map(call => [call.url, call.init.method]), [
+    [`${workerUrl}/v1/files/lost-items`, 'POST'],
+    [`${workerUrl}/v1/files/lost-items`, 'POST'],
+  ]);
+  assert.deepEqual(order, [
+    `update:${replacementR2Locator}`,
+    `cleanup-old:${r2Locator}`,
+  ]);
 });
 
 test('fetch default preserva receiver global no upload e DELETE R2', async () => {
