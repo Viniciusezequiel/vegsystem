@@ -49,6 +49,49 @@ test('R2 usa Worker com JWT somente no header', async () => {
   assert.equal(calls[0].url.includes('test-access-token'), false);
 });
 
+test('resolver usa fetch default com receiver global válido', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = function receiverSensitiveFetch(url, init) {
+    assert.equal(this, globalThis);
+    const requested = JSON.parse(init.body).locators;
+    return new Response(JSON.stringify({
+      files: requested.map(locator => ({ locator, url: `${workerUrl}/capability/default`, expires_at: 1300 })),
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const resolver = new R2CapabilityResolver({
+      workerUrl,
+      getAccessToken: async () => 'test-access-token',
+      now: () => 1_000_000,
+      batchWindowMs: 0,
+    });
+    assert.equal(await resolver.resolve(locators[0]), `${workerUrl}/capability/default`);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('resolver chama fetch injetado sem receiver e preserva Authorization', async () => {
+  const calls = [];
+  async function receiverSensitiveMock(url, init) {
+    assert.equal(this, undefined);
+    calls.push({ url, init });
+    return new Response(JSON.stringify({
+      files: [{ locator: locators[0], url: `${workerUrl}/capability/injected`, expires_at: 1300 }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }
+  const resolver = new R2CapabilityResolver({
+    workerUrl,
+    getAccessToken: async () => 'test-access-token',
+    now: () => 1_000_000,
+    batchWindowMs: 0,
+    fetchImpl: receiverSensitiveMock,
+  });
+  assert.equal(await resolver.resolve(locators[0]), `${workerUrl}/capability/injected`);
+  assert.equal(calls[0].init.headers.authorization, 'Bearer test-access-token');
+  assert.equal(calls[0].url.includes('test-access-token'), false);
+});
+
 test('capability válida é reutilizada somente em memória', async () => {
   const { resolver, calls } = createHarness();
   const first = await resolver.resolve(locators[0]);

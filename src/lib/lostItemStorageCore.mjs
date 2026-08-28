@@ -1,4 +1,5 @@
 import { getStorageProvider, R2_LOST_ITEMS_PREFIX } from './r2CapabilityResolver.mjs';
+import { createSafeFetch } from './safeFetch.mjs';
 
 const SAFE_SEGMENT = /^[^\\\u0000-\u001f\u007f]+$/;
 const NEW_LOST_ITEM_LOCATOR = /^r2\/lost-items\/\d{4}\/(?:0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-[0-9a-f]{16}\.webp$/i;
@@ -57,13 +58,13 @@ async function safeJson(response) {
 }
 
 export class LostItemStorageClient {
-  constructor({ uploadsFlag, workerUrl, getAccessToken, uploadSupabase, deleteSupabase, fetchImpl = fetch }) {
+  constructor({ uploadsFlag, workerUrl, getAccessToken, uploadSupabase, deleteSupabase, fetchImpl }) {
     this.useR2ForNewUploads = r2NewUploadsEnabled(uploadsFlag);
     this.workerUrl = String(workerUrl ?? '').replace(/\/+$/, '');
     this.getAccessToken = getAccessToken;
     this.uploadSupabase = uploadSupabase;
     this.deleteSupabase = deleteSupabase;
-    this.fetchImpl = fetchImpl;
+    this.fetchImpl = createSafeFetch(fetchImpl);
   }
 
   async accessToken() {

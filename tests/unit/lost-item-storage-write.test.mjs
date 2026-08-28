@@ -55,6 +55,53 @@ test('upload R2 retorna locator validado', async () => {
   assert.equal(h.calls[0].url, `${workerUrl}/v1/files/lost-items`);
 });
 
+test('fetch default preserva receiver global no upload e DELETE R2', async () => {
+  const originalFetch = globalThis.fetch;
+  const receivers = [];
+  globalThis.fetch = function receiverSensitiveFetch(url, init) {
+    receivers.push(this);
+    assert.equal(this, globalThis);
+    return init.method === 'DELETE'
+      ? response(200, { deleted: true, locator: r2Locator })
+      : response(201, { locator: r2Locator });
+  };
+  try {
+    const client = new LostItemStorageClient({
+      uploadsFlag: 'true', workerUrl,
+      getAccessToken: async () => 'access-token',
+      uploadSupabase: async () => { throw new Error('unexpected Supabase upload'); },
+      deleteSupabase: async () => { throw new Error('unexpected Supabase delete'); },
+    });
+    await client.upload(file, 'unused.webp');
+    await client.delete(r2Locator);
+    assert.deepEqual(receivers, [globalThis, globalThis]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('fetch injetado é chamado sem receiver e preserva Authorization', async () => {
+  const calls = [];
+  async function receiverSensitiveMock(url, init) {
+    assert.equal(this, undefined);
+    calls.push({ url, init });
+    return init.method === 'DELETE'
+      ? response(200, { deleted: true, locator: r2Locator })
+      : response(201, { locator: r2Locator });
+  }
+  const client = new LostItemStorageClient({
+    uploadsFlag: 'true', workerUrl,
+    getAccessToken: async () => 'access-token',
+    uploadSupabase: async () => { throw new Error('unexpected Supabase upload'); },
+    deleteSupabase: async () => { throw new Error('unexpected Supabase delete'); },
+    fetchImpl: receiverSensitiveMock,
+  });
+  await client.upload(file, 'unused.webp');
+  await client.delete(r2Locator);
+  assert.deepEqual(calls.map(call => call.init.headers.authorization), ['Bearer access-token', 'Bearer access-token']);
+  assert.equal(calls.every(call => !call.url.includes('access-token')), true);
+});
+
 test('upload envia JWT somente no Authorization', async () => {
   const h = harness();
   await h.client.upload(file, 'unused.webp');

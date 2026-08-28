@@ -1,3 +1,5 @@
+import { createSafeFetch } from './safeFetch.mjs';
+
 export const R2_LOST_ITEMS_PREFIX = 'r2/lost-items/';
 
 /** Identifies the file provider without changing the stored locator. */
@@ -14,7 +16,7 @@ export class R2CapabilityResolver {
   constructor({
     workerUrl,
     getAccessToken,
-    fetchImpl = fetch,
+    fetchImpl,
     now = () => Date.now(),
     refreshMarginMs = 30_000,
     batchWindowMs = 40,
@@ -22,7 +24,7 @@ export class R2CapabilityResolver {
   }) {
     this.workerUrl = String(workerUrl ?? '').replace(/\/+$/, '');
     this.getAccessToken = getAccessToken;
-    this.fetchImpl = fetchImpl;
+    this.fetchImpl = createSafeFetch(fetchImpl);
     this.now = now;
     this.refreshMarginMs = refreshMarginMs;
     this.batchWindowMs = batchWindowMs;
