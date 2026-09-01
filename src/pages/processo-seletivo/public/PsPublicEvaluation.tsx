@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ClipboardCheck, CheckCircle2 } from 'lucide-react';
+import { ClipboardCheck, CheckCircle2, Search } from 'lucide-react';
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
 import { useQuery } from '@tanstack/react-query';
 import { usePsEvents, usePsRoles } from '@/hooks/useProcessoSeletivo';
@@ -25,14 +25,14 @@ export default function PsPublicEvaluation() {
 
   const [eventId, setEventId] = useState<string>(routeEventId || '');
   const [search, setSearch] = useState('');
-  const { data: links = [] } = useQuery({
-    queryKey: ['ps_public_evaluation_roster', eventId, search.trim().toLowerCase()],
+  const { data: links = [], isLoading, error } = useQuery({
+    queryKey: ['ps_public_evaluation_roster', eventId],
     enabled: !!eventId,
     refetchInterval: 3_000,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('ps_public_search_event_roster', {
         p_event_id: eventId,
-        p_search: search.trim(),
+        p_search: '',
       });
       if (error) throw error;
       return (data || []).map((row: any) => ({
@@ -52,8 +52,8 @@ export default function PsPublicEvaluation() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
-  const roster = filterPublicRoster(links, search);
-  const selected = roster.find((l: any) => l.id === collaboratorId);
+  const roster = useMemo(() => filterPublicRoster(links, search), [links, search]);
+  const selected = roster.find((l: any) => l.id === collaboratorId) || links.find((l: any) => l.id === collaboratorId) || null;
 
   const submit = async () => {
     if (!eventId || !selected || !evaluatorName.trim()) {
@@ -118,7 +118,7 @@ export default function PsPublicEvaluation() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Avaliação de Fiscais</h1>
-            <p className="text-muted-foreground">Formulário público de avaliação por evento.</p>
+            <p className="text-muted-foreground">Selecione o fiscal e avalie o evento.</p>
           </div>
         </div>
 
@@ -137,21 +137,41 @@ export default function PsPublicEvaluation() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Buscar fiscal</Label>
-              <Input value={search} onChange={(e) => { setSearch(e.target.value); setCollaboratorId(''); }} placeholder="Nome, matrícula ou e-mail" disabled={!eventId} />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setCollaboratorId(''); }} placeholder="Buscar fiscal por nome, cargo, unidade ou sala" disabled={!eventId} />
             </div>
 
             <div className="space-y-2">
-              <Label>Fiscal avaliado</Label>
-              <Select value={collaboratorId} onValueChange={setCollaboratorId} disabled={!eventId || roster.length === 0}>
-                <SelectTrigger><SelectValue placeholder="Selecione o fiscal" /></SelectTrigger>
-                <SelectContent>
-                  {roster.map((l: any) => (
-                    <SelectItem key={l.id} value={l.id}>{l.collaborator_name} — {l.role_name || l.assigned_role || 'Fiscal'}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Fiscais do evento</Label>
+              <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border p-2">
+                {isLoading && <p className="p-2 text-sm text-muted-foreground">Carregando fiscais...</p>}
+                {!isLoading && !error && roster.length === 0 && (
+                  <p className="p-2 text-sm text-muted-foreground">{search ? 'Nenhum fiscal encontrado para esta busca.' : 'Nenhum fiscal vinculado a este evento.'}</p>
+                )}
+                {!isLoading && error && (
+                  <div className="space-y-2 p-2">
+                    <p className="text-sm text-destructive">Não foi possível carregar a lista de fiscais.</p>
+                    <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Tentar novamente</Button>
+                  </div>
+                )}
+                {!isLoading && !error && roster.map((l: any) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    onClick={() => setCollaboratorId(l.id)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left transition hover:bg-muted/60 ${collaboratorId === l.id ? 'border-primary bg-primary/5' : ''}`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{l.collaborator_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {[l.role_name || l.assigned_role, l.unit, l.room && `Sala ${l.room}`].filter(Boolean).join(' • ')}
+                      </p>
+                    </div>
+                    <Button type="button" size="sm">Avaliar</Button>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -181,7 +201,7 @@ export default function PsPublicEvaluation() {
               <Label>Observações</Label>
               <Textarea value={observations} onChange={(e) => setObservations(e.target.value)} rows={4} />
             </div>
-            <Button className="w-full" onClick={submit} disabled={saving}>
+            <Button className="w-full" onClick={submit} disabled={saving || !selected}>
               {saving ? 'Enviando...' : 'Enviar avaliação'}
             </Button>
           </CardContent>

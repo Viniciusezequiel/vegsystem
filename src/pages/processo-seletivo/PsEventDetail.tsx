@@ -238,6 +238,7 @@ export default function PsEventDetail() {
           <TabsList className="flex-wrap">
             <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
             <TabsTrigger value="fiscais">Equipe</TabsTrigger>
+            <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
             <TabsTrigger value="presenca">Presença</TabsTrigger>
             <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
             <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
@@ -258,20 +259,27 @@ export default function PsEventDetail() {
                 ))}
               </CardContent>
             </Card>
+          </TabsContent>
 
+          <TabsContent value="configuracoes" className="space-y-4 pt-4">
             <Card className="rounded-2xl">
-              <CardHeader><CardTitle className="text-base">Configuração pública</CardTitle></CardHeader>
-              <CardContent className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium">Autoavaliação do evento</p>
-                  <p className="text-sm text-muted-foreground">Disponível para o público somente quando ativada.</p>
+              <CardHeader><CardTitle className="text-base">Autoavaliação</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Permitir autoavaliação deste evento</p>
+                    <p className="text-sm text-muted-foreground">Quando habilitada, este evento ficará disponível para os fiscais realizarem a autoavaliação.</p>
+                  </div>
+                  <Switch
+                    checked={!!event.self_evaluation_enabled}
+                    onCheckedChange={async (checked) => {
+                      await save.mutateAsync({ ...event, self_evaluation_enabled: checked });
+                    }}
+                  />
                 </div>
-                <Switch
-                  checked={!!event.self_evaluation_enabled}
-                  onCheckedChange={async (checked) => {
-                    await save.mutateAsync({ ...event, self_evaluation_enabled: checked });
-                  }}
-                />
+                <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  {event.self_evaluation_enabled ? 'Status: Aberta' : 'Status: Fechada'}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

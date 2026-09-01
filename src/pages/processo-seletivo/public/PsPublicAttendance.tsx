@@ -20,14 +20,14 @@ export default function PsPublicAttendance() {
   const [eventId, setEventId] = useState(routeEventId || '');
   const [search, setSearch] = useState('');
 
-  const { data: links = [], refetch } = useQuery({
-    queryKey: ['ps_public_roster', eventId, search.trim().toLowerCase()],
+  const { data: links = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['ps_public_roster', eventId],
     enabled: !!eventId,
     refetchInterval: 3_000,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('ps_public_search_event_roster', {
         p_event_id: eventId,
-        p_search: search.trim(),
+        p_search: '',
       });
       if (error) throw error;
       return (data || []).map((row: any) => ({
@@ -47,7 +47,18 @@ export default function PsPublicAttendance() {
     const term = search.trim().toLowerCase();
     if (!term) return links;
     return links.filter((l: any) => {
-      const haystack = [l.collaborator_name, l.role_name, l.assigned_role, l.sector, l.email_masked, l.matricula_masked]
+      const haystack = [
+        l.collaborator_name,
+        l.role_name,
+        l.assigned_role,
+        l.sector,
+        l.unit,
+        l.floor,
+        l.room,
+        l.building,
+        l.email_masked,
+        l.matricula_masked,
+      ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
@@ -99,7 +110,7 @@ export default function PsPublicAttendance() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Lista de Presença</h1>
-            <p className="text-muted-foreground">Localize seu nome e assine digitalmente.</p>
+            <p className="text-muted-foreground">Encontre seu nome na lista e assine digitalmente.</p>
           </div>
         </div>
 
@@ -117,11 +128,21 @@ export default function PsPublicAttendance() {
 
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Buscar seu nome..." value={search} onChange={(e) => setSearch(e.target.value)} disabled={!eventId} />
+              <Input className="pl-9" placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala" value={search} onChange={(e) => setSearch(e.target.value)} disabled={!eventId} />
             </div>
 
-            <div className="max-h-72 divide-y overflow-y-auto rounded-xl border">
-              {filtered.map((l: any) => (
+            <div className="max-h-[26rem] divide-y overflow-y-auto rounded-xl border">
+              {isLoading && <p className="p-3 text-sm text-muted-foreground">Carregando fiscais...</p>}
+              {!isLoading && !error && filtered.length === 0 && (
+                <p className="p-3 text-sm text-muted-foreground">{search ? 'Nenhum fiscal encontrado para esta busca.' : 'Nenhum fiscal vinculado a este evento.'}</p>
+              )}
+              {!isLoading && error && (
+                <div className="space-y-2 p-3">
+                  <p className="text-sm text-destructive">Não foi possível carregar a lista de presença.</p>
+                  <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Tentar novamente</Button>
+                </div>
+              )}
+              {!isLoading && !error && filtered.map((l: any) => (
                 <button
                   key={l.id}
                   type="button"
@@ -132,7 +153,7 @@ export default function PsPublicAttendance() {
                   <span className="min-w-0">
                     <span className="font-medium">{l.collaborator_name}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {[l.role_name || l.assigned_role, l.matricula_masked, l.email_masked].filter(Boolean).join(' · ')}
+                      {[l.role_name || l.assigned_role, l.unit, l.floor, l.room && `Sala ${l.room}`].filter(Boolean).join(' • ')}
                     </span>
                   </span>
                   <span className="flex flex-wrap justify-end gap-1">
@@ -142,7 +163,6 @@ export default function PsPublicAttendance() {
                   </span>
                 </button>
               ))}
-              {eventId && filtered.length === 0 && <p className="p-3 text-sm text-muted-foreground">Nenhum fiscal encontrado neste evento.</p>}
               {!eventId && <p className="p-3 text-sm text-muted-foreground">Selecione um evento.</p>}
             </div>
           </CardContent>

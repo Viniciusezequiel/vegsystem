@@ -1,4 +1,6 @@
 export function isSelfEvaluationEnabled(event = {}) {
+  if (event?.status === 'finalizado') return false;
+  if (event?.hidden_from_evaluation === true) return false;
   if (typeof event?.self_evaluation_enabled === 'boolean') {
     return event.self_evaluation_enabled;
   }
