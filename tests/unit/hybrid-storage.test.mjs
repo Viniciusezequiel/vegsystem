@@ -36,6 +36,7 @@ test('classifica locators Supabase, optimized, R2 e null', () => {
   assert.equal(getStorageProvider('optimized/v1/photo.webp'), 'supabase');
   assert.equal(getStorageProvider('https://project.supabase.co/storage/v1/object/public/lost-items/photo.jpg'), 'supabase');
   assert.equal(getStorageProvider(locators[0]), 'r2');
+  assert.equal(getStorageProvider('r2/signatures/equipment/2026/09/123e4567-e89b-42d3-a456-426614174000-0123456789abcdef.png'), 'r2');
   assert.equal(getStorageProvider(null), 'none');
 });
 

@@ -1,11 +1,12 @@
 import { createSafeFetch } from './safeFetch.mjs';
 
 export const R2_LOST_ITEMS_PREFIX = 'r2/lost-items/';
+export const R2_SIGNATURE_PREFIX = 'r2/signatures/';
 
 /** Identifies the file provider without changing the stored locator. */
 export function getStorageProvider(locator) {
   if (!locator) return 'none';
-  return locator.startsWith(R2_LOST_ITEMS_PREFIX) ? 'r2' : 'supabase';
+  return locator.startsWith(R2_LOST_ITEMS_PREFIX) || locator.startsWith(R2_SIGNATURE_PREFIX) ? 'r2' : 'supabase';
 }
 
 /**

@@ -2,8 +2,8 @@ import { verifySupabaseJwt } from './auth.mjs';
 import { authorizeUser, hasDatabaseReference } from './authorization.mjs';
 import { createCapability, verifyCapability } from './capability.mjs';
 import { corsHeaders, json, optionsResponse } from './http.mjs';
-import { encodedObjectPath, parseR2Locator, parseScopedRoute, SCOPES } from './path.mjs';
-import { bucketFor, extensionFor, maxBytesFor, scopeEnabled, sha256Short, validMagic } from './storage.mjs';
+import { encodedObjectPath, parseR2Locator, parseScopedRoute, parseSignatureUploadPath, SCOPES } from './path.mjs';
+import { bucketFor, extensionFor, maxBytesFor, objectKeyFor, scopeEnabled, sha256Short, validMagic } from './storage.mjs';
 
 const defaults = { verifyJwt: verifySupabaseJwt, authorize: authorizeUser, hasReference: hasDatabaseReference };
 
@@ -19,7 +19,7 @@ function authenticated(deps, operation, handler) {
   };
 }
 
-async function resolveFiles(request, env) {
+async function resolveFiles(request, env, _context, auth, deps) {
   let body;
   try { body = await request.json(); } catch { return json({ error: 'invalid_json' }, 400, corsHeaders(request, env)); }
   if (!Array.isArray(body.locators) || body.locators.length < 1 || body.locators.length > 50) {
@@ -29,6 +29,13 @@ async function resolveFiles(request, env) {
   if (parsed.some(value => !value)) return json({ error: 'invalid_locator' }, 400, corsHeaders(request, env));
   if (parsed.some(value => !scopeEnabled(env, value.scope))) {
     return json({ error: 'not_found' }, 404, corsHeaders(request, env));
+  }
+  for (const item of parsed) {
+    if (item.scope !== 'signatures') continue;
+    let referenced;
+    try { referenced = await deps.hasReference(auth, env, item.scope, item.locator); }
+    catch { return json({ error: 'reference_check_unavailable' }, 503, corsHeaders(request, env)); }
+    if (!referenced) return json({ error: 'forbidden' }, 403, corsHeaders(request, env));
   }
   const ttl = Math.min(900, Math.max(30, Number(env.FILE_URL_TTL_SECONDS ?? 300)));
   const expiresAt = Math.floor(Date.now() / 1000) + ttl;
@@ -50,7 +57,8 @@ async function readObject(request, env, route) {
     return json({ error: 'invalid_or_expired_capability' }, 403, corsHeaders(request, env));
   }
   const bucket = bucketFor(env, route.scope);
-  const object = request.method === 'HEAD' ? await bucket.head(route.key) : await bucket.get(route.key);
+  const storageKey = objectKeyFor(route.scope, route.key);
+  const object = request.method === 'HEAD' ? await bucket.head(storageKey) : await bucket.get(storageKey);
   if (!object) return json({ error: 'not_found' }, 404, corsHeaders(request, env));
   const headers = new Headers(corsHeaders(request, env));
   object.writeHttpMetadata?.(headers);
@@ -59,11 +67,11 @@ async function readObject(request, env, route) {
   headers.set('cache-control', 'private, max-age=300');
   headers.set('x-content-type-options', 'nosniff');
   headers.set('content-security-policy', "default-src 'none'; sandbox");
-  if (route.scope === 'lost-items') headers.set('content-disposition', 'inline');
+  if (route.scope === 'lost-items' || route.scope === 'signatures') headers.set('content-disposition', 'inline');
   return new Response(request.method === 'HEAD' ? null : object.body, { status: 200, headers });
 }
 
-async function uploadFile(request, env, _context, auth, scope) {
+async function uploadFile(request, env, _context, auth, scope, module = null) {
   const contentType = (request.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
   const extension = extensionFor(scope, contentType);
   if (!extension) return json({ error: 'unsupported_media_type' }, 415, corsHeaders(request, env));
@@ -75,16 +83,20 @@ async function uploadFile(request, env, _context, auth, scope) {
   if (!validMagic(contentType, bytes)) return json({ error: 'invalid_file_signature' }, 415, corsHeaders(request, env));
   const checksum = await sha256Short(bytes);
   const date = new Date();
-  const key = `${date.getUTCFullYear()}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${crypto.randomUUID()}-${checksum}.${extension}`;
+  const datedKey = `${date.getUTCFullYear()}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${crypto.randomUUID()}-${checksum}.${extension}`;
+  const key = module ? `${module}/${datedKey}` : datedKey;
+  const storageKey = objectKeyFor(scope, key);
   const bucket = bucketFor(env, scope);
-  if (await bucket.head(key)) return json({ error: 'key_collision' }, 409, corsHeaders(request, env));
-  await bucket.put(key, bytes, {
+  if (await bucket.head(storageKey)) return json({ error: 'key_collision' }, 409, corsHeaders(request, env));
+  await bucket.put(storageKey, bytes, {
     httpMetadata: { contentType, cacheControl: 'private, max-age=300' },
     customMetadata: { sha256_short: checksum },
   });
-  const stored = await bucket.head(key);
+  const stored = await bucket.head(storageKey);
   if (!stored || stored.size !== bytes.length) return json({ error: 'upload_verification_failed' }, 502, corsHeaders(request, env));
-  return json({ locator: `r2/${scope}/${key}`, size: bytes.length, content_type: contentType, checksum_short: checksum }, 201, corsHeaders(request, env));
+  const locator = `r2/${scope}/${key}`;
+  if (scope === 'signatures') return json({ locator }, 201, corsHeaders(request, env));
+  return json({ locator, size: bytes.length, content_type: contentType, checksum_short: checksum }, 201, corsHeaders(request, env));
 }
 
 async function deleteFile(request, env, _context, auth, route, deps) {
@@ -93,17 +105,24 @@ async function deleteFile(request, env, _context, auth, route, deps) {
   catch { return json({ error: 'reference_check_unavailable', preserved: true }, 503, corsHeaders(request, env)); }
   if (referenced) return json({ error: 'object_still_referenced', preserved: true }, 409, corsHeaders(request, env));
   const bucket = bucketFor(env, route.scope);
-  if (!await bucket.head(route.key)) return json({ error: 'not_found' }, 404, corsHeaders(request, env));
-  await bucket.delete(route.key);
-  if (await bucket.head(route.key)) return json({ error: 'delete_verification_failed' }, 502, corsHeaders(request, env));
+  const storageKey = objectKeyFor(route.scope, route.key);
+  if (!await bucket.head(storageKey)) return json({ error: 'not_found' }, 404, corsHeaders(request, env));
+  await bucket.delete(storageKey);
+  if (await bucket.head(storageKey)) return json({ error: 'delete_verification_failed' }, 502, corsHeaders(request, env));
   return json({ deleted: true, locator: route.locator }, 200, corsHeaders(request, env));
 }
 
 export function createApp(overrides = {}) {
   const deps = { ...defaults, ...overrides };
-  const resolve = authenticated(deps, 'read', resolveFiles);
+  const resolve = authenticated(deps, 'read', (request, env, context, auth) => resolveFiles(request, env, context, auth, deps));
   const upload = authenticated(deps, 'upload', async (request, env, context, auth) => {
     const pathname = new URL(request.url).pathname;
+    if (pathname.startsWith('/v1/files/signatures/')) {
+      const module = parseSignatureUploadPath(pathname);
+      if (!module) return json({ error: 'invalid_signature_module' }, 400, corsHeaders(request, env));
+      if (!scopeEnabled(env, 'signatures')) return json({ error: 'not_found' }, 404, corsHeaders(request, env));
+      return uploadFile(request, env, context, auth, 'signatures', module);
+    }
     const scope = decodeURIComponent(pathname.slice('/v1/files/'.length));
     if (!SCOPES.has(scope) || scope.includes('/')) return json({ error: 'invalid_scope' }, 400, corsHeaders(request, env));
     if (!scopeEnabled(env, scope)) return json({ error: 'not_found' }, 404, corsHeaders(request, env));

@@ -46,3 +46,20 @@ test('checagem de referências consulta as duas tabelas e falha fechada', async 
   assert.ok(urls.at(-1).includes('task_comments'));
   assert.ok(urls.at(-1).includes('attachment_urls=cs.'));
 });
+
+test('referências de assinatura são restritas ao módulo e colunas correspondentes', async () => {
+  const urls = [];
+  const fetchMock = async url => {
+    urls.push(String(url));
+    const match = url.toString().includes('return_signature=eq.');
+    return new Response(match ? '[{"id":"loan"}]' : '[]', {
+      status: 200, headers: { 'content-type': 'application/json' },
+    });
+  };
+  const locator = 'r2/signatures/equipment/2026/09/123e4567-e89b-42d3-a456-426614174000-0123456789abcdef.png';
+  assert.equal(await hasDatabaseReference(auth, env, 'signatures', locator, fetchMock), true);
+  assert.equal(urls.length, 2);
+  assert.ok(urls.every(url => url.includes('/equipment_loans?')));
+  assert.ok(urls.some(url => url.includes('borrower_signature=eq.')));
+  assert.ok(urls.some(url => url.includes('return_signature=eq.')));
+});

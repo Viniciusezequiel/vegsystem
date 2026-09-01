@@ -1,4 +1,6 @@
 import jsPDF from 'jspdf';
+import { preparePdfSignatureRows } from '@/lib/signatureStorageCore.mjs';
+import { resolveSignatureDataUrl } from '@/lib/signatureStorage';
 
 export interface PsBadgeRow {
   collaborator_name: string;
@@ -276,4 +278,14 @@ export function generatePsAttendancePdf(event: PsEventInfo, rows: PsAttendanceRo
   }
 
   return doc;
+}
+
+/** Resolves private R2 signatures only for the explicit PDF operation. */
+export async function generatePsAttendancePdfAsync(
+  event: PsEventInfo,
+  rows: PsAttendanceRow[],
+  resolveR2Signature = resolveSignatureDataUrl,
+): Promise<jsPDF> {
+  const prepared = await preparePdfSignatureRows(rows, resolveR2Signature);
+  return generatePsAttendancePdf(event, prepared);
 }

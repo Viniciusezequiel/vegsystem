@@ -4,23 +4,33 @@ const TYPES = {
     ['image/webp', 'webp'], ['image/jpeg', 'jpg'], ['image/png', 'png'],
     ['application/pdf', 'pdf'], ['text/plain', 'txt'],
   ]),
+  signatures: new Map([['image/png', 'png']]),
 };
 
 export function bucketFor(env, scope) {
-  return scope === 'lost-items' ? env.LOST_ITEMS_BUCKET : env.TASK_ATTACHMENTS_BUCKET;
+  if (scope === 'lost-items' || scope === 'signatures') return env.LOST_ITEMS_BUCKET;
+  return env.TASK_ATTACHMENTS_BUCKET;
+}
+
+export function objectKeyFor(scope, key) {
+  return scope === 'signatures' ? `signatures/${key}` : key;
 }
 
 export function scopeEnabled(env, scope) {
   if (scope === 'lost-items') return Boolean(env.LOST_ITEMS_BUCKET);
+  if (scope === 'signatures') return env.ENABLE_SIGNATURES === 'true' && Boolean(env.LOST_ITEMS_BUCKET);
   return scope === 'task-attachments'
     && env.ENABLE_TASK_ATTACHMENTS === 'true'
     && Boolean(env.TASK_ATTACHMENTS_BUCKET);
 }
 
 export function maxBytesFor(env, scope) {
-  const raw = scope === 'lost-items' ? env.MAX_LOST_ITEM_BYTES : env.MAX_TASK_ATTACHMENT_BYTES;
-  const value = Number(raw ?? 10 * 1024 * 1024);
-  return Number.isSafeInteger(value) && value > 0 ? value : 10 * 1024 * 1024;
+  const fallback = scope === 'signatures' ? 512 * 1024 : 10 * 1024 * 1024;
+  const raw = scope === 'lost-items'
+    ? env.MAX_LOST_ITEM_BYTES
+    : scope === 'signatures' ? env.MAX_SIGNATURE_BYTES : env.MAX_TASK_ATTACHMENT_BYTES;
+  const value = Number(raw ?? fallback);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
 
 export function extensionFor(scope, contentType) {

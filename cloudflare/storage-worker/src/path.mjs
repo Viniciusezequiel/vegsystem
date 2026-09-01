@@ -1,4 +1,7 @@
-export const SCOPES = new Set(['lost-items', 'task-attachments']);
+export const SCOPES = new Set(['lost-items', 'task-attachments', 'signatures']);
+export const SIGNATURE_MODULES = new Set(['equipment', 'lockers', 'lost-items', 'process-selection']);
+
+const signatureKeyPattern = /^(equipment|lockers|lost-items|process-selection)\/\d{4}\/(?:0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-[0-9a-f]{16}\.png$/;
 
 const unsafeSegment = /(^|\/)(?:\.{1,2})(?:\/|$)/;
 const controlOrSlash = /[\\\u0000-\u001f\u007f]/;
@@ -16,6 +19,7 @@ export function parseR2Locator(locator) {
   const scope = parts[1];
   const key = parts.slice(2).join('/');
   if (!SCOPES.has(scope) || !validateKey(key)) return null;
+  if (scope === 'signatures' && !signatureKeyPattern.test(key)) return null;
   return { scope, key, locator: `r2/${scope}/${key}` };
 }
 
@@ -29,7 +33,16 @@ export function parseScopedRoute(pathname, prefix) {
   const scope = decoded.slice(0, slash);
   const key = decoded.slice(slash + 1);
   if (!SCOPES.has(scope) || !validateKey(key)) return null;
+  if (scope === 'signatures' && !signatureKeyPattern.test(key)) return null;
   return { scope, key, locator: `r2/${scope}/${key}` };
+}
+
+export function parseSignatureUploadPath(pathname) {
+  const prefix = '/v1/files/signatures/';
+  if (!pathname.startsWith(prefix)) return null;
+  let module;
+  try { module = decodeURIComponent(pathname.slice(prefix.length)); } catch { return null; }
+  return SIGNATURE_MODULES.has(module) ? module : null;
 }
 
 export function encodedObjectPath(scope, key) {

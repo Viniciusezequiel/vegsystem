@@ -44,12 +44,15 @@ function setup(overrides = {}) {
     CAPABILITY_SIGNING_SECRET: testCapabilitySecret,
     FILE_URL_TTL_SECONDS: '300',
     MAX_LOST_ITEM_BYTES: '1024',
+    MAX_SIGNATURE_BYTES: '1024',
+    ENABLE_SIGNATURES: 'true',
     ALLOWED_ORIGINS: 'https://www.vegsystem.site',
   };
   return { app, env, bucket };
 }
 
 const webp = new Uint8Array([82,73,70,70,4,0,0,0,87,69,66,80,1,2,3,4]);
+const png = new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0]);
 const authHeaders = { authorization: 'Bearer test' };
 
 test('rotas autenticadas rejeitam anônimo', async () => {
@@ -127,6 +130,61 @@ test('upload rejeita MIME/assinatura incompatíveis', async () => {
     method: 'POST', headers: { ...authHeaders, 'content-type': 'image/webp' }, body: new Uint8Array([1,2,3]) },
   ), env, {});
   assert.equal(response.status, 415);
+});
+
+test('upload de assinatura aceita somente PNG e retorna locator sem capability', async () => {
+  const { app, env, bucket } = setup();
+  const response = await app.fetch(new Request('https://worker.test/v1/files/signatures/equipment', {
+    method: 'POST', headers: { ...authHeaders, 'content-type': 'image/png' }, body: png,
+  }), env, {});
+  assert.equal(response.status, 201);
+  const result = await response.json();
+  assert.match(result.locator, /^r2\/signatures\/equipment\/\d{4}\/\d{2}\/[0-9a-f-]+-[0-9a-f]{16}\.png$/);
+  assert.deepEqual(Object.keys(result), ['locator']);
+  assert.equal([...bucket.objects.keys()].every(key => key.startsWith('signatures/equipment/')), true);
+
+  const invalidMime = await app.fetch(new Request('https://worker.test/v1/files/signatures/equipment', {
+    method: 'POST', headers: { ...authHeaders, 'content-type': 'image/webp' }, body: webp,
+  }), env, {});
+  assert.equal(invalidMime.status, 415);
+  const invalidModule = await app.fetch(new Request('https://worker.test/v1/files/signatures/admin', {
+    method: 'POST', headers: { ...authHeaders, 'content-type': 'image/png' }, body: png,
+  }), env, {});
+  assert.equal(invalidModule.status, 400);
+});
+
+test('resolve de assinatura exige referência visível e serve PNG por capability curta', async () => {
+  const locator = 'r2/signatures/process-selection/2026/09/123e4567-e89b-42d3-a456-426614174000-0123456789abcdef.png';
+  const key = 'signatures/process-selection/2026/09/123e4567-e89b-42d3-a456-426614174000-0123456789abcdef.png';
+  const denied = setup({ hasReference: async () => false });
+  await denied.bucket.put(key, png, { httpMetadata: { contentType: 'image/png' } });
+  const request = () => new Request('https://worker.test/v1/files/resolve', {
+    method: 'POST', headers: { ...authHeaders, 'content-type': 'application/json' },
+    body: JSON.stringify({ locators: [locator] }),
+  });
+  assert.equal((await denied.app.fetch(request(), denied.env, {})).status, 403);
+
+  const allowed = setup({ hasReference: async () => true });
+  await allowed.bucket.put(key, png, { httpMetadata: { contentType: 'image/png' } });
+  const response = await allowed.app.fetch(request(), allowed.env, {});
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.files[0].locator, locator);
+  assert.equal(payload.files[0].url.includes('sig='), true);
+  const get = await allowed.app.fetch(new Request(payload.files[0].url), allowed.env, {});
+  assert.equal(get.status, 200);
+  assert.equal(get.headers.get('content-type'), 'image/png');
+});
+
+test('DELETE de assinatura preserva referência e usa somente a key física exata', async () => {
+  const locator = 'r2/signatures/lockers/2026/09/123e4567-e89b-42d3-a456-426614174000-0123456789abcdef.png';
+  const key = 'signatures/lockers/2026/09/123e4567-e89b-42d3-a456-426614174000-0123456789abcdef.png';
+  const guarded = setup({ hasReference: async () => true });
+  await guarded.bucket.put(key, png);
+  assert.equal((await guarded.app.fetch(new Request(`https://worker.test/v1/files/${locator.slice(3)}`, {
+    method: 'DELETE', headers: authHeaders,
+  }), guarded.env, {})).status, 409);
+  assert.ok(await guarded.bucket.head(key));
 });
 
 test('DELETE preserva objeto referenciado', async () => {

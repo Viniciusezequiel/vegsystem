@@ -21,7 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
 import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature } from 'lucide-react';
-import { generatePsBadgesPdf, generatePsAttendancePdf } from '@/lib/psEventPdf';
+import { generatePsBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
@@ -171,7 +171,8 @@ export default function PsEventDetail() {
     if (error) { toast.error('Não foi possível carregar as assinaturas para o PDF.'); return; }
     const signatureById = new Map((signatures || []).map(row => [row.id, row.signature_url]));
     const pdfRows = links.map((row: any) => ({ ...row, signature_url: signatureById.get(row.id) ?? null }));
-    generatePsAttendancePdf(eventInfo(), pdfRows as any).save(`lista-presenca-${slug}.pdf`);
+    const pdf = await generatePsAttendancePdfAsync(eventInfo(), pdfRows as any);
+    pdf.save(`lista-presenca-${slug}.pdf`);
   };
 
   if (!event) {
