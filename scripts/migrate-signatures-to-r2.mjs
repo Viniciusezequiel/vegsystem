@@ -26,6 +26,11 @@ export const MODULES = {
     rpc: 'update_lost_item_signature_locator',
     manifestPath: path.resolve('backup/r2-signatures-lost-items-migration.json'),
   },
+  'process-selection': {
+    name: 'process-selection', table: 'ps_event_collaborators', fields: ['signature_url'],
+    rpc: 'update_process_selection_signature_locator',
+    manifestPath: path.resolve('backup/r2-signatures-process-selection-migration.json'),
+  },
 };
 const WORKER_DEFAULT = 'https://vegsystem-storage.viniciusezequiel.workers.dev';
 const PNG_MAGIC = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -39,7 +44,7 @@ export function parseArgs(argv) {
   const execute = args.has('--execute') || resume;
   if (!MODULES[module]) throw new Error('unsupported_module');
   if (dryRun === execute) throw new Error('choose_exactly_one_of_dry_run_or_execute');
-  const known = new Set(['--module', 'equipment', 'lockers', 'lost-items', '--dry-run', '--execute', '--resume']);
+  const known = new Set(['--module', 'equipment', 'lockers', 'lost-items', 'process-selection', '--dry-run', '--execute', '--resume']);
   if (argv.some(arg => !known.has(arg))) throw new Error('unknown_argument');
   return { module, dryRun, execute, resume };
 }

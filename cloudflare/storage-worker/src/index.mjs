@@ -95,8 +95,34 @@ async function uploadFile(request, env, _context, auth, scope, module = null) {
   const stored = await bucket.head(storageKey);
   if (!stored || stored.size !== bytes.length) return json({ error: 'upload_verification_failed' }, 502, corsHeaders(request, env));
   const locator = `r2/${scope}/${key}`;
-  if (scope === 'signatures') return json({ locator }, 201, corsHeaders(request, env));
+  if (scope === 'signatures') return json({ locator, size: bytes.length, content_type: contentType, checksum_short: checksum }, 201, corsHeaders(request, env));
   return json({ locator, size: bytes.length, content_type: contentType, checksum_short: checksum }, 201, corsHeaders(request, env));
+}
+
+function internalPsAuthorized(request, env) {
+  const provided = request.headers.get('x-ps-signature-secret') ?? '';
+  const expected = env.PS_SIGNATURE_INTERNAL_SECRET ?? '';
+  return expected.length >= 32 && provided.length === expected.length && provided === expected;
+}
+
+async function internalProcessSelection(request, env, context) {
+  if (!internalPsAuthorized(request, env) || !scopeEnabled(env, 'signatures')) {
+    return json({ error: 'not_found' }, 404, corsHeaders(request, env));
+  }
+  if (request.method === 'POST') return uploadFile(request, env, context, null, 'signatures', 'process-selection');
+  if (request.method !== 'DELETE') return json({ error: 'method_not_allowed' }, 405, corsHeaders(request, env));
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'invalid_json' }, 400, corsHeaders(request, env)); }
+  const route = parseR2Locator(body?.locator);
+  if (!route || route.scope !== 'signatures' || !route.key.startsWith('process-selection/')) {
+    return json({ error: 'invalid_locator' }, 400, corsHeaders(request, env));
+  }
+  const bucket = bucketFor(env, route.scope);
+  const storageKey = objectKeyFor(route.scope, route.key);
+  if (!await bucket.head(storageKey)) return json({ error: 'not_found' }, 404, corsHeaders(request, env));
+  await bucket.delete(storageKey);
+  if (await bucket.head(storageKey)) return json({ error: 'delete_verification_failed' }, 502, corsHeaders(request, env));
+  return json({ deleted: true, locator: route.locator }, 200, corsHeaders(request, env));
 }
 
 async function deleteFile(request, env, _context, auth, route, deps) {
@@ -138,6 +164,7 @@ export function createApp(overrides = {}) {
     async fetch(request, env, context) {
       if (request.method === 'OPTIONS') return optionsResponse(request, env);
       const pathname = new URL(request.url).pathname;
+      if (pathname === '/v1/internal/signatures/process-selection') return internalProcessSelection(request, env, context);
       if (request.method === 'POST' && pathname === '/v1/files/resolve') return resolve(request, env, context);
       const objectRoute = parseScopedRoute(pathname, '/v1/objects/');
       if ((request.method === 'GET' || request.method === 'HEAD') && objectRoute) return readObject(request, env, objectRoute);

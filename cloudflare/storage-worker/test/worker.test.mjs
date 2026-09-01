@@ -46,6 +46,7 @@ function setup(overrides = {}) {
     MAX_LOST_ITEM_BYTES: '1024',
     MAX_SIGNATURE_BYTES: '1024',
     ENABLE_SIGNATURES: 'true',
+    PS_SIGNATURE_INTERNAL_SECRET: 'unit-test-process-selection-secret-123456789',
     ALLOWED_ORIGINS: 'https://www.vegsystem.site',
   };
   return { app, env, bucket };
@@ -140,7 +141,7 @@ test('upload de assinatura aceita somente PNG e retorna locator sem capability',
   assert.equal(response.status, 201);
   const result = await response.json();
   assert.match(result.locator, /^r2\/signatures\/equipment\/\d{4}\/\d{2}\/[0-9a-f-]+-[0-9a-f]{16}\.png$/);
-  assert.deepEqual(Object.keys(result), ['locator']);
+  assert.deepEqual(Object.keys(result), ['locator', 'size', 'content_type', 'checksum_short']);
   assert.equal([...bucket.objects.keys()].every(key => key.startsWith('signatures/equipment/')), true);
 
   const invalidMime = await app.fetch(new Request('https://worker.test/v1/files/signatures/equipment', {
@@ -151,6 +152,26 @@ test('upload de assinatura aceita somente PNG e retorna locator sem capability',
     method: 'POST', headers: { ...authHeaders, 'content-type': 'image/png' }, body: png,
   }), env, {});
   assert.equal(invalidModule.status, 400);
+});
+
+test('endpoint interno process-selection exige segredo, força PNG e faz cleanup exato', async () => {
+  const { app, env, bucket } = setup();
+  const endpoint = 'https://worker.test/v1/internal/signatures/process-selection';
+  assert.equal((await app.fetch(new Request(endpoint, { method: 'POST', headers: { 'content-type': 'image/png' }, body: png }), env, {})).status, 404);
+  const headers = { 'x-ps-signature-secret': env.PS_SIGNATURE_INTERNAL_SECRET, 'content-type': 'image/png' };
+  const upload = await app.fetch(new Request(endpoint, { method: 'POST', headers, body: png }), env, {});
+  assert.equal(upload.status, 201);
+  const receipt = await upload.json();
+  assert.match(receipt.locator, /^r2\/signatures\/process-selection\//);
+  assert.equal(receipt.size, png.length);
+  assert.equal(receipt.content_type, 'image/png');
+  assert.equal(bucket.objects.size, 1);
+  const cleanup = await app.fetch(new Request(endpoint, {
+    method: 'DELETE', headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ locator: receipt.locator }),
+  }), env, {});
+  assert.equal(cleanup.status, 200);
+  assert.equal(bucket.objects.size, 0);
 });
 
 test('resolve de assinatura exige referência visível e serve PNG por capability curta', async () => {

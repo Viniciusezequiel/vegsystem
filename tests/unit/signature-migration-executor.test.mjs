@@ -16,13 +16,16 @@ test('CLI exige equipment e um único modo; resume retoma execução', () => {
   assert.deepEqual(parseArgs(['--module', 'lost-items', '--dry-run']), {
     module: 'lost-items', dryRun: true, execute: false, resume: false,
   });
+  assert.deepEqual(parseArgs(['--module', 'process-selection', '--dry-run']), {
+    module: 'process-selection', dryRun: true, execute: false, resume: false,
+  });
   assert.deepEqual(parseArgs(['--module', 'equipment', '--execute', '--resume']), {
     module: 'equipment', dryRun: false, execute: true, resume: true,
   });
   assert.deepEqual(parseArgs(['--module', 'equipment', '--resume']), {
     module: 'equipment', dryRun: false, execute: true, resume: true,
   });
-  assert.throws(() => parseArgs(['--module', 'process-selection', '--dry-run']), /unsupported_module/);
+  assert.throws(() => parseArgs(['--module', 'unknown', '--dry-run']), /unsupported_module/);
 });
 
 test('aceita somente Base64 PNG canônico com magic bytes', () => {
@@ -102,6 +105,16 @@ test('RPC de lost-items é invoker e escolhe somente active/archive sem SQL din�
   assert.match(sql, /p_source = 'archive'[\s\S]*UPDATE public\.lost_items_archive/);
   assert.match(sql, /owner_signature = p_expected_value/g);
   assert.match(sql, /p_new_locator NOT LIKE 'r2\/signatures\/lost-items\/%'/);
+  assert.match(sql, /GET DIAGNOSTICS v_rows_updated = ROW_COUNT/);
+  assert.doesNotMatch(sql, /SECURITY DEFINER|EXECUTE\s+format|service_role/i);
+});
+
+test('RPC de processo seletivo atualiza somente signature_url por comparação exata', () => {
+  const sql = fs.readFileSync(new URL('../../supabase/migrations/20260901200000_update_process_selection_signature_locator_rpc.sql', import.meta.url), 'utf8');
+  assert.match(sql, /SECURITY INVOKER/i);
+  assert.match(sql, /p_field <> 'signature_url'/);
+  assert.match(sql, /UPDATE public\.ps_event_collaborators[\s\S]*signature_url = p_expected_value/);
+  assert.match(sql, /p_new_locator NOT LIKE 'r2\/signatures\/process-selection\/%'/);
   assert.match(sql, /GET DIAGNOSTICS v_rows_updated = ROW_COUNT/);
   assert.doesNotMatch(sql, /SECURITY DEFINER|EXECUTE\s+format|service_role/i);
 });

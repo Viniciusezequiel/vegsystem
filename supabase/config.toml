@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.notify-task-assignment]
 verify_jwt = false
+
+[functions.ps-public-signature]
+verify_jwt = false

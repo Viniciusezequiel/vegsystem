@@ -12,6 +12,7 @@ import { PenLine, CheckCircle2, Search } from 'lucide-react';
 import { usePsEvents } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { submitPublicProcessSelectionSignature } from '@/lib/signatureStorage';
 
 export default function PsPublicAttendance() {
   const { eventId: routeEventId } = useParams();
@@ -44,14 +45,15 @@ export default function PsPublicAttendance() {
     if (!selected) { toast.error('Selecione seu nome na lista.'); return; }
     if (!signature) { toast.error('Assine no campo indicado.'); return; }
     setSaving(true);
-    const { error } = await supabase.rpc('ps_public_sign_attendance', {
-      p_link_id: selected.id,
-      p_signature: signature,
-    });
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    refetch();
-    setDone(true);
+    try {
+      await submitPublicProcessSelectionSignature(selected.id, signature);
+      await refetch();
+      setDone(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível registrar a assinatura.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (done) {
