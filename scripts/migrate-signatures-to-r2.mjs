@@ -17,6 +17,15 @@ export const MODULES = {
     rpc: 'update_locker_signature_locator',
     manifestPath: path.resolve('backup/r2-signatures-lockers-migration.json'),
   },
+  'lost-items': {
+    name: 'lost-items', fields: ['owner_signature'],
+    sources: [
+      { name: 'active', table: 'lost_items', fields: ['owner_signature'] },
+      { name: 'archive', table: 'lost_items_archive', fields: ['owner_signature'] },
+    ],
+    rpc: 'update_lost_item_signature_locator',
+    manifestPath: path.resolve('backup/r2-signatures-lost-items-migration.json'),
+  },
 };
 const WORKER_DEFAULT = 'https://vegsystem-storage.viniciusezequiel.workers.dev';
 const PNG_MAGIC = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -30,7 +39,7 @@ export function parseArgs(argv) {
   const execute = args.has('--execute') || resume;
   if (!MODULES[module]) throw new Error('unsupported_module');
   if (dryRun === execute) throw new Error('choose_exactly_one_of_dry_run_or_execute');
-  const known = new Set(['--module', 'equipment', 'lockers', '--dry-run', '--execute', '--resume']);
+  const known = new Set(['--module', 'equipment', 'lockers', 'lost-items', '--dry-run', '--execute', '--resume']);
   if (argv.some(arg => !known.has(arg))) throw new Error('unknown_argument');
   return { module, dryRun, execute, resume };
 }
@@ -54,10 +63,10 @@ export function decodePngDataUrl(value) {
   return { valid: true, status: 'dry_run_valid', bytes, sha256: sha256(bytes) };
 }
 
-export function inventoryEntry(loanId, field, value, timestamp) {
+export function inventoryEntry(recordId, field, value, timestamp, source = null) {
   const decoded = decodePngDataUrl(value);
   return {
-    loan_id: loanId,
+    ...(source ? { record_id: recordId, source } : { loan_id: recordId }),
     field,
     old_bytes: decoded.valid ? decoded.bytes.length : null,
     old_sha256: decoded.valid ? decoded.sha256 : sha256(Buffer.from(String(value ?? ''), 'utf8')),
@@ -82,6 +91,8 @@ export function summarizeEntries(entries) {
   return {
     borrower_found: entries.filter(entry => entry.field === 'borrower_signature').length,
     return_found: entries.filter(entry => entry.field === 'return_signature').length,
+    active_found: entries.filter(entry => entry.source === 'active').length,
+    archive_found: entries.filter(entry => entry.source === 'archive').length,
     total: entries.length,
     valid: valid.length,
     invalid,
@@ -154,11 +165,25 @@ async function verifyPermissions(config, token) {
   return { internal: true, admin: true, worker_upload: true, worker_delete: true, database_update: true };
 }
 
-async function fetchFieldRows(config, token, field) {
+function moduleSources(module) {
+  return module.sources ?? [{ name: null, table: module.table, fields: module.fields }];
+}
+
+function entrySource(config, entry) {
+  const source = moduleSources(config.module).find(candidate => candidate.name === (entry.source ?? null));
+  if (!source) throw new Error('manifest_source_invalid');
+  return source;
+}
+
+function entryRecordId(entry) {
+  return entry.record_id ?? entry.loan_id;
+}
+
+async function fetchFieldRows(config, token, source, field) {
   const rows = [];
   const pageSize = 100;
   for (let offset = 0; ; offset += pageSize) {
-    const resource = `${config.module.table}?select=id,${field}&${field}=not.is.null&order=id.asc`;
+    const resource = `${source.table}?select=id,${field}&${field}=not.is.null&order=id.asc`;
     const response = await rest(config, token, resource, {
       headers: { range: `${offset}-${offset + pageSize - 1}`, prefer: 'count=exact' },
     });
@@ -171,8 +196,9 @@ async function fetchFieldRows(config, token, field) {
 }
 
 async function readCurrentValue(config, token, entry) {
+  const source = entrySource(config, entry);
   const response = await rest(config, token,
-    `${config.module.table}?select=id,${entry.field}&id=eq.${encodeURIComponent(entry.loan_id)}&limit=1`);
+    `${source.table}?select=id,${entry.field}&id=eq.${encodeURIComponent(entryRecordId(entry))}&limit=1`);
   if (!response.ok) throw new Error(`read_current_${response.status}`);
   const rows = await response.json();
   return rows.length === 1 ? rows[0][entry.field] : undefined;
@@ -180,10 +206,14 @@ async function readCurrentValue(config, token, entry) {
 
 async function exactReferenceCount(config, token, locator) {
   const encoded = encodeURIComponent(locator);
-  const response = await rest(config, token,
-    `${config.module.table}?select=id&or=(borrower_signature.eq.${encoded},return_signature.eq.${encoded})`);
-  if (!response.ok) throw new Error(`reference_count_${response.status}`);
-  return (await response.json()).length;
+  let count = 0;
+  for (const source of moduleSources(config.module)) {
+    const filters = source.fields.map(field => `${field}.eq.${encoded}`).join(',');
+    const response = await rest(config, token, `${source.table}?select=id&or=(${filters})`);
+    if (!response.ok) throw new Error(`reference_count_${response.status}`);
+    count += (await response.json()).length;
+  }
+  return count;
 }
 
 async function deleteExact(config, token, locator) {
@@ -218,11 +248,12 @@ async function updateConditionally(config, token, entry, original, locator) {
     const response = await rest(config, token, `rpc/${config.module.rpc}`, {
       method: 'POST', signal: controller.signal,
       headers: { 'content-type': 'application/json', prefer: 'return=representation' },
-      body: JSON.stringify({
-        p_loan_id: entry.loan_id,
-        p_field: entry.field,
-        p_expected_value: original,
-        p_new_locator: locator,
+      body: JSON.stringify(config.module.name === 'lost-items' ? {
+        p_record_id: entryRecordId(entry), p_source: entry.source,
+        p_expected_value: original, p_new_locator: locator,
+      } : {
+        p_loan_id: entryRecordId(entry), p_field: entry.field,
+        p_expected_value: original, p_new_locator: locator,
       }),
     });
     if (!response.ok) throw new Error(`conditional_rpc_${response.status}`);
@@ -311,9 +342,11 @@ async function dryRun(config, token, permissions) {
   }
   const timestamp = new Date().toISOString();
   const entries = [];
-  for (const field of config.module.fields) {
-    const rows = await fetchFieldRows(config, token, field);
-    for (const row of rows) entries.push(inventoryEntry(row.id, field, row[field], timestamp));
+  for (const source of moduleSources(config.module)) {
+    for (const field of source.fields) {
+      const rows = await fetchFieldRows(config, token, source, field);
+      for (const row of rows) entries.push(inventoryEntry(row.id, field, row[field], timestamp, source.name));
+    }
   }
   const summary = summarizeEntries(entries);
   const manifest = {
