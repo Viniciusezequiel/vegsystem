@@ -38,7 +38,6 @@ export default function PsPublicAttendance() {
   const { data: links = [], isLoading, error, refetch } = useQuery({
     queryKey: ['ps_public_roster', eventId],
     enabled: !!eventId,
-    refetchInterval: 3_000,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('ps_public_search_event_roster', {
         p_event_id: eventId,
@@ -81,17 +80,17 @@ export default function PsPublicAttendance() {
 
   useEffect(() => {
     if (!eventId) return;
-    const channel = supabase.channel(`ps-public-attendance-${eventId}-${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` }, () => {
+    const channel = supabase.channel(`ps:event:${eventId}`)
+      .on('broadcast', { event: 'roster_changed' }, (payload) => {
+        const payloadEventId = payload?.payload?.event_id;
+        if (payloadEventId && payloadEventId !== eventId) return;
         queryClient.invalidateQueries({ queryKey: ['ps_public_roster', eventId] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_events', filter: `id=eq.${eventId}` }, () => {
-        queryClient.invalidateQueries({ queryKey: ['ps_public_roster', eventId] });
+        void refetch();
       })
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
-  }, [eventId, queryClient]);
+  }, [eventId, queryClient, refetch]);
 
   useEffect(() => {
     if (!routeSelectedId && !selectedId) return;

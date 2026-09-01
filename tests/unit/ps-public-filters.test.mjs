@@ -25,6 +25,7 @@ test('lista pública mostra todos os fiscais por default e filtra em tempo real 
   assert.equal(filterPublicRoster(rows, '').length, 3);
   assert.equal(filterPublicRoster(rows, null).length, 3);
   assert.equal(filterPublicRoster(rows, '   ').length, 3);
+  assert.deepEqual(filterPublicRoster(rows, 'B').map((row) => row.id), ['2']);
   assert.deepEqual(filterPublicRoster(rows, 'ana').map((row) => row.id), ['1']);
   assert.deepEqual(filterPublicRoster(rows, 'coorden').map((row) => row.id), ['2']);
   assert.deepEqual(filterPublicRoster(rows, 'sala 301').map((row) => row.id), ['3']);
