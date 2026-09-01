@@ -6,8 +6,19 @@ import { pathToFileURL } from 'node:url';
 
 export const EQUIPMENT_FIELDS = ['borrower_signature', 'return_signature'];
 export const MANIFEST_PATH = path.resolve('backup/r2-signatures-equipment-migration.json');
+export const LOCKER_FIELDS = ['borrower_signature', 'return_signature'];
+export const MODULES = {
+  equipment: {
+    name: 'equipment', table: 'equipment_loans', fields: EQUIPMENT_FIELDS,
+    rpc: 'update_equipment_signature_locator', manifestPath: MANIFEST_PATH,
+  },
+  lockers: {
+    name: 'lockers', table: 'locker_loans', fields: LOCKER_FIELDS,
+    rpc: 'update_locker_signature_locator',
+    manifestPath: path.resolve('backup/r2-signatures-lockers-migration.json'),
+  },
+};
 const WORKER_DEFAULT = 'https://vegsystem-storage.viniciusezequiel.workers.dev';
-const LOCATOR_PATTERN = /^r2\/signatures\/equipment\/\d{4}\/(?:0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-([0-9a-f]{16})\.png$/;
 const PNG_MAGIC = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
 export function parseArgs(argv) {
@@ -17,9 +28,9 @@ export function parseArgs(argv) {
   const dryRun = args.has('--dry-run');
   const resume = args.has('--resume');
   const execute = args.has('--execute') || resume;
-  if (module !== 'equipment') throw new Error('only_module_equipment_is_supported');
+  if (!MODULES[module]) throw new Error('unsupported_module');
   if (dryRun === execute) throw new Error('choose_exactly_one_of_dry_run_or_execute');
-  const known = new Set(['--module', 'equipment', '--dry-run', '--execute', '--resume']);
+  const known = new Set(['--module', 'equipment', 'lockers', '--dry-run', '--execute', '--resume']);
   if (argv.some(arg => !known.has(arg))) throw new Error('unknown_argument');
   return { module, dryRun, execute, resume };
 }
@@ -102,9 +113,9 @@ function atomicWriteJson(file, payload) {
   fs.renameSync(temporary, file);
 }
 
-function loadManifest() {
-  if (!fs.existsSync(MANIFEST_PATH)) return null;
-  return JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+function loadManifest(manifestPath) {
+  if (!fs.existsSync(manifestPath)) return null;
+  return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 }
 
 async function login(config) {
@@ -147,7 +158,7 @@ async function fetchFieldRows(config, token, field) {
   const rows = [];
   const pageSize = 100;
   for (let offset = 0; ; offset += pageSize) {
-    const resource = `equipment_loans?select=id,${field}&${field}=not.is.null&order=id.asc`;
+    const resource = `${config.module.table}?select=id,${field}&${field}=not.is.null&order=id.asc`;
     const response = await rest(config, token, resource, {
       headers: { range: `${offset}-${offset + pageSize - 1}`, prefer: 'count=exact' },
     });
@@ -161,7 +172,7 @@ async function fetchFieldRows(config, token, field) {
 
 async function readCurrentValue(config, token, entry) {
   const response = await rest(config, token,
-    `equipment_loans?select=id,${entry.field}&id=eq.${encodeURIComponent(entry.loan_id)}&limit=1`);
+    `${config.module.table}?select=id,${entry.field}&id=eq.${encodeURIComponent(entry.loan_id)}&limit=1`);
   if (!response.ok) throw new Error(`read_current_${response.status}`);
   const rows = await response.json();
   return rows.length === 1 ? rows[0][entry.field] : undefined;
@@ -170,7 +181,7 @@ async function readCurrentValue(config, token, entry) {
 async function exactReferenceCount(config, token, locator) {
   const encoded = encodeURIComponent(locator);
   const response = await rest(config, token,
-    `equipment_loans?select=id&or=(borrower_signature.eq.${encoded},return_signature.eq.${encoded})`);
+    `${config.module.table}?select=id&or=(borrower_signature.eq.${encoded},return_signature.eq.${encoded})`);
   if (!response.ok) throw new Error(`reference_count_${response.status}`);
   return (await response.json()).length;
 }
@@ -204,7 +215,7 @@ async function updateConditionally(config, token, entry, original, locator) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.updateTimeoutMs);
   try {
-    const response = await rest(config, token, 'rpc/update_equipment_signature_locator', {
+    const response = await rest(config, token, `rpc/${config.module.rpc}`, {
       method: 'POST', signal: controller.signal,
       headers: { 'content-type': 'application/json', prefer: 'return=representation' },
       body: JSON.stringify({
@@ -238,14 +249,15 @@ async function executeEntry(config, token, manifest, entry) {
   if (!decoded.valid || decoded.sha256 !== entry.old_sha256 || decoded.bytes.length !== entry.old_bytes) {
     throw new Error('source_value_changed');
   }
-  const upload = await fetch(`${config.workerUrl}/v1/files/signatures/equipment`, {
+  const upload = await fetch(`${config.workerUrl}/v1/files/signatures/${config.module.name}`, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'image/png' },
     body: decoded.bytes,
   });
   const body = await upload.json();
   if (upload.status !== 201) throw new Error(`upload_${upload.status}`);
-  const match = LOCATOR_PATTERN.exec(body?.locator ?? '');
+  const locatorPattern = new RegExp(`^r2/signatures/${config.module.name}/\\d{4}/(?:0[1-9]|1[0-2])/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-([0-9a-f]{16})\\.png$`);
+  const match = locatorPattern.exec(body?.locator ?? '');
   if (!match) throw new Error('upload_receipt_invalid_object_preserved');
   if (match[1] !== decoded.sha256.slice(0, 16)) {
     await deleteExact(config, token, body.locator);
@@ -256,7 +268,7 @@ async function executeEntry(config, token, manifest, entry) {
   entry.new_sha256 = decoded.sha256;
   entry.status = 'uploaded_verified_by_worker';
   entry.timestamps.uploaded_at = new Date().toISOString();
-  atomicWriteJson(MANIFEST_PATH, manifest);
+  atomicWriteJson(config.module.manifestPath, manifest);
 
   let updateState;
   try {
@@ -265,68 +277,68 @@ async function executeEntry(config, token, manifest, entry) {
       await deleteExact(config, token, body.locator);
       entry.status = 'not_updated_cleaned';
       entry.timestamps.cleaned_at = new Date().toISOString();
-      atomicWriteJson(MANIFEST_PATH, manifest);
+      atomicWriteJson(config.module.manifestPath, manifest);
       return;
     }
     await verifyResolvedObject(config, token, body.locator, decoded.sha256, decoded.bytes.length);
     entry.status = 'migrated';
     entry.timestamps.migrated_at = new Date().toISOString();
-    atomicWriteJson(MANIFEST_PATH, manifest);
+    atomicWriteJson(config.module.manifestPath, manifest);
   } catch (error) {
     const databaseValue = await readCurrentValue(config, token, entry);
     if (databaseValue === current) {
       await deleteExact(config, token, body.locator);
       entry.status = 'failed_before_update_cleaned';
       entry.timestamps.cleaned_at = new Date().toISOString();
-      atomicWriteJson(MANIFEST_PATH, manifest);
+      atomicWriteJson(config.module.manifestPath, manifest);
     } else if (databaseValue === body.locator) {
       entry.status = 'update_confirmed_validation_failed_preserved';
       entry.timestamps.failed_at = new Date().toISOString();
-      atomicWriteJson(MANIFEST_PATH, manifest);
+      atomicWriteJson(config.module.manifestPath, manifest);
     } else {
       entry.status = 'indeterminate_preserved';
       entry.timestamps.failed_at = new Date().toISOString();
-      atomicWriteJson(MANIFEST_PATH, manifest);
+      atomicWriteJson(config.module.manifestPath, manifest);
     }
     throw error;
   }
 }
 
 async function dryRun(config, token, permissions) {
-  const existing = loadManifest();
+  const existing = loadManifest(config.module.manifestPath);
   if (existing?.entries?.some(entry => entry.status === 'migrated')) {
     throw new Error('refusing_to_overwrite_manifest_with_migrated_entries');
   }
   const timestamp = new Date().toISOString();
   const entries = [];
-  for (const field of EQUIPMENT_FIELDS) {
+  for (const field of config.module.fields) {
     const rows = await fetchFieldRows(config, token, field);
     for (const row of rows) entries.push(inventoryEntry(row.id, field, row[field], timestamp));
   }
   const summary = summarizeEntries(entries);
   const manifest = {
     version: 1,
-    module: 'equipment',
+    module: config.module.name,
     mode: 'dry-run',
     generated_at: timestamp,
     permissions,
     summary,
     entries,
   };
-  atomicWriteJson(MANIFEST_PATH, manifest);
-  const manifestBytes = fs.readFileSync(MANIFEST_PATH);
-  return { ...summary, mib: summary.bytes / 1024 / 1024, manifest: MANIFEST_PATH, manifest_sha256: sha256(manifestBytes), uploads: 0, updates: 0, deletes: 0 };
+  atomicWriteJson(config.module.manifestPath, manifest);
+  const manifestBytes = fs.readFileSync(config.module.manifestPath);
+  return { ...summary, mib: summary.bytes / 1024 / 1024, manifest: config.module.manifestPath, manifest_sha256: sha256(manifestBytes), uploads: 0, updates: 0, deletes: 0 };
 }
 
 async function execute(config, token, resume) {
-  const manifest = loadManifest();
-  if (!manifest || manifest.module !== 'equipment' || !Array.isArray(manifest.entries)) throw new Error('valid_dry_run_manifest_required');
+  const manifest = loadManifest(config.module.manifestPath);
+  if (!manifest || manifest.module !== config.module.name || !Array.isArray(manifest.entries)) throw new Error('valid_dry_run_manifest_required');
   if (!resume && manifest.entries.some(entry => entry.status !== 'dry_run_valid' && !entry.status.startsWith('invalid_'))) {
     throw new Error('manifest_has_progress_use_resume');
   }
   manifest.mode = 'execute';
   manifest.execution_started_at ??= new Date().toISOString();
-  atomicWriteJson(MANIFEST_PATH, manifest);
+  atomicWriteJson(config.module.manifestPath, manifest);
   for (const entry of manifest.entries) {
     if (entry.status === 'migrated' || entry.status.startsWith('invalid_')) continue;
     if (resume && entry.status !== 'dry_run_valid' && entry.status !== 'not_updated_cleaned' && entry.status !== 'failed_before_update_cleaned') continue;
@@ -344,6 +356,7 @@ export async function main(argv = process.argv.slice(2)) {
     password: process.env.E2E_ADMIN_PASSWORD,
     workerUrl: String(process.env.VITE_STORAGE_WORKER_URL ?? WORKER_DEFAULT).replace(/\/$/, ''),
     updateTimeoutMs: 20_000,
+    module: MODULES[args.module],
   };
   if (!config.supabaseUrl || !config.publishableKey || !config.email || !config.password) throw new Error('required_configuration_missing');
   const token = await login(config);

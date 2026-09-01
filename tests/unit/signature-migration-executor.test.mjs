@@ -10,13 +10,16 @@ test('CLI exige equipment e um único modo; resume retoma execução', () => {
   assert.deepEqual(parseArgs(['--module', 'equipment', '--dry-run']), {
     module: 'equipment', dryRun: true, execute: false, resume: false,
   });
+  assert.deepEqual(parseArgs(['--module', 'lockers', '--dry-run']), {
+    module: 'lockers', dryRun: true, execute: false, resume: false,
+  });
   assert.deepEqual(parseArgs(['--module', 'equipment', '--execute', '--resume']), {
     module: 'equipment', dryRun: false, execute: true, resume: true,
   });
   assert.deepEqual(parseArgs(['--module', 'equipment', '--resume']), {
     module: 'equipment', dryRun: false, execute: true, resume: true,
   });
-  assert.throws(() => parseArgs(['--module', 'lockers', '--dry-run']), /only_module_equipment/);
+  assert.throws(() => parseArgs(['--module', 'lost-items', '--dry-run']), /unsupported_module/);
 });
 
 test('aceita somente Base64 PNG canônico com magic bytes', () => {
@@ -47,7 +50,7 @@ test('inventário não persiste Base64 e contabiliza campos e duplicidades por S
 test('executor contém guardas de sequência, update condicionado e cleanup exato', () => {
   const source = fs.readFileSync(new URL('../../scripts/migrate-signatures-to-r2.mjs', import.meta.url), 'utf8');
   assert.match(source, /for \(const entry of manifest\.entries\)/);
-  assert.match(source, /rpc\/update_equipment_signature_locator/);
+  assert.match(source, /rpc\/\$\{config\.module\.rpc\}/);
   assert.match(source, /p_expected_value: original/);
   assert.doesNotMatch(source, /\$\{entry\.field\}=eq\.\$\{encodeURIComponent\(original\)\}/);
   assert.match(source, /databaseValue === current/);
@@ -66,5 +69,15 @@ test('RPC é invoker, estática, restrita e retorna contagem para concorrência'
   assert.match(sql, /GET DIAGNOSTICS v_rows_updated = ROW_COUNT/);
   assert.match(sql, /REVOKE ALL[\s\S]*FROM PUBLIC/);
   assert.match(sql, /GRANT EXECUTE[\s\S]*TO authenticated/);
+  assert.doesNotMatch(sql, /SECURITY DEFINER|EXECUTE\s+format|service_role/i);
+});
+
+test('RPC de lockers mantém o mesmo contrato invoker sem SQL dinâmico', () => {
+  const sql = fs.readFileSync(new URL('../../supabase/migrations/20260901150000_update_locker_signature_locator_rpc.sql', import.meta.url), 'utf8');
+  assert.match(sql, /SECURITY INVOKER/i);
+  assert.match(sql, /UPDATE public\.locker_loans[\s\S]*borrower_signature = p_expected_value/);
+  assert.match(sql, /UPDATE public\.locker_loans[\s\S]*return_signature = p_expected_value/);
+  assert.match(sql, /p_new_locator NOT LIKE 'r2\/signatures\/lockers\/%'/);
+  assert.match(sql, /GET DIAGNOSTICS v_rows_updated = ROW_COUNT/);
   assert.doesNotMatch(sql, /SECURITY DEFINER|EXECUTE\s+format|service_role/i);
 });

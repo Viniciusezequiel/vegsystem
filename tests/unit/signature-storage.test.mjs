@@ -56,10 +56,15 @@ test('detalhe resolve locator R2 de equipment e rejeita módulo divergente', () 
 });
 
 test('retirada e devolução usam o mesmo renderer provider-aware com fallback de erro', () => {
-  const component = fs.readFileSync(new URL('../../src/components/equipment/EquipmentLoanDetailsDialog.tsx', import.meta.url), 'utf8');
-  assert.match(component, /value=\{loan\.borrower_signature\}[\s\S]*expectedModule="equipment"/);
-  assert.match(component, /value=\{loan\.return_signature\}[\s\S]*expectedModule="equipment"/);
-  assert.doesNotMatch(component, /<img\s+src=\{loan\.(?:borrower_signature|return_signature)\}/);
+  for (const [file, module] of [
+    ['../../src/components/equipment/EquipmentLoanDetailsDialog.tsx', 'equipment'],
+    ['../../src/components/lockers/LockerLoanDetailsDialog.tsx', 'lockers'],
+  ]) {
+    const component = fs.readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.match(component, new RegExp(`value=\\{loan\\.borrower_signature\\}[\\s\\S]*expectedModule="${module}"`));
+    assert.match(component, new RegExp(`value=\\{loan\\.return_signature\\}[\\s\\S]*expectedModule="${module}"`));
+    assert.doesNotMatch(component, /<img\s+src=\{loan\.(?:borrower_signature|return_signature)\}/);
+  }
   const renderer = fs.readFileSync(new URL('../../src/components/ui/ProviderAwareSignatureImage.tsx', import.meta.url), 'utf8');
   assert.match(renderer, /Assinatura indisponível/);
   assert.match(renderer, /cancelled = true/);

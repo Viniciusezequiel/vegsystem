@@ -22,6 +22,7 @@ import {
 import { format, parseISO, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LockerLoan } from '@/hooks/useLockers';
+import { ProviderAwareSignatureImage } from '@/components/ui/ProviderAwareSignatureImage';
 
 interface LockerLoanDetailsDialogProps {
   open: boolean;
@@ -193,8 +194,9 @@ export function LockerLoanDetailsDialog({
                 <p className="text-sm text-muted-foreground mb-2">
                   Assinado por: {loan.borrower_name}
                 </p>
-                <img 
-                  src={loan.borrower_signature} 
+                <ProviderAwareSignatureImage
+                  value={loan.borrower_signature}
+                  expectedModule="lockers"
                   alt="Assinatura de retirada" 
                   className="border rounded-lg bg-white max-w-full"
                 />
@@ -211,8 +213,9 @@ export function LockerLoanDetailsDialog({
                 <p className="text-sm text-muted-foreground mb-2">
                   Devolvido por: {loan.returner_name || 'N/A'}
                 </p>
-                <img 
-                  src={loan.return_signature} 
+                <ProviderAwareSignatureImage
+                  value={loan.return_signature}
+                  expectedModule="lockers"
                   alt="Assinatura de devolução" 
                   className="border rounded-lg bg-white max-w-full"
                 />
