@@ -1,0 +1,62 @@
+ALTER TABLE public.ps_events
+  ADD COLUMN IF NOT EXISTS self_evaluation_enabled boolean NOT NULL DEFAULT false;
+
+CREATE OR REPLACE FUNCTION public.ps_public_search_event_roster(p_event_id uuid, p_search text DEFAULT '')
+RETURNS TABLE(
+  id uuid,
+  collaborator_id uuid,
+  collaborator_name text,
+  matricula_masked text,
+  email_masked text,
+  assigned_role text,
+  role_name text,
+  sector text,
+  present boolean,
+  absent boolean,
+  signed_at timestamptz,
+  departed_at timestamptz
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT
+    ec.id,
+    ec.collaborator_id,
+    ec.collaborator_name,
+    CASE
+      WHEN c.matricula IS NULL THEN NULL
+      ELSE left(c.matricula, 2) || '***' || right(c.matricula, 2)
+    END AS matricula_masked,
+    CASE
+      WHEN c.email IS NULL THEN NULL
+      ELSE left(c.email, 2) || '***@' || split_part(c.email, '@', 2)
+    END AS email_masked,
+    ec.assigned_role,
+    ec.role_name,
+    ec.sector,
+    ec.present,
+    ec.absent,
+    ec.signed_at,
+    ec.departed_at
+  FROM public.ps_event_collaborators ec
+  JOIN public.ps_events e ON e.id = ec.event_id
+  LEFT JOIN public.ps_collaborators c ON c.id = ec.collaborator_id
+  WHERE ec.event_id = p_event_id
+    AND COALESCE(e.hidden_from_evaluation, false) = false
+    AND (
+      trim(coalesce(p_search, '')) = ''
+      OR ec.collaborator_name ILIKE '%' || trim(p_search) || '%'
+      OR c.matricula ILIKE '%' || trim(p_search) || '%'
+      OR c.email ILIKE '%' || trim(p_search) || '%'
+      OR ec.role_name ILIKE '%' || trim(p_search) || '%'
+      OR ec.assigned_role ILIKE '%' || trim(p_search) || '%'
+      OR ec.sector ILIKE '%' || trim(p_search) || '%'
+    )
+  ORDER BY ec.collaborator_name
+  LIMIT 50;
+$$;
+
+REVOKE ALL ON FUNCTION public.ps_public_search_event_roster(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.ps_public_search_event_roster(uuid, text) TO anon, authenticated;

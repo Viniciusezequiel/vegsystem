@@ -8,7 +8,7 @@ export function isSelfEvaluationEnabled(event = {}) {
 }
 
 export function filterPublicRoster(rows = [], search = '') {
-  const term = search.trim().toLowerCase();
+  const term = String(search ?? '').trim().toLowerCase();
   if (!term) return rows;
 
   return rows.filter((row) => {
