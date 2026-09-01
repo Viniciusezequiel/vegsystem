@@ -23,11 +23,15 @@ export default function PsPublicEvaluation() {
   );
 
   const [eventId, setEventId] = useState<string>(routeEventId || '');
+  const [search, setSearch] = useState('');
   const { data: links = [] } = useQuery({
-    queryKey: ['ps_public_roster', eventId],
-    enabled: !!eventId,
+    queryKey: ['ps_public_evaluation_roster', eventId, search.trim().toLowerCase()],
+    enabled: !!eventId && search.trim().length >= 2,
+    refetchInterval: 3_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('ps_public_event_roster', { p_event_id: eventId });
+      const { data, error } = await supabase.rpc('ps_public_search_event_roster' as any, {
+        p_event_id: eventId, p_search: search.trim(),
+      } as any);
       if (error) throw error;
       return data || [];
     },
@@ -64,7 +68,9 @@ export default function PsPublicEvaluation() {
     });
     setSaving(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(error.code === '23505' || /duplicate|unique/i.test(error.message)
+        ? 'Este fiscal já possui avaliação neste evento.'
+        : error.message);
       return;
     }
     setDone(true);
@@ -125,12 +131,17 @@ export default function PsPublicEvaluation() {
             </div>
 
             <div className="space-y-2">
+              <Label>Buscar fiscal</Label>
+              <Input value={search} onChange={(e) => { setSearch(e.target.value); setCollaboratorId(''); }} placeholder="Nome, matrícula ou e-mail" disabled={!eventId} />
+            </div>
+
+            <div className="space-y-2">
               <Label>Fiscal avaliado</Label>
-              <Select value={collaboratorId} onValueChange={setCollaboratorId} disabled={!eventId}>
+              <Select value={collaboratorId} onValueChange={setCollaboratorId} disabled={!eventId || search.trim().length < 2}>
                 <SelectTrigger><SelectValue placeholder="Selecione o fiscal" /></SelectTrigger>
                 <SelectContent>
                   {links.map((l: any) => (
-                    <SelectItem key={l.id} value={l.id}>{l.collaborator_name}</SelectItem>
+                    <SelectItem key={l.id} value={l.id}>{l.collaborator_name} — {l.role_name || l.assigned_role || 'Fiscal'}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

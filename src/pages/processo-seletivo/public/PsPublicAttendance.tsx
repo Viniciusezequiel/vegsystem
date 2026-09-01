@@ -18,27 +18,27 @@ export default function PsPublicAttendance() {
   const { eventId: routeEventId } = useParams();
   const { data: events = [] } = usePsEvents();
   const [eventId, setEventId] = useState(routeEventId || '');
+  const [search, setSearch] = useState('');
 
   const { data: links = [], refetch } = useQuery({
-    queryKey: ['ps_public_roster', eventId],
-    enabled: !!eventId,
+    queryKey: ['ps_public_roster', eventId, search.trim().toLowerCase()],
+    enabled: !!eventId && search.trim().length >= 2,
+    refetchInterval: 3_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('ps_public_event_roster', { p_event_id: eventId });
+      const { data, error } = await supabase.rpc('ps_public_search_event_roster' as any, {
+        p_event_id: eventId, p_search: search.trim(),
+      } as any);
       if (error) throw error;
       return data || [];
     },
   });
 
-  const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
-  const filtered = useMemo(
-    () => links.filter((l: any) => l.collaborator_name?.toLowerCase().includes(search.toLowerCase())),
-    [links, search],
-  );
+  const filtered = useMemo(() => links, [links]);
   const selected = links.find((l: any) => l.id === selectedId);
 
   const submit = async () => {
@@ -110,23 +110,31 @@ export default function PsPublicAttendance() {
                 <button
                   key={l.id}
                   type="button"
-                  onClick={() => setSelectedId(l.id)}
-                  className={`flex w-full items-center justify-between gap-2 p-3 text-left text-sm hover:bg-muted/50 ${selectedId === l.id ? 'bg-primary/10' : ''}`}
+                  onClick={() => !l.signed_at && setSelectedId(l.id)}
+                  disabled={!!l.signed_at}
+                  className={`min-h-14 flex w-full items-center justify-between gap-2 p-3 text-left text-sm hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-70 ${selectedId === l.id ? 'bg-primary/10' : ''}`}
                 >
-                  <span>
+                  <span className="min-w-0">
                     <span className="font-medium">{l.collaborator_name}</span>
-                    {l.assigned_role && <span className="block text-xs text-muted-foreground">{l.assigned_role}</span>}
+                    <span className="block text-xs text-muted-foreground">
+                      {[l.role_name || l.assigned_role, l.matricula_masked, l.email_masked].filter(Boolean).join(' · ')}
+                    </span>
                   </span>
-                  {l.signed_at ? <Badge variant="secondary">Assinado</Badge> : null}
+                  <span className="flex flex-wrap justify-end gap-1">
+                    {l.present && <Badge>Presente</Badge>}
+                    {l.absent && <Badge variant="destructive">Ausente</Badge>}
+                    {l.signed_at ? <Badge variant="secondary">Assinado</Badge> : null}
+                  </span>
                 </button>
               ))}
-              {eventId && filtered.length === 0 && <p className="p-3 text-sm text-muted-foreground">Nenhum fiscal encontrado.</p>}
+              {eventId && search.trim().length < 2 && <p className="p-3 text-sm text-muted-foreground">Digite pelo menos 2 caracteres para buscar neste evento.</p>}
+              {eventId && search.trim().length >= 2 && filtered.length === 0 && <p className="p-3 text-sm text-muted-foreground">Nenhum fiscal encontrado neste evento.</p>}
               {!eventId && <p className="p-3 text-sm text-muted-foreground">Selecione um evento.</p>}
             </div>
           </CardContent>
         </Card>
 
-        {selected && (
+        {selected && !selected.signed_at && (
           <Card className="rounded-2xl">
             <CardHeader>
               <CardTitle className="text-base">Assinatura de {selected.collaborator_name}</CardTitle>

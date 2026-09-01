@@ -32,7 +32,7 @@ export default function PsEventDetail() {
   const { data: event } = usePsEvent(id);
   const { finalize } = usePsEventMutations();
   const { data: links = [] } = usePsEventCollaborators(id);
-  const { add, update, remove } = usePsEventCollaboratorMutations(id);
+  const { add, update, updateState, remove } = usePsEventCollaboratorMutations(id);
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: roles = [] } = usePsRoles();
   const { data: evaluations = [] } = usePsEvaluations(id);
@@ -53,6 +53,16 @@ export default function PsEventDetail() {
   const [comments, setComments] = useState('');
 
   const publicBase = `${window.location.origin}/ps`;
+
+  const setParticipantState = (link: any, patch: Partial<{ present: boolean; absent: boolean; departed_at: string | null }>) => {
+    updateState.mutate({
+      id: link.id,
+      updated_at: link.updated_at,
+      present: patch.present ?? link.present,
+      absent: patch.absent ?? link.absent,
+      departed_at: patch.departed_at === undefined ? link.departed_at : patch.departed_at,
+    });
+  };
 
   const copy = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -92,12 +102,11 @@ export default function PsEventDetail() {
   const submitEvaluation = async () => {
     await saveEval.mutateAsync({
       event_id: id,
-      event_name: event?.name,
       collaborator_id: evalTarget.collaborator_id,
       collaborator_name: evalTarget.collaborator_name,
-      role_name: evalTarget.role_name,
+      assigned_role: evalTarget.role_value || evalTarget.assigned_role || evalTarget.role_name || '',
       evaluator_name: profile?.full_name || 'Sistema',
-      comments,
+      observations: comments.trim() || null,
       ...criteria,
     });
     setEvalTarget(null);
@@ -141,7 +150,8 @@ export default function PsEventDetail() {
       Sala: l.room || '',
       Presente: l.present ? 'Sim' : 'Não',
       Ausente: l.absent ? 'Sim' : 'Não',
-      Assinado: l.signature ? 'Sim' : 'Não',
+      Assinado: l.signed_at ? 'Sim' : 'Não',
+      Saída: l.departed_at ? new Date(l.departed_at).toLocaleString('pt-BR') : '',
       'Valor R$': Number(l.pay_value || 0).toFixed(2),
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -252,7 +262,11 @@ export default function PsEventDetail() {
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-base">{l.collaborator_name}</CardTitle>
-                      {l.evaluated && <Badge variant="secondary">Avaliado</Badge>}
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {l.signed_at && <Badge>Assinado</Badge>}
+                        {l.departed_at && <Badge variant="outline">Saiu</Badge>}
+                        {l.evaluated && <Badge variant="secondary">Avaliado</Badge>}
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {[l.role_name, `R$ ${Number(l.pay_value || 0).toFixed(2)}`, l.building, l.floor, l.room && `Sala ${l.room}`]
@@ -261,9 +275,14 @@ export default function PsEventDetail() {
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     <div className="flex items-center justify-between"><Label className="text-xs">Presente</Label>
-                      <Switch checked={!!l.present} onCheckedChange={(v) => update.mutate({ id: l.id, ...psPresencePatch('present', v) })} /></div>
+                      <Switch checked={!!l.present} onCheckedChange={(v) => setParticipantState(l, psPresencePatch('present', v))} /></div>
                     <div className="flex items-center justify-between"><Label className="text-xs">Ausente</Label>
-                      <Switch checked={!!l.absent} onCheckedChange={(v) => update.mutate({ id: l.id, ...psPresencePatch('absent', v) })} /></div>
+                      <Switch checked={!!l.absent} onCheckedChange={(v) => setParticipantState(l, psPresencePatch('absent', v))} /></div>
+                    <Button size="sm" variant="outline" className="w-full" onClick={() => setParticipantState(l, {
+                      departed_at: l.departed_at ? null : new Date().toISOString(),
+                    })} disabled={updateState.isPending}>
+                      {l.departed_at ? 'Cancelar saída' : 'Registrar saída'}
+                    </Button>
                     <div className="flex gap-2">
                       <Button size="sm" className="flex-1" onClick={() => { setEvalTarget(l); setCriteria(emptyCriteria()); }}>
                         <Star className="mr-1 h-4 w-4" />Avaliar
@@ -285,8 +304,8 @@ export default function PsEventDetail() {
                   <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
                     <div>
                       <p className="font-medium">{e.collaborator_name}</p>
-                      <p className="text-xs text-muted-foreground">{e.role_name || '-'} · por {e.evaluator_name || 'anônimo'}</p>
-                      {e.comments && <p className="mt-1 text-sm text-muted-foreground">{e.comments}</p>}
+                      <p className="text-xs text-muted-foreground">{e.assigned_role || '-'} · por {e.evaluator_name || 'anônimo'}</p>
+                      {e.observations && <p className="mt-1 text-sm text-muted-foreground">{e.observations}</p>}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{PS_CLASSIFICATION_LABEL[e.classification] || e.classification}</Badge>

@@ -25,13 +25,13 @@ export default function PsGeneralEvaluation() {
   const [values, setValues] = useState(emptyCriteria());
 
   const submit = async () => {
-    if (!collaboratorId) return;
+    if (!collaboratorId || !period.trim()) return;
     const collaborator: any = collaborators.find((c: any) => c.id === collaboratorId);
     await saveEval.mutateAsync({
       collaborator_id: collaboratorId,
       collaborator_name: collaborator?.full_name,
-      period,
-      comments,
+      batch_name: period.trim(),
+      observations: comments.trim() || null,
       evaluator_name: profile?.full_name || 'Sistema',
       ...values,
     });
@@ -80,7 +80,7 @@ export default function PsGeneralEvaluation() {
                   <div>
                     <p className="font-medium">{e.collaborator_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {e.period || '-'} · {new Date(e.created_at).toLocaleDateString('pt-BR')} · {e.evaluator_name}
+                      {e.batch_name || '-'} · {new Date(e.evaluation_date || e.created_at).toLocaleDateString('pt-BR')} · {e.evaluator_name}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

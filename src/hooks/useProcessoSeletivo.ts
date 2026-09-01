@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -9,7 +10,7 @@ const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'assigned_role', 'sector', 'unit', 'institution', 'building', 'floor', 'room',
   'campus', 'cpf', 'identity_doc', 'email', 'phone', 'mobile', 'pay_value',
   'deposit_info', 'pix', 'import_tag', 'present', 'absent', 'evaluated', 'signed_at',
-  'signature_ip', 'notes', 'created_at', 'updated_at',
+  'departed_at', 'signature_ip', 'notes', 'created_at', 'updated_at',
 ].join(',');
 
 /* ---------------- Cargos ---------------- */
@@ -216,7 +217,8 @@ export function usePsEventMutations() {
 
 /* ---------------- Vínculos fiscal x evento ---------------- */
 export function usePsEventCollaborators(eventId?: string) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['ps_event_collaborators', eventId],
     enabled: !!eventId,
     queryFn: async () => {
@@ -229,6 +231,15 @@ export function usePsEventCollaborators(eventId?: string) {
       return data;
     },
   });
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase.channel(`ps-event-${eventId}-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` },
+        () => queryClient.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] }))
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [eventId, queryClient]);
+  return query;
 }
 
 export function usePsEventCollaboratorMutations(eventId?: string) {
@@ -253,6 +264,19 @@ export function usePsEventCollaboratorMutations(eventId?: string) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const updateState = useMutation({
+    mutationFn: async ({ id, updated_at, present, absent, departed_at = null }: any) => {
+      const { data, error } = await supabase.rpc('ps_set_event_participant_state', {
+        p_link_id: id, p_expected_updated_at: updated_at, p_present: present,
+        p_absent: absent, p_departed_at: departed_at,
+      });
+      if (error) throw error;
+      if (!data?.[0]?.success) throw new Error('O participante foi alterado em outro dispositivo. Estado atualizado; tente novamente.');
+    },
+    onSuccess: () => invalidate(),
+    onError: (e: Error) => { invalidate(); toast.error(e.message); },
+  });
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('ps_event_collaborators').delete().eq('id', id);
@@ -262,7 +286,7 @@ export function usePsEventCollaboratorMutations(eventId?: string) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return { add, update, remove };
+  return { add, update, updateState, remove };
 }
 
 /* ---------------- Importação da equipe do evento (planilha oficial) ---------------- */
@@ -467,7 +491,8 @@ export function usePsCandidateMutations() {
 
 /* ---------------- Avaliações ---------------- */
 export function usePsEvaluations(eventId?: string) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['ps_evaluations', eventId || 'all'],
     queryFn: async () => {
       let q = supabase.from('ps_evaluations').select('*').order('created_at', { ascending: false });
@@ -477,6 +502,16 @@ export function usePsEvaluations(eventId?: string) {
       return data;
     },
   });
+  useEffect(() => {
+    const channel = supabase.channel(`ps-evaluations-${eventId || 'all'}-${crypto.randomUUID()}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'ps_evaluations',
+        ...(eventId ? { filter: `event_id=eq.${eventId}` } : {}),
+      }, () => queryClient.invalidateQueries({ queryKey: ['ps_evaluations', eventId || 'all'] }))
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [eventId, queryClient]);
+  return query;
 }
 
 async function recalcCollaboratorAverage(collaboratorId?: string | null) {
@@ -492,12 +527,14 @@ export function usePsSaveEvaluation() {
   return useMutation({
     mutationFn: async (payload: any) => {
       const final_score = psFinalScore(payload);
-      const record = { ...payload, final_score, classification: psClassification(final_score) };
-      if (record.id) {
-        const { error } = await supabase.from('ps_evaluations').update(record).eq('id', record.id);
+      const { id, ...values } = payload;
+      const record = { ...values, final_score, classification: psClassification(final_score) };
+      if (id) {
+        const { error } = await supabase.from('ps_evaluations').update(record).eq('id', id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('ps_evaluations').insert(record);
+        if (error?.code === '23505') throw new Error('Este fiscal já possui avaliação neste evento. Edite a avaliação existente.');
         if (error) throw error;
       }
       if (record.event_id && record.collaborator_id) {
