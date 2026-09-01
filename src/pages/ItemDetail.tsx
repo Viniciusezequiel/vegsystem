@@ -52,6 +52,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Constants } from '@/integrations/supabase/types';
 import { SignaturePad } from '@/components/ui/SignaturePad';
+import { ProviderAwareSignatureImage } from '@/components/ui/ProviderAwareSignatureImage';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { deleteLostItemImageIfUnreferenced, deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
 import { replaceImageSafely } from '@/lib/lostItemStorageCore.mjs';
@@ -518,8 +519,9 @@ export default function ItemDetail() {
                     <p className="text-sm font-medium text-muted-foreground">Assinatura do Proprietário</p>
                   </div>
                   <div className="bg-white rounded-lg border border-border p-2 inline-block">
-                    <img 
-                      src={item.owner_signature} 
+                    <ProviderAwareSignatureImage
+                      value={item.owner_signature}
+                      expectedModule="lost-items"
                       alt="Assinatura do proprietário" 
                       className="max-w-[300px] max-h-[150px] object-contain"
                     />

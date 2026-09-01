@@ -69,3 +69,9 @@ test('retirada e devolução usam o mesmo renderer provider-aware com fallback d
   assert.match(renderer, /Assinatura indisponível/);
   assert.match(renderer, /cancelled = true/);
 });
+
+test('detalhe de Achados resolve owner_signature com renderer provider-aware', () => {
+  const component = fs.readFileSync(new URL('../../src/pages/ItemDetail.tsx', import.meta.url), 'utf8');
+  assert.match(component, /value=\{item\.owner_signature\}[\s\S]*expectedModule="lost-items"/);
+  assert.doesNotMatch(component, /<img\s+src=\{item\.owner_signature\}/);
+});
