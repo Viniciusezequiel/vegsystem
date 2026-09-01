@@ -13,9 +13,15 @@ import { Plus, Search, Pencil, Star, Download, Copy, X, History } from 'lucide-r
 import {
   usePsCollaborators, usePsCollaboratorMutations, usePsRoles, usePsEvaluations,
   usePsFiscalBankApplications, usePsFiscalBankConfig, usePsSaveFiscalBankConfig,
-  usePsCollaboratorParticipations,
+  usePsCollaboratorParticipations, usePsImportFiscalBank,
 } from '@/hooks/useProcessoSeletivo';
 import { PS_CLASSIFICATION_LABEL, psClassification } from '@/lib/psConstants';
+import {
+  dedupeFiscalRows,
+  normalizeFiscalEmail,
+  normalizeFiscalInstitution,
+  normalizeFiscalMatricula,
+} from '@/lib/psFiscalBank.mjs';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -33,6 +39,7 @@ export default function PsCollaborators() {
   const { data: applications = [] } = usePsFiscalBankApplications();
   const { data: config } = usePsFiscalBankConfig();
   const saveConfig = usePsSaveFiscalBankConfig();
+  const importFiscalBank = usePsImportFiscalBank();
 
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('active');
@@ -41,6 +48,9 @@ export default function PsCollaborators() {
   const [newDate, setNewDate] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(empty);
+  const [importFiscalOpen, setImportFiscalOpen] = useState(false);
+  const [fiscalImportRows, setFiscalImportRows] = useState<any[]>([]);
+  const [fiscalImportPreview, setFiscalImportPreview] = useState<any>(null);
 
   const dates: string[] = (config as any)?.datas || [];
   const label = (config as any)?.data_indisponivel_label || 'Não tenho disponibilidade';
@@ -119,6 +129,129 @@ export default function PsCollaborators() {
 
   const publicUrl = `${window.location.origin}/ps/banco-fiscais`;
 
+  const pickFiscalCell = (row: Record<string, any>, keys: string[]) => {
+    const normalized = Object.keys(row || {}).map((key) => ({ key, value: row[key] }));
+    for (const key of keys) {
+      const found = normalized.find((entry) => entry.key.trim().toLowerCase() === key.toLowerCase());
+      if (found && String(found.value ?? '').trim()) return String(found.value).trim();
+    }
+    return '';
+  };
+
+  const readFiscalBankFile = async (file: File) => {
+    try {
+      const wb = XLSX.read(await file.arrayBuffer());
+      const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]] ?? {}, { defval: '' }) as any[];
+      const rows = rawRows
+        .map((row: any) => {
+          const full_name = pickFiscalCell(row, ['NOME', 'Nome', 'NOME COMPLETO']) || '';
+          const cpf = pickFiscalCell(row, ['CPF']) || '';
+          const email = pickFiscalCell(row, ['E-MAIL', 'EMAIL']) || '';
+          const phone = pickFiscalCell(row, ['CELULAR', 'TELEFONE']) || '';
+          const institution = pickFiscalCell(row, ['INSTITUTO', 'INSTITUIÇÃO', 'INSTITUICAO']) || '';
+          const sector = pickFiscalCell(row, ['SETOR']) || '';
+          const role = pickFiscalCell(row, ['CARGO SUGERIDO', 'CARGO', 'FUNÇÃO', 'FUNCAO']) || '';
+          const unit = pickFiscalCell(row, ['UNIDADE DE ATUAÇÃO', 'UNIDADE', 'UNIDADE DE TRABALHO']) || '';
+          const notes = pickFiscalCell(row, ['OBSERVAÇÃO', 'OBSERVACOES', 'OBSERVACOES HISTORICAS']) || '';
+          const matricula = pickFiscalCell(row, ['MATRICULA', 'MATRÍCULA']) || '';
+          return {
+            full_name: full_name.trim(),
+            cpf: cpf.trim() || null,
+            email: email.trim() || null,
+            phone: phone.trim() || null,
+            institution: institution.trim() || null,
+            sector: sector.trim() || null,
+            role: role.trim() || null,
+            unit: unit.trim() || null,
+            notes: notes.trim() || null,
+            matricula: matricula.trim() || null,
+          };
+        })
+        .filter((row) => row.full_name || row.email || row.matricula || row.cpf);
+
+      const prepared = dedupeFiscalRows(rows.map((row) => ({
+        full_name: row.full_name,
+        email: normalizeFiscalEmail(row.email),
+        matricula: normalizeFiscalMatricula(row.matricula),
+        institution: normalizeFiscalInstitution(row.institution),
+        phone: row.phone,
+        role: row.role,
+        unit: row.unit,
+        sector: row.sector,
+        notes: row.notes,
+      })));
+
+      const emailMap = new Map((collaborators || []).filter((c: any) => c.email_normalized).map((c: any) => [c.email_normalized, c]));
+      const matriculaMap = new Map((collaborators || []).filter((c: any) => c.matricula_normalized && c.institution_normalized).map((c: any) => [`${c.matricula_normalized}|${c.institution_normalized}`, c]));
+
+      let existing = 0;
+      let updates = 0;
+      let newCount = 0;
+      let inconsistent = 0;
+      let ignored = 0;
+
+      for (const row of prepared) {
+        const emailKey = normalizeFiscalEmail(row.email);
+        const matriculaKey = normalizeFiscalMatricula(row.matricula);
+        const institutionKey = normalizeFiscalInstitution(row.institution);
+        const matchesEmail = !!(emailKey && emailMap.has(emailKey));
+        const matchesMatricula = !!(matriculaKey && institutionKey && matriculaMap.has(`${matriculaKey}|${institutionKey}`));
+
+        if (!row.full_name || (!emailKey && !matriculaKey)) {
+          inconsistent += 1;
+          continue;
+        }
+
+        if (!row.full_name && !emailKey && !matriculaKey) {
+          ignored += 1;
+          continue;
+        }
+
+        if (matchesEmail || matchesMatricula) {
+          existing += 1;
+          const hasMore = Object.values({
+            email: row.email,
+            matricula: row.matricula,
+            institution: row.institution,
+            sector: row.sector,
+            unit: row.unit,
+            role: row.role,
+            notes: row.notes,
+          }).some((value) => value != null && String(value).trim() !== '');
+          if (hasMore) updates += 1;
+        } else {
+          newCount += 1;
+        }
+      }
+
+      const plan = {
+        rows: rawRows.length,
+        existing,
+        new: newCount,
+        updates,
+        duplicates: Math.max(0, rows.length - prepared.length),
+        inconsistent,
+        ignored,
+        historicalNotes: prepared.filter((row) => row.notes).length,
+        rowsPreview: prepared.slice(0, 8),
+      };
+
+      setFiscalImportRows(prepared);
+      setFiscalImportPreview(plan);
+      setImportFiscalOpen(true);
+    } catch (error: any) {
+      toast.error(`Não foi possível ler a planilha do Banco de Fiscais: ${error.message}`);
+    }
+  };
+
+  const confirmFiscalImport = async () => {
+    if (!fiscalImportRows.length) return;
+    await importFiscalBank.mutateAsync(fiscalImportRows);
+    setImportFiscalOpen(false);
+    setFiscalImportRows([]);
+    setFiscalImportPreview(null);
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -129,6 +262,9 @@ export default function PsCollaborators() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={exportCollaborators}><Download className="mr-2 h-4 w-4" />Exportar</Button>
+            <Button variant="outline" onClick={() => setImportFiscalOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />Importar Banco de Fiscais
+            </Button>
             <Button onClick={() => { setForm(empty); setOpen(true); }}><Plus className="mr-2 h-4 w-4" />Novo</Button>
           </div>
         </div>
@@ -259,6 +395,78 @@ export default function PsCollaborators() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={importFiscalOpen} onOpenChange={(value) => {
+        setImportFiscalOpen(value);
+        if (!value) {
+          setFiscalImportRows([]);
+          setFiscalImportPreview(null);
+        }
+      }}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Importar Banco de Fiscais</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <label className="cursor-pointer rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && readFiscalBankFile(e.target.files[0])}
+                />
+                Selecionar planilha
+              </label>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              As colunas principais mapeadas são: NOME, CPF, E-MAIL, CELULAR, INSTITUTO, SETOR, CARGO, UNIDADE DE ATUAÇÃO, SALA e OBSERVAÇÃO.
+              A reconciliação prioriza e-mail institucional; em seguida, matrícula + instituição; nome e CPF não fazem merge automático.
+            </p>
+
+            {fiscalImportPreview && (
+              <>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+                  <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Linhas</p><p className="text-xl font-bold">{fiscalImportPreview.rows}</p></CardContent></Card>
+                  <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Existentes</p><p className="text-xl font-bold">{fiscalImportPreview.existing}</p></CardContent></Card>
+                  <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Novos</p><p className="text-xl font-bold">{fiscalImportPreview.new}</p></CardContent></Card>
+                  <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Atualizações</p><p className="text-xl font-bold">{fiscalImportPreview.updates}</p></CardContent></Card>
+                  <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Duplicados</p><p className="text-xl font-bold">{fiscalImportPreview.duplicates}</p></CardContent></Card>
+                  <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Inconsistentes</p><p className="text-xl font-bold">{fiscalImportPreview.inconsistent}</p></CardContent></Card>
+                </div>
+
+                <div className="rounded-lg border p-3 text-sm">
+                  <p className="font-medium">Resumo</p>
+                  <p className="text-muted-foreground">Ignorados: {fiscalImportPreview.ignored}</p>
+                  <p className="text-muted-foreground">Notas históricas: {fiscalImportPreview.historicalNotes}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Amostra da importação</p>
+                  <div className="max-h-56 divide-y overflow-y-auto rounded-lg border">
+                    {(fiscalImportPreview.rowsPreview || []).map((row: any, idx: number) => (
+                      <div key={`${row.full_name}-${idx}`} className="p-2 text-sm">
+                        <p className="font-medium">{row.full_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {row.email || 'sem e-mail'} · {row.institution || 'sem instituição'} · {row.role || 'sem cargo'}
+                        </p>
+                        {row.notes && <p className="mt-1 text-xs text-amber-700">Nota: {row.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportFiscalOpen(false)}>Cancelar</Button>
+            <Button onClick={confirmFiscalImport} disabled={!fiscalImportRows.length || importFiscalBank.isPending}>
+              Confirmar importação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>

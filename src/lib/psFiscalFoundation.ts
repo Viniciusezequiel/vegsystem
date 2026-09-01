@@ -69,6 +69,51 @@ export function planPsFiscalReconciliation(existing: PsFiscalIdentity[], rows: P
   });
 }
 
+function pickEventImportValue(row: Record<string, any>, aliases: string[]) {
+  const keys = Object.keys(row || {});
+  const match = aliases.find((alias) =>
+    keys.some((key) => String(key).trim().toLowerCase().replace(/[^a-z0-9]/g, '') === alias.toLowerCase().replace(/[^a-z0-9]/g, '')),
+  );
+  if (!match) return '';
+  const value = row[match];
+  if (value == null) return '';
+  return String(value).replace(/\s+/g, ' ').trim();
+}
+
+export function normalizeEventImportRow(row: Record<string, any> = {}) {
+  const full_name = pickEventImportValue(row, ['NOME', 'NOME COMPLETO', 'NOME DO FISCAL', 'COLABORADOR']) || '';
+  const email = pickEventImportValue(row, ['EMAIL', 'E-MAIL', 'E MAIL']) || '';
+  const matricula = pickEventImportValue(row, ['MATRICULA', 'MATRÍCULA']) || '';
+  const institution = pickEventImportValue(row, ['INSTITUICAO', 'INSTITUIÇÃO', 'INSTITUTO']) || '';
+  const unit = pickEventImportValue(row, ['UNIDADE', 'UNIDADE DE ATUACAO', 'UNIDADE DE ATUAÇÃO', 'UNIDADE DE TRABALHO']) || '';
+  const sector = pickEventImportValue(row, ['SETOR', 'SETORES']) || '';
+  const role_name = pickEventImportValue(row, ['CARGO', 'FUNCAO', 'FUNÇÃO', 'FUNCAO DO EVENTO', 'FUNÇÃO DO EVENTO', 'CARGO/FUNÇÃO']) || '';
+  const assigned_role = pickEventImportValue(row, ['ATRIBUICAO', 'ATRIBUIÇÃO', 'ATRIBUICAO OPERACIONAL', 'ATRIBUIÇÃO OPERACIONAL']) || role_name;
+  const building = pickEventImportValue(row, ['PREDIO', 'PRÉDIO', 'EDIFICIO', 'EDIFÍCIO']) || '';
+  const floor = pickEventImportValue(row, ['ANDAR', 'ANDARES', 'PAVIMENTO']) || '';
+  const room = pickEventImportValue(row, ['SALA', 'SALA DE ATUACAO', 'SALA DE ATUAÇÃO', 'LOCAL']) || '';
+  const work_schedule = pickEventImportValue(row, ['HORARIO', 'HORÁRIO', 'HORARIO DE ATUACAO', 'HORÁRIO DE ATUAÇÃO', 'HORARIO DE TRABALHO', 'HORÁRIO DE TRABALHO', 'HORA', 'TURNO']) || '';
+  const phone = pickEventImportValue(row, ['TELEFONE', 'CELULAR', 'TELEFONE CONTATO']) || '';
+  const mobile = pickEventImportValue(row, ['CELULAR', 'WHATSAPP']) || phone;
+
+  return {
+    full_name: full_name.trim(),
+    email: email.trim() || null,
+    phone: phone.trim() || null,
+    mobile: mobile.trim() || null,
+    matricula: matricula.trim() || null,
+    institution: institution.trim() || null,
+    role_name: role_name.trim() || null,
+    assigned_role: assigned_role.trim() || null,
+    unit: unit.trim() || null,
+    sector: sector.trim() || null,
+    building: building.trim() || null,
+    floor: floor.trim() || null,
+    room: room.trim() || null,
+    work_schedule: work_schedule.trim() || null,
+  };
+}
+
 export function psPresencePatch(field: 'present' | 'absent', checked: boolean) {
   if (field === 'present') return checked ? { present: true, absent: false } : { present: false };
   return checked ? { absent: true, present: false } : { absent: false };

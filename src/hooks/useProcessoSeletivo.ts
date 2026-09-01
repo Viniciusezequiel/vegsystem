@@ -4,10 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { psFinalScore, psClassification } from '@/lib/psConstants';
 import { planPsFiscalReconciliation, type PsFiscalDecision } from '@/lib/psFiscalFoundation';
+import { normalizeFiscalEmail, normalizeFiscalInstitution, normalizeFiscalMatricula, dedupeFiscalRows } from '@/lib/psFiscalBank.mjs';
 
 const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'id', 'event_id', 'collaborator_id', 'collaborator_name', 'role_value', 'role_name',
-  'assigned_role', 'sector', 'unit', 'institution', 'building', 'floor', 'room',
+  'assigned_role', 'sector', 'unit', 'institution', 'building', 'floor', 'room', 'work_schedule',
   'campus', 'cpf', 'identity_doc', 'email', 'phone', 'mobile', 'pay_value',
   'deposit_info', 'pix', 'import_tag', 'present', 'absent', 'evaluated', 'signed_at',
   'departed_at', 'signature_ip', 'notes', 'created_at', 'updated_at',
@@ -131,6 +132,163 @@ export function usePsCollaboratorParticipations() {
       if (error) throw error;
       return data || [];
     },
+  });
+}
+
+export function usePsImportFiscalBank() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (rows: any[]) => {
+      const clean = dedupeFiscalRows(rows.map((row) => ({
+        full_name: String(row.full_name || row.nome || '').replace(/\s+/g, ' ').trim(),
+        email: normalizeFiscalEmail(row.email || row['E-MAIL'] || row['E-mail'] || row.email_institucional),
+        matricula: normalizeFiscalMatricula(row.matricula || row['MATRICULA'] || row['Matrícula'] || row.matricula_institucional),
+        institution: normalizeFiscalInstitution(row.institution || row['INSTITUICAO'] || row['Instituição'] || row.instituto),
+        phone: String(row.phone || row.telefone || row.celular || '').trim() || null,
+        role: String(row.role || row.role_name || row.cargo || row['CARGO'] || '').trim() || null,
+        unit: String(row.unit || row.unidade || row['UNIDADE'] || '').trim() || null,
+        sector: String(row.sector || row.setor || row['SETOR'] || '').trim() || null,
+        notes: String(row.notes || row.observacao || row['OBSERVAÇÃO'] || '').trim() || null,
+      })).filter(Boolean));
+
+      const existing = await supabase.from('ps_collaborators').select('id,email,email_normalized,matricula,matricula_normalized,institution,institution_normalized');
+      if (existing.error) throw existing.error;
+
+      const byEmail = new Map((existing.data || []).filter((r: any) => r.email_normalized).map((r: any) => [r.email_normalized, r]));
+      const byMatriculaInstitution = new Map((existing.data || []).filter((r: any) => r.matricula_normalized && r.institution_normalized).map((r: any) => [`${r.matricula_normalized}|${r.institution_normalized}`, r]));
+
+      const prepared = [] as any[];
+      for (const row of clean) {
+        const emailKey = normalizeFiscalEmail(row.email);
+        const matriculaKey = normalizeFiscalMatricula(row.matricula);
+        const institutionKey = normalizeFiscalInstitution(row.institution);
+        let collaboratorId: string | null = null;
+
+        if (emailKey && byEmail.has(emailKey)) collaboratorId = byEmail.get(emailKey).id;
+        else if (matriculaKey && institutionKey && byMatriculaInstitution.has(`${matriculaKey}|${institutionKey}`)) {
+          collaboratorId = byMatriculaInstitution.get(`${matriculaKey}|${institutionKey}`).id;
+        }
+
+        const payload = {
+          full_name: String(row.full_name || '').replace(/\s+/g, ' ').trim(),
+          email: row.email || null,
+          phone: row.phone || null,
+          matricula: row.matricula || null,
+          institution: row.institution || null,
+          sector: row.sector || null,
+          unit: row.unit || null,
+          role: row.role || null,
+          notes: row.notes || null,
+          active: true,
+        };
+
+        if (collaboratorId) {
+          const current = byEmail.get(emailKey) || byMatriculaInstitution.get(`${matriculaKey}|${institutionKey}`);
+          const updates: Record<string, any> = {};
+          for (const [field, value] of Object.entries(payload)) {
+            if (value && current[field] !== value) updates[field] = value;
+          }
+          if (Object.keys(updates).length) {
+            const { error } = await supabase.from('ps_collaborators').update(updates).eq('id', collaboratorId);
+            if (error) throw error;
+          }
+          continue;
+        }
+
+        prepared.push(payload);
+      }
+
+      if (prepared.length) {
+        const { error } = await supabase.from('ps_collaborators').insert(prepared);
+        if (error) throw error;
+      }
+
+      return { rowsRead: rows.length, inserted: prepared.length, updated: Math.max(0, clean.length - prepared.length) };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ps_collaborators'] });
+      toast.success('Banco de fiscais importado com sucesso.');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function usePsEventCollaborationStatus(eventId?: string) {
+  return useQuery({
+    queryKey: ['ps_event_collaboration_status', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ps_event_collaborators')
+        .select('*')
+        .eq('event_id', eventId!)
+        .order('collaborator_name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+export function usePsEventCommunications(eventId?: string) {
+  return useQuery({
+    queryKey: ['ps_event_communications', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('ps_event_communications').select('*').eq('event_id', eventId!).order('requested_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+export function usePsSendEventCommunication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ eventId, eventCollaboratorIds, template, channel = 'in_app' }: { eventId: string; eventCollaboratorIds: string[]; template: string; channel?: string;}) => {
+      if (!eventCollaboratorIds.length) throw new Error('Selecione ao menos um fiscal.');
+      const rows = eventCollaboratorIds.map((eventCollaboratorId) => ({
+        event_id: eventId,
+        event_collaborator_id: eventCollaboratorId,
+        tipo: 'confirmation_request',
+        canal: channel,
+        status: 'pending',
+        mensagem: template,
+        requested_at: new Date().toISOString(),
+      }));
+      const { error } = await supabase.from('ps_event_communications').insert(rows as any);
+      if (error) throw error;
+      return rows.length;
+    },
+    onSuccess: () => {
+      toast.success('Comunicação registrada para envio.');
+      qc.invalidateQueries({ queryKey: ['ps_event_communications'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function usePsUpdateEventCollaboratorParticipation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status, declineReason, requestedAt }: { id: string; status: string; declineReason?: string | null; requestedAt?: string | null;}) => {
+      const payload: Record<string, any> = {
+        participation_status: status,
+        confirmation_requested_at: requestedAt || null,
+      };
+      if (status === 'confirmed') payload.confirmed_at = new Date().toISOString();
+      if (status === 'declined') {
+        payload.declined_at = new Date().toISOString();
+        payload.decline_reason = declineReason || null;
+      }
+      const { error } = await supabase.from('ps_event_collaborators').update(payload).eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ps_event_collaborators'] });
+      toast.success('Status de participação atualizado.');
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 }
 
@@ -302,9 +460,11 @@ export type PsTeamImportRow = {
   sector?: string | null;
   institution?: string | null;
   role_name?: string | null;
+  assigned_role?: string | null;
   building?: string | null;
   floor?: string | null;
   room?: string | null;
+  work_schedule?: string | null;
   pay_value?: number;
   deposit_info?: string | null;
   pix?: string | null;
@@ -399,14 +559,15 @@ export function usePsImportEventTeam() {
           event_id: eventId,
           collaborator_id: collaboratorId,
           collaborator_name: row.full_name.trim(),
-          role_name: row.role_name || null,
-          assigned_role: row.role_name || null,
+          role_name: row.role_name || row.assigned_role || null,
+          assigned_role: row.assigned_role || row.role_name || null,
           sector: row.sector || null,
           unit: row.unit || null,
           institution: row.institution || null,
           building: row.building || null,
           floor: row.floor || null,
           room: row.room || null,
+          work_schedule: row.work_schedule || null,
           cpf: row.cpf || null,
           identity_doc: row.identity_doc || null,
           email: row.email || null,
@@ -418,12 +579,50 @@ export function usePsImportEventTeam() {
           import_tag: importTag,
         }));
 
+      const existingLinks = await supabase.from('ps_event_collaborators').select('id,collaborator_id,event_id,role_name,unit,building,floor,room,work_schedule,assigned_role').eq('event_id', eventId);
+      if (existingLinks.error) throw existingLinks.error;
+      const linkByCollaborator = new Map((existingLinks.data || []).map((item: any) => [item.collaborator_id, item]));
+      const toUpdate = resolved
+        .filter((r) => linkByCollaborator.has(r.collaboratorId))
+        .map(({ row, collaboratorId }) => {
+          const current = linkByCollaborator.get(collaboratorId);
+          const patch: Record<string, any> = {};
+          const fields = [
+            ['role_name', row.role_name || row.assigned_role || null],
+            ['assigned_role', row.assigned_role || row.role_name || null],
+            ['unit', row.unit || null],
+            ['building', row.building || null],
+            ['floor', row.floor || null],
+            ['room', row.room || null],
+            ['work_schedule', row.work_schedule || null],
+            ['sector', row.sector || null],
+            ['institution', row.institution || null],
+            ['email', row.email || null],
+            ['phone', row.phone || null],
+            ['mobile', row.mobile || null],
+          ];
+          for (const [key, value] of fields) {
+            if (current[key] !== value) patch[key] = value;
+          }
+          if (Object.keys(patch).length) {
+            patch.updated_at = new Date().toISOString();
+            return { id: current.id, patch };
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      for (const item of toUpdate) {
+        const { error } = await supabase.from('ps_event_collaborators').update(item.patch).eq('id', item.id);
+        if (error) throw error;
+      }
+
       if (toInsert.length) {
         const { error } = await supabase.from('ps_event_collaborators').insert(toInsert);
         if (error) throw error;
       }
 
-      return { created, linked: toInsert.length, skipped: resolved.length - toInsert.length, importTag };
+      return { created, linked: toInsert.length, skipped: resolved.length - toInsert.length, updated: toUpdate.length, importTag };
     },
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['ps_event_collaborators'] });

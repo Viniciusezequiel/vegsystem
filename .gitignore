@@ -26,3 +26,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Importações locais com dados de fiscais
+tmp/imports/

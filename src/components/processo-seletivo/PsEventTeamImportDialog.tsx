@@ -12,7 +12,7 @@ import * as XLSX from 'xlsx';
 /** Colunas da planilha oficial "CandidatosPagamento" */
 export const PS_TEAM_COLUMNS = [
   'NOME', 'IDENTIDADE', 'CPF', 'MATRICULA', 'EMAIL', 'TELEFONE', 'CELULAR', 'UNIDADE', 'SETOR',
-  'INSTITUICAO', 'FUNCAO', 'PREDIO', 'ANDAR', 'SALA', 'VALOR', 'DEPOSITO', 'PIX',
+  'INSTITUICAO', 'FUNCAO', 'PREDIO', 'ANDAR', 'SALA', 'HORARIO', 'ATRIBUICAO', 'VALOR', 'DEPOSITO', 'PIX',
 ];
 
 const pick = (row: any, ...names: string[]) => {
@@ -90,6 +90,8 @@ export function PsEventTeamImportDialog({
           building: pick(r, 'PREDIO', 'PRÉDIO') || null,
           floor: pick(r, 'ANDAR') || null,
           room: (pick(r, 'SALA') || '').replace(/^-$/, '') || null,
+          work_schedule: pick(r, 'HORARIO', 'HORÁRIO', 'HORA', 'TURNO', 'HORÁRIO DE ATUAÇÃO', 'HORARIO DE ATUACAO') || null,
+          assigned_role: pick(r, 'ATRIBUICAO', 'ATRIBUIÇÃO', 'ATRIBUICAO OPERACIONAL', 'ATRIBUIÇÃO OPERACIONAL') || null,
           pay_value: Number(String(pick(r, 'VALOR')).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
           deposit_info: pick(r, 'DEPOSITO', 'DEPÓSITO') || null,
           pix: pick(r, 'PIX') || null,

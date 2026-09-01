@@ -1536,6 +1536,7 @@ export type Database = {
           signature_url: string | null
           signed_at: string | null
           unit: string | null
+          work_schedule: string | null
           updated_at: string
         }
         Insert: {
@@ -1570,6 +1571,7 @@ export type Database = {
           signature_url?: string | null
           signed_at?: string | null
           unit?: string | null
+          work_schedule?: string | null
           updated_at?: string
         }
         Update: {
@@ -1604,6 +1606,7 @@ export type Database = {
           signature_url?: string | null
           signed_at?: string | null
           unit?: string | null
+          work_schedule?: string | null
           updated_at?: string
         }
         Relationships: [
