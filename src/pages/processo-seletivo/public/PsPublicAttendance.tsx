@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,17 +8,31 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SignaturePad } from '@/components/ui/SignaturePad';
-import { PenLine, CheckCircle2, Search } from 'lucide-react';
+import { PenLine, CheckCircle2, Search, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { usePsEvents } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { submitPublicProcessSelectionSignature } from '@/lib/signatureStorage';
 
 export default function PsPublicAttendance() {
-  const { eventId: routeEventId } = useParams();
+  const navigate = useNavigate();
+  const { eventId: routeEventId, eventCollaboratorId: routeSelectedId } = useParams();
   const { data: events = [] } = usePsEvents();
   const [eventId, setEventId] = useState(routeEventId || '');
+  const [selectedId, setSelectedId] = useState(routeSelectedId || '');
   const [search, setSearch] = useState('');
+  const [signature, setSignature] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (routeEventId) setEventId(routeEventId);
+  }, [routeEventId]);
+
+  useEffect(() => {
+    if (routeSelectedId) setSelectedId(routeSelectedId);
+    else if (!routeSelectedId && selectedId) setSelectedId('');
+  }, [routeSelectedId, selectedId]);
 
   const { data: links = [], isLoading, error, refetch } = useQuery({
     queryKey: ['ps_public_roster', eventId],
@@ -37,11 +51,6 @@ export default function PsPublicAttendance() {
       }));
     },
   });
-
-  const [selectedId, setSelectedId] = useState('');
-  const [signature, setSignature] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -65,16 +74,56 @@ export default function PsPublicAttendance() {
       return haystack.includes(term);
     });
   }, [links, search]);
-  const selected = links.find((l: any) => l.id === selectedId);
+
+  const currentSelectedId = routeSelectedId || selectedId;
+  const selected = links.find((l: any) => l.id === currentSelectedId) ?? null;
+
+  useEffect(() => {
+    if (!routeSelectedId && !selectedId) return;
+    const validSelected = links.some((l: any) => l.id === currentSelectedId);
+    if (!validSelected && eventId) {
+      setSelectedId('');
+      navigate(`/ps/presenca/${eventId}`, { replace: true });
+    }
+  }, [currentSelectedId, eventId, links, navigate, routeSelectedId, selectedId]);
+
+  const resetToList = () => {
+    setSelectedId('');
+    setSignature(null);
+    setDone(false);
+    setSaving(false);
+    if (eventId) {
+      navigate(`/ps/presenca/${eventId}`, { replace: true });
+    }
+  };
+
+  const goBackToList = () => {
+    if (signature && !saving && !done) {
+      const shouldDiscard = window.confirm('Descartar assinatura e voltar para a lista?');
+      if (!shouldDiscard) return;
+    }
+    resetToList();
+  };
 
   const submit = async () => {
-    if (!selected) { toast.error('Selecione seu nome na lista.'); return; }
-    if (!signature) { toast.error('Assine no campo indicado.'); return; }
+    if (!selected) {
+      toast.error('Selecione seu nome na lista antes de confirmar.');
+      return;
+    }
+    if (!signature) {
+      toast.error('Assine no campo indicado antes de confirmar a presença.');
+      return;
+    }
+    if (saving) return;
+
     setSaving(true);
     try {
-      await submitPublicProcessSelectionSignature(selected.id, signature);
+      const linkId = selected.id;
+      await submitPublicProcessSelectionSignature(linkId, signature);
       await refetch();
       setDone(true);
+      setSignature(null);
+      toast.success(`Presença registrada com sucesso para ${selected.collaborator_name}.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível registrar a assinatura.');
     } finally {
@@ -82,19 +131,126 @@ export default function PsPublicAttendance() {
     }
   };
 
-  if (done) {
+  const handleOpenSignature = (link: any) => {
+    if (link.signed_at) {
+      toast.info('Presença já registrada.');
+      return;
+    }
+    setSelectedId(link.id);
+    setSignature(null);
+    setDone(false);
+    navigate(`/ps/presenca/${eventId}/${link.id}`);
+  };
+
+  const handleEventChange = (nextEventId: string) => {
+    setEventId(nextEventId);
+    setSelectedId('');
+    setSignature(null);
+    setDone(false);
+    setSearch('');
+    navigate(`/ps/presenca/${nextEventId}`);
+  };
+
+  if (done && selected) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-lg rounded-2xl border border-emerald-200 bg-white shadow-sm">
+          <CardHeader className="space-y-4 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">Presença registrada com sucesso.</CardTitle>
+              <CardDescription className="text-base text-muted-foreground">
+                {selected.collaborator_name}
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button className="w-full" size="lg" onClick={resetToList}>
+              Voltar para Lista de Presença
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (currentSelectedId && selected) {
+    return (
+      <div className="min-h-screen bg-muted/30 p-4">
+        <div className="mx-auto max-w-3xl py-6">
+          <Card className="rounded-2xl shadow-sm">
+            <CardHeader className="space-y-4 border-b bg-background/80 p-5">
+              <Button variant="ghost" className="w-fit gap-2 px-2 text-sm" onClick={goBackToList}>
+                <ArrowLeft className="h-4 w-4" />
+                Voltar para lista
+              </Button>
+
+              <div className="space-y-3 text-center md:text-left">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  CONFIRA O NOME ANTES DE ASSINAR
+                </p>
+                <h1 className="text-3xl font-black leading-tight md:text-4xl">
+                  Você está registrando presença de
+                </h1>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                  <p className="text-2xl font-bold text-primary md:text-3xl">{selected.collaborator_name}</p>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-5 p-5 md:p-7">
+              <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 text-sm md:grid-cols-3">
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Cargo</p>
+                  <p className="mt-1 font-semibold">{selected.role_name || selected.assigned_role || 'Cargo não informado'}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Evento</p>
+                  <p className="mt-1 font-semibold">{events.find((event: any) => event.id === eventId)?.name || 'Evento'}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Unidade / Sala</p>
+                  <p className="mt-1 font-semibold">{[selected.sector || selected.unit, selected.floor, selected.room && `Sala ${selected.room}`].filter(Boolean).join(' • ') || 'Não informado'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <div className="flex items-center gap-2 font-semibold">
+                  <ShieldCheck className="h-4 w-4" />
+                  A assinatura fica vinculada ao fiscal selecionado abaixo.
+                </div>
+                <p>Não é possível trocar o fiscal nesta etapa sem voltar à lista.</p>
+              </div>
+
+              <SignaturePad onSignatureChange={setSignature} height={240} />
+
+              <div className="flex flex-col gap-3 pt-2 md:flex-row">
+                <Button type="button" variant="outline" className="h-12 flex-1" onClick={goBackToList}>
+                  Voltar para lista
+                </Button>
+                <Button type="button" className="h-12 flex-1" size="lg" onClick={submit} disabled={saving || !signature}>
+                  {saving ? 'Registrando presença...' : 'CONFIRMAR PRESENÇA'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentSelectedId && !selected) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
         <Card className="max-w-md rounded-2xl text-center">
           <CardHeader>
-            <CheckCircle2 className="mx-auto h-12 w-12 text-primary" />
-            <CardTitle>Presença registrada!</CardTitle>
-            <CardDescription>Assinatura de {selected?.collaborator_name} confirmada.</CardDescription>
+            <CardTitle>Presença já registrada.</CardTitle>
+            <CardDescription>Esse fiscal não está disponível para nova assinatura nesta etapa.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => { setDone(false); setSelectedId(''); setSignature(null); setSearch(''); }}>
-              Registrar outra presença
-            </Button>
+            <Button className="w-full" onClick={resetToList}>Voltar para lista</Button>
           </CardContent>
         </Card>
       </div>
@@ -110,7 +266,7 @@ export default function PsPublicAttendance() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Lista de Presença</h1>
-            <p className="text-muted-foreground">Encontre seu nome na lista e assine digitalmente.</p>
+            <p className="text-muted-foreground">Selecione o fiscal e confirme a presença em uma etapa dedicada.</p>
           </div>
         </div>
 
@@ -118,7 +274,7 @@ export default function PsPublicAttendance() {
           <CardContent className="space-y-4 pt-6">
             <div className="space-y-2">
               <Label>Evento</Label>
-              <Select value={eventId} onValueChange={(v) => { setEventId(v); setSelectedId(''); }}>
+              <Select value={eventId} onValueChange={handleEventChange}>
                 <SelectTrigger><SelectValue placeholder="Selecione o evento" /></SelectTrigger>
                 <SelectContent>
                   {events.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
@@ -142,46 +298,34 @@ export default function PsPublicAttendance() {
                   <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Tentar novamente</Button>
                 </div>
               )}
-              {!isLoading && !error && filtered.map((l: any) => (
-                <button
-                  key={l.id}
-                  type="button"
-                  onClick={() => !l.signed_at && setSelectedId(l.id)}
-                  disabled={!!l.signed_at}
-                  className={`min-h-14 flex w-full items-center justify-between gap-2 p-3 text-left text-sm hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-70 ${selectedId === l.id ? 'bg-primary/10' : ''}`}
-                >
-                  <span className="min-w-0">
-                    <span className="font-medium">{l.collaborator_name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {[l.role_name || l.assigned_role, l.unit, l.floor, l.room && `Sala ${l.room}`].filter(Boolean).join(' • ')}
+              {!isLoading && !error && filtered.map((l: any) => {
+                const isAlreadySigned = !!l.signed_at;
+                const isActive = selectedId === l.id;
+
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    onClick={() => handleOpenSignature(l)}
+                    disabled={isAlreadySigned}
+                    className={`flex min-h-16 w-full items-center justify-between gap-2 p-3 text-left text-sm transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-70 ${isActive ? 'bg-primary/10' : ''}`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-foreground">{l.collaborator_name}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {[l.role_name || l.assigned_role, l.unit, l.floor, l.room && `Sala ${l.room}`].filter(Boolean).join(' • ')}
+                      </span>
                     </span>
-                  </span>
-                  <span className="flex flex-wrap justify-end gap-1">
-                    {l.present && <Badge>Presente</Badge>}
-                    {l.absent && <Badge variant="destructive">Ausente</Badge>}
-                    {l.signed_at ? <Badge variant="secondary">Assinado</Badge> : null}
-                  </span>
-                </button>
-              ))}
+                    <span className="flex flex-wrap justify-end gap-1">
+                      {isAlreadySigned ? <Badge variant="secondary">Presença já registrada</Badge> : <Badge className="bg-primary/10 text-primary">Selecionar</Badge>}
+                    </span>
+                  </button>
+                );
+              })}
               {!eventId && <p className="p-3 text-sm text-muted-foreground">Selecione um evento.</p>}
             </div>
           </CardContent>
         </Card>
-
-        {selected && !selected.signed_at && (
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-base">Assinatura de {selected.collaborator_name}</CardTitle>
-              <CardDescription>Assine usando o dedo ou o mouse.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <SignaturePad onSignatureChange={setSignature} />
-              <Button className="w-full" onClick={submit} disabled={saving}>
-                {saving ? 'Registrando...' : 'Confirmar presença'}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

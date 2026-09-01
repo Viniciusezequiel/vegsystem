@@ -452,6 +452,7 @@ const App = () => (
               <Route path="/ps/autoavaliacao/:eventId" element={<PsPublicSelfEvaluation />} />
               <Route path="/ps/presenca" element={<PsPublicAttendance />} />
               <Route path="/ps/presenca/:eventId" element={<PsPublicAttendance />} />
+              <Route path="/ps/presenca/:eventId/:eventCollaboratorId" element={<PsPublicAttendance />} />
               <Route path="/ps/banco-fiscais" element={<PsPublicFiscalBank />} />
 
 
