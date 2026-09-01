@@ -13,6 +13,7 @@ import { usePsEvents, usePsRoles } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { PS_CRITERIA } from '@/lib/psConstants';
 import { toast } from 'sonner';
+import { filterPublicRoster } from '@/lib/psPublicFilters.mjs';
 
 export default function PsPublicEvaluation() {
   const { eventId: routeEventId } = useParams();
@@ -26,14 +27,19 @@ export default function PsPublicEvaluation() {
   const [search, setSearch] = useState('');
   const { data: links = [] } = useQuery({
     queryKey: ['ps_public_evaluation_roster', eventId, search.trim().toLowerCase()],
-    enabled: !!eventId && search.trim().length >= 2,
+    enabled: !!eventId,
     refetchInterval: 3_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('ps_public_search_event_roster' as any, {
-        p_event_id: eventId, p_search: search.trim(),
-      } as any);
+      const { data, error } = await supabase.rpc('ps_public_search_event_roster', {
+        p_event_id: eventId,
+        p_search: search.trim(),
+      });
       if (error) throw error;
-      return data || [];
+      return (data || []).map((row: any) => ({
+        ...row,
+        matricula_masked: row.matricula_masked ?? null,
+        email_masked: row.email_masked ?? null,
+      }));
     },
   });
   const { data: roles = [] } = usePsRoles();
@@ -46,7 +52,8 @@ export default function PsPublicEvaluation() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
-  const selected = links.find((l: any) => l.id === collaboratorId);
+  const roster = filterPublicRoster(links, search);
+  const selected = roster.find((l: any) => l.id === collaboratorId);
 
   const submit = async () => {
     if (!eventId || !selected || !evaluatorName.trim()) {
@@ -137,10 +144,10 @@ export default function PsPublicEvaluation() {
 
             <div className="space-y-2">
               <Label>Fiscal avaliado</Label>
-              <Select value={collaboratorId} onValueChange={setCollaboratorId} disabled={!eventId || search.trim().length < 2}>
+              <Select value={collaboratorId} onValueChange={setCollaboratorId} disabled={!eventId || roster.length === 0}>
                 <SelectTrigger><SelectValue placeholder="Selecione o fiscal" /></SelectTrigger>
                 <SelectContent>
-                  {links.map((l: any) => (
+                  {roster.map((l: any) => (
                     <SelectItem key={l.id} value={l.id}>{l.collaborator_name} — {l.role_name || l.assigned_role || 'Fiscal'}</SelectItem>
                   ))}
                 </SelectContent>

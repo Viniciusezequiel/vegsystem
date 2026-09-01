@@ -18,9 +18,11 @@ import {
 import { PS_CLASSIFICATION_LABEL, psClassification } from '@/lib/psConstants';
 import {
   dedupeFiscalRows,
+  extractFiscalImportedHistory,
   normalizeFiscalEmail,
   normalizeFiscalInstitution,
   normalizeFiscalMatricula,
+  normalizeFiscalImportNote,
 } from '@/lib/psFiscalBank.mjs';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -51,6 +53,7 @@ export default function PsCollaborators() {
   const [importFiscalOpen, setImportFiscalOpen] = useState(false);
   const [fiscalImportRows, setFiscalImportRows] = useState<any[]>([]);
   const [fiscalImportPreview, setFiscalImportPreview] = useState<any>(null);
+  const [profileFiscal, setProfileFiscal] = useState<any>(null);
 
   const dates: string[] = (config as any)?.datas || [];
   const label = (config as any)?.data_indisponivel_label || 'Não tenho disponibilidade';
@@ -138,6 +141,19 @@ export default function PsCollaborators() {
     return '';
   };
 
+  const parseImportedHistory = (row: Record<string, any>) => {
+    const selection = pickFiscalCell(row, ['Nº DE SELEÇÕES', 'N DE SELECOES', 'NUMERO DE SELECOES', 'SELECOES', 'SELEÇÕES']);
+    const participation = pickFiscalCell(row, ['PARTICIPAÇÕES EM PROCESSOS SELETIVOS', 'PARTICIPACOES EM PROCESSOS SELETIVOS', 'PARTICIPAÇÕES', 'PARTICIPACOES']);
+    const notes = pickFiscalCell(row, ['OBSERVAÇÃO', 'OBSERVACOES', 'OBSERVACOES HISTORICAS', 'OBSERVAÇÕES', 'OBSERVACOES HISTORICAS']);
+    const normalized = {
+      selection_count: Number(String(selection).replace(/[^0-9]/g, '')) || 0,
+      participation_count: Number(String(participation).replace(/[^0-9]/g, '')) || 0,
+      observations: normalizeFiscalImportNote(notes),
+    };
+    const noteText = normalized.observations || '';
+    return { ...normalized, noteText };
+  };
+
   const readFiscalBankFile = async (file: File) => {
     try {
       const wb = XLSX.read(await file.arrayBuffer());
@@ -152,8 +168,9 @@ export default function PsCollaborators() {
           const sector = pickFiscalCell(row, ['SETOR']) || '';
           const role = pickFiscalCell(row, ['CARGO SUGERIDO', 'CARGO', 'FUNÇÃO', 'FUNCAO']) || '';
           const unit = pickFiscalCell(row, ['UNIDADE DE ATUAÇÃO', 'UNIDADE', 'UNIDADE DE TRABALHO']) || '';
-          const notes = pickFiscalCell(row, ['OBSERVAÇÃO', 'OBSERVACOES', 'OBSERVACOES HISTORICAS']) || '';
+          const notes = pickFiscalCell(row, ['OBSERVAÇÃO', 'OBSERVACOES', 'OBSERVACOES HISTORICAS', 'OBSERVAÇÕES']) || '';
           const matricula = pickFiscalCell(row, ['MATRICULA', 'MATRÍCULA']) || '';
+          const importedHistory = parseImportedHistory(row);
           return {
             full_name: full_name.trim(),
             cpf: cpf.trim() || null,
@@ -163,8 +180,11 @@ export default function PsCollaborators() {
             sector: sector.trim() || null,
             role: role.trim() || null,
             unit: unit.trim() || null,
-            notes: notes.trim() || null,
+            notes: importedHistory.noteText || notes.trim() || null,
             matricula: matricula.trim() || null,
+            imported_history: importedHistory.noteText || notes.trim() || null,
+            imported_selection_count: importedHistory.selection_count || 0,
+            imported_participation_count: importedHistory.participation_count || 0,
           };
         })
         .filter((row) => row.full_name || row.email || row.matricula || row.cpf);
@@ -179,6 +199,9 @@ export default function PsCollaborators() {
         unit: row.unit,
         sector: row.sector,
         notes: row.notes,
+        imported_history: row.imported_history,
+        imported_selection_count: row.imported_selection_count,
+        imported_participation_count: row.imported_participation_count,
       })));
 
       const emailMap = new Map((collaborators || []).filter((c: any) => c.email_normalized).map((c: any) => [c.email_normalized, c]));
@@ -261,11 +284,11 @@ export default function PsCollaborators() {
             <p className="text-muted-foreground">Cadastro único de fiscais, desempenho e inscrições públicas.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={exportCollaborators}><Download className="mr-2 h-4 w-4" />Exportar</Button>
+            <Button onClick={() => { setForm(empty); setOpen(true); }}><Plus className="mr-2 h-4 w-4" />Novo fiscal</Button>
             <Button variant="outline" onClick={() => setImportFiscalOpen(true)}>
               <Upload className="mr-2 h-4 w-4" />Importar Banco de Fiscais
             </Button>
-            <Button onClick={() => { setForm(empty); setOpen(true); }}><Plus className="mr-2 h-4 w-4" />Novo</Button>
+            <Button variant="outline" onClick={exportCollaborators}><Download className="mr-2 h-4 w-4" />Exportar</Button>
           </div>
         </div>
 
@@ -320,6 +343,9 @@ export default function PsCollaborators() {
                         const { evaluations_count, events_evaluated, classification, history, participation_count, ...rest } = c;
                         setForm(rest); setOpen(true);
                       }}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => setProfileFiscal(c)} title="Perfil do fiscal">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => setHistoryFiscal(c)} title="Histórico"><History className="h-4 w-4" /></Button>
                       <Button size="sm" variant="outline" onClick={() => save.mutate({ id: c.id, active: !c.active })}>
                         {c.active ? 'Inativar' : 'Ativar'}
@@ -505,6 +531,46 @@ export default function PsCollaborators() {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button onClick={submit} disabled={save.isPending}>Salvar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!profileFiscal} onOpenChange={(value) => !value && setProfileFiscal(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Perfil do fiscal</DialogTitle></DialogHeader>
+          {profileFiscal && (() => {
+            const importedHistory = extractFiscalImportedHistory(profileFiscal.notes || '');
+            return (
+              <div className="space-y-4">
+                <div className="rounded-xl border p-3">
+                  <p className="text-xs uppercase text-muted-foreground">Cadastro</p>
+                  <p className="mt-2 font-semibold">{profileFiscal.full_name}</p>
+                  <div className="mt-2 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                    <span>{profileFiscal.email || 'Sem e-mail'}</span>
+                    <span>{profileFiscal.institution || 'Sem instituição'}</span>
+                    <span>{profileFiscal.sector || 'Sem setor'}</span>
+                    <span>{profileFiscal.active ? 'Ativo' : 'Inativo'}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border p-3">
+                  <p className="text-xs uppercase text-muted-foreground">Histórico</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-lg bg-muted p-2"><p className="text-xs text-muted-foreground">Seleções anteriores/importadas</p><p className="text-xl font-bold">{Number(profileFiscal.imported_selection_count ?? importedHistory.selection_count ?? 0)}</p></div>
+                    <div className="rounded-lg bg-muted p-2"><p className="text-xs text-muted-foreground">Participações históricas/importadas</p><p className="text-xl font-bold">{Number(profileFiscal.imported_participation_count ?? importedHistory.participation_count ?? 0)}</p></div>
+                    <div className="rounded-lg bg-muted p-2"><p className="text-xs text-muted-foreground">Atuações registradas no VEG</p><p className="text-xl font-bold">{profileFiscal.participation_count || 0}</p></div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border p-3">
+                  <p className="text-xs uppercase text-muted-foreground">Observações / avaliações</p>
+                  <p className="mt-2 text-sm whitespace-pre-wrap">{profileFiscal.notes || 'Nenhuma observação importada.'}</p>
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    {profileFiscal.evaluations_count ? `Avaliações registradas: ${profileFiscal.evaluations_count}` : 'Nenhuma avaliação registrada.'}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

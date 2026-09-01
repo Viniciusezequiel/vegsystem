@@ -7,6 +7,8 @@ import {
   dedupeFiscalRows,
   buildFiscalImportFingerprint,
   renderFiscalTemplate,
+  extractFiscalImportedHistory,
+  mergeFiscalImportedHistory,
 } from '../../src/lib/psFiscalBank.mjs';
 
 test('normaliza e-mail e matrícula sem criar duplicação por caixa/espaco', () => {
@@ -37,4 +39,24 @@ test('fingerprint e template são estáveis e idempotentes', () => {
   assert.match(html, /Ana/);
   assert.match(html, /Vestibular/);
   assert.doesNotMatch(html, /\{\{.*\}\}/);
+});
+
+test('histórico importado do banco central é preservado em campos estruturados e notes fica só observação humana', () => {
+  const history = extractFiscalImportedHistory('OBSERVAÇÃO: Acompanhou processos em 2024. [selecao=4] [participacoes=7]');
+  assert.equal(history.selection_count, 4);
+  assert.equal(history.participation_count, 7);
+  assert.match(history.observations, /Acompanhou processos/);
+
+  const merged = mergeFiscalImportedHistory({
+    notes: 'Observação geral do fiscal.',
+    imported_selection_count: 4,
+    imported_participation_count: 7,
+    imported_history: { selection_count: 4, participation_count: 7 },
+  });
+
+  assert.match(merged.notes, /Observação geral/);
+  assert.doesNotMatch(merged.notes, /\[selecao=4\]/i);
+  assert.doesNotMatch(merged.notes, /\[participacoes=7\]/i);
+  assert.equal(merged.imported_selection_count, 4);
+  assert.equal(merged.imported_participation_count, 7);
 });

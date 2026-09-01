@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 export default function PsEventDetail() {
   const { id } = useParams();
   const { data: event } = usePsEvent(id);
-  const { finalize } = usePsEventMutations();
+  const { finalize, save } = usePsEventMutations();
   const { data: links = [] } = usePsEventCollaborators(id);
   const { add, update, updateState, remove } = usePsEventCollaboratorMutations(id);
   const { data: collaborators = [] } = usePsCollaborators();
@@ -46,6 +46,7 @@ export default function PsEventDetail() {
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editLink, setEditLink] = useState<any>(null);
+  const [searchFiscal, setSearchFiscal] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [roleValue, setRoleValue] = useState('');
   const [evalTarget, setEvalTarget] = useState<any>(null);
@@ -78,6 +79,12 @@ export default function PsEventDetail() {
   };
 
   const totalCost = links.filter((l: any) => !l.absent).reduce((acc: number, l: any) => acc + rolePay(l.role_value), 0);
+  const visibleCollaborators = useMemo(() => {
+    const q = searchFiscal.trim().toLowerCase();
+    return collaborators
+      .filter((c: any) => c.active && !links.some((l: any) => l.collaborator_id === c.id))
+      .filter((c: any) => !q || [c.full_name, c.email, c.matricula, c.institution, c.unit, c.role].filter(Boolean).join(' ').toLowerCase().includes(q));
+  }, [collaborators, links, searchFiscal]);
 
   const linkFiscals = async () => {
     if (!selected.length || !roleValue) return;
@@ -193,58 +200,81 @@ export default function PsEventDetail() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Button asChild variant="ghost" size="icon"><Link to="/admin-module/processo-seletivo/eventos"><ArrowLeft className="h-4 w-4" /></Link></Button>
-            <div>
-              <h1 className="text-2xl font-bold">{event.name}</h1>
-              <p className="text-muted-foreground">
-                {new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR')} {event.location ? `· ${event.location}` : ''}
-              </p>
+        <div className="rounded-2xl border bg-background/80 p-4 backdrop-blur-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <Button asChild variant="ghost" size="icon"><Link to="/admin-module/processo-seletivo/eventos"><ArrowLeft className="h-4 w-4" /></Link></Button>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl font-bold sm:text-2xl">{event.name}</h1>
+                  <Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'}>{PS_EVENT_STATUS[event.status]}</Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR')} · {event.location || 'Local não informado'}
+                </p>
+              </div>
             </div>
-            <Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'}>{PS_EVENT_STATUS[event.status]}</Badge>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={exportBadges}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
-            <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
-            <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />Presenças (XLSX)</Button>
-            {event.status !== 'finalizado' && (
-              <Button onClick={() => { if (confirm('Finalizar evento?')) finalize.mutate(event.id); }}>
-                <CheckCircle2 className="mr-2 h-4 w-4" />Finalizar
-              </Button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={exportBadges}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
+              <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
+              <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />XLSX</Button>
+              {event.status !== 'finalizado' && (
+                <Button onClick={() => { if (confirm('Finalizar evento?')) finalize.mutate(event.id); }}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />Finalizar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-4">
-          <Card className="rounded-2xl"><CardContent className="p-4"><p className="text-sm text-muted-foreground">Fiscais</p><p className="text-2xl font-bold">{links.length}</p></CardContent></Card>
-          <Card className="rounded-2xl"><CardContent className="p-4"><p className="text-sm text-muted-foreground">Avaliados</p><p className="text-2xl font-bold">{links.filter((l: any) => l.evaluated).length}</p></CardContent></Card>
-          <Card className="rounded-2xl"><CardContent className="p-4"><p className="text-sm text-muted-foreground">Candidatos</p><p className="text-2xl font-bold">{candidates.length}</p></CardContent></Card>
-          <Card className="rounded-2xl"><CardContent className="p-4"><p className="text-sm text-muted-foreground">Custo estimado</p><p className="text-2xl font-bold">R$ {totalCost.toFixed(2)}</p></CardContent></Card>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="rounded-2xl"><CardContent className="p-3"><p className="text-xs text-muted-foreground">Equipe</p><p className="mt-1 text-2xl font-bold">{links.length}</p></CardContent></Card>
+          <Card className="rounded-2xl"><CardContent className="p-3"><p className="text-xs text-muted-foreground">Presentes</p><p className="mt-1 text-2xl font-bold">{links.filter((l: any) => l.present).length}</p></CardContent></Card>
+          <Card className="rounded-2xl"><CardContent className="p-3"><p className="text-xs text-muted-foreground">Ausentes</p><p className="mt-1 text-2xl font-bold">{links.filter((l: any) => l.absent).length}</p></CardContent></Card>
+          <Card className="rounded-2xl"><CardContent className="p-3"><p className="text-xs text-muted-foreground">Avaliações</p><p className="mt-1 text-2xl font-bold">{links.filter((l: any) => l.evaluated).length}</p></CardContent></Card>
         </div>
 
-        <Card className="rounded-2xl">
-          <CardHeader><CardTitle className="text-base">Links públicos</CardTitle></CardHeader>
-          <CardContent className="grid gap-2 sm:grid-cols-3">
-            {[
-              { label: 'Avaliação de fiscais', url: `${publicBase}/avaliar/${event.id}` },
-              { label: 'Autoavaliação', url: `${publicBase}/autoavaliacao/${event.id}` },
-              { label: 'Lista de presença/assinatura', url: `${publicBase}/presenca/${event.id}` },
-            ].map((l) => (
-              <Button key={l.url} variant="outline" className="justify-between" onClick={() => copy(l.url)}>
-                {l.label} <Copy className="h-4 w-4" />
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Tabs defaultValue="fiscais">
+        <Tabs defaultValue="visao-geral">
           <TabsList className="flex-wrap">
-            <TabsTrigger value="fiscais">Fiscais</TabsTrigger>
+            <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
+            <TabsTrigger value="fiscais">Equipe</TabsTrigger>
+            <TabsTrigger value="presenca">Presença</TabsTrigger>
             <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
-            <TabsTrigger value="auto">Autoavaliações</TabsTrigger>
-            <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
+            <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="visao-geral" className="space-y-4 pt-4">
+            <Card className="rounded-2xl">
+              <CardHeader><CardTitle className="text-base">Links públicos</CardTitle></CardHeader>
+              <CardContent className="grid gap-2 sm:grid-cols-3">
+                {[
+                  { label: 'Avaliação de fiscais', url: `${publicBase}/avaliacao/${event.id}` },
+                  { label: 'Autoavaliação', url: `${publicBase}/autoavaliacao/${event.id}` },
+                  { label: 'Lista de presença/assinatura', url: `${publicBase}/presenca/${event.id}` },
+                ].map((l) => (
+                  <Button key={l.url} variant="outline" className="justify-between" onClick={() => copy(l.url)}>
+                    {l.label} <Copy className="h-4 w-4" />
+                  </Button>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl">
+              <CardHeader><CardTitle className="text-base">Configuração pública</CardTitle></CardHeader>
+              <CardContent className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">Autoavaliação do evento</p>
+                  <p className="text-sm text-muted-foreground">Disponível para o público somente quando ativada.</p>
+                </div>
+                <Switch
+                  checked={!!event.self_evaluation_enabled}
+                  onCheckedChange={async (checked) => {
+                    await save.mutateAsync({ ...event, self_evaluation_enabled: checked });
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="fiscais" className="space-y-3 pt-4">
             <div className="flex flex-wrap gap-2">
@@ -381,20 +411,27 @@ export default function PsEventDetail() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Input
+                value={searchFiscal}
+                onChange={(e) => setSearchFiscal(e.target.value)}
+                placeholder="Buscar fiscal..."
+              />
+            </div>
             <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border p-2">
-              {collaborators
-                .filter((c: any) => c.active && !links.some((l: any) => l.collaborator_id === c.id))
-                .map((c: any) => (
-                  <Button
-                    key={c.id}
-                    type="button"
-                    variant={selected.includes(c.id) ? 'default' : 'ghost'}
-                    className="w-full justify-start"
-                    onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
-                  >
-                    {c.full_name}
-                  </Button>
-                ))}
+              {visibleCollaborators.length === 0 ? (
+                <p className="p-2 text-sm text-muted-foreground">Nenhum fiscal encontrado.</p>
+              ) : visibleCollaborators.map((c: any) => (
+                <Button
+                  key={c.id}
+                  type="button"
+                  variant={selected.includes(c.id) ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
+                >
+                  {c.full_name}
+                </Button>
+              ))}
             </div>
           </div>
           <DialogFooter>

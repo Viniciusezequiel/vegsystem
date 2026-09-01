@@ -73,3 +73,61 @@ export function renderFiscalTemplate(template, variables = {}) {
     return value == null ? '' : String(value);
   });
 }
+
+export function extractFiscalImportedHistory(rawValue = '') {
+  const source = typeof rawValue === 'object' && rawValue !== null ? rawValue : { text: rawValue };
+  const text = typeof rawValue === 'string' || typeof rawValue === 'number' ? String(rawValue) : String(source.text || source.notes || source.observations || '');
+  const selectionCount = Number(source.selection_count ?? source.historical_selection_count ?? source.imported_selection_count ?? source.selections ?? source['Nº DE SELEÇÕES'] ?? 0) || 0;
+  const participationCount = Number(source.participation_count ?? source.historical_participation_count ?? source.imported_participation_count ?? source.participacoes ?? source['PARTICIPAÇÕES EM PROCESSOS SELETIVOS'] ?? 0) || 0;
+  const value = text.trim();
+  if (!value && !selectionCount && !participationCount) {
+    return { observations: '', selection_count: 0, participation_count: 0 };
+  }
+
+  const cleaned = value
+    .replace(/\s*\[\s*selecao\s*=\s*(\d+)\s*\]/gi, ' ')
+    .replace(/\s*\[\s*participacoes\s*=\s*(\d+)\s*\]/gi, ' ');
+
+  const selectionMatch = value.match(/\[\s*selecao\s*=\s*(\d+)\s*\]/i);
+  const participationMatch = value.match(/\[\s*participacoes\s*=\s*(\d+)\s*\]/i);
+  const observations = cleaned
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return {
+    observations,
+    selection_count: selectionMatch ? Number(selectionMatch[1]) || 0 : selectionCount,
+    participation_count: participationMatch ? Number(participationMatch[1]) || 0 : participationCount,
+  };
+}
+
+export function mergeFiscalImportedHistory(record = {}) {
+  const history = extractFiscalImportedHistory(record.imported_history || record.notes || '');
+  const current = {
+    ...record,
+    imported_selection_count: Number(record.imported_selection_count ?? record.historical_selection_count ?? history.selection_count) || 0,
+    imported_participation_count: Number(record.imported_participation_count ?? record.historical_participation_count ?? history.participation_count) || 0,
+  };
+
+  const notes = [
+    String(record.notes || '').trim(),
+    history.observations ? `Observação importada: ${history.observations}` : '',
+  ].filter(Boolean).join(' | ');
+
+  return {
+    ...current,
+    notes: notes || null,
+  };
+}
+
+export function normalizeFiscalImportNote(value = '') {
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  const history = extractFiscalImportedHistory(text);
+  if (!history.selection_count && !history.participation_count && !history.observations) {
+    return text;
+  }
+
+  return history.observations || text.replace(/\[\s*selecao\s*=\s*\d+\s*\]/gi, '').replace(/\[\s*participacoes\s*=\s*\d+\s*\]/gi, '').replace(/\s+/g, ' ').trim();
+}

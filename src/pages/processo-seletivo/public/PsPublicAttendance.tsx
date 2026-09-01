@@ -22,14 +22,19 @@ export default function PsPublicAttendance() {
 
   const { data: links = [], refetch } = useQuery({
     queryKey: ['ps_public_roster', eventId, search.trim().toLowerCase()],
-    enabled: !!eventId && search.trim().length >= 2,
+    enabled: !!eventId,
     refetchInterval: 3_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('ps_public_search_event_roster' as any, {
-        p_event_id: eventId, p_search: search.trim(),
-      } as any);
+      const { data, error } = await supabase.rpc('ps_public_search_event_roster', {
+        p_event_id: eventId,
+        p_search: search.trim(),
+      });
       if (error) throw error;
-      return data || [];
+      return (data || []).map((row: any) => ({
+        ...row,
+        matricula_masked: row.matricula_masked ?? null,
+        email_masked: row.email_masked ?? null,
+      }));
     },
   });
 
@@ -38,7 +43,17 @@ export default function PsPublicAttendance() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
-  const filtered = useMemo(() => links, [links]);
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return links;
+    return links.filter((l: any) => {
+      const haystack = [l.collaborator_name, l.role_name, l.assigned_role, l.sector, l.email_masked, l.matricula_masked]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [links, search]);
   const selected = links.find((l: any) => l.id === selectedId);
 
   const submit = async () => {
@@ -127,8 +142,7 @@ export default function PsPublicAttendance() {
                   </span>
                 </button>
               ))}
-              {eventId && search.trim().length < 2 && <p className="p-3 text-sm text-muted-foreground">Digite pelo menos 2 caracteres para buscar neste evento.</p>}
-              {eventId && search.trim().length >= 2 && filtered.length === 0 && <p className="p-3 text-sm text-muted-foreground">Nenhum fiscal encontrado neste evento.</p>}
+              {eventId && filtered.length === 0 && <p className="p-3 text-sm text-muted-foreground">Nenhum fiscal encontrado neste evento.</p>}
               {!eventId && <p className="p-3 text-sm text-muted-foreground">Selecione um evento.</p>}
             </div>
           </CardContent>

@@ -12,6 +12,7 @@ import { usePsEvents, usePsRoles } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { isSelfEvaluationEnabled } from '@/lib/psPublicFilters.mjs';
 
 const BLOCKS = [
   { key: 'training', label: 'Treinamento recebido' },
@@ -36,7 +37,10 @@ export default function PsPublicSelfEvaluation() {
   const { eventId: routeEventId } = useParams();
   const { data: events = [] } = usePsEvents();
   const { data: roles = [] } = usePsRoles();
-  const visibleEvents = useMemo(() => events.filter((e: any) => !e.hidden_from_evaluation), [events]);
+  const visibleEvents = useMemo(
+    () => events.filter((e: any) => isSelfEvaluationEnabled(e)),
+    [events],
+  );
 
   const [eventId, setEventId] = useState(routeEventId || '');
   const [identified, setIdentified] = useState(true);

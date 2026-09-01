@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { psFinalScore, psClassification } from '@/lib/psConstants';
 import { planPsFiscalReconciliation, type PsFiscalDecision } from '@/lib/psFiscalFoundation';
-import { normalizeFiscalEmail, normalizeFiscalInstitution, normalizeFiscalMatricula, dedupeFiscalRows } from '@/lib/psFiscalBank.mjs';
+import { normalizeFiscalEmail, normalizeFiscalInstitution, normalizeFiscalMatricula, dedupeFiscalRows, normalizeFiscalImportNote } from '@/lib/psFiscalBank.mjs';
 
 const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'id', 'event_id', 'collaborator_id', 'collaborator_name', 'role_value', 'role_name',
@@ -65,7 +65,8 @@ export function usePsCollaborators() {
         'id', 'full_name', 'cpf', 'matricula', 'email', 'email_normalized', 'phone', 'mobile',
         'role', 'unit', 'sector', 'position', 'journey', 'pcd', 'city', 'state', 'pix',
         'total_events', 'average_rating', 'identity_doc', 'institution', 'preferred_role',
-        'notes', 'active', 'created_at', 'updated_at',
+        'notes', 'imported_selection_count', 'imported_participation_count', 'active',
+        'created_at', 'updated_at',
       ].join(',')).order('full_name');
       if (error) throw error;
       return data;
@@ -148,7 +149,9 @@ export function usePsImportFiscalBank() {
         role: String(row.role || row.role_name || row.cargo || row['CARGO'] || '').trim() || null,
         unit: String(row.unit || row.unidade || row['UNIDADE'] || '').trim() || null,
         sector: String(row.sector || row.setor || row['SETOR'] || '').trim() || null,
-        notes: String(row.notes || row.observacao || row['OBSERVAÇÃO'] || '').trim() || null,
+        notes: normalizeFiscalImportNote(String(row.notes || row.observacao || row['OBSERVAÇÃO'] || '').trim()) || null,
+        imported_selection_count: Number(String(row.imported_selection_count ?? row.historical_selection_count ?? row['Nº DE SELEÇÕES'] ?? row['N DE SELECOES'] ?? '').replace(/[^0-9]/g, '')) || 0,
+        imported_participation_count: Number(String(row.imported_participation_count ?? row.historical_participation_count ?? row['PARTICIPAÇÕES EM PROCESSOS SELETIVOS'] ?? row['PARTICIPACOES EM PROCESSOS SELETIVOS'] ?? '').replace(/[^0-9]/g, '')) || 0,
       })).filter(Boolean));
 
       const existing = await supabase.from('ps_collaborators').select('id,email,email_normalized,matricula,matricula_normalized,institution,institution_normalized');
@@ -179,6 +182,8 @@ export function usePsImportFiscalBank() {
           unit: row.unit || null,
           role: row.role || null,
           notes: row.notes || null,
+          imported_selection_count: Number(row.imported_selection_count) || 0,
+          imported_participation_count: Number(row.imported_participation_count) || 0,
           active: true,
         };
 

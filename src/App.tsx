@@ -446,6 +446,8 @@ const App = () => (
               <Route path="/admin-module/processo-seletivo/banco-fiscais" element={<Navigate to="/admin-module/processo-seletivo/colaboradores" replace />} />
               <Route path="/ps/avaliacao" element={<PsPublicEvaluation />} />
               <Route path="/ps/avaliacao/:eventId" element={<PsPublicEvaluation />} />
+              <Route path="/ps/avaliar" element={<PsPublicEvaluation />} />
+              <Route path="/ps/avaliar/:eventId" element={<PsPublicEvaluation />} />
               <Route path="/ps/autoavaliacao" element={<PsPublicSelfEvaluation />} />
               <Route path="/ps/autoavaliacao/:eventId" element={<PsPublicSelfEvaluation />} />
               <Route path="/ps/presenca" element={<PsPublicAttendance />} />

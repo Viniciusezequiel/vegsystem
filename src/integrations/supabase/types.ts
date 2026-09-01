@@ -1276,6 +1276,8 @@ export type Database = {
           full_name: string
           id: string
           identity_doc: string | null
+          imported_participation_count: number
+          imported_selection_count: number
           institution: string | null
           journey: string | null
           matricula: string | null
@@ -1303,6 +1305,8 @@ export type Database = {
           full_name: string
           id?: string
           identity_doc?: string | null
+          imported_participation_count?: number
+          imported_selection_count?: number
           institution?: string | null
           journey?: string | null
           matricula?: string | null
@@ -1330,6 +1334,8 @@ export type Database = {
           full_name?: string
           id?: string
           identity_doc?: string | null
+          imported_participation_count?: number
+          imported_selection_count?: number
           institution?: string | null
           journey?: string | null
           matricula?: string | null
