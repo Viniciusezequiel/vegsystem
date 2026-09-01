@@ -14,6 +14,7 @@ import {
 import { format, parseISO, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { EquipmentLoan } from '@/hooks/useEquipment';
+import { ProviderAwareSignatureImage } from '@/components/ui/ProviderAwareSignatureImage';
 
 interface EquipmentLoanDetailsDialogProps {
   open: boolean;
@@ -306,7 +307,12 @@ export function EquipmentLoanDetailsDialog({
                   Assinatura de Retirada
                 </h4>
                 <p className="text-sm text-muted-foreground mb-2">Assinado por: {loan.borrower_name}</p>
-                <img src={loan.borrower_signature} alt="Assinatura de retirada" className="border rounded-lg bg-white max-w-full" />
+                <ProviderAwareSignatureImage
+                  value={loan.borrower_signature}
+                  expectedModule="equipment"
+                  alt="Assinatura de retirada"
+                  className="border rounded-lg bg-white max-w-full"
+                />
               </div>
             </>
           )}
@@ -323,7 +329,12 @@ export function EquipmentLoanDetailsDialog({
                 {loan.returner_name && (
                   <p className="text-sm text-muted-foreground mb-2">Assinado por: {loan.returner_name}</p>
                 )}
-                <img src={loan.return_signature} alt="Assinatura de devolução" className="border rounded-lg bg-white max-w-full" />
+                <ProviderAwareSignatureImage
+                  value={loan.return_signature}
+                  expectedModule="equipment"
+                  alt="Assinatura de devolução"
+                  className="border rounded-lg bg-white max-w-full"
+                />
               </div>
             </>
           )}

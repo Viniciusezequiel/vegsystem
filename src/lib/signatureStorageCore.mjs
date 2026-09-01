@@ -20,6 +20,16 @@ export function getSignatureSource(value) {
   return { provider: 'invalid', value: null };
 }
 
+export function getSignatureDisplayState(value, expectedModule = null) {
+  const source = getSignatureSource(value);
+  if (source.provider === 'none') return { status: 'empty', source: null };
+  if (source.provider === 'inline') return { status: 'ready', source: source.value };
+  if (source.provider === 'r2' && (!expectedModule || source.module === expectedModule)) {
+    return { status: 'resolving', source: null, locator: source.value };
+  }
+  return { status: 'error', source: null };
+}
+
 export async function preparePdfSignatureRows(rows, resolveR2Signature) {
   return Promise.all(rows.map(async row => {
     const source = getSignatureSource(row.signature_url);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { getSignatureSource, parseSignatureLocator, preparePdfSignatureRows } from '../../src/lib/signatureStorageCore.mjs';
+import { getSignatureDisplayState, getSignatureSource, parseSignatureLocator, preparePdfSignatureRows } from '../../src/lib/signatureStorageCore.mjs';
 
 const locator = 'r2/signatures/process-selection/2026/09/123e4567-e89b-42d3-a456-426614174000-0123456789abcdef.png';
 const inline = 'data:image/png;base64,iVBORw0KGgo=';
@@ -40,4 +40,27 @@ test('helpers não persistem capability ou assinatura resolvida', () => {
   const files = ['../../src/lib/signatureStorageCore.mjs', '../../src/lib/signatureStorage.ts'];
   const source = files.map(file => fs.readFileSync(new URL(file, import.meta.url), 'utf8')).join('\n');
   assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB/);
+});
+
+test('detalhe exibe Base64 imediatamente e não resolve valor null', () => {
+  assert.deepEqual(getSignatureDisplayState(inline, 'equipment'), { status: 'ready', source: inline });
+  assert.deepEqual(getSignatureDisplayState(null, 'equipment'), { status: 'empty', source: null });
+});
+
+test('detalhe resolve locator R2 de equipment e rejeita módulo divergente', () => {
+  const equipment = locator.replace('process-selection', 'equipment');
+  assert.deepEqual(getSignatureDisplayState(equipment, 'equipment'), {
+    status: 'resolving', source: null, locator: equipment,
+  });
+  assert.deepEqual(getSignatureDisplayState(locator, 'equipment'), { status: 'error', source: null });
+});
+
+test('retirada e devolução usam o mesmo renderer provider-aware com fallback de erro', () => {
+  const component = fs.readFileSync(new URL('../../src/components/equipment/EquipmentLoanDetailsDialog.tsx', import.meta.url), 'utf8');
+  assert.match(component, /value=\{loan\.borrower_signature\}[\s\S]*expectedModule="equipment"/);
+  assert.match(component, /value=\{loan\.return_signature\}[\s\S]*expectedModule="equipment"/);
+  assert.doesNotMatch(component, /<img\s+src=\{loan\.(?:borrower_signature|return_signature)\}/);
+  const renderer = fs.readFileSync(new URL('../../src/components/ui/ProviderAwareSignatureImage.tsx', import.meta.url), 'utf8');
+  assert.match(renderer, /Assinatura indisponível/);
+  assert.match(renderer, /cancelled = true/);
 });
