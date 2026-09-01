@@ -13,6 +13,16 @@ export interface PsBadgeRow {
   campus?: string | null;
 }
 
+export interface PsCandidateBadgeRow {
+  full_name: string;
+  cpf?: string | null;
+  campus?: string | null;
+  room?: string | null;
+  seat_number?: string | null;
+  registration_number?: string | null;
+  pcd_type?: string | null;
+}
+
 export interface PsEventInfo {
   name: string;
   date?: string | null;
@@ -53,6 +63,26 @@ export function generatePsBadgesPdf(event: PsEventInfo, rows: PsBadgeRow[]): jsP
         const idx = p * PER_PAGE + r * COLS + c;
         if (idx >= rows.length) break;
         drawBadge(doc, event, rows[idx], ML + c * (W + HG), MT + r * (H + VG), W, H);
+      }
+    }
+  }
+  return doc;
+}
+
+export function generatePsCandidateBadgesPdf(event: PsEventInfo, rows: PsCandidateBadgeRow[]): jsPDF {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+  const ML = 18, MT = 11, W = 85.5, H = 58.7, HG = 3.2, VG = 4.6;
+  const COLS = 2, ROWS = 4, PER_PAGE = COLS * ROWS;
+  const pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+
+  for (let p = 0; p < pages; p++) {
+    if (p > 0) doc.addPage('a4', 'portrait');
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const idx = p * PER_PAGE + r * COLS + c;
+        if (idx >= rows.length) break;
+        drawCandidateBadge(doc, event, rows[idx], ML + c * (W + HG), MT + r * (H + VG), W, H);
       }
     }
   }
@@ -126,6 +156,62 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
   doc.text(BRAND, x + 4, y + h - 3.2);
   const unit = row.unit || row.institution || row.campus || '';
   if (unit) doc.text(truncate(doc, unit, w / 2 - 6), x + w - 4, y + h - 3.2, { align: 'right' });
+}
+
+function drawCandidateBadge(doc: jsPDF, event: PsEventInfo, row: PsCandidateBadgeRow, x: number, y: number, w: number, h: number) {
+  doc.setDrawColor(210, 214, 220);
+  doc.setLineWidth(0.3);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(x, y, w, h, 2.5, 2.5, 'FD');
+
+  doc.setFillColor(244, 246, 248);
+  doc.roundedRect(x, y, w, 9, 2.5, 2.5, 'F');
+  doc.rect(x, y + 6.5, w, 2.5, 'F');
+  doc.setDrawColor(226, 229, 234);
+  doc.line(x, y + 9, x + w, y + 9);
+
+  doc.setFillColor(34, 139, 84);
+  doc.roundedRect(x + 4, y + 2.6, 3.8, 3.8, 1, 1, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(45, 52, 60);
+  doc.text(truncate(doc, event.name || '', w - 14), x + 10, y + 5.6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(130, 137, 146);
+  doc.text('CANDIDATO', x + w / 2, y + 18, { align: 'center' });
+
+  const name = row.full_name || '';
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(20, 24, 30);
+  const size = fit(doc, name, w - 10, 14, 7);
+  doc.setFontSize(size);
+  doc.text(name, x + w / 2, y + 25.5, { align: 'center' });
+
+  const details: string[] = [];
+  if (row.cpf) details.push(`CPF ${row.cpf}`);
+  if (row.registration_number) details.push(`Inscrição ${row.registration_number}`);
+  const location = [row.campus, row.room && `Sala ${row.room}`, row.seat_number && `Carteira ${row.seat_number}`].filter(Boolean).join(' · ');
+  if (location) details.push(location);
+  if (row.pcd_type && row.pcd_type !== 'NORMAL') details.push(row.pcd_type);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(85, 90, 98);
+  const textY = y + 35.5;
+  details.forEach((line, idx) => {
+    const label = truncate(doc, line, w - 12);
+    doc.text(label, x + 5, textY + idx * 6);
+  });
+
+  doc.setDrawColor(226, 229, 234);
+  doc.line(x, y + h - 8, x + w, y + h - 8);
+  doc.setFontSize(6.5);
+  doc.setTextColor(140, 146, 155);
+  doc.text(BRAND, x + 4, y + h - 3.2);
+  if (row.campus) doc.text(truncate(doc, row.campus, w / 2 - 6), x + w - 4, y + h - 3.2, { align: 'right' });
 }
 
 export interface PsAttendanceRow extends PsBadgeRow {

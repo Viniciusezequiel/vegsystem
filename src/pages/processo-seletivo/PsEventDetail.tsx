@@ -21,7 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
 import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature } from 'lucide-react';
-import { generatePsBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
+import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -178,6 +178,23 @@ export default function PsEventDetail() {
   const exportBadges = () => {
     if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
     generatePsBadgesPdf(eventInfo(), links as any).save(`etiquetas-${slug}.pdf`);
+  };
+
+  const exportCandidateBadges = () => {
+    if (!candidates.length) {
+      toast.error('Nenhum candidato disponível para geração de etiquetas.');
+      return;
+    }
+    const rows = candidates.map((c: any) => ({
+      full_name: c.full_name,
+      cpf: c.cpf,
+      campus: c.campus,
+      room: c.room,
+      seat_number: c.seat_number || c.seat,
+      registration_number: c.registration_number,
+      pcd_type: c.pcd_type,
+    }));
+    generatePsCandidateBadgesPdf(eventInfo(), rows).save(`etiquetas-candidatos-${slug}.pdf`);
   };
 
   const exportAttendancePdf = async () => {
@@ -379,6 +396,9 @@ export default function PsEventDetail() {
                   <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && importCandidates(e.target.files[0])} />
                 </label>
               </Button>
+              <Button variant="outline" onClick={exportCandidateBadges} disabled={candidates.length === 0}>
+                <IdCard className="mr-2 h-4 w-4" />Etiquetas
+              </Button>
               {candidates.length > 0 && (
                 <Button variant="outline" onClick={() => { if (confirm('Remover todos os candidatos do evento?')) removeAll.mutate(id!); }}>
                   <Trash2 className="mr-2 h-4 w-4" />Limpar lista
@@ -392,13 +412,13 @@ export default function PsEventDetail() {
                     <div>
                       <p className="font-medium">{c.full_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {[c.campus, c.room && `Sala ${c.room}`, c.seat && `Carteira ${c.seat}`].filter(Boolean).join(' · ')}
+                        {[c.campus, c.room && `Sala ${c.room}`, c.seat_number && `Carteira ${c.seat_number}`, c.seat && `Carteira ${c.seat}`].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                     {c.pcd_type && c.pcd_type !== 'NORMAL' && <Badge variant="secondary">{c.pcd_type}</Badge>}
                   </div>
                 ))}
-                {candidates.length === 0 && <p className="p-4 text-muted-foreground">Nenhum candidato importado. Colunas aceitas: Nome, CPF, Campus, Sala, Carteira, PCD ({PS_PCD_OPTIONS.join('/')}).</p>}
+                {candidates.length === 0 && <p className="p-4 text-muted-foreground">Nenhum candidato disponível para geração de etiquetas.</p>}
               </CardContent>
             </Card>
           </TabsContent>

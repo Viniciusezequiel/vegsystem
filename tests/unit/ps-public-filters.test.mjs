@@ -39,4 +39,6 @@ test('detalhe do evento restaura a aba de candidatos sem perder o layout por aba
   assert.match(eventDetailSource, /TabsTrigger value="candidatos">Candidatos<\/TabsTrigger>/);
   assert.match(eventDetailSource, /TabsContent value="candidatos"/);
   assert.match(eventDetailSource, /Importar candidatos/);
+  assert.match(eventDetailSource, /Etiquetas/);
+  assert.match(eventDetailSource, /Nenhum candidato disponível para geração de etiquetas\./);
 });
