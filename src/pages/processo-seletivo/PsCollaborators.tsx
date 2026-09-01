@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Search, Pencil, Star, Download, Copy, X, History } from 'lucide-react';
+import { Plus, Search, Pencil, Star, Download, Copy, X, History, Upload } from 'lucide-react';
 import {
   usePsCollaborators, usePsCollaboratorMutations, usePsRoles, usePsEvaluations,
   usePsFiscalBankApplications, usePsFiscalBankConfig, usePsSaveFiscalBankConfig,
