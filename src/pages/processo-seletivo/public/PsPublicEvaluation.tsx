@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ import { toast } from 'sonner';
 import { filterPublicRoster } from '@/lib/psPublicFilters.mjs';
 
 export default function PsPublicEvaluation() {
+  const queryClient = useQueryClient();
   const { eventId: routeEventId } = useParams();
   const { data: events = [] } = usePsEvents();
   const visibleEvents = useMemo(
@@ -42,6 +44,20 @@ export default function PsPublicEvaluation() {
       }));
     },
   });
+
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase.channel(`ps-public-evaluation-${eventId}-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ps_public_evaluation_roster', eventId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_events', filter: `id=eq.${eventId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ps_public_evaluation_roster', eventId] });
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [eventId, queryClient]);
   const { data: roles = [] } = usePsRoles();
 
   const [collaboratorId, setCollaboratorId] = useState('');

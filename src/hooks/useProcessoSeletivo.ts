@@ -299,7 +299,8 @@ export function usePsUpdateEventCollaboratorParticipation() {
 
 /* ---------------- Eventos ---------------- */
 export function usePsEvents() {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['ps_events'],
     queryFn: async () => {
       const { data, error } = await supabase.from('ps_events').select('*').order('date', { ascending: false });
@@ -307,10 +308,24 @@ export function usePsEvents() {
       return data;
     },
   });
+
+  useEffect(() => {
+    const channel = supabase.channel(`ps-events-sync-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_events' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ps_events'] });
+        queryClient.invalidateQueries({ queryKey: ['ps_event'] });
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  return query;
 }
 
 export function usePsEvent(id?: string) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['ps_event', id],
     enabled: !!id,
     queryFn: async () => {
@@ -319,6 +334,20 @@ export function usePsEvent(id?: string) {
       return data;
     },
   });
+
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase.channel(`ps-event-${id}-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_events', filter: `id=eq.${id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ps_event', id] });
+        queryClient.invalidateQueries({ queryKey: ['ps_events'] });
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [id, queryClient]);
+
+  return query;
 }
 
 export function usePsEventMutations() {
@@ -657,7 +686,8 @@ export function usePsClearEventTeam() {
 
 /* ---------------- Candidatos ---------------- */
 export function usePsCandidates(eventId?: string) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['ps_candidates', eventId],
     enabled: !!eventId,
     queryFn: async () => {
@@ -666,6 +696,19 @@ export function usePsCandidates(eventId?: string) {
       return data;
     },
   });
+
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase.channel(`ps-candidates-${eventId}-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_candidates', filter: `event_id=eq.${eventId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ps_candidates', eventId] });
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [eventId, queryClient]);
+
+  return query;
 }
 
 export function usePsCandidateMutations() {
@@ -791,7 +834,8 @@ export function usePsSaveGeneralEvaluation() {
 
 /* ---------------- Autoavaliação ---------------- */
 export function usePsSelfEvaluations(eventId?: string) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['ps_self_evaluations', eventId || 'all'],
     queryFn: async () => {
       let q = supabase.from('ps_self_evaluations').select('*').order('created_at', { ascending: false });
@@ -801,6 +845,23 @@ export function usePsSelfEvaluations(eventId?: string) {
       return data;
     },
   });
+
+  useEffect(() => {
+    const channel = supabase.channel(`ps-self-evaluations-${eventId || 'all'}-${crypto.randomUUID()}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'ps_self_evaluations',
+        ...(eventId ? { filter: `event_id=eq.${eventId}` } : {}),
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ps_self_evaluations', eventId || 'all'] });
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [eventId, queryClient]);
+
+  return query;
 }
 
 /* ---------------- Banco de fiscais (formulário público) ---------------- */

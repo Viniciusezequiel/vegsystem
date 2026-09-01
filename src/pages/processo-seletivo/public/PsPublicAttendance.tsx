@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { submitPublicProcessSelectionSignature } from '@/lib/signatureStorage';
 
 export default function PsPublicAttendance() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { eventId: routeEventId, eventCollaboratorId: routeSelectedId } = useParams();
   const { data: events = [] } = usePsEvents();
   const [eventId, setEventId] = useState(routeEventId || '');
@@ -79,6 +80,20 @@ export default function PsPublicAttendance() {
   const selected = links.find((l: any) => l.id === currentSelectedId) ?? null;
 
   useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase.channel(`ps-public-attendance-${eventId}-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ps_public_roster', eventId] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_events', filter: `id=eq.${eventId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['ps_public_roster', eventId] });
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [eventId, queryClient]);
+
+  useEffect(() => {
     if (!routeSelectedId && !selectedId) return;
     const validSelected = links.some((l: any) => l.id === currentSelectedId);
     if (!validSelected && eventId) {
@@ -86,6 +101,15 @@ export default function PsPublicAttendance() {
       navigate(`/ps/presenca/${eventId}`, { replace: true });
     }
   }, [currentSelectedId, eventId, links, navigate, routeSelectedId, selectedId]);
+
+  useEffect(() => {
+    if (!selected || !currentSelectedId || done) return;
+    if (selected.signed_at) {
+      setSignature(null);
+      setSaving(false);
+      toast.error('Esta presença já foi registrada em outro dispositivo.');
+    }
+  }, [selected, currentSelectedId, done]);
 
   const resetToList = () => {
     setSelectedId('');

@@ -49,10 +49,12 @@ test('não existe limite artificial de tablets e UX evita assinatura repetida', 
   assert.match(attendance, /Registrando\.\.\./);
 });
 
-test('avaliações usam nomes reais do schema e saída entra na lista final', () => {
-  assert.doesNotMatch(eventDetail, /event_name: event\?\.name|role_name: evalTarget/);
-  assert.match(eventDetail, /assigned_role:/);
-  assert.match(eventDetail, /observations:/);
-  assert.match(eventDetail, /Registrar saída/);
-  assert.match(eventDetail, /Saída:/);
+test('páginas públicas e dados do evento usam subscriptions por event_id sem fanout global', () => {
+  assert.match(hook, /table: 'ps_events', [\s\S]*filter: `id=eq\.\$\{id\}`/);
+  assert.match(hook, /table: 'ps_candidates', [\s\S]*filter: `event_id=eq\.\$\{eventId\}`/);
+  assert.match(hook, /table: 'ps_self_evaluations', [\s\S]*filter: `event_id=eq\.\$\{eventId\}`/);
+  assert.match(attendance, /postgres_changes[\s\S]*ps_event_collaborators[\s\S]*event_id=eq\.\$\{eventId\}/);
+  assert.match(attendance, /postgres_changes[\s\S]*ps_events[\s\S]*id=eq\.\$\{eventId\}/);
+  assert.match(evaluation, /postgres_changes[\s\S]*ps_event_collaborators[\s\S]*event_id=eq\.\$\{eventId\}/);
+  assert.doesNotMatch(`${hook}\n${attendance}\n${evaluation}`, /channel\(['\"]realtime-multi|channel\(['\"][^\n]*all[^\n]*\)|schema: 'public', table: 'ps_events'[^\n]*\}/);
 });
