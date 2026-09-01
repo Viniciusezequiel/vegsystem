@@ -19,7 +19,7 @@ export function useLostItemLogs() {
       // Get all lost items to build activity logs from their data
       const { data: items, error } = await supabase
         .from('lost_items')
-        .select('*')
+        .select('id, code, description, campus, status, created_at, delivered_at, owner_name')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

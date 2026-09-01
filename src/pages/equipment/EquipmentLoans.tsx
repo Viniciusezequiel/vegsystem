@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2, ChevronDown, ChevronUp, User, MapPin, FileText, Calendar, Pencil } from 'lucide-react';
-import { useEquipmentLoans, useOverdueLoans, useReturnEquipment, useDeleteEquipmentLoan, EquipmentLoan } from '@/hooks/useEquipment';
+import { useEquipmentLoan, useEquipmentLoans, useOverdueLoans, useReturnEquipment, useDeleteEquipmentLoan, EquipmentLoan } from '@/hooks/useEquipment';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
 import { EditReturnDateDialog } from '@/components/equipment/EditReturnDateDialog';
@@ -101,6 +101,7 @@ export default function EquipmentLoans() {
   const { data: awaitingReservations } = useEquipmentReservations('awaiting_pickup');
   const { data: returnedLoans } = useEquipmentLoans('returned');
   const { data: overdueLoans } = useOverdueLoans();
+  const { data: selectedLoanDetails } = useEquipmentLoan(selectedLoan?.id, detailsDialogOpen);
   const returnEquipment = useReturnEquipment();
   const deleteEquipmentLoan = useDeleteEquipmentLoan();
 
@@ -499,7 +500,7 @@ export default function EquipmentLoans() {
       <EquipmentLoanDetailsDialog
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
-        loan={selectedLoan}
+        loan={selectedLoanDetails ?? selectedLoan}
         loans={selectedGroup?.loans}
         onReturn={handleReturnFromDetails}
         showReturnButton={selectedGroup?.status === 'active'}

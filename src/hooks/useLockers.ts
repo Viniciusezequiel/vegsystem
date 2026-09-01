@@ -34,6 +34,13 @@ export type LockerLoan = {
   locker?: Locker;
 };
 
+const LOCKER_LOAN_LIST_SELECT = [
+  'id', 'locker_id', 'borrower_name', 'borrower_phone', 'borrower_email',
+  'borrower_sector', 'expected_return_date', 'actual_return_date', 'status',
+  'loaned_by', 'returned_by', 'notes', 'returner_name', 'created_at', 'updated_at',
+  'locker:lockers(id,code,campus,location,description,status,created_at,updated_at)',
+].join(',');
+
 export type LockerExchange = {
   id: string;
   old_loan_id: string;
@@ -153,7 +160,7 @@ export function useLockerLoans(status?: 'active' | 'returned' | 'overdue') {
     queryFn: async () => {
       let query = supabase
         .from('locker_loans')
-        .select('*, locker:lockers(*)')
+        .select(LOCKER_LOAN_LIST_SELECT)
         .order('created_at', { ascending: false });
 
       if (status) {
@@ -167,6 +174,23 @@ export function useLockerLoans(status?: 'active' | 'returned' | 'overdue') {
   });
 }
 
+export function useLockerLoan(id?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['locker-loan-detail', id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from('locker_loans')
+        .select('*, locker:lockers(*)')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as LockerLoan | null;
+    },
+    enabled: Boolean(id) && enabled,
+  });
+}
+
 export function useOverdueLockerLoans() {
   return useQuery({
     queryKey: ['locker-loans', 'overdue-check'],
@@ -174,7 +198,7 @@ export function useOverdueLockerLoans() {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('locker_loans')
-        .select('*, locker:lockers(*)')
+        .select(LOCKER_LOAN_LIST_SELECT)
         .eq('status', 'active')
         .lt('expected_return_date', today);
       if (error) throw error;
@@ -213,7 +237,7 @@ export function useCreateLockerLoan() {
           notes: loan.notes,
           loaned_by: user?.id 
         })
-        .select()
+        .select('id, locker_id, status')
         .single();
       if (error) throw error;
 
@@ -251,7 +275,7 @@ export function useReturnLocker() {
       // Get loan details
       const { data: loan, error: loanError } = await supabase
         .from('locker_loans')
-        .select('*')
+        .select('id, locker_id, notes')
         .eq('id', loanId)
         .single();
       
@@ -361,7 +385,7 @@ export function useExchangeLocker() {
       // Get current loan details
       const { data: oldLoan, error: loanError } = await supabase
         .from('locker_loans')
-        .select('*')
+        .select('id, locker_id, borrower_name, borrower_phone, borrower_email, borrower_sector, expected_return_date')
         .eq('id', loanId)
         .single();
       

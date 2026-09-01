@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/table';
 import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search, Unlock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, useBulkReturnLockers, LockerLoan } from '@/hooks/useLockers';
+import { useLockerLoan, useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, useBulkReturnLockers, LockerLoan } from '@/hooks/useLockers';
 import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
 import { LockerExchangeDialog } from '@/components/lockers/LockerExchangeDialog';
 import { LockerLoanDetailsDialog } from '@/components/lockers/LockerLoanDetailsDialog';
@@ -42,6 +42,7 @@ export default function LockerLoans() {
   const { data: activeLoans } = useLockerLoans('active');
   const { data: returnedLoans } = useLockerLoans('returned');
   const { data: overdueLoans } = useOverdueLockerLoans();
+  const { data: selectedLoanDetails } = useLockerLoan(selectedLoan?.id, detailsDialogOpen);
   const { data: availableLockers } = useLockersList('available');
   const returnLocker = useReturnLocker();
   const exchangeLocker = useExchangeLocker();
@@ -386,7 +387,7 @@ export default function LockerLoans() {
       <LockerLoanDetailsDialog
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
-        loan={selectedLoan}
+        loan={selectedLoanDetails ?? selectedLoan}
         onReturn={handleReturnFromDetails}
         onExchange={handleExchangeFromDetails}
         showReturnButton={selectedLoan?.status === 'active'}

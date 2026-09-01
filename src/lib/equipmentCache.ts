@@ -7,7 +7,7 @@ import type { Equipment, EquipmentLoan } from '@/hooks/useEquipment';
 
 const EQUIPMENT_CACHE_KEY = 'equipment-cache';
 const LOANS_CACHE_KEY = 'equipment-loans-cache';
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
 
 interface CachedEquipment {
@@ -80,6 +80,7 @@ export function isEquipmentCacheStale(): boolean {
  * Save equipment loans to cache
  */
 export function saveLoansToCache(data: EquipmentLoan[]): void {
+  const lightweightData = data.map(({ borrower_signature: _borrowerSignature, return_signature: _returnSignature, ...loan }) => loan as EquipmentLoan);
   const write = (items: EquipmentLoan[]) => {
     const cacheEntry: CachedLoans = {
       version: CACHE_VERSION,
@@ -90,13 +91,13 @@ export function saveLoansToCache(data: EquipmentLoan[]): void {
   };
 
   try {
-    write(data);
+    write(lightweightData);
   } catch {
     // Storage quota exceeded: retry with progressively smaller slices
     for (const limit of [500, 200, 50]) {
       try {
         localStorage.removeItem(LOANS_CACHE_KEY);
-        write(data.slice(0, limit));
+        write(lightweightData.slice(0, limit));
         return;
       } catch {
         // try a smaller slice

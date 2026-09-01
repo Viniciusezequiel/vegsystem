@@ -334,7 +334,7 @@ export function useUpdateLostItem() {
       // First fetch the existing item to compare changes
       const { data: existingItem } = await supabase
         .from('lost_items')
-        .select('*')
+        .select('code, description, campus, found_location, found_date, received_date, shelf, box, seal_number, delivered_by_name, delivered_by_contact')
         .eq('id', id)
         .single();
 
@@ -342,7 +342,7 @@ export function useUpdateLostItem() {
         .from('lost_items')
         .update(updateData)
         .eq('id', id)
-        .select()
+        .select('id, image_url')
         .single();
 
       if (error) throw error;
@@ -447,7 +447,7 @@ export function useDeliverLostItem() {
           delivered_by_team_member: user?.id,
         })
         .eq('id', data.id)
-        .select()
+        .select('id')
         .single();
 
       if (error) throw error;

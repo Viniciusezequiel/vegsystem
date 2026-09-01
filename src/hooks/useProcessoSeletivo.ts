@@ -3,6 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { psFinalScore, psClassification } from '@/lib/psConstants';
 
+const PS_EVENT_COLLABORATOR_LIST_SELECT = [
+  'id', 'event_id', 'collaborator_id', 'collaborator_name', 'role_value', 'role_name',
+  'assigned_role', 'sector', 'unit', 'institution', 'building', 'floor', 'room',
+  'campus', 'cpf', 'identity_doc', 'email', 'phone', 'mobile', 'pay_value',
+  'deposit_info', 'pix', 'import_tag', 'present', 'absent', 'evaluated', 'signed_at',
+  'signature_ip', 'notes', 'created_at', 'updated_at',
+].join(',');
+
 /* ---------------- Cargos ---------------- */
 export function usePsRoles() {
   return useQuery({
@@ -208,7 +216,7 @@ export function usePsEventCollaborators(eventId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ps_event_collaborators')
-        .select('*')
+        .select(PS_EVENT_COLLABORATOR_LIST_SELECT)
         .eq('event_id', eventId!)
         .order('collaborator_name');
       if (error) throw error;

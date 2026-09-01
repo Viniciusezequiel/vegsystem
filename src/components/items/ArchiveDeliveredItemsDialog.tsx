@@ -46,7 +46,7 @@ export function ArchiveDeliveredItemsDialog({ open, onOpenChange }: ArchiveDeliv
     mutationFn: async () => {
       let query = supabase
         .from('lost_items')
-        .select('*')
+        .select('id, code, description, campus, found_location, received_date, shelf, box, owner_name, owner_phone, owner_email, delivered_at, status')
         .eq('status', 'delivered')
         .order('received_date', { ascending: false });
 

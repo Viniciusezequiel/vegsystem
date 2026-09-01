@@ -57,6 +57,16 @@ export type EquipmentLoan = {
   _pending?: boolean;
 };
 
+const EQUIPMENT_LOAN_LIST_SELECT = [
+  'id', 'equipment_id', 'quantity_borrowed', 'borrower_name', 'borrower_sector',
+  'borrower_phone', 'borrower_type', 'purpose', 'authorizer_name', 'authorizer_contact',
+  'collaborator_name', 'expected_return_date', 'actual_return_date',
+  'return_collaborator_name', 'returner_name', 'returner_phone', 'item_condition',
+  'all_items_returned', 'pending_items_description', 'status', 'loaned_by', 'returned_by',
+  'notes', 'loan_group_id', 'created_at', 'updated_at',
+  'equipment(id,name,patrimony_code,old_patrimony_code,quantity,available_quantity,location,campus,description,category,image_url,status,allow_external_loan,created_by,created_at,updated_at)',
+].join(',');
+
 export function useEquipmentList(search?: string) {
   const queryClient = useQueryClient();
   
@@ -274,7 +284,7 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
 
       let query = supabase
         .from('equipment_loans')
-        .select('*, equipment(*)')
+        .select(EQUIPMENT_LOAN_LIST_SELECT)
         .order('created_at', { ascending: false });
 
       if (status) {
@@ -308,6 +318,23 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
   });
 }
 
+export function useEquipmentLoan(id?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['equipment-loan-detail', id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from('equipment_loans')
+        .select('*, equipment(*)')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as EquipmentLoan | null;
+    },
+    enabled: Boolean(id) && enabled,
+  });
+}
+
 export function useOverdueLoans() {
   return useQuery({
     queryKey: ['equipment-loans', 'overdue-check'],
@@ -315,7 +342,7 @@ export function useOverdueLoans() {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('equipment_loans')
-        .select('*, equipment(*)')
+        .select(EQUIPMENT_LOAN_LIST_SELECT)
         .eq('status', 'active')
         .lt('expected_return_date', today);
       if (error) throw error;
@@ -369,7 +396,7 @@ export function useCreateEquipmentLoan() {
           loaned_by: user?.id,
           loan_group_id: loan_group_id || null,
         })
-        .select()
+        .select('id, equipment_id, quantity_borrowed, status, loan_group_id')
         .single();
       if (error) throw error;
 
@@ -483,7 +510,7 @@ export function useCreateBatchLoans() {
       const { data, error } = await supabase
         .from('equipment_loans')
         .insert(loanRecords)
-        .select();
+        .select('id, equipment_id, quantity_borrowed, status, loan_group_id');
       if (error) throw error;
 
       // 4. Deduct stock once per equipment
@@ -621,7 +648,7 @@ export function useReturnEquipment() {
         // Get loan details
         const { data: loan, error: loanError } = await supabase
           .from('equipment_loans')
-          .select('*, equipment(*)')
+          .select('id, equipment_id, quantity_borrowed, notes, equipment(id,available_quantity)')
           .eq('id', loanId)
           .single();
         

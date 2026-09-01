@@ -24,6 +24,7 @@ import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pe
 import { generatePsBadgesPdf, generatePsAttendancePdf } from '@/lib/psEventPdf';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function PsEventDetail() {
   const { id } = useParams();
@@ -161,9 +162,16 @@ export default function PsEventDetail() {
     generatePsBadgesPdf(eventInfo(), links as any).save(`etiquetas-${slug}.pdf`);
   };
 
-  const exportAttendancePdf = () => {
+  const exportAttendancePdf = async () => {
     if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
-    generatePsAttendancePdf(eventInfo(), links as any).save(`lista-presenca-${slug}.pdf`);
+    const { data: signatures, error } = await supabase
+      .from('ps_event_collaborators')
+      .select('id, signature_url')
+      .eq('event_id', id!);
+    if (error) { toast.error('Não foi possível carregar as assinaturas para o PDF.'); return; }
+    const signatureById = new Map((signatures || []).map(row => [row.id, row.signature_url]));
+    const pdfRows = links.map((row: any) => ({ ...row, signature_url: signatureById.get(row.id) ?? null }));
+    generatePsAttendancePdf(eventInfo(), pdfRows as any).save(`lista-presenca-${slug}.pdf`);
   };
 
   if (!event) {

@@ -203,7 +203,7 @@ async function processEquipmentLoanOperation(op: OfflineOperation): Promise<bool
       // Get loan details
       const { data: loan } = await supabase
         .from('equipment_loans')
-        .select('*, equipment(*)')
+        .select('id, equipment_id, quantity_borrowed, equipment(id,available_quantity)')
         .eq('id', loanId as string)
         .single();
 
