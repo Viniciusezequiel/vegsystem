@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { psFinalScore, psClassification } from '@/lib/psConstants';
+import { planPsFiscalReconciliation, type PsFiscalDecision } from '@/lib/psFiscalFoundation';
 
 const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'id', 'event_id', 'collaborator_id', 'collaborator_name', 'role_value', 'role_name',
@@ -58,7 +59,12 @@ export function usePsCollaborators() {
   return useQuery({
     queryKey: ['ps_collaborators'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('ps_collaborators').select('*').order('full_name');
+      const { data, error } = await supabase.from('ps_collaborators').select([
+        'id', 'full_name', 'cpf', 'matricula', 'email', 'email_normalized', 'phone', 'mobile',
+        'role', 'unit', 'sector', 'position', 'journey', 'pcd', 'city', 'state', 'pix',
+        'total_events', 'average_rating', 'identity_doc', 'institution', 'preferred_role',
+        'notes', 'active', 'created_at', 'updated_at',
+      ].join(',')).order('full_name');
       if (error) throw error;
       return data;
     },
@@ -83,11 +89,16 @@ export function usePsCollaboratorMutations() {
 
   const save = useMutation({
     mutationFn: async (c: any) => {
-      if (c.id) {
-        const { error } = await supabase.from('ps_collaborators').update(c).eq('id', c.id);
+      const { id, email_normalized, matricula_normalized, institution_normalized, ...values } = c;
+      const record = { ...values };
+      if ('email' in values) record.email = values.email?.trim() || null;
+      if ('matricula' in values) record.matricula = values.matricula?.trim() || null;
+      if ('institution' in values) record.institution = values.institution?.trim().replace(/\s+/g, ' ') || null;
+      if (id) {
+        const { error } = await supabase.from('ps_collaborators').update(record).eq('id', id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('ps_collaborators').insert(c);
+        const { error } = await supabase.from('ps_collaborators').insert(record);
         if (error) throw error;
       }
     },
@@ -104,27 +115,22 @@ export function usePsCollaboratorMutations() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const bulkImport = useMutation({
-    mutationFn: async (rows: any[]) => {
-      const { data: existing } = await supabase.from('ps_collaborators').select('full_name, cpf, matricula');
-      const keys = new Set((existing || []).map((e: any) => `${(e.full_name || '').toLowerCase()}|${e.cpf || ''}|${e.matricula || ''}`));
-      const toInsert = rows.filter((r) => {
-        const k = `${(r.full_name || '').toLowerCase()}|${r.cpf || ''}|${r.matricula || ''}`;
-        if (keys.has(k)) return false;
-        keys.add(k);
-        return true;
-      });
-      if (toInsert.length) {
-        const { error } = await supabase.from('ps_collaborators').insert(toInsert);
-        if (error) throw error;
-      }
-      return { inserted: toInsert.length, skipped: rows.length - toInsert.length };
-    },
-    onSuccess: (r) => { invalidate(); toast.success(`${r.inserted} importados, ${r.skipped} duplicados ignorados.`); },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  return { save, remove };
+}
 
-  return { save, remove, bulkImport };
+export function usePsCollaboratorParticipations() {
+  return useQuery({
+    queryKey: ['ps_collaborator_participations'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ps_event_collaborators')
+        .select('id,collaborator_id,event_id,role_name,assigned_role,present,absent,created_at,ps_events(name,date)')
+        .not('collaborator_id', 'is', null)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 }
 
 /* ---------------- Eventos ---------------- */
@@ -264,6 +270,7 @@ export type PsTeamImportRow = {
   full_name: string;
   identity_doc?: string | null;
   cpf?: string | null;
+  matricula?: string | null;
   email?: string | null;
   phone?: string | null;
   mobile?: string | null;
@@ -279,37 +286,61 @@ export type PsTeamImportRow = {
   pix?: string | null;
 };
 
+export type PsTeamImportPreview = {
+  decisions: PsFiscalDecision[];
+  found: number;
+  newCount: number;
+  alreadyLinked: number;
+  inconsistent: number;
+  ignored: number;
+};
+
+async function loadPsImportContext(eventId: string) {
+  const [{ data: existing, error: existingError }, { data: links, error: linksError }] = await Promise.all([
+    supabase.from('ps_collaborators').select('id,email,email_normalized,matricula,institution'),
+    supabase.from('ps_event_collaborators').select('collaborator_id').eq('event_id', eventId),
+  ]);
+  if (existingError) throw existingError;
+  if (linksError) throw linksError;
+  return { existing: existing || [], linked: new Set((links || []).map((item: any) => item.collaborator_id).filter(Boolean)) };
+}
+
+export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImportRow[]): Promise<PsTeamImportPreview> {
+  const { existing, linked } = await loadPsImportContext(eventId);
+  const decisions = planPsFiscalReconciliation(existing, rows);
+  let found = 0, newCount = 0, alreadyLinked = 0, inconsistent = 0, ignored = 0;
+  for (const decision of decisions) {
+    if (decision.status === 'ambiguous' || decision.status === 'inconsistent') inconsistent += 1;
+    else if (decision.status === 'new') newCount += 1;
+    else if (decision.collaboratorId.startsWith('__new_fiscal_')) ignored += 1;
+    else if (linked.has(decision.collaboratorId)) alreadyLinked += 1;
+    else found += 1;
+  }
+  return { decisions, found, newCount, alreadyLinked, inconsistent, ignored };
+}
+
 export function usePsImportEventTeam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ eventId, rows }: { eventId: string; rows: PsTeamImportRow[] }) => {
-      // 1. Reaproveita colaboradores já existentes (mesma pessoa em vários eventos = 1 cadastro)
-      const { data: existing, error: exErr } = await supabase
-        .from('ps_collaborators')
-        .select('id, full_name, cpf');
-      if (exErr) throw exErr;
+      const { existing, linked } = await loadPsImportContext(eventId);
+      const decisions = planPsFiscalReconciliation(existing, rows);
+      const unsafe = decisions.find(decision => decision.status === 'ambiguous' || decision.status === 'inconsistent');
+      if (unsafe) throw new Error(`Importação interrompida na linha ${unsafe.rowIndex + 2}: identidade ausente ou ambígua.`);
 
-      const byCpf = new Map<string, string>();
-      const byName = new Map<string, string>();
-      (existing || []).forEach((c: any) => {
-        if (c.cpf) byCpf.set(String(c.cpf).replace(/\D/g, ''), c.id);
-        byName.set(String(c.full_name || '').trim().toLowerCase(), c.id);
-      });
-
+      const temporaryIds = new Map<string, string>();
       let created = 0;
       const resolved: { row: PsTeamImportRow; collaboratorId: string }[] = [];
-
-      for (const row of rows) {
-        const cpfDigits = (row.cpf || '').replace(/\D/g, '');
-        const nameKey = row.full_name.trim().toLowerCase();
-        let id = (cpfDigits && byCpf.get(cpfDigits)) || byName.get(nameKey);
-
-        if (!id) {
+      for (const decision of decisions) {
+        const row = rows[decision.rowIndex];
+        let id: string;
+        if (decision.status === 'new') {
           const { data, error } = await supabase
             .from('ps_collaborators')
             .insert({
               full_name: row.full_name.trim(),
               cpf: row.cpf || null,
+              matricula: row.matricula?.trim() || null,
               identity_doc: row.identity_doc || null,
               email: row.email || null,
               phone: row.phone || row.mobile || null,
@@ -325,23 +356,21 @@ export function usePsImportEventTeam() {
           if (error) throw error;
           id = data.id;
           created += 1;
-          if (cpfDigits) byCpf.set(cpfDigits, id);
-          byName.set(nameKey, id);
+          temporaryIds.set(decision.temporaryId!, id);
+        } else {
+          id = temporaryIds.get(decision.collaboratorId) || decision.collaboratorId;
         }
         resolved.push({ row, collaboratorId: id });
       }
 
-      // 2. Vincula ao evento (sem duplicar a mesma pessoa no mesmo evento)
-      const { data: links, error: linkErr } = await supabase
-        .from('ps_event_collaborators')
-        .select('collaborator_id')
-        .eq('event_id', eventId);
-      if (linkErr) throw linkErr;
-      const linked = new Set((links || []).map((l: any) => l.collaborator_id));
-
       const importTag = `import-${Date.now()}`;
+      const scheduled = new Set<string>();
       const toInsert = resolved
-        .filter((r) => !linked.has(r.collaboratorId))
+        .filter((r) => {
+          if (linked.has(r.collaboratorId) || scheduled.has(r.collaboratorId)) return false;
+          scheduled.add(r.collaboratorId);
+          return true;
+        })
         .map(({ row, collaboratorId }) => ({
           event_id: eventId,
           collaborator_id: collaboratorId,

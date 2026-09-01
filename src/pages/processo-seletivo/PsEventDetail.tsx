@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
 import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
+import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
@@ -260,9 +261,9 @@ export default function PsEventDetail() {
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     <div className="flex items-center justify-between"><Label className="text-xs">Presente</Label>
-                      <Switch checked={!!l.present} onCheckedChange={(v) => update.mutate({ id: l.id, present: v })} /></div>
+                      <Switch checked={!!l.present} onCheckedChange={(v) => update.mutate({ id: l.id, ...psPresencePatch('present', v) })} /></div>
                     <div className="flex items-center justify-between"><Label className="text-xs">Ausente</Label>
-                      <Switch checked={!!l.absent} onCheckedChange={(v) => update.mutate({ id: l.id, absent: v })} /></div>
+                      <Switch checked={!!l.absent} onCheckedChange={(v) => update.mutate({ id: l.id, ...psPresencePatch('absent', v) })} /></div>
                     <div className="flex gap-2">
                       <Button size="sm" className="flex-1" onClick={() => { setEvalTarget(l); setCriteria(emptyCriteria()); }}>
                         <Star className="mr-1 h-4 w-4" />Avaliar
@@ -363,7 +364,7 @@ export default function PsEventDetail() {
             </div>
             <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border p-2">
               {collaborators
-                .filter((c: any) => !links.some((l: any) => l.collaborator_id === c.id))
+                .filter((c: any) => c.active && !links.some((l: any) => l.collaborator_id === c.id))
                 .map((c: any) => (
                   <Button
                     key={c.id}

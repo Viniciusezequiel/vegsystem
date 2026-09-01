@@ -3,13 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Upload, Download, FileSpreadsheet } from 'lucide-react';
-import { usePsImportEventTeam, type PsTeamImportRow } from '@/hooks/useProcessoSeletivo';
+import {
+  previewPsEventTeamImport, usePsImportEventTeam, type PsTeamImportPreview, type PsTeamImportRow,
+} from '@/hooks/useProcessoSeletivo';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
 /** Colunas da planilha oficial "CandidatosPagamento" */
 export const PS_TEAM_COLUMNS = [
-  'NOME', 'IDENTIDADE', 'CPF', 'EMAIL', 'TELEFONE', 'CELULAR', 'UNIDADE', 'SETOR',
+  'NOME', 'IDENTIDADE', 'CPF', 'MATRICULA', 'EMAIL', 'TELEFONE', 'CELULAR', 'UNIDADE', 'SETOR',
   'INSTITUICAO', 'FUNCAO', 'PREDIO', 'ANDAR', 'SALA', 'VALOR', 'DEPOSITO', 'PIX',
 ];
 
@@ -31,6 +33,7 @@ export function downloadTeamTemplate() {
     NOME: 'Maria Silva Souza',
     IDENTIDADE: 'MG-15.930.225',
     CPF: '125.404.086-21',
+    MATRICULA: '123456',
     EMAIL: 'maria.souza@empresa.org.br',
     TELEFONE: '(31)3450-6660',
     CELULAR: '(31)99367-6945',
@@ -64,6 +67,8 @@ export function PsEventTeamImportDialog({
   const importTeam = usePsImportEventTeam();
   const [preview, setPreview] = useState<PsTeamImportRow[]>([]);
   const [fileName, setFileName] = useState('');
+  const [plan, setPlan] = useState<PsTeamImportPreview | null>(null);
+  const [planning, setPlanning] = useState(false);
 
   const readFile = async (file: File) => {
     try {
@@ -74,6 +79,7 @@ export function PsEventTeamImportDialog({
           full_name: pick(r, 'NOME', 'Nome', 'NOME COMPLETO'),
           identity_doc: pick(r, 'IDENTIDADE', 'RG') || null,
           cpf: pick(r, 'CPF') || null,
+          matricula: pick(r, 'MATRICULA', 'MATRÍCULA') || null,
           email: pick(r, 'EMAIL', 'E-MAIL') || null,
           phone: pick(r, 'TELEFONE') || null,
           mobile: pick(r, 'CELULAR') || null,
@@ -95,7 +101,11 @@ export function PsEventTeamImportDialog({
       }
       setFileName(file.name);
       setPreview(rows);
+      setPlanning(true);
+      setPlan(await previewPsEventTeamImport(eventId, rows));
+      setPlanning(false);
     } catch (e: any) {
+      setPlanning(false);
       toast.error(`Não foi possível ler a planilha: ${e.message}`);
     }
   };
@@ -104,11 +114,12 @@ export function PsEventTeamImportDialog({
     await importTeam.mutateAsync({ eventId, rows: preview });
     setPreview([]);
     setFileName('');
+    setPlan(null);
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setPreview([]); setFileName(''); } }}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setPreview([]); setFileName(''); setPlan(null); } }}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Importar colaboradores do evento</DialogTitle>
@@ -137,8 +148,8 @@ export function PsEventTeamImportDialog({
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Pessoas já cadastradas (mesmo CPF ou mesmo nome) são reaproveitadas — não é criado um colaborador
-            duplicado. As avaliações continuam separadas por evento e a nota média considera todos os eventos.
+            A conciliação usa e-mail normalizado e, como fallback, matrícula + instituição. Nome e CPF nunca
+            provocam merge automático. Linhas sem identidade segura devem ser corrigidas antes da importação.
           </p>
 
           {preview.length > 0 && (
@@ -164,11 +175,21 @@ export function PsEventTeamImportDialog({
               </CardContent>
             </Card>
           )}
+
+          {plan && (
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+              <Card><CardContent className="p-3"><p className="text-muted-foreground">Encontrados</p><p className="text-xl font-bold">{plan.found}</p></CardContent></Card>
+              <Card><CardContent className="p-3"><p className="text-muted-foreground">Novos</p><p className="text-xl font-bold">{plan.newCount}</p></CardContent></Card>
+              <Card><CardContent className="p-3"><p className="text-muted-foreground">Já vinculados</p><p className="text-xl font-bold">{plan.alreadyLinked}</p></CardContent></Card>
+              <Card><CardContent className="p-3"><p className="text-muted-foreground">Inconsistentes</p><p className="text-xl font-bold">{plan.inconsistent}</p></CardContent></Card>
+              <Card><CardContent className="p-3"><p className="text-muted-foreground">Ignorados</p><p className="text-xl font-bold">{plan.ignored}</p></CardContent></Card>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={confirm} disabled={!preview.length || importTeam.isPending}>
+          <Button onClick={confirm} disabled={!preview.length || !plan || planning || plan.inconsistent > 0 || importTeam.isPending}>
             Importar {preview.length || ''}
           </Button>
         </DialogFooter>

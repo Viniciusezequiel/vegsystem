@@ -9,10 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Search, Trash2, Pencil, Star, Download, Copy, X } from 'lucide-react';
+import { Plus, Search, Pencil, Star, Download, Copy, X, History } from 'lucide-react';
 import {
   usePsCollaborators, usePsCollaboratorMutations, usePsRoles, usePsEvaluations,
   usePsFiscalBankApplications, usePsFiscalBankConfig, usePsSaveFiscalBankConfig,
+  usePsCollaboratorParticipations,
 } from '@/hooks/useProcessoSeletivo';
 import { PS_CLASSIFICATION_LABEL, psClassification } from '@/lib/psConstants';
 import { toast } from 'sonner';
@@ -27,12 +28,15 @@ export default function PsCollaborators() {
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: roles = [] } = usePsRoles();
   const { data: evaluations = [] } = usePsEvaluations();
-  const { save, remove } = usePsCollaboratorMutations();
+  const { save } = usePsCollaboratorMutations();
+  const { data: participations = [] } = usePsCollaboratorParticipations();
   const { data: applications = [] } = usePsFiscalBankApplications();
   const { data: config } = usePsFiscalBankConfig();
   const saveConfig = usePsSaveFiscalBankConfig();
 
   const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState('active');
+  const [historyFiscal, setHistoryFiscal] = useState<any>(null);
   const [appSearch, setAppSearch] = useState('');
   const [newDate, setNewDate] = useState('');
   const [open, setOpen] = useState(false);
@@ -48,20 +52,25 @@ export default function PsCollaborators() {
       collaborators
         .map((c: any) => {
           const evs = evaluations.filter((e: any) => e.collaborator_id === c.id);
+          const history = participations.filter((item: any) => item.collaborator_id === c.id);
           return {
             ...c,
+            history,
+            participation_count: history.length,
             evaluations_count: evs.length,
             events_evaluated: new Set(evs.map((e: any) => e.event_id).filter(Boolean)).size,
             classification: psClassification(Number(c.average_rating || 0)),
           };
         })
         .sort((a: any, b: any) => Number(b.average_rating) - Number(a.average_rating)),
-    [collaborators, evaluations],
+    [collaborators, evaluations, participations],
   );
 
-  const filtered = ranked.filter((c: any) =>
-    [c.full_name, c.cpf, c.matricula, c.email, c.sector].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = ranked.filter((c: any) => {
+    const matchesStatus = activeFilter === 'all' || (activeFilter === 'active' ? c.active : !c.active);
+    return matchesStatus && [c.full_name, c.matricula, c.email, c.institution, c.sector]
+      .filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase());
+  });
 
   const filteredApps = applications.filter((a: any) =>
     [a.nome_completo, a.email, a.setor, a.instituto].filter(Boolean).join(' ').toLowerCase().includes(appSearch.toLowerCase()),
@@ -131,9 +140,19 @@ export default function PsCollaborators() {
           </TabsList>
 
           <TabsContent value="lista" className="space-y-4 pt-4">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Buscar por nome, CPF, matrícula..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <div className="flex max-w-2xl gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input className="pl-9" placeholder="Buscar por nome, e-mail, matrícula ou instituição..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              <Select value={activeFilter} onValueChange={setActiveFilter}>
+                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Ativos</SelectItem>
+                  <SelectItem value="inactive">Inativos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <p className="text-sm text-muted-foreground">
               A lista já é o ranking: ordenada pela nota média das avaliações de todos os eventos.
@@ -149,7 +168,7 @@ export default function PsCollaborators() {
                         <p className="font-medium">{c.full_name}</p>
                         <p className="text-xs text-muted-foreground">
                           {[
-                            `${c.total_events || 0} eventos`,
+                            `${c.participation_count} atuações`,
                             `${c.evaluations_count} avaliações`,
                             c.sector,
                             c.phone,
@@ -158,10 +177,17 @@ export default function PsCollaborators() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Badge variant={c.active ? 'default' : 'secondary'}>{c.active ? 'Ativo' : 'Inativo'}</Badge>
                       <Badge variant="secondary">{PS_CLASSIFICATION_LABEL[c.classification]}</Badge>
                       <Badge className="gap-1"><Star className="h-3 w-3" />{Number(c.average_rating || 0).toFixed(2)}</Badge>
-                      <Button size="sm" variant="outline" onClick={() => { const { evaluations_count, events_evaluated, classification, ...rest } = c; setForm(rest); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="outline" onClick={() => { if (confirm('Excluir colaborador?')) remove.mutate(c.id); }}><Trash2 className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        const { evaluations_count, events_evaluated, classification, history, participation_count, ...rest } = c;
+                        setForm(rest); setOpen(true);
+                      }}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => setHistoryFiscal(c)} title="Histórico"><History className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => save.mutate({ id: c.id, active: !c.active })}>
+                        {c.active ? 'Inativar' : 'Ativar'}
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -243,6 +269,7 @@ export default function PsCollaborators() {
               <div><Label>CPF</Label><Input value={form.cpf || ''} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
               <div><Label>Identidade</Label><Input value={form.identity_doc || ''} onChange={(e) => setForm({ ...form, identity_doc: e.target.value })} /></div>
             </div>
+            <div><Label>Matrícula</Label><Input value={form.matricula || ''} onChange={(e) => setForm({ ...form, matricula: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>E-mail</Label><Input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div><Label>Telefone</Label><Input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
@@ -270,6 +297,24 @@ export default function PsCollaborators() {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button onClick={submit} disabled={save.isPending}>Salvar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyFiscal} onOpenChange={(value) => !value && setHistoryFiscal(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Histórico de {historyFiscal?.full_name}</DialogTitle></DialogHeader>
+          <div className="divide-y rounded-lg border">
+            {(historyFiscal?.history || []).map((item: any) => (
+              <div key={item.id} className="p-3 text-sm">
+                <p className="font-medium">{item.ps_events?.name || 'Evento'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {[item.ps_events?.date, item.role_name || item.assigned_role,
+                    item.absent ? 'Ausente' : item.present ? 'Presente' : 'Sem confirmação'].filter(Boolean).join(' · ')}
+                </p>
+              </div>
+            ))}
+            {!historyFiscal?.history?.length && <p className="p-3 text-sm text-muted-foreground">Nenhuma atuação vinculada.</p>}
+          </div>
         </DialogContent>
       </Dialog>
     </MainLayout>
