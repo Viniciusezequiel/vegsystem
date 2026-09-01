@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cleanupUploadedSignatureIfUnreferenced, getSignatureSource, uploadSignatureValue } from '@/lib/signatureStorage';
 
 export type Locker = {
   id: string;
@@ -222,6 +223,8 @@ export function useCreateLockerLoan() {
       notes?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
+      const signatureWasUploaded = getSignatureSource(loan.borrower_signature).provider === 'inline';
+      const borrowerSignature = await uploadSignatureValue('lockers', loan.borrower_signature);
       
       // Create loan
       const { data, error } = await supabase
@@ -232,14 +235,17 @@ export function useCreateLockerLoan() {
           borrower_phone: loan.borrower_phone,
           borrower_email: loan.borrower_email,
           borrower_sector: loan.borrower_sector,
-          borrower_signature: loan.borrower_signature,
+          borrower_signature: borrowerSignature,
           expected_return_date: loan.expected_return_date,
           notes: loan.notes,
           loaned_by: user?.id 
         })
         .select('id, locker_id, status')
         .single();
-      if (error) throw error;
+      if (error) {
+        if (signatureWasUploaded && borrowerSignature) await cleanupUploadedSignatureIfUnreferenced('lockers', borrowerSignature);
+        throw error;
+      }
 
       // Update locker status
       await supabase
@@ -280,6 +286,8 @@ export function useReturnLocker() {
         .single();
       
       if (loanError) throw loanError;
+      const signatureWasUploaded = getSignatureSource(signature).provider === 'inline';
+      const returnSignature = await uploadSignatureValue('lockers', signature);
 
       // Update loan status
       const { error } = await supabase
@@ -289,11 +297,14 @@ export function useReturnLocker() {
           actual_return_date: new Date().toISOString().split('T')[0],
           returned_by: user?.id,
           returner_name: returnerName || null,
-          return_signature: signature || null,
+          return_signature: returnSignature,
           notes: notes || loan.notes,
         })
         .eq('id', loanId);
-      if (error) throw error;
+      if (error) {
+        if (signatureWasUploaded && returnSignature) await cleanupUploadedSignatureIfUnreferenced('lockers', returnSignature);
+        throw error;
+      }
 
       // Update locker status
       await supabase

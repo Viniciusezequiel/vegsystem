@@ -7,6 +7,7 @@ import { loadLostItemsFromCache, saveImagesToCache, saveLostItemsToCache } from 
 import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
 import { getDeletableLostItemImagePath, normalizeLostItemImagePath } from '@/lib/lostItemImageValue';
 import { deleteLostItemImageIfUnreferenced } from '@/lib/lostItemStorage';
+import { cleanupUploadedSignatureIfUnreferenced, getSignatureSource, uploadSignatureValue } from '@/lib/signatureStorage';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -433,6 +434,8 @@ export function useDeliverLostItem() {
 
       const destinationText = data.destination === 'donation' ? 'Doação' : 
                               data.destination === 'disposal' ? 'Descarte' : '';
+      const signatureWasUploaded = getSignatureSource(data.owner_signature).provider === 'inline';
+      const ownerSignature = await uploadSignatureValue('lost-items', data.owner_signature);
 
       const { data: item, error } = await supabase
         .from('lost_items')
@@ -442,7 +445,7 @@ export function useDeliverLostItem() {
                       data.destination === 'disposal' ? 'DESCARTE' : data.owner_name,
           owner_email: data.owner_email || null,
           owner_phone: data.owner_phone || null,
-          owner_signature: data.owner_signature,
+          owner_signature: ownerSignature,
           delivered_at: new Date().toISOString(),
           delivered_by_team_member: user?.id,
         })
@@ -450,7 +453,10 @@ export function useDeliverLostItem() {
         .select('id')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (signatureWasUploaded && ownerSignature) await cleanupUploadedSignatureIfUnreferenced('lost-items', ownerSignature);
+        throw error;
+      }
 
       // Log activity
       const actionDetails = data.destination === 'donation' 

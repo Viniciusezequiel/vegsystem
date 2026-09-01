@@ -75,3 +75,28 @@ test('detalhe de Achados resolve owner_signature com renderer provider-aware', (
   assert.match(component, /value=\{item\.owner_signature\}[\s\S]*expectedModule="lost-items"/);
   assert.doesNotMatch(component, /<img\s+src=\{item\.owner_signature\}/);
 });
+
+test('novas assinaturas fazem upload antes do write e não persistem Base64 diretamente', () => {
+  const files = [
+    '../../src/hooks/useEquipment.ts',
+    '../../src/hooks/useLockers.ts',
+    '../../src/hooks/useLostItems.ts',
+  ];
+  const source = files.map(file => fs.readFileSync(new URL(file, import.meta.url), 'utf8')).join('\n');
+  for (const module of ['equipment', 'lockers', 'lost-items']) {
+    assert.match(source, new RegExp(`uploadSignatureValue\\('${module}'`));
+    assert.match(source, new RegExp(`cleanupUploadedSignatureIfUnreferenced\\('${module}'`));
+  }
+  assert.doesNotMatch(source, /borrower_signature:\s*(?:loanData|common|loan)\.borrower_signature/);
+  assert.doesNotMatch(source, /return_signature:\s*(?:data\.return_signature|signature\s*\|\|\s*null)/);
+  assert.doesNotMatch(source, /owner_signature:\s*data\.owner_signature/);
+});
+
+test('cleanup de assinatura conta referências antes de apagar somente a key exata', () => {
+  const source = fs.readFileSync(new URL('../../src/lib/signatureStorage.ts', import.meta.url), 'utf8');
+  assert.match(source, /countSignatureReferences\(module, locator\)[\s\S]*!== 0\) return false/);
+  assert.match(source, /\/v1\/files\/\$\{locator\.slice\(3\)\}/);
+  assert.match(source, /method: 'DELETE'/);
+  assert.match(source, /lost_items_archive/);
+  assert.doesNotMatch(source, /deleteAll|deletePrefix|service_role/i);
+});

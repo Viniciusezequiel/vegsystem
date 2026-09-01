@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { saveEquipmentToCache, loadEquipmentFromCache, saveLoansToCache, loadLoansFromCache } from '@/lib/equipmentCache';
+import { cleanupUploadedSignatureIfUnreferenced, getSignatureSource, uploadSignatureValue } from '@/lib/signatureStorage';
 
 export type Equipment = {
   id: string;
@@ -375,11 +376,13 @@ export function useCreateEquipmentLoan() {
       const { data: { user } } = await supabase.auth.getUser();
       
       const { skip_stock_deduction, loan_group_id, ...loanData } = loan;
+      const signatureWasUploaded = getSignatureSource(loanData.borrower_signature).provider === 'inline';
+      const borrowerSignature = await uploadSignatureValue('equipment', loanData.borrower_signature);
       
       // Create loan first
       const { data, error } = await supabase
         .from('equipment_loans')
-        .insert({ 
+        .insert({
           equipment_id: loanData.equipment_id,
           quantity_borrowed: loanData.quantity_borrowed,
           borrower_name: loanData.borrower_name,
@@ -387,7 +390,7 @@ export function useCreateEquipmentLoan() {
           borrower_phone: loanData.borrower_phone,
           expected_return_date: loanData.expected_return_date,
           notes: loanData.notes,
-          borrower_signature: loanData.borrower_signature,
+          borrower_signature: borrowerSignature,
           borrower_type: loanData.borrower_type,
           purpose: loanData.purpose,
           authorizer_name: loanData.authorizer_name,
@@ -398,7 +401,10 @@ export function useCreateEquipmentLoan() {
         })
         .select('id, equipment_id, quantity_borrowed, status, loan_group_id')
         .single();
-      if (error) throw error;
+      if (error) {
+        if (signatureWasUploaded && borrowerSignature) await cleanupUploadedSignatureIfUnreferenced('equipment', borrowerSignature);
+        throw error;
+      }
 
       return data;
     },
@@ -489,6 +495,8 @@ export function useCreateBatchLoans() {
       }
 
       // 3. Create all loan records in a single insert
+      const signatureWasUploaded = getSignatureSource(common.borrower_signature).provider === 'inline';
+      const borrowerSignature = await uploadSignatureValue('equipment', common.borrower_signature);
       const loanRecords = items.map(item => ({
         equipment_id: item.equipment_id,
         quantity_borrowed: item.quantity_borrowed,
@@ -497,7 +505,7 @@ export function useCreateBatchLoans() {
         borrower_phone: common.borrower_phone,
         expected_return_date: common.expected_return_date,
         notes: common.notes,
-        borrower_signature: common.borrower_signature,
+        borrower_signature: borrowerSignature,
         borrower_type: common.borrower_type,
         purpose: common.purpose,
         authorizer_name: common.authorizer_name,
@@ -511,7 +519,10 @@ export function useCreateBatchLoans() {
         .from('equipment_loans')
         .insert(loanRecords)
         .select('id, equipment_id, quantity_borrowed, status, loan_group_id');
-      if (error) throw error;
+      if (error) {
+        if (signatureWasUploaded && borrowerSignature) await cleanupUploadedSignatureIfUnreferenced('equipment', borrowerSignature);
+        throw error;
+      }
 
       // 4. Deduct stock once per equipment
       for (const [equipId, qty] of stockNeeded.entries()) {
@@ -643,8 +654,11 @@ export function useReturnEquipment() {
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       const loanIds = Array.isArray(data.loanId) ? data.loanId : [data.loanId];
+      const signatureWasUploaded = getSignatureSource(data.return_signature).provider === 'inline';
+      const returnSignature = await uploadSignatureValue('equipment', data.return_signature);
 
-      for (const loanId of loanIds) {
+      try {
+        for (const loanId of loanIds) {
         // Get loan details
         const { data: loan, error: loanError } = await supabase
           .from('equipment_loans')
@@ -661,7 +675,7 @@ export function useReturnEquipment() {
             status: 'returned',
             actual_return_date: new Date().toISOString().split('T')[0],
             returned_by: user?.id,
-            return_signature: data.return_signature,
+            return_signature: returnSignature,
             returner_name: data.returner_name,
             returner_phone: data.returner_phone,
             item_condition: data.item_condition,
@@ -682,6 +696,10 @@ export function useReturnEquipment() {
             status: 'available'
           })
           .eq('id', loan.equipment_id);
+        }
+      } catch (error) {
+        if (signatureWasUploaded && returnSignature) await cleanupUploadedSignatureIfUnreferenced('equipment', returnSignature);
+        throw error;
       }
     },
     onSuccess: () => {

@@ -46,6 +46,68 @@ export async function uploadSignaturePng(module: string, png: Blob): Promise<str
   });
   if (!response.ok) throw new Error(`signature_upload_failed_${response.status}`);
   const payload = await response.json();
-  if (getSignatureSource(payload?.locator).provider !== 'r2') throw new Error('invalid_signature_locator');
+  const source = getSignatureSource(payload?.locator);
+  if (source.provider !== 'r2' || source.module !== module) throw new Error('invalid_signature_locator');
   return payload.locator;
+}
+
+export function signatureDataUrlToPngBlob(value: string): Blob {
+  if (getSignatureSource(value).provider !== 'inline') throw new Error('invalid_signature_data_url');
+  const encoded = value.slice('data:image/png;base64,'.length);
+  let binary: string;
+  try {
+    binary = atob(encoded);
+  } catch {
+    throw new Error('invalid_signature_base64');
+  }
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  if (!PNG_MAGIC.every((byte, index) => bytes[index] === byte)) throw new Error('invalid_signature_png');
+  return new Blob([bytes], { type: 'image/png' });
+}
+
+export async function uploadSignatureValue(module: string, value: string | null | undefined) {
+  const source = getSignatureSource(value);
+  if (source.provider === 'none') return null;
+  if (source.provider === 'r2' && source.module === module) return source.value;
+  if (source.provider !== 'inline') throw new Error('invalid_signature_value');
+  return uploadSignaturePng(module, signatureDataUrlToPngBlob(source.value));
+}
+
+const referenceFields: Record<string, Array<{ table: string; fields: string[] }>> = {
+  equipment: [{ table: 'equipment_loans', fields: ['borrower_signature', 'return_signature'] }],
+  lockers: [{ table: 'locker_loans', fields: ['borrower_signature', 'return_signature'] }],
+  'lost-items': [
+    { table: 'lost_items', fields: ['owner_signature'] },
+    { table: 'lost_items_archive', fields: ['owner_signature'] },
+  ],
+};
+
+export async function countSignatureReferences(module: string, locator: string) {
+  const sources = referenceFields[module];
+  if (!sources || getSignatureSource(locator).provider !== 'r2') throw new Error('invalid_signature_reference_check');
+  let total = 0;
+  for (const source of sources) {
+    let query = supabase.from(source.table).select('id', { count: 'exact', head: true });
+    query = source.fields.length === 1
+      ? query.eq(source.fields[0], locator)
+      : query.or(source.fields.map(field => `${field}.eq.${locator}`).join(','));
+    const { count, error } = await query;
+    if (error || count == null) throw error ?? new Error('signature_reference_count_missing');
+    total += count;
+  }
+  return total;
+}
+
+export async function cleanupUploadedSignatureIfUnreferenced(module: string, locator: string) {
+  const source = getSignatureSource(locator);
+  if (source.provider !== 'r2' || source.module !== module) throw new Error('invalid_signature_cleanup_locator');
+  if (await countSignatureReferences(module, locator) !== 0) return false;
+  const workerUrl = String(import.meta.env.VITE_STORAGE_WORKER_URL ?? '').replace(/\/+$/, '');
+  const { data, error } = await supabase.auth.getSession();
+  if (!workerUrl || error || !data.session?.access_token) throw new Error('signature_cleanup_unauthorized');
+  const response = await fetch(`${workerUrl}/v1/files/${locator.slice(3)}`, {
+    method: 'DELETE', headers: { authorization: `Bearer ${data.session.access_token}` },
+  });
+  if (response.status !== 200 && response.status !== 404) throw new Error(`signature_cleanup_failed_${response.status}`);
+  return true;
 }
