@@ -21,7 +21,7 @@ import {
 import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psConfirmationState.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -276,6 +276,7 @@ export default function PsEventDetail() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={exportBadges}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
+              <Button asChild variant="outline"><Link to={`/admin-module/processo-seletivo/eventos/${id}/avaliadores`}><ShieldCheck className="mr-2 h-4 w-4" />Equipe de avaliação</Link></Button>
               <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
               <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />XLSX</Button>
               {event.status !== 'finalizado' && (

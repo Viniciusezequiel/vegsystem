@@ -715,14 +715,35 @@ export function usePsImportEventTeam() {
         if (error) throw error;
       }
 
-      return { created, linked: toInsert.length, skipped: resolved.length - toInsert.length, updated: toUpdate.length, importTag };
+      const { data: persistedLinks, error: persistedLinksError } = await supabase
+        .from('ps_event_collaborators')
+        .select('id,collaborator_id')
+        .eq('event_id', eventId)
+        .in('collaborator_id', resolved.map((item) => item.collaboratorId));
+      if (persistedLinksError) throw persistedLinksError;
+      const { data: evaluatorSync, error: evaluatorSyncError } = await (supabase as any).rpc('ps_sync_imported_evaluators', {
+        p_event_id: eventId,
+        p_event_collaborator_ids: (persistedLinks || []).map((item: any) => item.id),
+      });
+      if (evaluatorSyncError) throw evaluatorSyncError;
+
+      return {
+        created,
+        linked: toInsert.length,
+        skipped: resolved.length - toInsert.length,
+        updated: toUpdate.length,
+        importTag,
+        evaluatorSync: evaluatorSync?.[0] || null,
+      };
     },
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['ps_event_collaborators'] });
       qc.invalidateQueries({ queryKey: ['ps_collaborators'] });
-      toast.success(
-        `${r.linked} vinculados ao evento (${r.created} novos colaboradores, ${r.skipped} já estavam no evento).`,
-      );
+      const sync = r.evaluatorSync;
+      const evaluatorMessage = sync
+        ? ` ${sync.coordenadores_identificados} coordenadores, ${sync.subcoordenadores_identificados} subcoordenadores, ${sync.contas_criadas} contas criadas, ${sync.contas_sincronizadas} sincronizadas, ${sync.escopos_criados} escopos criados e ${sync.escopos_local_incompleto} pendentes.`
+        : '';
+      toast.success(`${r.linked} vinculados ao evento (${r.created} novos colaboradores, ${r.skipped} já estavam no evento).${evaluatorMessage}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });

@@ -101,11 +101,15 @@ import PsEventDetail from "./pages/processo-seletivo/PsEventDetail";
 import PsCollaborators from "./pages/processo-seletivo/PsCollaborators";
 import PsRoles from "./pages/processo-seletivo/PsRoles";
 import PsGeneralEvaluation from "./pages/processo-seletivo/PsGeneralEvaluation";
+import PsEvaluatorManagement from "./pages/processo-seletivo/PsEvaluatorManagement";
+import PsCoordinatorReview from "./pages/processo-seletivo/PsCoordinatorReview";
+import PsEvaluationDashboard from "./pages/processo-seletivo/PsEvaluationDashboard";
 import PsPublicEvaluation from "./pages/processo-seletivo/public/PsPublicEvaluation";
 import PsPublicSelfEvaluation from "./pages/processo-seletivo/public/PsPublicSelfEvaluation";
 import PsPublicAttendance from "./pages/processo-seletivo/public/PsPublicAttendance";
 import PsPublicFiscalBank from "./pages/processo-seletivo/public/PsPublicFiscalBank";
 import PsPublicConfirmation from "./pages/processo-seletivo/public/PsPublicConfirmation";
+import PsEvaluatorPortal from "./pages/processo-seletivo/evaluator/PsEvaluatorPortal";
 
 
 // PWA
@@ -440,6 +444,9 @@ const App = () => (
               <Route path="/admin-module/processo-seletivo" element={<ProtectedRoute requireAdmin><PsHome /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo/eventos" element={<ProtectedRoute requireAdmin><PsEvents /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo/eventos/:id" element={<ProtectedRoute requireAdmin><PsEventDetail /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo/eventos/:id/avaliadores" element={<ProtectedRoute requireAdmin><PsEvaluatorManagement /></ProtectedRoute>} />
+              <Route path="/ps/coordenacao/:eventId/avaliacoes" element={<PsCoordinatorReview />} />
+              <Route path="/ps/coordenacao/:eventId/dashboard" element={<PsEvaluationDashboard />} />
               <Route path="/admin-module/processo-seletivo/colaboradores" element={<ProtectedRoute requireAdmin><PsCollaborators /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo/cargos" element={<ProtectedRoute requireAdmin><PsRoles /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo/banco-talentos" element={<Navigate to="/admin-module/processo-seletivo/colaboradores" replace />} />
@@ -457,6 +464,8 @@ const App = () => (
               <Route path="/ps/confirmacao" element={<PsPublicConfirmation />} />
               <Route path="/ps/confirmacao/:eventId/:token" element={<PsPublicConfirmation />} />
               <Route path="/ps/banco-fiscais" element={<PsPublicFiscalBank />} />
+              <Route path="/ps/avaliador" element={<PsEvaluatorPortal />} />
+              <Route path="/ps/avaliador/:eventId" element={<PsEvaluatorPortal />} />
 
 
               <Route path="*" element={<NotFound />} />
