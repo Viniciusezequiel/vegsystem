@@ -16,8 +16,9 @@ import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventT
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
   usePsCollaborators, usePsRoles, usePsEvaluations, usePsSaveEvaluation, usePsCandidates,
-  usePsCandidateMutations, usePsSelfEvaluations, usePsClearEventTeam,
+  usePsCandidateMutations, usePsSelfEvaluations, usePsClearEventTeam, usePsEventConfirmationSummary, usePsConfirmationActions,
 } from '@/hooks/useProcessoSeletivo';
+import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psConfirmationState.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
 import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature } from 'lucide-react';
@@ -42,6 +43,8 @@ export default function PsEventDetail() {
   const { addMany, removeAll } = usePsCandidateMutations();
   const { profile } = useAuth();
   const clearTeam = usePsClearEventTeam();
+  const { data: confirmationSummary = {} } = usePsEventConfirmationSummary(id);
+  const confirmationActions = usePsConfirmationActions(id);
 
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -52,8 +55,48 @@ export default function PsEventDetail() {
   const [evalTarget, setEvalTarget] = useState<any>(null);
   const [criteria, setCriteria] = useState(emptyCriteria());
   const [comments, setComments] = useState('');
+  const [confirmationSearch, setConfirmationSearch] = useState('');
+  const [confirmationStatus, setConfirmationStatus] = useState('all');
+  const [confirmationRole, setConfirmationRole] = useState('all');
+  const [confirmationUnit, setConfirmationUnit] = useState('all');
+  const [replacementTarget, setReplacementTarget] = useState<any>(null);
+  const [replacementFiscalId, setReplacementFiscalId] = useState('');
+  const [replacementData, setReplacementData] = useState<any>(null);
 
   const publicBase = `${window.location.origin}/ps`;
+
+  const confirmationRows = useMemo(() => {
+    const query = confirmationSearch.trim().toLowerCase();
+    return links.filter((link: any) => (confirmationStatus === 'all' || link.participation_status === confirmationStatus)
+      && (confirmationRole === 'all' || (link.role_name || link.assigned_role || 'Sem função') === confirmationRole)
+      && (confirmationUnit === 'all' || (link.unit || 'Sem unidade') === confirmationUnit)
+      && (!query || [link.collaborator_name, link.role_name, link.assigned_role, link.unit, link.room].filter(Boolean).join(' ').toLowerCase().includes(query)));
+  }, [links, confirmationSearch, confirmationStatus, confirmationRole, confirmationUnit]);
+
+  const replacementCandidates = useMemo(() => {
+    const currentIds = new Set(links.map((link: any) => link.collaborator_id));
+    return collaborators.filter((candidate: any) => candidate.active && !currentIds.has(candidate.id));
+  }, [collaborators, links]);
+
+  const requestConfirmation = async (link: any) => {
+    try {
+      const result = await confirmationActions.request.mutateAsync({
+        linkId: link.id,
+        rotate: !!link.public_confirmation_token_expires_at,
+      });
+      copy(`${publicBase}/confirmacao/${id}/${result.token}`);
+    } catch { /* mutation already reports a safe error */ }
+  };
+
+  const openReplacement = (link: any) => {
+    setReplacementTarget(link); setReplacementFiscalId(''); setReplacementData(replacementAssignment(link));
+  };
+
+  const submitReplacement = async () => {
+    if (!replacementTarget || !replacementFiscalId) return;
+    await confirmationActions.replace.mutateAsync({ oldLinkId: replacementTarget.id, collaboratorId: replacementFiscalId, assignment: replacementData });
+    setReplacementTarget(null); setReplacementFiscalId(''); setReplacementData(null);
+  };
 
   const setParticipantState = (link: any, patch: Partial<{ present: boolean; absent: boolean; departed_at: string | null }>) => {
     updateState.mutate({
@@ -255,6 +298,7 @@ export default function PsEventDetail() {
           <TabsList className="flex-wrap">
             <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
             <TabsTrigger value="fiscais">Equipe</TabsTrigger>
+            <TabsTrigger value="confirmacoes">Confirmações</TabsTrigger>
             <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
             <TabsTrigger value="presenca">Presença</TabsTrigger>
             <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
@@ -350,6 +394,55 @@ export default function PsEventDetail() {
               ))}
               {links.length === 0 && <p className="text-muted-foreground">Nenhum fiscal vinculado.</p>}
             </div>
+          </TabsContent>
+
+          <TabsContent value="confirmacoes" className="space-y-4 pt-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[['pending_confirmation', 'Aguardando confirmação'], ['confirmed', 'Confirmados'], ['declined', 'Recusaram'], ['replaced', 'Substituídos']].map(([key, label]) => (
+                <Card key={key} className="rounded-2xl">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="mt-2 text-2xl font-bold">{Number(confirmationSummary[key] || 0)}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <div className="grid gap-2 md:grid-cols-4">
+              <Input value={confirmationSearch} onChange={(e) => setConfirmationSearch(e.target.value)} placeholder="Buscar por nome, cargo, unidade ou sala" />
+              <Select value={confirmationStatus} onValueChange={setConfirmationStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem><SelectItem value="pending_confirmation">Aguardando</SelectItem><SelectItem value="confirmed">Confirmados</SelectItem><SelectItem value="declined">Recusaram</SelectItem><SelectItem value="replaced">Substituídos</SelectItem>
+              </SelectContent></Select>
+              <Select value={confirmationRole} onValueChange={setConfirmationRole}><SelectTrigger><SelectValue placeholder="Cargo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos os cargos</SelectItem>
+                {[...new Set(links.map((link: any) => link.role_name || link.assigned_role || 'Sem função'))].map((role: any) => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+              </SelectContent></Select>
+              <Select value={confirmationUnit} onValueChange={setConfirmationUnit}><SelectTrigger><SelectValue placeholder="Unidade" /></SelectTrigger><SelectContent><SelectItem value="all">Todas as unidades</SelectItem>
+                {[...new Set(links.map((link: any) => link.unit || 'Sem unidade'))].map((unit: any) => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
+              </SelectContent></Select>
+            </div>
+            <Card className="rounded-2xl">
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {confirmationRows.map((l: any) => (
+                    <div key={l.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-medium">{l.collaborator_name}</p>
+                        <p className="text-xs text-muted-foreground">{l.role_name || l.assigned_role || 'Sem função'} · {l.unit || 'Unidade não informada'} · {l.room || 'Sala não informada'}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant={l.participation_status === 'confirmed' ? 'default' : l.participation_status === 'declined' ? 'destructive' : l.participation_status === 'replaced' ? 'secondary' : 'outline'}>
+                          {getPsConfirmationStatusLabel(l.participation_status)}
+                        </Badge>
+                        <span>{l.confirmation_requested_at ? new Date(l.confirmation_requested_at).toLocaleDateString('pt-BR') : '—'}</span>
+                        <span>{l.confirmed_at ? new Date(l.confirmed_at).toLocaleDateString('pt-BR') : '—'}</span>
+                        {l.participation_status !== 'replaced' && <Button size="sm" variant="outline" onClick={() => requestConfirmation(l)} disabled={confirmationActions.request.isPending}>Gerar link</Button>}
+                        {l.participation_status !== 'replaced' && <Button size="sm" variant="outline" onClick={() => openReplacement(l)}>Substituir fiscal</Button>}
+                      </div>
+                    </div>
+                  ))}
+                  {confirmationRows.length === 0 && <p className="p-4 text-muted-foreground">Nenhum vínculo corresponde aos filtros.</p>}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="avaliacoes" className="pt-4">
@@ -470,6 +563,21 @@ export default function PsEventDetail() {
       </Dialog>
 
       {/* Avaliar */}
+
+      <Dialog open={!!replacementTarget} onOpenChange={(open) => !open && setReplacementTarget(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader><DialogTitle>Substituir {replacementTarget?.collaborator_name}</DialogTitle></DialogHeader>
+          {replacementData && <div className="space-y-3">
+            <div><Label>Novo fiscal ativo</Label><Select value={replacementFiscalId} onValueChange={setReplacementFiscalId}><SelectTrigger><SelectValue placeholder="Buscar por nome, e-mail, instituição ou setor" /></SelectTrigger><SelectContent>
+              {replacementCandidates.map((candidate: any) => <SelectItem key={candidate.id} value={candidate.id}>{candidate.full_name} · {[candidate.email, candidate.institution, candidate.sector].filter(Boolean).join(' · ')}</SelectItem>)}
+            </SelectContent></Select></div>
+            <div className="grid grid-cols-2 gap-3"><div><Label>Cargo</Label><Input value={replacementData.role_name || ''} onChange={(e) => setReplacementData({ ...replacementData, role_name: e.target.value })} /></div><div><Label>Horário</Label><Input value={replacementData.work_schedule || ''} onChange={(e) => setReplacementData({ ...replacementData, work_schedule: e.target.value })} /></div></div>
+            <div className="grid grid-cols-3 gap-3"><div><Label>Unidade</Label><Input value={replacementData.unit || ''} onChange={(e) => setReplacementData({ ...replacementData, unit: e.target.value })} /></div><div><Label>Andar</Label><Input value={replacementData.floor || ''} onChange={(e) => setReplacementData({ ...replacementData, floor: e.target.value })} /></div><div><Label>Sala</Label><Input value={replacementData.room || ''} onChange={(e) => setReplacementData({ ...replacementData, room: e.target.value })} /></div></div>
+          </div>}
+          <DialogFooter><Button variant="outline" onClick={() => setReplacementTarget(null)}>Cancelar</Button><Button onClick={submitReplacement} disabled={!replacementFiscalId || confirmationActions.replace.isPending}>Confirmar substituição</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!evalTarget} onOpenChange={(o) => !o && setEvalTarget(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader><DialogTitle>Avaliar {evalTarget?.collaborator_name}</DialogTitle></DialogHeader>

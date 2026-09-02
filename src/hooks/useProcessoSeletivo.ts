@@ -12,6 +12,9 @@ const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'campus', 'cpf', 'identity_doc', 'email', 'phone', 'mobile', 'pay_value',
   'deposit_info', 'pix', 'import_tag', 'present', 'absent', 'evaluated', 'signed_at',
   'departed_at', 'signature_ip', 'notes', 'created_at', 'updated_at',
+  'participation_status', 'confirmation_requested_at', 'confirmed_at', 'declined_at',
+  'decline_reason', 'replacement_for_event_collaborator_id', 'original_event_collaborator_id',
+  'public_confirmation_token_expires_at', 'public_confirmation_token_revoked_at',
 ].join(',');
 
 /* ---------------- Cargos ---------------- */
@@ -285,6 +288,10 @@ export function usePsUpdateEventCollaboratorParticipation() {
         payload.declined_at = new Date().toISOString();
         payload.decline_reason = declineReason || null;
       }
+      if (status === 'replaced') {
+        payload.confirmed_at = null;
+        payload.declined_at = null;
+      }
       const { error } = await supabase.from('ps_event_collaborators').update(payload).eq('id', id);
       if (error) throw error;
       return true;
@@ -295,6 +302,55 @@ export function usePsUpdateEventCollaboratorParticipation() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+}
+
+export function usePsEventConfirmationSummary(eventId?: string) {
+  return useQuery({
+    queryKey: ['ps_event_confirmation_summary', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('ps_event_collaborator_confirmation_summary', { p_event_id: eventId });
+      if (error) throw error;
+      return (data || []).reduce((acc: Record<string, number>, row: any) => {
+        acc[row.status] = Number(row.total || 0);
+        return acc;
+      }, {});
+    },
+  });
+}
+
+export function usePsConfirmationActions(eventId?: string) {
+  const qc = useQueryClient();
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
+    qc.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
+  };
+  const request = useMutation({
+    mutationFn: async ({ linkId, rotate = false }: { linkId: string; rotate?: boolean }) => {
+      const { data, error } = await (supabase as any).rpc('ps_request_event_collaborator_confirmation', {
+        p_link_id: linkId, p_rotate: rotate,
+      });
+      if (error) throw error;
+      const result = data?.[0];
+      if (!result?.token) throw new Error('Token de confirmação não foi gerado.');
+      return result as { token: string; expires_at: string };
+    },
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const replace = useMutation({
+    mutationFn: async ({ oldLinkId, collaboratorId, assignment }: { oldLinkId: string; collaboratorId: string; assignment: Record<string, unknown> }) => {
+      const { data, error } = await (supabase as any).rpc('ps_replace_event_collaborator', {
+        p_old_link_id: oldLinkId, p_new_collaborator_id: collaboratorId, p_assignment: assignment,
+      });
+      if (error) throw error;
+      if (!data?.[0]?.new_link_id) throw new Error('A substituição não foi confirmada.');
+      return data[0];
+    },
+    onSuccess: () => { invalidate(); toast.success('Fiscal substituído; novo vínculo aguarda confirmação.'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return { request, replace };
 }
 
 /* ---------------- Eventos ---------------- */
@@ -427,7 +483,10 @@ export function usePsEventCollaborators(eventId?: string) {
     if (!eventId) return;
     const channel = supabase.channel(`ps-event-${eventId}-${crypto.randomUUID()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` },
-        () => queryClient.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] }))
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
+          queryClient.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
+        })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [eventId, queryClient]);

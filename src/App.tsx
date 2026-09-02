@@ -105,6 +105,7 @@ import PsPublicEvaluation from "./pages/processo-seletivo/public/PsPublicEvaluat
 import PsPublicSelfEvaluation from "./pages/processo-seletivo/public/PsPublicSelfEvaluation";
 import PsPublicAttendance from "./pages/processo-seletivo/public/PsPublicAttendance";
 import PsPublicFiscalBank from "./pages/processo-seletivo/public/PsPublicFiscalBank";
+import PsPublicConfirmation from "./pages/processo-seletivo/public/PsPublicConfirmation";
 
 
 // PWA
@@ -453,6 +454,8 @@ const App = () => (
               <Route path="/ps/presenca" element={<PsPublicAttendance />} />
               <Route path="/ps/presenca/:eventId" element={<PsPublicAttendance />} />
               <Route path="/ps/presenca/:eventId/:eventCollaboratorId" element={<PsPublicAttendance />} />
+              <Route path="/ps/confirmacao" element={<PsPublicConfirmation />} />
+              <Route path="/ps/confirmacao/:eventId/:token" element={<PsPublicConfirmation />} />
               <Route path="/ps/banco-fiscais" element={<PsPublicFiscalBank />} />
 
 

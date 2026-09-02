@@ -45,3 +45,14 @@ test('detalhe do evento restaura a aba de candidatos sem perder o layout por aba
   assert.match(eventDetailSource, /Etiquetas/);
   assert.match(eventDetailSource, /Nenhum candidato disponível para geração de etiquetas\./);
 });
+
+test('aba de confirmações e rota pública ficam preparadas no contrato do módulo', () => {
+  const eventDetailSource = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
+  const appSource = fs.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+
+  assert.match(eventDetailSource, /TabsTrigger value="confirmacoes">Confirmações<\/TabsTrigger>/);
+  assert.match(eventDetailSource, /Aguardando confirma[çc]ã?o/);
+  assert.match(eventDetailSource, /Confirmados|Recusaram|Substituídos/);
+  assert.match(appSource, /\/ps\/confirmacao/);
+  assert.match(appSource, /PsPublicConfirmation/);
+});
