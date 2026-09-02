@@ -69,6 +69,7 @@ export function PsEventTeamImportDialog({
   const [fileName, setFileName] = useState('');
   const [plan, setPlan] = useState<PsTeamImportPreview | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [confirmedNames, setConfirmedNames] = useState<Record<number, string>>({});
 
   const readFile = async (file: File) => {
     try {
@@ -104,6 +105,7 @@ export function PsEventTeamImportDialog({
       setFileName(file.name);
       setPreview(rows);
       setPlanning(true);
+      setConfirmedNames({});
       setPlan(await previewPsEventTeamImport(eventId, rows));
       setPlanning(false);
     } catch (e: any) {
@@ -113,15 +115,31 @@ export function PsEventTeamImportDialog({
   };
 
   const confirm = async () => {
-    await importTeam.mutateAsync({ eventId, rows: preview });
+    await importTeam.mutateAsync({ eventId, rows: preview, nameOverrides: confirmedNames });
     setPreview([]);
     setFileName('');
     setPlan(null);
+    setConfirmedNames({});
     onOpenChange(false);
   };
 
+  const toggleNameConfirmation = (rowIndex: number, collaboratorId: string) => {
+    setConfirmedNames((prev) => {
+      if (prev[rowIndex] === collaboratorId) {
+        const next = { ...prev };
+        delete next[rowIndex];
+        return next;
+      }
+      return { ...prev, [rowIndex]: collaboratorId };
+    });
+  };
+
+  const unresolvedUnsafeCount = plan
+    ? plan.decisions.filter((d) => (d.status === 'ambiguous' || d.status === 'inconsistent') && !confirmedNames[d.rowIndex]).length
+    : 0;
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setPreview([]); setFileName(''); setPlan(null); } }}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setPreview([]); setFileName(''); setPlan(null); setConfirmedNames({}); } }}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Importar colaboradores do evento</DialogTitle>
@@ -187,11 +205,58 @@ export function PsEventTeamImportDialog({
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Ignorados</p><p className="text-xl font-bold">{plan.ignored}</p></CardContent></Card>
             </div>
           )}
+
+          {plan && plan.nameMatches.length > 0 && (
+            <Card className="rounded-xl border-amber-500/40 bg-amber-500/5">
+              <CardContent className="space-y-3 p-4">
+                <p className="text-sm font-medium text-amber-600">
+                  Encontramos possíveis ajustes de nomes antes de vincular os avaliadores.
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-muted-foreground">
+                        <th className="pb-2 pr-3 font-medium">Nome na planilha</th>
+                        <th className="pb-2 pr-3 font-medium">Cadastro encontrado</th>
+                        <th className="pb-2 pr-3 font-medium">Cargo</th>
+                        <th className="pb-2 font-medium">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plan.nameMatches.map((m) => {
+                        const confirmed = confirmedNames[m.rowIndex] === m.matchedCollaboratorId;
+                        return (
+                          <tr key={m.rowIndex} className="border-t border-border/60">
+                            <td className="py-2 pr-3">{m.sheetName}</td>
+                            <td className="py-2 pr-3">{m.matchedName}</td>
+                            <td className="py-2 pr-3">{m.role === 'coordinator' ? 'Coordenador' : 'Subcoordenador'}</td>
+                            <td className="py-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={confirmed ? 'secondary' : 'outline'}
+                                onClick={() => toggleNameConfirmation(m.rowIndex, m.matchedCollaboratorId)}
+                              >
+                                {confirmed ? 'Confirmado ✓' : 'Confirmar alteração'}
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sem confirmação, a linha segue o comportamento padrão (nenhum vínculo é substituído automaticamente).
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={confirm} disabled={!preview.length || !plan || planning || plan.inconsistent > 0 || importTeam.isPending}>
+          <Button onClick={confirm} disabled={!preview.length || !plan || planning || unresolvedUnsafeCount > 0 || importTeam.isPending}>
             Importar {preview.length || ''}
           </Button>
         </DialogFooter>

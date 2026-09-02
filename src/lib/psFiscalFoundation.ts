@@ -16,6 +16,83 @@ export type PsFiscalResolution =
 
 export type PsFiscalDecision = PsFiscalResolution & { rowIndex: number; temporaryId?: string };
 
+// Mirrors the SQL classification in ps_sync_imported_evaluators (assigned_role text matching).
+export function classifyEvaluatorRole(assignedRole?: string | null): 'coordinator' | 'subcoordinator' | null {
+  const role = String(assignedRole ?? '').trim().toLowerCase();
+  if (role.includes('sub') && role.includes('coord')) return 'subcoordinator';
+  if (role.includes('coord')) return 'coordinator';
+  return null;
+}
+
+function stripDiacritics(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+export function normalizeNameForMatch(name?: string | null): string {
+  return stripDiacritics(String(name ?? ''))
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  const row = new Array(n + 1);
+  for (let j = 0; j <= n; j++) row[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = row[j];
+      row[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, row[j], row[j - 1]);
+      prev = tmp;
+    }
+  }
+  return row[n];
+}
+
+export function nameSimilarity(a?: string | null, b?: string | null): number {
+  const na = normalizeNameForMatch(a);
+  const nb = normalizeNameForMatch(b);
+  if (!na || !nb) return 0;
+  const distance = levenshteinDistance(na, nb);
+  return 1 - distance / Math.max(na.length, nb.length);
+}
+
+export type PsNameMatchCandidate = { collaboratorId: string; name: string; exact: boolean; similarity: number };
+
+const PS_NAME_SIMILARITY_THRESHOLD = 0.82;
+
+// Suggests an existing collaborator whose registered name is a close (but not literal) match
+// for the sheet name, so coordinators/subcoordinators are never silently merged by name alone.
+export function findPossibleNameMatch(
+  sheetName: string | null | undefined,
+  candidates: { id: string; full_name?: string | null }[],
+): PsNameMatchCandidate | null {
+  const rawSheet = String(sheetName ?? '').trim().replace(/\s+/g, ' ');
+  const normalizedSheet = normalizeNameForMatch(rawSheet);
+  if (!normalizedSheet) return null;
+
+  let best: PsNameMatchCandidate | null = null;
+  for (const candidate of candidates) {
+    const rawCandidate = String(candidate.full_name ?? '').trim().replace(/\s+/g, ' ');
+    if (!rawCandidate) continue;
+    if (rawCandidate === rawSheet) return null; // literal exact match: proceed normally, no confirmation needed
+    const similarity = nameSimilarity(rawSheet, rawCandidate);
+    const normalizedEqual = normalizeNameForMatch(rawCandidate) === normalizedSheet;
+    if (normalizedEqual || similarity >= PS_NAME_SIMILARITY_THRESHOLD) {
+      if (!best || similarity > best.similarity) {
+        best = { collaboratorId: candidate.id, name: rawCandidate, exact: normalizedEqual, similarity };
+      }
+    }
+  }
+  return best;
+}
+
+
 const normalizedText = (value?: string | null) => {
   const result = String(value ?? '').trim().toLowerCase();
   return result || null;

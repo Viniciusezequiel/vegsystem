@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { psFinalScore, psClassification } from '@/lib/psConstants';
-import { planPsFiscalReconciliation, type PsFiscalDecision } from '@/lib/psFiscalFoundation';
+import { planPsFiscalReconciliation, classifyEvaluatorRole, findPossibleNameMatch, type PsFiscalDecision, type PsNameMatchCandidate } from '@/lib/psFiscalFoundation';
 import { normalizeFiscalEmail, normalizeFiscalInstitution, normalizeFiscalMatricula, dedupeFiscalRows, normalizeFiscalImportNote } from '@/lib/psFiscalBank.mjs';
 
 const PS_EVENT_COLLABORATOR_LIST_SELECT = [
@@ -497,10 +497,20 @@ export function usePsEventCollaboratorMutations(eventId?: string) {
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ['ps_event_collaborators'] });
 
+  const syncEvaluators = async () => {
+    if (!eventId) return;
+    const { error } = await supabase.rpc('ps_admin_sync_imported_evaluators', {
+      p_event_id: eventId,
+      p_event_collaborator_ids: null,
+    });
+    if (error) throw error;
+  };
+
   const add = useMutation({
     mutationFn: async (rows: any | any[]) => {
       const { error } = await supabase.from('ps_event_collaborators').insert(rows as any);
       if (error) throw error;
+      await syncEvaluators();
     },
     onSuccess: () => { invalidate(); toast.success('Fiscal vinculado!'); },
     onError: (e: Error) => toast.error(e.message),
@@ -510,6 +520,7 @@ export function usePsEventCollaboratorMutations(eventId?: string) {
     mutationFn: async ({ id, ...values }: any) => {
       const { error } = await supabase.from('ps_event_collaborators').update(values).eq('id', id);
       if (error) throw error;
+      await syncEvaluators();
     },
     onSuccess: () => invalidate(),
     onError: (e: Error) => toast.error(e.message),
@@ -532,6 +543,7 @@ export function usePsEventCollaboratorMutations(eventId?: string) {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('ps_event_collaborators').delete().eq('id', id);
       if (error) throw error;
+      await syncEvaluators();
     },
     onSuccess: () => { invalidate(); toast.success('Vínculo removido!'); },
     onError: (e: Error) => toast.error(e.message),
@@ -563,6 +575,15 @@ export type PsTeamImportRow = {
   pix?: string | null;
 };
 
+export type PsNameMatchSuggestion = {
+  rowIndex: number;
+  sheetName: string;
+  matchedCollaboratorId: string;
+  matchedName: string;
+  role: 'coordinator' | 'subcoordinator';
+  exact: boolean;
+};
+
 export type PsTeamImportPreview = {
   decisions: PsFiscalDecision[];
   found: number;
@@ -570,11 +591,12 @@ export type PsTeamImportPreview = {
   alreadyLinked: number;
   inconsistent: number;
   ignored: number;
+  nameMatches: PsNameMatchSuggestion[];
 };
 
 async function loadPsImportContext(eventId: string) {
   const [{ data: existing, error: existingError }, { data: links, error: linksError }] = await Promise.all([
-    supabase.from('ps_collaborators').select('id,email,email_normalized,matricula,institution'),
+    supabase.from('ps_collaborators').select('id,full_name,email,email_normalized,matricula,institution'),
     supabase.from('ps_event_collaborators').select('collaborator_id').eq('event_id', eventId),
   ]);
   if (existingError) throw existingError;
@@ -586,32 +608,60 @@ export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImpo
   const { existing, linked } = await loadPsImportContext(eventId);
   const decisions = planPsFiscalReconciliation(existing, rows);
   let found = 0, newCount = 0, alreadyLinked = 0, inconsistent = 0, ignored = 0;
+  const nameMatches: PsNameMatchSuggestion[] = [];
   for (const decision of decisions) {
     if (decision.status === 'ambiguous' || decision.status === 'inconsistent') inconsistent += 1;
     else if (decision.status === 'new') newCount += 1;
     else if (decision.collaboratorId.startsWith('__new_fiscal_')) ignored += 1;
     else if (linked.has(decision.collaboratorId)) alreadyLinked += 1;
     else found += 1;
+
+    // Only coordinators/subcoordinators need name confirmation before linking (Portal dos Avaliadores).
+    if (decision.status === 'new' || decision.status === 'inconsistent') {
+      const row = rows[decision.rowIndex];
+      const role = classifyEvaluatorRole(row.assigned_role || row.role_name);
+      if (role) {
+        const candidate: PsNameMatchCandidate | null = findPossibleNameMatch(row.full_name, existing);
+        if (candidate) {
+          nameMatches.push({
+            rowIndex: decision.rowIndex,
+            sheetName: row.full_name.trim(),
+            matchedCollaboratorId: candidate.collaboratorId,
+            matchedName: candidate.name,
+            role,
+            exact: candidate.exact,
+          });
+        }
+      }
+    }
   }
-  return { decisions, found, newCount, alreadyLinked, inconsistent, ignored };
+  return { decisions, found, newCount, alreadyLinked, inconsistent, ignored, nameMatches };
 }
 
 export function usePsImportEventTeam() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ eventId, rows }: { eventId: string; rows: PsTeamImportRow[] }) => {
+    mutationFn: async ({ eventId, rows, nameOverrides = {} }: {
+      eventId: string; rows: PsTeamImportRow[]; nameOverrides?: Record<number, string>;
+    }) => {
       const { existing, linked } = await loadPsImportContext(eventId);
       const decisions = planPsFiscalReconciliation(existing, rows);
-      const unsafe = decisions.find(decision => decision.status === 'ambiguous' || decision.status === 'inconsistent');
+      const unsafe = decisions.find((decision) =>
+        (decision.status === 'ambiguous' || decision.status === 'inconsistent') && !nameOverrides[decision.rowIndex]);
       if (unsafe) throw new Error(`Importação interrompida na linha ${unsafe.rowIndex + 2}: identidade ausente ou ambígua.`);
 
       const temporaryIds = new Map<string, string>();
       let created = 0;
+      let nameAdjustments = 0;
       const resolved: { row: PsTeamImportRow; collaboratorId: string }[] = [];
       for (const decision of decisions) {
         const row = rows[decision.rowIndex];
         let id: string;
-        if (decision.status === 'new') {
+        const override = nameOverrides[decision.rowIndex];
+        if (override) {
+          id = override;
+          nameAdjustments += 1;
+        } else if (decision.status === 'new') {
           const { data, error } = await supabase
             .from('ps_collaborators')
             .insert({
@@ -721,7 +771,7 @@ export function usePsImportEventTeam() {
         .eq('event_id', eventId)
         .in('collaborator_id', resolved.map((item) => item.collaboratorId));
       if (persistedLinksError) throw persistedLinksError;
-      const { data: evaluatorSync, error: evaluatorSyncError } = await (supabase as any).rpc('ps_sync_imported_evaluators', {
+      const { data: evaluatorSync, error: evaluatorSyncError } = await (supabase as any).rpc('ps_admin_sync_imported_evaluators', {
         p_event_id: eventId,
         p_event_collaborator_ids: (persistedLinks || []).map((item: any) => item.id),
       });
@@ -734,6 +784,7 @@ export function usePsImportEventTeam() {
         updated: toUpdate.length,
         importTag,
         evaluatorSync: evaluatorSync?.[0] || null,
+        nameAdjustments,
       };
     },
     onSuccess: (r) => {
@@ -743,7 +794,8 @@ export function usePsImportEventTeam() {
       const evaluatorMessage = sync
         ? ` ${sync.coordenadores_identificados} coordenadores, ${sync.subcoordenadores_identificados} subcoordenadores, ${sync.contas_criadas} contas criadas, ${sync.contas_sincronizadas} sincronizadas, ${sync.escopos_criados} escopos criados e ${sync.escopos_local_incompleto} pendentes.`
         : '';
-      toast.success(`${r.linked} vinculados ao evento (${r.created} novos colaboradores, ${r.skipped} já estavam no evento).${evaluatorMessage}`);
+      const nameAdjustmentMessage = r.nameAdjustments ? ` ${r.nameAdjustments} nome(s) de avaliador ajustado(s) manualmente.` : '';
+      toast.success(`${r.linked} vinculados ao evento (${r.created} novos colaboradores, ${r.skipped} já estavam no evento).${evaluatorMessage}${nameAdjustmentMessage}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
