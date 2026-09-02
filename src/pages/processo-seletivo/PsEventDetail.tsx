@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
 import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventTeamImportDialog';
+import { PsEventCommunicationTab } from '@/components/processo-seletivo/PsEventCommunicationTab';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
   usePsCollaborators, usePsRoles, usePsEvaluations, usePsSaveEvaluation, usePsCandidates,
@@ -300,6 +301,7 @@ export default function PsEventDetail() {
             <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
             <TabsTrigger value="fiscais">Equipe</TabsTrigger>
             <TabsTrigger value="confirmacoes">Confirmações</TabsTrigger>
+            <TabsTrigger value="comunicacao">Comunicação</TabsTrigger>
             <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
             <TabsTrigger value="presenca">Presença</TabsTrigger>
             <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
@@ -444,6 +446,10 @@ export default function PsEventDetail() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="comunicacao" className="pt-4">
+            <PsEventCommunicationTab event={event} links={links as any[]} />
           </TabsContent>
 
           <TabsContent value="avaliacoes" className="pt-4">

@@ -238,41 +238,66 @@ export function usePsEventCollaborationStatus(eventId?: string) {
 }
 
 export function usePsEventCommunications(eventId?: string) {
-  return useQuery({
+  const qc = useQueryClient();
+  const query = useQuery({
     queryKey: ['ps_event_communications', eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('ps_event_communications').select('*').eq('event_id', eventId!).order('requested_at', { ascending: false });
+      const { data, error } = await supabase.from('ps_event_communications').select('id,batch_id,event_id,event_collaborator_id,communication_type,logical_recipient,actual_recipient,subject,status,provider,provider_message_id,attempt_count,requested_at,sent_at,failed_at,last_error,created_at').eq('event_id', eventId!).order('requested_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },
   });
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase.channel(`ps:event:${eventId}`)
+      .on('broadcast', { event: 'communications_changed' }, payload => {
+        if (payload?.payload?.event_id === eventId) qc.invalidateQueries({ queryKey: ['ps_event_communications', eventId] });
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [eventId, qc]);
+  return query;
 }
 
 export function usePsSendEventCommunication() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ eventId, eventCollaboratorIds, template, channel = 'in_app' }: { eventId: string; eventCollaboratorIds: string[]; template: string; channel?: string;}) => {
+    mutationFn: async ({ eventId, eventCollaboratorIds, communicationType, subject, template, requestKey }: { eventId: string; eventCollaboratorIds: string[]; communicationType: string; subject: string; template: string; requestKey: string;}) => {
       if (!eventCollaboratorIds.length) throw new Error('Selecione ao menos um fiscal.');
-      const rows = eventCollaboratorIds.map((eventCollaboratorId) => ({
-        event_id: eventId,
-        event_collaborator_id: eventCollaboratorId,
-        tipo: 'confirmation_request',
-        canal: channel,
-        status: 'pending',
-        mensagem: template,
-        requested_at: new Date().toISOString(),
-      }));
-      const { error } = await supabase.from('ps_event_communications').insert(rows as any);
+      const { data, error } = await supabase.functions.invoke('ps-event-communications', { body: { action: 'enqueue', eventId, eventCollaboratorIds, communicationType, subject, template, requestKey } });
       if (error) throw error;
-      return rows.length;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: () => {
-      toast.success('Comunicação registrada para envio.');
+      toast.success('Lote processado.');
       qc.invalidateQueries({ queryKey: ['ps_event_communications'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+}
+
+export function usePsCommunicationConfig(eventId?: string) {
+  return useQuery({ queryKey: ['ps_email_config', eventId], enabled: !!eventId, retry: false, queryFn: async () => {
+    const { data, error } = await supabase.functions.invoke('ps-event-communications', { body: { action: 'config', eventId } });
+    if (error) throw error; return data;
+  }});
+}
+
+export function usePsRetryEventCommunications() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: async ({ eventId, jobIds }: { eventId: string; jobIds: string[] }) => {
+    const { data, error } = await supabase.functions.invoke('ps-event-communications', { body: { action: 'retry', eventId, jobIds } });
+    if (error) throw error; if (data?.error) throw new Error(data.error); return data;
+  }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['ps_event_communications'] }); toast.success('Falhas selecionadas reprocessadas.'); }, onError: (e: Error) => toast.error(e.message) });
+}
+
+export function usePsProcessEventCommunicationQueue() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: async ({ eventId }: { eventId: string }) => {
+    const { data, error } = await supabase.functions.invoke('ps-event-communications', { body: { action: 'process_queue', eventId } });
+    if (error) throw error; if (data?.error) throw new Error(data.error); return data;
+  }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['ps_event_communications'] }); toast.success('Fila processada.'); }, onError: (e: Error) => toast.error(e.message) });
 }
 
 export function usePsUpdateEventCollaboratorParticipation() {

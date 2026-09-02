@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.ps-public-signature]
 verify_jwt = false
+
+[functions.ps-event-communications]
+verify_jwt = false
