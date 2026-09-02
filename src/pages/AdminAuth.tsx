@@ -6,11 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mail, Shield, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Loader2, Lock, Mail, Shield, WifiOff, RefreshCw, Eye, EyeOff, Headphones } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
-import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { useHealthCheck } from '@/hooks/useHealthCheck';
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
@@ -29,6 +28,7 @@ export default function AdminAuth() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     // If user is already logged in with a role, redirect to dashboard
@@ -168,96 +168,61 @@ export default function AdminAuth() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden p-4">
-      {/* Animated Background Orbs */}
-      <div className="floating-orb w-96 h-96 bg-primary/40 -top-48 -left-48 animate-float" style={{ animationDelay: '0s' }} />
-      <div className="floating-orb w-80 h-80 bg-destructive/20 -bottom-40 -right-40 animate-float" style={{ animationDelay: '2s' }} />
-      <div className="floating-orb w-64 h-64 bg-warning/20 top-1/3 right-1/4 animate-float" style={{ animationDelay: '4s' }} />
-      
-      {/* Mesh Gradient Overlay */}
-      <div className="absolute inset-0 mesh-gradient opacity-50" />
-      
-      {/* Grid Pattern */}
-      <div className="absolute inset-0 opacity-5" style={{
-        backgroundImage: `linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px)`,
-        backgroundSize: '60px 60px'
-      }} />
-
-      {/* Theme Toggle */}
-      <div className="absolute top-4 right-4 z-20">
-        <ThemeToggle collapsed />
+    <main className="relative min-h-screen overflow-x-hidden bg-[#070918] px-4 py-7 text-white sm:px-6 sm:py-12 lg:py-[7.6vh]">
+      <div className="pointer-events-none fixed inset-0" aria-hidden="true">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(89,42,179,0.18),transparent_35%),radial-gradient(circle_at_10%_20%,rgba(80,38,159,0.11),transparent_27%),linear-gradient(145deg,#080a1c_0%,#080a18_50%,#050713_100%)]" />
+        <div className="absolute inset-0 opacity-[0.13] [background-image:linear-gradient(rgba(255,255,255,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.025)_1px,transparent_1px)] [background-size:4px_4px]" />
       </div>
-      
-      <Card className="w-full max-w-md relative z-10 glass-morphism border-primary/20 shadow-glow animate-fade-in">
-        <CardHeader className="text-center pb-4">
-          {/* Logo with Glow Effect */}
-          <div className="mx-auto mb-6 relative">
-            <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
-            <div className="w-28 h-28 relative flex items-center justify-center">
-              <img 
-                src={vegSystemLogo} 
-                alt="VEG System Logo" 
-                className="w-full h-full object-contain"
-                style={{ filter: 'drop-shadow(0 0 20px hsl(265 85% 65% / 0.5))' }}
-              />
-            </div>
+
+      <Card className="relative z-10 mx-auto w-full max-w-[806px] overflow-hidden rounded-[27px] border border-[#756292]/45 bg-[linear-gradient(145deg,rgba(24,24,50,.94),rgba(9,12,29,.97)_58%,rgba(18,16,42,.95))] text-white shadow-[0_0_0_1px_rgba(183,112,255,.07),0_0_38px_rgba(126,48,218,.22),0_35px_100px_rgba(0,0,0,.42)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[27px] before:bg-[radial-gradient(circle_at_7%_2%,rgba(231,128,255,.2),transparent_12%),radial-gradient(circle_at_100%_100%,rgba(194,80,255,.10),transparent_15%)] animate-fade-in">
+        <div className="pointer-events-none absolute left-0 top-0 h-24 w-24 rounded-tl-[27px] border-l-2 border-t-2 border-fuchsia-300/70 opacity-90 shadow-[-5px_-4px_16px_rgba(215,110,255,.35)] [mask-image:linear-gradient(135deg,#000,transparent_62%)]" />
+
+        <CardHeader className="relative px-6 pb-0 pt-8 text-center sm:px-12 sm:pt-12 lg:px-[74px] lg:pt-[58px]">
+          <div className="relative mx-auto mb-3 flex h-[150px] w-full max-w-[340px] items-center justify-center sm:mb-5 sm:h-[190px]">
+            <div className="absolute h-28 w-64 rounded-full bg-violet-600/20 blur-[45px]" />
+            <img
+              src={vegSystemLogo}
+              alt="VEG System"
+              className="absolute h-auto w-[360px] max-w-none sm:w-[460px]"
+              style={{ filter: 'drop-shadow(0 0 10px rgba(185,82,255,.75)) drop-shadow(0 0 28px rgba(112,38,221,.42))' }}
+            />
           </div>
-          
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="w-6 h-6 text-primary" />
-            <CardTitle className="text-3xl font-bold gradient-text">
+
+          <div className="mb-2 flex items-center justify-center gap-3 sm:gap-5">
+            <Shield className="h-9 w-9 shrink-0 stroke-[1.8] text-[#b54cff] sm:h-12 sm:w-12" />
+            <CardTitle className="text-[29px] font-bold tracking-[-0.025em] text-[#f6f4fb] sm:text-[42px]">
               Área Administrativa
             </CardTitle>
           </div>
-          <CardDescription className="text-muted-foreground">
-            Acesso restrito a colaboradores
+          <CardDescription className="text-base font-normal tracking-[0.01em] text-[#aca9c1] sm:text-[23px]">
+            Acesso exclusivo para colaboradores autorizados
           </CardDescription>
-          {/* Server status indicator */}
-          <div className="mt-3 flex items-center justify-center gap-2 text-xs">
+
+          <div className="mx-auto mt-4 inline-flex min-h-10 items-center justify-center gap-3 rounded-full border border-[#9e4ace]/50 bg-[#17152d]/80 px-5 text-sm text-[#ded9e9] sm:text-base">
             {serverStatus === 'checking' ? (
-              <>
-                <RefreshCw className="w-3 h-3 animate-spin text-primary" />
-                <span className="text-muted-foreground">Verificando servidor…</span>
-              </>
+              <><RefreshCw className="h-4 w-4 animate-spin text-[#aa52f4]" /><span>Verificando sistema…</span></>
             ) : serverStatus === 'online' ? (
-              <>
-                <CheckCircle2 className="w-3 h-3 text-primary" />
-                <span className="text-muted-foreground">Servidor online</span>
-              </>
+              <><span className="h-3 w-3 rounded-full bg-[#aa52f4] shadow-[0_0_0_5px_rgba(168,82,244,.15),0_0_12px_rgba(168,82,244,.8)]" /><span>Sistema operacional</span></>
             ) : (
-              <>
-                <WifiOff className="w-3 h-3 text-destructive" />
-                <span className="text-muted-foreground">
-                  {isOnline ? 'Servidor indisponível' : 'Sem internet'}
-                </span>
-                <button
-                  type="button"
-                  onClick={retryHealthCheck}
-                  className="text-primary hover:underline"
-                >
-                  Tentar novamente
-                </button>
-              </>
+              <><WifiOff className="h-4 w-4 text-[#d783ff]" /><span>{isOnline ? 'Sistema indisponível' : 'Sem internet'}</span><button type="button" onClick={retryHealthCheck} className="text-[#cb6cff] hover:underline">Tentar novamente</button></>
             )}
           </div>
-
         </CardHeader>
-        
-        <CardContent>
+
+        <CardContent className="relative px-6 pb-7 pt-7 sm:px-12 sm:pb-9 sm:pt-9 lg:px-[74px]">
           {showForgotPassword ? (
-            <form onSubmit={handleForgotPassword} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="forgot-email" className="text-foreground font-medium">Email</Label>
+            <form onSubmit={handleForgotPassword} className="space-y-6">
+              <div className="space-y-3">
+                <Label htmlFor="forgot-email" className="text-base font-semibold text-[#f5f2fa] sm:text-lg">Email corporativo</Label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Mail className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#bd5dff] transition-colors group-focus-within:text-[#db9bff]" />
                   <Input
                     id="forgot-email"
                     type="email"
                     placeholder="seu.email@empresa.com"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
-                    className="pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="h-[66px] rounded-2xl border-[#685484]/75 bg-[#121426]/80 pl-14 text-base text-white shadow-inner placeholder:text-[#767389] focus-visible:border-[#b75dff] focus-visible:ring-2 focus-visible:ring-[#9d42e8]/25 sm:text-lg"
                     disabled={forgotLoading}
                   />
                 </div>
@@ -265,7 +230,7 @@ export default function AdminAuth() {
 
               <Button 
                 type="submit" 
-                className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
+                className="h-[68px] w-full rounded-2xl border-0 bg-[linear-gradient(100deg,#7629f5_0%,#b528f2_50%,#f11bc9_100%)] text-lg font-bold text-white shadow-[0_10px_28px_rgba(157,36,238,.28)] transition hover:brightness-110 sm:text-xl"
                 disabled={forgotLoading}
               >
                 {forgotLoading ? (
@@ -281,24 +246,24 @@ export default function AdminAuth() {
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(false)}
-                className="w-full text-sm text-primary hover:underline"
+                className="w-full text-base text-[#c45cff] hover:underline"
               >
                 Voltar ao login
               </button>
             </form>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-foreground font-medium">Email corporativo</Label>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-3">
+                <Label htmlFor="email" className="text-base font-semibold text-[#f5f2fa] sm:text-lg">Email corporativo</Label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Mail className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#bd5dff] transition-colors group-focus-within:text-[#db9bff]" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="seu.email@empresa.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.email ? 'border-destructive' : ''}`}
+                    className={`h-[66px] rounded-2xl border-[#685484]/75 bg-[#121426]/80 pl-14 text-base text-white shadow-inner placeholder:text-[#767389] focus-visible:border-[#b75dff] focus-visible:ring-2 focus-visible:ring-[#9d42e8]/25 sm:text-lg ${errors.email ? 'border-red-500' : ''}`}
                     disabled={isLoading}
                     autoComplete="email"
                   />
@@ -308,20 +273,23 @@ export default function AdminAuth() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground font-medium">Senha</Label>
+              <div className="space-y-3">
+                <Label htmlFor="password" className="text-base font-semibold text-[#f5f2fa] sm:text-lg">Senha</Label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Lock className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#bd5dff] transition-colors group-focus-within:text-[#db9bff]" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.password ? 'border-destructive' : ''}`}
+                    className={`h-[66px] rounded-2xl border-[#685484]/75 bg-[#121426]/80 px-14 text-base text-white shadow-inner placeholder:text-[#b8b4c8] focus-visible:border-[#b75dff] focus-visible:ring-2 focus-visible:ring-[#9d42e8]/25 sm:text-lg ${errors.password ? 'border-red-500' : ''}`}
                     disabled={isLoading}
                     autoComplete="current-password"
                   />
+                  <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute right-5 top-1/2 -translate-y-1/2 text-[#a968e6] transition hover:text-[#d193ff]" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}>
+                    {showPassword ? <EyeOff className="h-6 w-6" /> : <Eye className="h-6 w-6" />}
+                  </button>
                 </div>
                 {errors.password && (
                   <p className="text-xs text-destructive animate-fade-in">{errors.password}</p>
@@ -330,7 +298,7 @@ export default function AdminAuth() {
 
               <Button 
                 type="submit" 
-                className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
+                className="mt-1 h-[68px] w-full rounded-2xl border-0 bg-[linear-gradient(100deg,#7629f5_0%,#b528f2_50%,#f11bc9_100%)] text-lg font-bold text-white shadow-[0_10px_28px_rgba(157,36,238,.28)] transition hover:brightness-110 sm:text-xl"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -346,15 +314,31 @@ export default function AdminAuth() {
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(true)}
-                className="w-full text-sm text-primary hover:underline mt-2"
+                className="w-full pt-0 text-base font-medium text-[#c45cff] transition hover:text-[#df91ff] hover:underline sm:text-lg"
               >
                 Esqueci minha senha
               </button>
             </form>
           )}
 
+          <div className="mt-5 border-t border-[#615c76]/45 py-5 sm:mt-6 sm:py-6">
+            <div className="flex items-center justify-center gap-4 text-center text-sm leading-relaxed text-[#aaa6bd] sm:text-left sm:text-base">
+              <Headphones className="h-7 w-7 shrink-0 text-[#bd58ff]" />
+              <span>Problemas para acessar?<br /><a href="https://wa.me/5531992931686" target="_blank" rel="noopener noreferrer" className="font-medium text-[#c75fff] transition hover:text-[#e097ff] hover:underline">Fale com o administrador pelo WhatsApp.</a></span>
+            </div>
+          </div>
+
+          <footer className="flex items-center gap-4 border-t border-[#615c76]/55 pt-5 text-[#aaa6bd] sm:gap-5">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden sm:h-14 sm:w-14" aria-hidden="true">
+              <img src={vegSystemLogo} alt="" className="absolute -left-[12px] -top-[53px] h-auto w-[150px] max-w-none sm:-left-[14px] sm:-top-[61px] sm:w-[175px]" style={{ filter: 'drop-shadow(0 0 6px rgba(180,76,255,.55))' }} />
+            </div>
+            <div className="min-w-0 text-xs leading-relaxed sm:text-sm">
+              <p><span className="font-semibold text-[#d4d0df]">VEG System</span> — idealizado, projetado e desenvolvido por <span className="font-semibold text-[#d85dff]">Vinicius Ezequiel</span>.</p>
+              <p className="mt-1">© {new Date().getFullYear()} • Todos os direitos reservados.</p>
+            </div>
+          </footer>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }
