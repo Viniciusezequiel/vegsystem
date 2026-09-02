@@ -74,6 +74,7 @@ interface NavGroup {
   gradient?: string;
   adminOnly?: boolean;
   module?: Module; // Maps to permission module
+  directHref?: string;
 }
 
 interface NavSection {
@@ -93,6 +94,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Demandas',
     icon: ClipboardCheck,
     basePath: '/tasks',
+    directHref: '/tasks/my-tasks',
     gradient: 'from-teal-500 to-cyan-500',
     module: 'tasks',
     items: [
@@ -105,6 +107,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Achados e Perdidos',
     icon: Package,
     basePath: '/lost-found',
+    directHref: '/lost-found/items',
     gradient: 'from-purple-500 to-pink-500',
     module: 'lostAndFound',
     items: [
@@ -116,6 +119,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Equipamentos',
     icon: Monitor,
     basePath: '/equipment',
+    directHref: '/equipment',
     gradient: 'from-cyan-500 to-blue-500',
     module: 'equipment',
     items: [
@@ -127,6 +131,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Checklist de Salas',
     icon: ClipboardCheck,
     basePath: '/rooms',
+    directHref: '/rooms/checklists',
     gradient: 'from-green-500 to-emerald-500',
     module: 'rooms',
     items: [
@@ -140,6 +145,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Checklist Semestral',
     icon: CalendarDays,
     basePath: '/semester',
+    directHref: '/semester',
     gradient: 'from-teal-500 to-green-600',
     module: 'rooms',
     items: [
@@ -152,6 +158,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Escaninhos',
     icon: Lock,
     basePath: '/lockers',
+    directHref: '/lockers',
     gradient: 'from-orange-500 to-amber-500',
     module: 'lockers',
     items: [
@@ -160,9 +167,10 @@ const moduleGroups: NavGroup[] = [
     ],
   },
   {
-    name: 'Gestão de Salas',
+    name: 'Reservas de Salas',
     icon: CalendarDays,
     basePath: '/reservations',
+    directHref: '/reservations',
     gradient: 'from-indigo-500 to-violet-500',
     module: 'reservations' as Module,
     items: [
@@ -175,6 +183,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Materiais',
     icon: ShoppingCart,
     basePath: '/materials',
+    directHref: '/materials/my-requests',
     gradient: 'from-rose-500 to-pink-500',
     module: 'materials',
     items: [
@@ -187,6 +196,7 @@ const moduleGroups: NavGroup[] = [
     name: 'Chamados de Sala',
     icon: Bell,
     basePath: '/classroom-calls',
+    directHref: '/classroom-calls',
     gradient: 'from-red-500 to-orange-500',
     module: 'classroomCalls',
     items: [
@@ -295,42 +305,25 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
     return currentGroup ? [currentGroup.basePath] : [];
   });
 
-  const [openSections, setOpenSections] = useState<string[]>(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('sidebar-open-sections') || '[]');
-      return Array.isArray(stored) ? stored : [];
-    } catch {
-      return [];
-    }
-  });
+  const [openSections, setOpenSections] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!activeSectionKey) return;
-    setOpenSections(prev => prev.includes(activeSectionKey) ? prev : [...prev, activeSectionKey]);
-  }, [activeSectionKey]);
+    setOpenSections(activeSectionKey ? [activeSectionKey] : []);
+  }, [activeSectionKey, location.pathname]);
 
   useEffect(() => {
     const currentGroup = moduleGroups.find(group => location.pathname.startsWith(group.basePath));
-    if (!currentGroup) return;
-    setOpenGroups(prev => prev.includes(currentGroup.basePath) ? prev : [...prev, currentGroup.basePath]);
+    setOpenGroups(currentGroup ? [currentGroup.basePath] : []);
   }, [location.pathname]);
 
   const toggleSection = (sectionKey: string) => {
     if (collapsed) return;
-    setOpenSections(prev => {
-      const next = prev.includes(sectionKey) ? prev.filter(key => key !== sectionKey) : [...prev, sectionKey];
-      localStorage.setItem('sidebar-open-sections', JSON.stringify(next));
-      return next;
-    });
+    setOpenSections(prev => prev.includes(sectionKey) ? [] : [sectionKey]);
   };
 
   const toggleGroup = (basePath: string) => {
     if (collapsed) return;
-    setOpenGroups(prev => 
-      prev.includes(basePath) 
-        ? prev.filter(p => p !== basePath)
-        : [...prev, basePath]
-    );
+    setOpenGroups(prev => prev.includes(basePath) ? [] : [basePath]);
   };
 
   const handleLogout = async () => {
@@ -372,12 +365,12 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   const NavItemContent = ({ item, isActive }: { item: NavItem; isActive: boolean }) => (
     <>
       <div className={cn(
-        'w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0',
-        isActive ? 'gradient-primary shadow-glow' : 'bg-sidebar-accent'
+        'flex h-8 w-8 shrink-0 items-center justify-center transition-colors duration-200',
+        isActive ? 'text-primary' : 'text-sidebar-foreground/55'
       )}>
-        <item.icon className={cn('w-4 h-4', isActive ? 'text-primary-foreground' : 'text-sidebar-foreground/70')} />
+        <item.icon className="h-[18px] w-[18px] stroke-[1.8]" />
       </div>
-      {!collapsed && <span className="font-medium truncate">{item.name}</span>}
+      {!collapsed && <span className="truncate text-[13px] font-medium">{item.name}</span>}
     </>
   );
 
@@ -387,7 +380,11 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
       <RouterNavLink
         to={item.href}
         onClick={handleNavClick}
-        className={cn('sidebar-link', isActive && 'sidebar-link-active', collapsed && 'justify-center px-2')}
+        className={cn(
+          'sidebar-link relative min-h-10 rounded-lg transition-colors duration-200',
+          isActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
+          collapsed && 'justify-center px-2'
+        )}
       >
         <NavItemContent item={item} isActive={isActive} />
       </RouterNavLink>
@@ -405,6 +402,52 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
     const isGroupActive = location.pathname.startsWith(group.basePath);
     const isOpen = openGroups.includes(group.basePath) && !collapsed;
 
+    if (group.directHref) {
+      const badgeCount = group.basePath === '/classroom-calls'
+        ? pendingCallsCount
+        : group.basePath === '/materials'
+          ? pendingMaterialsCount
+          : group.basePath === '/tasks'
+            ? pendingTasksCount
+            : 0;
+      const showBadge = Boolean(badgeCount && badgeCount > 0);
+      const link = (
+        <RouterNavLink
+          to={group.directHref}
+          onClick={handleNavClick}
+          onMouseEnter={group.basePath === '/lost-found' ? handleLostItemsHover : undefined}
+          className={cn(
+            'sidebar-link relative min-h-10 rounded-lg transition-colors duration-200',
+            isGroupActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
+            collapsed && 'justify-center px-2'
+          )}
+        >
+          <div className={cn(
+            'flex h-8 w-8 shrink-0 items-center justify-center transition-colors duration-200',
+            isGroupActive ? 'text-primary' : 'text-sidebar-foreground/55'
+          )}>
+            <group.icon className="h-[18px] w-[18px] stroke-[1.8]" />
+            {showBadge && collapsed && (
+              <span className="absolute right-1.5 top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[8px] font-bold text-destructive-foreground">
+                {badgeCount > 9 ? '9+' : badgeCount}
+              </span>
+            )}
+          </div>
+          {!collapsed && <span className="truncate text-[13px] font-medium">{group.name}</span>}
+          {!collapsed && showBadge && (
+            <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">{badgeCount}</span>
+          )}
+        </RouterNavLink>
+      );
+
+      return collapsed ? (
+        <Tooltip key={group.basePath}>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="right">{group.name}</TooltipContent>
+        </Tooltip>
+      ) : <div key={group.basePath}>{link}</div>;
+    }
+
     if (collapsed) {
       return (
         <Tooltip key={group.basePath}>
@@ -412,13 +455,13 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
             <RouterNavLink
               to={group.items[0].href}
               onClick={handleNavClick}
-              className={cn('sidebar-link justify-center px-2', isGroupActive && 'sidebar-link-active')}
+              className={cn('sidebar-link relative min-h-10 justify-center rounded-lg px-2', isGroupActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary')}
             >
               <div className={cn(
-                'w-8 h-8 rounded-lg flex items-center justify-center transition-all relative',
-                isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
+                'relative flex h-8 w-8 items-center justify-center transition-colors duration-200',
+                isGroupActive ? 'text-primary' : 'text-sidebar-foreground/55'
               )}>
-                <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
+                <group.icon className="h-[18px] w-[18px] stroke-[1.8]" />
                 {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                     {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
@@ -439,24 +482,24 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
         onOpenChange={() => toggleGroup(group.basePath)}
         onMouseEnter={group.basePath === '/lost-found' ? handleLostItemsHover : undefined}
       >
-        <CollapsibleTrigger className={cn('sidebar-link w-full justify-between', isGroupActive && 'text-primary')}>
-          <div className="flex items-center gap-3 min-w-0">
+        <CollapsibleTrigger className={cn('sidebar-link relative min-h-10 w-full justify-between rounded-lg transition-colors duration-200', isGroupActive && '!bg-primary/10 !text-sidebar-foreground before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary')}>
+          <div className="flex min-w-0 items-center gap-2.5">
             <div className={cn(
-              'w-8 h-8 rounded-lg flex items-center justify-center transition-all relative shrink-0',
-              isGroupActive ? `bg-gradient-to-r ${group.gradient} shadow-lg` : 'bg-sidebar-accent'
+              'relative flex h-8 w-8 shrink-0 items-center justify-center transition-colors duration-200',
+              isGroupActive ? 'text-primary' : 'text-sidebar-foreground/55'
             )}>
-              <group.icon className={cn('w-4 h-4', isGroupActive ? 'text-white' : 'text-sidebar-foreground/70')} />
+              <group.icon className="h-[18px] w-[18px] stroke-[1.8]" />
               {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                   {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
                 </span>
               )}
             </div>
-            <span className="font-medium text-sm whitespace-normal leading-tight text-left">{group.name}</span>
+            <span className="whitespace-normal text-left text-[13px] font-medium leading-tight">{group.name}</span>
           </div>
           <ChevronDown className={cn('w-4 h-4 transition-transform duration-200 shrink-0', isOpen && 'rotate-180')} />
         </CollapsibleTrigger>
-        <CollapsibleContent className="pl-5 space-y-1 pt-1 animate-accordion-down">
+        <CollapsibleContent className="ml-4 space-y-0.5 border-l border-sidebar-border/40 pl-3 pt-1 animate-accordion-down">
           {group.items.filter(item => !item.adminOnly || isAdmin).map(item => {
             const isActive = location.pathname === item.href;
             const badgeCount = item.hasBadge
@@ -468,7 +511,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                 key={item.href}
                 to={item.href}
                 onClick={handleNavClick}
-                className={cn('sidebar-link text-sm py-2', isActive && 'sidebar-link-active')}
+                className={cn('sidebar-link relative min-h-8 rounded-md py-1.5 text-xs transition-colors duration-200', isActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:-left-[13px] before:bottom-1.5 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary')}
               >
                 <div className="relative shrink-0">
                   <item.icon className="w-4 h-4" />
@@ -493,22 +536,22 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
   return (
     <TooltipProvider delayDuration={0}>
       <aside className={cn(
-        'fixed left-0 top-0 h-screen bg-sidebar flex flex-col z-50 border-r border-sidebar-border/50 transition-all duration-300',
-        collapsed ? 'w-16' : 'w-64'
+        'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-x-hidden border-r border-sidebar-border/35 bg-sidebar transition-all duration-200',
+        collapsed ? 'w-[68px]' : 'w-60'
       )}>
         {/* Logo */}
-        <div className={cn('p-4 border-b border-sidebar-border/50', collapsed && 'p-3')}>
-        <div className="flex items-center gap-3">
+        <div className={cn('border-b border-sidebar-border/35 px-3 py-3', collapsed && 'px-2.5')}>
+        <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-2.5')}>
             <div className={cn(
-              'rounded-xl overflow-hidden flex items-center justify-center shrink-0 border border-sidebar-border/30',
-              collapsed ? 'w-10 h-10' : 'w-11 h-11'
+              'flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border/25',
+              collapsed ? 'h-9 w-9' : 'h-9 w-9'
             )}>
               <img src={vegSystemLogo} alt="VEG System" className="w-full h-full object-cover" />
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <h1 className="font-bold text-sidebar-foreground text-sm leading-tight">VEG System</h1>
-                <p className="text-xs text-sidebar-foreground/50">Sistema Integrado</p>
+                <h1 className="text-[13px] font-semibold leading-tight text-sidebar-foreground">VEG System</h1>
+                <p className="text-[10px] text-sidebar-foreground/45">Sistema Integrado</p>
               </div>
             )}
           </div>
@@ -520,7 +563,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
           size="icon"
           onClick={onToggle}
           aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-sidebar border border-sidebar-border shadow-md hover:bg-sidebar-accent z-50"
+          className="absolute -right-2.5 top-[68px] z-50 h-5 w-5 rounded-md border border-sidebar-border/60 bg-sidebar text-sidebar-foreground/55 shadow-sm transition-colors duration-200 hover:bg-primary/10 hover:text-primary"
         >
           {collapsed ? (
             <ChevronRight className="w-3 h-3" />
@@ -532,7 +575,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
         {/* Navigation */}
         <nav className={cn(
           'flex-1 space-y-1 overflow-y-auto scrollbar-thin',
-          collapsed ? 'p-2' : 'p-3'
+          collapsed ? 'space-y-0.5 p-2' : 'space-y-0.5 px-2 py-2'
         )}>
           {/* Main Nav */}
           {mainNav.map((item) => {
@@ -543,8 +586,8 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                 to={item.href}
                 onClick={handleNavClick}
                 className={cn(
-                  'sidebar-link',
-                  isActive && 'sidebar-link-active',
+                  'sidebar-link relative min-h-10 rounded-lg transition-colors duration-200',
+                  isActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
                   collapsed && 'justify-center px-2'
                 )}
               >
@@ -580,20 +623,20 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                 key={section.key}
                 open={isSectionOpen}
                 onOpenChange={() => toggleSection(section.key)}
-                className="pt-2"
+                className="pt-1.5"
                 data-testid={`sidebar-section-${section.key}`}
               >
                 <CollapsibleTrigger
                   aria-label={`${isSectionOpen ? 'Recolher' : 'Expandir'} ${section.name}`}
                   className={cn(
-                    'w-full flex items-center justify-between rounded-md px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors duration-200',
-                    isSectionActive ? 'text-primary bg-sidebar-accent/40' : 'text-sidebar-foreground/45 hover:text-sidebar-foreground/70 hover:bg-sidebar-accent/25'
+                    'flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] transition-colors duration-200',
+                    isSectionActive ? 'text-primary' : 'text-sidebar-foreground/40 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground/65'
                   )}
                 >
                   <span>{section.name}</span>
                   <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', isSectionOpen && 'rotate-180')} />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-1 pt-1 animate-accordion-down">
+                <CollapsibleContent className="space-y-0.5 pt-0.5 animate-accordion-down">
                   {section.groups.map(renderModuleGroup)}
                   {section.items.map(renderSimpleItem)}
                   {section.key === 'system' && (
@@ -606,27 +649,27 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
         </nav>
 
         {/* Theme Toggle & User */}
-        <div className={cn('border-t border-sidebar-border/50', collapsed ? 'p-2' : 'p-4')}>
+        <div className={cn('border-t border-sidebar-border/35 bg-sidebar/95', collapsed ? 'p-2' : 'p-2.5')}>
           {/* Theme Toggle */}
-          <div className={cn('mb-3', collapsed && 'flex justify-center')}>
+          <div className={cn('mb-2', collapsed && 'flex justify-center')}>
             <ThemeToggle collapsed={collapsed} />
           </div>
 
           {/* User */}
           {!collapsed ? (
             <>
-              <div className="flex items-center gap-3 mb-3 p-2 rounded-xl bg-sidebar-accent/50">
-                <Avatar className="w-10 h-10 ring-2 ring-primary/30">
+              <div className="mb-1.5 flex items-center gap-2.5 rounded-lg border border-sidebar-border/25 bg-sidebar-accent/25 p-2">
+                <Avatar className="h-8 w-8 ring-1 ring-primary/25">
                   <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || ''} />
                   <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground font-bold text-sm">
                     {getInitials(profile?.full_name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                  <p className="truncate text-xs font-semibold text-sidebar-foreground">
                     {profile?.full_name || 'Usuário'}
                   </p>
-                  <p className="text-xs text-primary capitalize font-medium">
+                  <p className="text-[10px] font-medium capitalize text-sidebar-foreground/50">
                     {getRoleLabel(role)}
                   </p>
                 </div>
@@ -634,14 +677,14 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
               <button 
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="sidebar-link w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 justify-center"
+                className="sidebar-link min-h-8 w-full justify-center rounded-lg py-1.5 text-destructive/70 hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
               >
                 {isLoggingOut ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <LogOut className="w-4 h-4" />
                 )}
-                <span className="text-sm">{isLoggingOut ? 'Saindo...' : 'Sair do Sistema'}</span>
+                <span className="text-xs">{isLoggingOut ? 'Saindo...' : 'Sair do Sistema'}</span>
               </button>
             </>
           ) : (

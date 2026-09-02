@@ -27,7 +27,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Plus, Box, ArrowRight, Edit, Trash2, Search } from 'lucide-react';
+import { Plus, Box, ArrowLeftRight, Edit, Trash2, Search } from 'lucide-react';
 import { useLockersList, useCreateLocker, useUpdateLocker, useDeleteLocker, Locker } from '@/hooks/useLockers';
 import { useAuth } from '@/contexts/AuthContext';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
@@ -45,6 +45,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { ModuleNav, type ModuleNavItem } from '@/components/layout/ModuleNav';
+
+const isLockerLoansContext = (pathname: string) => pathname.startsWith('/lockers/loans') || pathname.startsWith('/lockers/loan/');
+
+const lockerModuleItems: ModuleNavItem[] = [
+  { label: 'Escaninhos', href: '/lockers', icon: Box, activeWhen: pathname => pathname.startsWith('/lockers') && !isLockerLoansContext(pathname) },
+  { label: 'Alocações', href: '/lockers/loans', icon: ArrowLeftRight, activeWhen: isLockerLoansContext },
+];
 
 const lockerSchema = z.object({
   code: z.string().min(1, 'Código é obrigatório'),
@@ -192,6 +200,8 @@ export default function LockersList() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleNav title="Escaninhos" description="Gestão de escaninhos e alocações" items={lockerModuleItems} />
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Gestão de Escaninhos</h1>
@@ -229,12 +239,6 @@ export default function LockersList() {
                 },
               ]}
             />
-            <Button asChild variant="outline">
-              <Link to="/lockers/loans">
-                <ArrowRight className="mr-2 h-4 w-4" />
-                Empréstimos
-              </Link>
-            </Button>
             {isAdmin && (
               <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
                 <DialogTrigger asChild>

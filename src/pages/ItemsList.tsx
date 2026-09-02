@@ -63,6 +63,7 @@ import { generatePdf } from '@/lib/pdfService';
 import * as XLSX from 'xlsx';
 import type { Database } from '@/integrations/supabase/types';
 import { classifyExpiredItem, getDestinationLabel } from '@/lib/expiredItemsDestination';
+import { LostFoundModuleNav } from '@/components/lost-found/LostFoundModuleNav';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -723,6 +724,8 @@ export default function ItemsList() {
 
   return (
     <MainLayout>
+      <div className="mb-6"><LostFoundModuleNav /></div>
+
       <div className="page-header">
         <h1 className="page-title">Buscar Itens</h1>
         <p className="page-subtitle">Pesquise e visualize os itens cadastrados</p>

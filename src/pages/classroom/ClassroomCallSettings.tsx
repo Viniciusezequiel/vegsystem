@@ -11,9 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, ArrowLeft, Check, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, Check, Search } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useNavigate } from 'react-router-dom';
 import {
   useClassroomCallRooms,
   useCreateClassroomCallRoom,
@@ -28,11 +27,11 @@ import {
   useDeleteClassroomCallResponse,
   useUpdateClassroomCallResponse,
 } from '@/hooks/useClassroomCallSettings';
+import { ClassroomCallsModuleNav } from '@/components/classroom/ClassroomCallsModuleNav';
 
 const CAMPUSES = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
 export default function ClassroomCallSettings() {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('rooms');
 
   // Rooms state
@@ -127,14 +126,11 @@ export default function ClassroomCallSettings() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/classroom-calls')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Configurações de Chamados</h1>
-            <p className="text-muted-foreground">Gerencie salas, problemas e respostas pré-definidas</p>
-          </div>
+        <ClassroomCallsModuleNav />
+
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Configurações de Chamados</h1>
+          <p className="text-muted-foreground">Gerencie salas, problemas e respostas pré-definidas</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>

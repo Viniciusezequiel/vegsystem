@@ -32,6 +32,7 @@ import { useRoomsList, useCreateChecklist } from '@/hooks/useRooms';
 import { Badge } from '@/components/ui/badge';
 import { Constants } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
+import { RoomsModuleNav } from '@/components/rooms/RoomsModuleNav';
 
 type ConstaStatus = 'consta' | 'nao_consta';
 type ChecklistFieldStatus = 'verificado' | 'pendente';
@@ -414,6 +415,8 @@ export default function ChecklistForm() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <RoomsModuleNav />
+
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => {
             if (currentStep === 'campus-turno') {

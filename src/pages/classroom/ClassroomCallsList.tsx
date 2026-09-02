@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
 import { ptBR } from 'date-fns/locale';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Settings2, Building2, Download } from 'lucide-react';
+import { Bell, BellRing, Check, CheckCircle, Clock, Trash2, Volume2, VolumeX, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, Building2, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useClassroomCalls, useAcceptClassroomCall, useResolveClassroomCall, useDeleteClassroomCall, usePendingCallsCount, ClassroomCall } from '@/hooks/useClassroomCalls';
 import { useClassroomCallRooms } from '@/hooks/useClassroomCallSettings';
@@ -25,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { ClassroomCallsModuleNav } from '@/components/classroom/ClassroomCallsModuleNav';
 
 // Online notification sound URL (continuous siren)
 const ALARM_SOUND_URL = '/alert-siren.ogg';
@@ -36,7 +36,6 @@ const statusConfig = {
 };
 
 export default function ClassroomCallsList() {
-  const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const { canApprove, canEdit, canDelete } = useUserPermissions();
   const [activeTab, setActiveTab] = useState('pending');
@@ -345,6 +344,8 @@ export default function ClassroomCallsList() {
     <MainLayout>
 
       <div className="space-y-6">
+        <ClassroomCallsModuleNav />
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -362,16 +363,6 @@ export default function ClassroomCallsList() {
             >
               {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/classroom-calls/settings')}
-              >
-                <Settings2 className="h-4 w-4 mr-2" />
-                Configurações
-              </Button>
-            )}
             <Button
               variant="outline"
               size="sm"

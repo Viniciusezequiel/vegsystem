@@ -30,7 +30,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, ClipboardCheck, Eye, Check, X, Plus, Search, User, Calendar, Building2, Clock, MessageSquare, Download, Trash2 } from 'lucide-react';
+import { ClipboardCheck, Eye, Check, X, Plus, Search, User, Calendar, Building2, Clock, MessageSquare, Download, Trash2 } from 'lucide-react';
 import { useRoomChecklists, useChecklistWithAnswers, useRoomsList, RoomChecklist } from '@/hooks/useRooms';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -39,6 +39,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import * as XLSX from 'xlsx';
+import { RoomsModuleNav } from '@/components/rooms/RoomsModuleNav';
 
 // Custom hook to get profile name for checklist
 function useProfileName(userId: string) {
@@ -271,13 +272,10 @@ export default function ChecklistHistory() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <RoomsModuleNav />
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="icon">
-              <Link to="/rooms">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-            </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Histórico de Checklists</h1>
               <p className="text-muted-foreground">Visualize os checklists preenchidos</p>

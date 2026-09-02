@@ -54,6 +54,7 @@ import { Badge } from '@/components/ui/badge';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { RoomsModuleNav } from '@/components/rooms/RoomsModuleNav';
 
 const roomSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -104,6 +105,8 @@ export default function RoomsList() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <RoomsModuleNav />
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Gestão de Salas</h1>

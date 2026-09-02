@@ -60,72 +60,79 @@ export default function DashboardStats() {
 
   return (
     <MainLayout>
-      <div className="page-header">
-        <h1 className="page-title">Dashboard de Estatísticas</h1>
-        <p className="page-subtitle">Visão geral do sistema</p>
+      <div className="mb-4">
+        <h1 className="text-[28px] font-semibold tracking-tight text-foreground sm:text-[30px]">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Visão geral do sistema</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Achados e Perdidos</CardTitle>
-            <Package className="h-4 w-4 text-purple-500" />
+      {/* Indicadores principais */}
+      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="rounded-xl border-border/60 bg-card/75 shadow-sm">
+          <CardHeader className="flex flex-row items-center gap-2.5 space-y-0 px-5 pb-1 pt-4">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Package className="h-[17px] w-[17px]" />
+            </span>
+            <CardTitle className="text-sm font-medium text-foreground/80">Achados e Perdidos</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{lostItemsStats?.total || 0}</div>
-            <div className="flex gap-2 mt-2 text-xs">
-              <span className="text-green-500">{lostItemsStats?.available || 0} disponíveis</span>
+          <CardContent className="px-5 pb-4 pt-1">
+            <div className="text-[28px] font-semibold leading-tight tracking-tight">{lostItemsStats?.total || 0}</div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="text-success">{lostItemsStats?.available || 0} disponíveis</span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-blue-500">{lostItemsStats?.delivered || 0} entregues</span>
+              <span className="text-primary">{lostItemsStats?.delivered || 0} entregues</span>
+              <span className="text-muted-foreground">•</span>
+              <span className="text-warning">{lostItemsStats?.expired || 0} expirados</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border-cyan-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Equipamentos</CardTitle>
-            <Monitor className="h-4 w-4 text-cyan-500" />
+        <Card className="rounded-xl border-border/60 bg-card/75 shadow-sm">
+          <CardHeader className="flex flex-row items-center gap-2.5 space-y-0 px-5 pb-1 pt-4">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Monitor className="h-[17px] w-[17px]" />
+            </span>
+            <CardTitle className="text-sm font-medium text-foreground/80">Equipamentos</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{equipmentStats.total}</div>
-            <div className="flex gap-2 mt-2 text-xs">
-              <span className="text-green-500">{equipmentStats.available} disponíveis</span>
+          <CardContent className="px-5 pb-4 pt-1">
+            <div className="text-[28px] font-semibold leading-tight tracking-tight">{equipmentStats.total}</div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="text-success">{equipmentStats.available} disponíveis</span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-yellow-500">{activeLoans?.length || 0} emprestados</span>
+              <span className="text-warning">{activeLoans?.length || 0} emprestados</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border-orange-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Escaninhos</CardTitle>
-            <Lock className="h-4 w-4 text-orange-500" />
+        <Card className="rounded-xl border-border/60 bg-card/75 shadow-sm">
+          <CardHeader className="flex flex-row items-center gap-2.5 space-y-0 px-5 pb-1 pt-4">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Lock className="h-[17px] w-[17px]" />
+            </span>
+            <CardTitle className="text-sm font-medium text-foreground/80">Escaninhos</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{lockerStats.total}</div>
-            <div className="flex gap-2 mt-2 text-xs">
-              <span className="text-green-500">{lockerStats.available} disponíveis</span>
+          <CardContent className="px-5 pb-4 pt-1">
+            <div className="text-[28px] font-semibold leading-tight tracking-tight">{lockerStats.total}</div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="text-success">{lockerStats.available} disponíveis</span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-yellow-500">{lockerStats.occupied} ocupados</span>
+              <span className="text-warning">{lockerStats.occupied} ocupados</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Pie Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Equipment by Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5" />
+      {/* Distribuições por status */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card className="rounded-xl border-border/60 bg-card/75 shadow-sm">
+          <CardHeader className="px-5 pb-0 pt-4">
+            <CardTitle className="flex items-center gap-2 text-[15px] font-medium">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
               Status dos Equipamentos
             </CardTitle>
-            <CardDescription>Distribuição por status</CardDescription>
+            <CardDescription className="text-xs">Distribuição por status</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[250px]">
+          <CardContent className="px-3 pb-3 pt-0">
+            <div className="h-[205px]">
               {equipmentPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -133,9 +140,9 @@ export default function DashboardStats() {
                       data={equipmentPieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
+                      innerRadius={55}
+                      outerRadius={74}
+                      paddingAngle={3}
                       dataKey="value"
                     >
                       {equipmentPieData.map((entry, index) => (
@@ -153,7 +160,7 @@ export default function DashboardStats() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                   Nenhum equipamento encontrado
                 </div>
               )}
@@ -161,17 +168,16 @@ export default function DashboardStats() {
           </CardContent>
         </Card>
 
-        {/* Lost Items by Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5" />
+        <Card className="rounded-xl border-border/60 bg-card/75 shadow-sm">
+          <CardHeader className="px-5 pb-0 pt-4">
+            <CardTitle className="flex items-center gap-2 text-[15px] font-medium">
+              <AlertCircle className="h-4 w-4 text-primary" />
               Status dos Itens Perdidos
             </CardTitle>
-            <CardDescription>Distribuição por status</CardDescription>
+            <CardDescription className="text-xs">Distribuição por status</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[250px]">
+          <CardContent className="px-3 pb-3 pt-0">
+            <div className="h-[205px]">
               {lostItemsPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -179,9 +185,9 @@ export default function DashboardStats() {
                       data={lostItemsPieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
+                      innerRadius={55}
+                      outerRadius={74}
+                      paddingAngle={3}
                       dataKey="value"
                     >
                       {lostItemsPieData.map((entry, index) => (
@@ -199,7 +205,7 @@ export default function DashboardStats() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                   Nenhum item encontrado
                 </div>
               )}
@@ -208,44 +214,38 @@ export default function DashboardStats() {
         </Card>
       </div>
 
-      {/* Additional Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Empréstimos Ativos</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeLoans?.length || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Equipamentos emprestados no momento
-            </p>
+      {/* Indicadores operacionais */}
+      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Card className="rounded-xl border-border/50 bg-card/55 shadow-none">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">Empréstimos Ativos</p>
+              <p className="truncate text-xs text-muted-foreground">Equipamentos emprestados no momento</p>
+            </div>
+            <div className="text-xl font-semibold tabular-nums">{activeLoans?.length || 0}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Alocações de Escaninhos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{lockerLoans?.length || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Escaninhos atualmente em uso
-            </p>
+        <Card className="rounded-xl border-border/50 bg-card/55 shadow-none">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">Alocações de Escaninhos</p>
+              <p className="truncate text-xs text-muted-foreground">Escaninhos atualmente em uso</p>
+            </div>
+            <div className="text-xl font-semibold tabular-nums">{lockerLoans?.length || 0}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Itens Disponíveis</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{lostItemsStats?.available || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Itens aguardando retirada
-            </p>
+        <Card className="rounded-xl border-border/50 bg-card/55 shadow-none">
+          <CardContent className="flex items-center gap-3 p-4">
+            <TrendingUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">Itens Disponíveis</p>
+              <p className="truncate text-xs text-muted-foreground">Itens aguardando retirada</p>
+            </div>
+            <div className="text-xl font-semibold tabular-nums">{lostItemsStats?.available || 0}</div>
           </CardContent>
         </Card>
       </div>

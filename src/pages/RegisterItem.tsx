@@ -26,6 +26,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 import { deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
 import { persistNewImageSafely } from '@/lib/lostItemStorageCore.mjs';
+import { LostFoundModuleNav } from '@/components/lost-found/LostFoundModuleNav';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -181,6 +182,8 @@ export default function RegisterItem() {
 
   return (
     <MainLayout>
+      <div className="mb-6"><LostFoundModuleNav /></div>
+
       <div className="page-header">
         <h1 className="page-title">Registrar Novo Item</h1>
         <p className="page-subtitle">Cadastre um item encontrado no sistema</p>

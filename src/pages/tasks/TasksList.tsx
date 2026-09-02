@@ -60,6 +60,7 @@ import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import TaskFormDialog from '@/components/tasks/TaskFormDialog';
 import TaskDetailsDialog from '@/components/tasks/TaskDetailsDialog';
+import { TasksModuleNav } from '@/components/tasks/TasksModuleNav';
 
 export default function TasksList() {
   const [search, setSearch] = useState('');
@@ -110,6 +111,8 @@ export default function TasksList() {
 
   return (
     <MainLayout>
+      <div className="mb-6"><TasksModuleNav /></div>
+
       <div className="page-header">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

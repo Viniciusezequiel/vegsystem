@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2, ChevronDown, ChevronUp, User, MapPin, FileText, Calendar, Pencil } from 'lucide-react';
+import { Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2, ChevronDown, ChevronUp, User, MapPin, FileText, Calendar, Pencil } from 'lucide-react';
 import { useEquipmentLoan, useEquipmentLoans, useOverdueLoans, useReturnEquipment, useDeleteEquipmentLoan, EquipmentLoan } from '@/hooks/useEquipment';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
@@ -29,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { EquipmentModuleNav } from '@/components/equipment/EquipmentModuleNav';
 
 const statusLabels = {
   active: { label: 'Ativo', variant: 'default' as const, icon: Clock },
@@ -376,17 +377,12 @@ export default function EquipmentLoans() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <EquipmentModuleNav />
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="icon">
-              <Link to="/equipment">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Empréstimos de Equipamentos</h1>
-              <p className="text-sm text-muted-foreground">Gerencie os empréstimos e devoluções</p>
-            </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Empréstimos de Equipamentos</h2>
+            <p className="text-sm text-muted-foreground">Gerencie os empréstimos e devoluções</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <PdfExportButton

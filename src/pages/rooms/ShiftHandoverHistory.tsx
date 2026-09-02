@@ -20,13 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, ClipboardList, Plus, Search, Eye, AlertTriangle } from 'lucide-react';
+import { ClipboardList, Plus, Search, Eye, AlertTriangle } from 'lucide-react';
 import { useShiftHandovers, type ShiftHandover } from '@/hooks/useShiftHandovers';
 import { ShiftHandoverDetailsDialog } from '@/components/rooms/ShiftHandoverDetailsDialog';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { RoomsModuleNav } from '@/components/rooms/RoomsModuleNav';
 
 function useProfileName(userId: string) {
   return useQuery({
@@ -104,13 +105,10 @@ export default function ShiftHandoverHistory() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <RoomsModuleNav />
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="icon">
-              <Link to="/rooms">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-            </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Passagem de Plantão</h1>
               <p className="text-muted-foreground">Histórico de passagens de turno</p>

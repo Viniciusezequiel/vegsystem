@@ -30,6 +30,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { TasksModuleNav } from '@/components/tasks/TasksModuleNav';
 
 const COLORS = ['#f59e0b', '#3b82f6', '#22c55e', '#6b7280', '#f97316'];
 
@@ -114,6 +115,8 @@ export default function TasksDashboard() {
 
   return (
     <MainLayout>
+      <div className="mb-6"><TasksModuleNav /></div>
+
       <div className="page-header">
         <h1 className="page-title flex items-center gap-2">
           <BarChart3 className="w-6 h-6" />

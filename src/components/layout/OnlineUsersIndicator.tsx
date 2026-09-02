@@ -14,24 +14,24 @@ export function OnlineUsersIndicator() {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/20 cursor-default">
+          <div className="flex cursor-default items-center gap-2 rounded-lg border border-border/50 bg-card/55 px-2.5 py-1.5 shadow-sm">
             <div className="relative">
-              <Users className="w-4 h-4 text-success" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-success rounded-full animate-pulse" />
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-success ring-2 ring-background" />
             </div>
-            <span className="text-xs font-medium text-success">{onlineUsers.length} online</span>
-            <div className="flex -space-x-2">
+            <span className="text-xs font-medium text-foreground/75">{onlineUsers.length} online</span>
+            <div className="flex -space-x-1.5">
               {onlineUsers.slice(0, 3).map((user) => (
-                <Avatar key={user.id} className="w-6 h-6 border-2 border-background">
+                <Avatar key={user.id} className="h-5 w-5 border border-background">
                   <AvatarImage src={user.avatar_url || undefined} />
-                  <AvatarFallback className="text-[10px] bg-success/20 text-success">
+                  <AvatarFallback className="bg-muted text-[8px] text-muted-foreground">
                     {user.name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               ))}
               {onlineUsers.length > 3 && (
-                <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
-                  <span className="text-[10px] text-muted-foreground">+{onlineUsers.length - 3}</span>
+                <div className="flex h-5 w-5 items-center justify-center rounded-full border border-background bg-muted">
+                  <span className="text-[8px] text-muted-foreground">+{onlineUsers.length - 3}</span>
                 </div>
               )}
             </div>

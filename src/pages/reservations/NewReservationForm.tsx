@@ -15,6 +15,7 @@ import { ArrowLeft, Calendar, Loader2, Users, MapPin, Search, Check } from 'luci
 import { useFindAvailableRooms, useCreateReservation, useCreateRecurringReservations, type AvailableRoom } from '@/hooks/useRoomReservations';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
+import { ReservationsModuleNav } from '@/components/reservations/ReservationsModuleNav';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
@@ -115,6 +116,8 @@ export default function NewReservationForm() {
 
   return (
     <MainLayout>
+      <div className="mb-6"><ReservationsModuleNav /></div>
+
       <div className="max-w-3xl mx-auto space-y-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => step === 2 ? setStep(1) : navigate('/reservations')}>

@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, Package, Send, UserCheck } from 'lucide-react';
+import { Plus, Trash2, Package, Send, UserCheck } from 'lucide-react';
 import { useCreateMaterialRequest, MaterialRequestItem } from '@/hooks/useMaterialRequests';
 import { useUsersList } from '@/hooks/useUsers';
+import { MaterialsModuleNav } from '@/components/materials/MaterialsModuleNav';
 
 export default function MaterialRequestForm() {
   const navigate = useNavigate();
@@ -67,17 +68,9 @@ export default function MaterialRequestForm() {
 
   return (
     <MainLayout>
+      <div className="mb-6"><MaterialsModuleNav /></div>
+
       <div className="page-header">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/materials')}
-          className="mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar
-        </Button>
-        
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
             <Package className="w-5 h-5 text-white" />

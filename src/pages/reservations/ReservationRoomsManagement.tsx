@@ -14,12 +14,13 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Plus, Pencil, MapPin, Search, X, Package, Upload } from 'lucide-react';
+import { Plus, Pencil, MapPin, Search, X, Package, Upload } from 'lucide-react';
 import { useReservationRooms, type ReservationRoom } from '@/hooks/useRoomReservations';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
+import { ReservationsModuleNav } from '@/components/reservations/ReservationsModuleNav';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 const campusOptions: CampusEnum[] = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
@@ -160,11 +161,10 @@ export default function ReservationRoomsManagement() {
   return (
     <MainLayout>
       <div className="space-y-4">
+        <ReservationsModuleNav />
+
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/reservations')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             <div>
               <h1 className="text-2xl font-bold">Gestão de Salas</h1>
               <p className="text-sm text-muted-foreground">Cadastre e gerencie as salas para reserva</p>

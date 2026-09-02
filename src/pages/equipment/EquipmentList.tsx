@@ -44,7 +44,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { 
-  Plus, Search, Package, ArrowRight, Edit, Trash2, ArrowLeftRight, 
+  Plus, Search, Package, Edit, Trash2, ArrowLeftRight,
   History, Ban, Upload, Loader2 
 } from 'lucide-react';
 import { useEquipmentList, useDeleteEquipment, Equipment } from '@/hooks/useEquipment';
@@ -60,6 +60,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Constants } from '@/integrations/supabase/types';
 import * as XLSX from 'xlsx';
+import { EquipmentModuleNav } from '@/components/equipment/EquipmentModuleNav';
 
 type CampusEnum = 'Campus I' | 'Campus II' | 'Campus IV' | 'Campus HUCM Adm';
 
@@ -195,9 +196,11 @@ export default function EquipmentList() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <EquipmentModuleNav />
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Gestão de Patrimônios</h1>
+            <h2 className="text-2xl font-bold text-foreground">Patrimônios</h2>
             <p className="text-muted-foreground">Gerencie o inventário de equipamentos</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -327,12 +330,6 @@ export default function EquipmentList() {
                 </div>
               </DialogContent>
             </Dialog>
-            <Button asChild variant="outline">
-              <Link to="/equipment/loans">
-                <ArrowRight className="mr-2 h-4 w-4" />
-                Empréstimos
-              </Link>
-            </Button>
             <Button asChild>
               <Link to="/equipment/register">
                 <Plus className="mr-2 h-4 w-4" />

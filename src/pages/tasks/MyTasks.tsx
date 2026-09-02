@@ -74,6 +74,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import TaskFormDialog from '@/components/tasks/TaskFormDialog';
 import { toast } from 'sonner';
+import { TasksModuleNav } from '@/components/tasks/TasksModuleNav';
 
 export default function MyTasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -214,6 +215,8 @@ export default function MyTasks() {
 
   return (
     <MainLayout>
+      <div className="mb-6"><TasksModuleNav /></div>
+
       <div className="page-header">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

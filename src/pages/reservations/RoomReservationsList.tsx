@@ -27,6 +27,7 @@ import { ImportReservationsDialog } from '@/pages/reservations/ImportReservation
 import { ReservationFiltersBar, type FiltersState } from '@/components/reservations/FiltersBar';
 import { ReservationsCalendar } from '@/components/reservations/ReservationsCalendar';
 import * as XLSX from 'xlsx';
+import { ReservationsModuleNav } from '@/components/reservations/ReservationsModuleNav';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pending: { label: 'Pendente', variant: 'secondary' },
@@ -239,6 +240,8 @@ export default function RoomReservationsList() {
   return (
     <MainLayout>
       <div className="space-y-4">
+        <ReservationsModuleNav />
+
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold">Gestão de Salas</h1>

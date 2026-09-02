@@ -18,6 +18,7 @@ import { Printer, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { SemesterModuleNav } from '@/components/semester/SemesterModuleNav';
 
 interface Candidate {
   key: string;
@@ -176,6 +177,8 @@ export default function SemesterLabels() {
   };
 
   return (<MainLayout>
+    <div className="mb-6"><SemesterModuleNav /></div>
+
     <div className="p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

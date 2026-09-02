@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search, Unlock } from 'lucide-react';
+import { ArrowLeftRight, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search, Unlock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useLockerLoan, useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, useBulkReturnLockers, LockerLoan } from '@/hooks/useLockers';
 import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
@@ -23,6 +23,14 @@ import { BulkReturnLockersDialog } from '@/components/lockers/BulkReturnLockersD
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ModuleNav, type ModuleNavItem } from '@/components/layout/ModuleNav';
+
+const isLockerLoansContext = (pathname: string) => pathname.startsWith('/lockers/loans') || pathname.startsWith('/lockers/loan/');
+
+const lockerModuleItems: ModuleNavItem[] = [
+  { label: 'Escaninhos', href: '/lockers', icon: Box, activeWhen: pathname => pathname.startsWith('/lockers') && !isLockerLoansContext(pathname) },
+  { label: 'Alocações', href: '/lockers/loans', icon: ArrowLeftRight, activeWhen: isLockerLoansContext },
+];
 
 const statusLabels = {
   active: { label: 'Ativo', variant: 'default' as const, icon: Clock },
@@ -268,17 +276,12 @@ export default function LockerLoans() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <ModuleNav title="Escaninhos" description="Gestão de escaninhos e alocações" items={lockerModuleItems} />
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="icon">
-              <Link to="/lockers">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Locações de Escaninhos</h1>
-              <p className="text-sm text-muted-foreground">Gerencie as locações e devoluções</p>
-            </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Locações de Escaninhos</h2>
+            <p className="text-sm text-muted-foreground">Gerencie as locações e devoluções</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <Button

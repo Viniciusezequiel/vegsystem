@@ -80,9 +80,8 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="floating-orb w-[600px] h-[600px] bg-primary/10 -top-64 -right-64" />
-        <div className="floating-orb w-[400px] h-[400px] bg-accent/10 bottom-0 left-1/4" />
-        <div className="absolute inset-0 mesh-gradient opacity-30" />
+        <div className="absolute -right-64 -top-72 h-[560px] w-[560px] rounded-full bg-primary/[0.045] blur-3xl" />
+        <div className="absolute inset-0 mesh-gradient opacity-[0.12]" />
       </div>
 
       {/* Mobile Overlay */}
@@ -109,18 +108,18 @@ export function MainLayout({ children }: MainLayoutProps) {
       
       <main className={cn(
         'min-h-screen relative z-10 transition-all duration-300 min-w-0',
-        !isMobile && (sidebarCollapsed ? 'xl:ml-16' : 'xl:ml-64'),
+        !isMobile && (sidebarCollapsed ? 'xl:ml-[68px]' : 'xl:ml-60'),
         'ml-0'
       )}>
         {/* Top Bar */}
         <div
           ref={topBarRef}
           className={cn(
-            'fixed top-0 right-0 z-20 px-3 sm:px-4 xl:px-8 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50 transition-all duration-300 left-0',
-            !isMobile && (sidebarCollapsed ? 'xl:left-16' : 'xl:left-64')
+            'fixed left-0 right-0 top-0 z-20 h-[60px] border-b border-border/35 bg-background/90 px-3 backdrop-blur-md transition-all duration-200 sm:px-4 xl:px-6',
+            !isMobile && (sidebarCollapsed ? 'xl:left-[68px]' : 'xl:left-60')
           )}
         >
-          <div className="flex items-center justify-between max-w-[1600px] mx-auto">
+          <div className="mx-auto flex h-full max-w-[1560px] items-center justify-between">
             {/* Mobile/Tablet Menu Button */}
             <Button
               variant="ghost"
@@ -142,8 +141,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
         <div
-          className="p-3 sm:p-4 xl:p-8 max-w-[1600px] mx-auto min-w-0 overflow-x-hidden"
-          style={{ paddingTop: 'calc(var(--app-topbar-height, 96px) + 1rem)' }}
+          className="mx-auto min-w-0 max-w-[1560px] overflow-x-hidden p-3 sm:p-4 xl:px-6 xl:pb-6"
+          style={{ paddingTop: 'calc(var(--app-topbar-height, 60px) + 1rem)' }}
         >
           {children}
         </div>

@@ -22,6 +22,7 @@ import { useUserPermissions } from '@/hooks/usePermissions';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MaterialRequestDetailsDialog } from '@/components/materials/MaterialRequestDetailsDialog';
+import { MaterialsModuleNav } from '@/components/materials/MaterialsModuleNav';
 
 const statusConfig = {
   pending: { label: 'Pendente', icon: Clock, variant: 'secondary' as const, color: 'text-amber-500' },
@@ -99,6 +100,8 @@ export default function MaterialRequestsList() {
 
   return (
     <MainLayout>
+      <div className="mb-6"><MaterialsModuleNav /></div>
+
       <div className="page-header">
         <div className="flex items-center justify-between">
           <div>
