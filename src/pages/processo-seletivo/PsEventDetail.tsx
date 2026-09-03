@@ -135,10 +135,20 @@ export default function PsEventDetail() {
       && (!query || [link.collaborator_name, link.role_name, link.assigned_role, link.unit, link.room].filter(Boolean).join(' ').toLowerCase().includes(query)));
   }, [links, confirmationSearch, confirmationStatus, confirmationRole, confirmationUnit]);
 
+  const operationalLinks = useMemo(
+    () =>
+      links.filter((link: any) =>
+        ['pending_confirmation', 'confirmed'].includes(
+          link.participation_status
+        )
+      ),
+    [links]
+  );
+
   const presenceRows = useMemo(() => {
     const query = presenceSearch.trim().toLowerCase();
 
-    return [...links]
+    return [...operationalLinks]
       .filter((link: any) => {
         if (!query) return true;
 
@@ -163,12 +173,12 @@ export default function PsEventDetail() {
           'pt-BR'
         )
       );
-  }, [links, presenceSearch]);
+  }, [operationalLinks, presenceSearch]);
 
   const attendanceLocations = useMemo(() => {
     const locations = new Map<string, any>();
 
-    for (const link of links as any[]) {
+    for (const link of operationalLinks as any[]) {
       const campus = String(link.campus || '').trim();
 
       const building = String(
@@ -233,11 +243,11 @@ export default function PsEventDetail() {
           'pt-BR'
         )
       );
-  }, [links, attendanceClosures]);
+  }, [operationalLinks, attendanceClosures]);
 
 
   const closureCoordinatorCandidates = useMemo(() => {
-    return links
+    return operationalLinks
       .filter((link: any) => {
         const role = String(
           link.role_name ||
@@ -258,7 +268,7 @@ export default function PsEventDetail() {
           'pt-BR'
         )
       );
-  }, [links]);
+  }, [operationalLinks]);
 
   const selfEvaluationRows = useMemo(() => {
     const query = selfEvaluationSearch.trim().toLowerCase();
@@ -793,7 +803,7 @@ export default function PsEventDetail() {
   };
 
   const exportPresence = () => {
-    const rows = links.map((l: any) => ({
+    const rows = operationalLinks.map((l: any) => ({
       Nome: l.collaborator_name,
       Função: l.role_name,
       Sala: l.room || '',
@@ -840,7 +850,7 @@ export default function PsEventDetail() {
   };
 
   const exportAttendancePdf = async () => {
-    if (!links.length) {
+    if (!operationalLinks.length) {
       toast.error('Nenhum colaborador vinculado ao evento.');
       return;
     }
@@ -920,7 +930,7 @@ export default function PsEventDetail() {
       );
     }
 
-    const pdfRows = links.map((row: any) => {
+    const pdfRows = operationalLinks.map((row: any) => {
       const attendance: any = attendanceById.get(row.id);
       const absence: any = absenceById.get(row.id);
       const rowAdjustments = adjustmentsById.get(row.id) || [];
@@ -1364,7 +1374,7 @@ export default function PsEventDetail() {
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground">Presentes</p>
                   <p className="mt-1 text-2xl font-bold">
-                    {links.filter((l:any) => l.present && !l.absent).length}
+                    {operationalLinks.filter((l:any) => l.present && !l.absent).length}
                   </p>
                 </CardContent>
               </Card>
@@ -1373,7 +1383,7 @@ export default function PsEventDetail() {
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground">Assinados</p>
                   <p className="mt-1 text-2xl font-bold">
-                    {links.filter((l:any) => !!l.signed_at).length}
+                    {operationalLinks.filter((l:any) => !!l.signed_at).length}
                   </p>
                 </CardContent>
               </Card>
@@ -1382,7 +1392,7 @@ export default function PsEventDetail() {
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground">Pendentes</p>
                   <p className="mt-1 text-2xl font-bold">
-                    {links.filter((l:any) => !l.signed_at && !l.absent).length}
+                    {operationalLinks.filter((l:any) => !l.signed_at && !l.absent).length}
                   </p>
                 </CardContent>
               </Card>
@@ -1391,7 +1401,7 @@ export default function PsEventDetail() {
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground">Ausentes</p>
                   <p className="mt-1 text-2xl font-bold">
-                    {links.filter((l:any) => !!l.absent).length}
+                    {operationalLinks.filter((l:any) => !!l.absent).length}
                   </p>
                 </CardContent>
               </Card>
@@ -1536,7 +1546,7 @@ export default function PsEventDetail() {
                   >
                     {presenceListOpen
                       ? 'Ocultar fiscais'
-                      : `Ver fiscais (${links.length})`}
+                      : `Ver fiscais (${operationalLinks.length})`}
                   </Button>
 
                   <Button asChild variant="outline">
