@@ -73,6 +73,10 @@ export default function PsEventDetail() {
   const [presenceSearch, setPresenceSearch] = useState('');
   const [presenceListOpen, setPresenceListOpen] = useState(false);
 
+  const [selfEvaluationSearch, setSelfEvaluationSearch] = useState('');
+  const [selfEvaluationRole, setSelfEvaluationRole] = useState('all');
+  const [selfEvaluationCampus, setSelfEvaluationCampus] = useState('all');
+
   const [absenceTarget, setAbsenceTarget] = useState<any>(null);
   const [absenceResponsibleId, setAbsenceResponsibleId] = useState('');
   const [absenceReason, setAbsenceReason] = useState('');
@@ -236,6 +240,108 @@ export default function PsEventDetail() {
         )
       );
   }, [links]);
+
+  const selfEvaluationRows = useMemo(() => {
+    const query = selfEvaluationSearch.trim().toLowerCase();
+
+    return [...selfEvaluations]
+      .filter((item: any) => {
+        const matchesSearch =
+          !query ||
+          [
+            item.respondent_name,
+            item.role,
+            item.campus,
+            item.floor,
+            item.room,
+            item.suggestions,
+            item.incident_comment,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .includes(query);
+
+        const matchesRole =
+          selfEvaluationRole === 'all' ||
+          item.role === selfEvaluationRole;
+
+        const matchesCampus =
+          selfEvaluationCampus === 'all' ||
+          item.campus === selfEvaluationCampus;
+
+        return matchesSearch && matchesRole && matchesCampus;
+      })
+      .sort((a: any, b: any) =>
+        String(b.created_at || '').localeCompare(
+          String(a.created_at || '')
+        )
+      );
+  }, [
+    selfEvaluations,
+    selfEvaluationSearch,
+    selfEvaluationRole,
+    selfEvaluationCampus,
+  ]);
+
+  const selfEvaluationSummary = useMemo(() => {
+    const ratings: number[] = [];
+    let incidents = 0;
+    let lowRatings = 0;
+
+    for (const item of selfEvaluations as any[]) {
+      const values = [
+        item.training_rating,
+        item.organization_rating,
+        item.snack_rating,
+        item.partner_fiscal_rating,
+      ].filter((value) => Number(value) > 0);
+
+      ratings.push(...values.map(Number));
+
+      if (item.had_incident) incidents += 1;
+
+      if (values.some((value) => Number(value) <= 2)) {
+        lowRatings += 1;
+      }
+    }
+
+    const average = ratings.length
+      ? ratings.reduce((sum, value) => sum + value, 0) /
+        ratings.length
+      : 0;
+
+    return {
+      total: selfEvaluations.length,
+      average,
+      incidents,
+      lowRatings,
+    };
+  }, [selfEvaluations]);
+
+  const selfEvaluationRoleOptions = useMemo(
+    () =>
+      [...new Set(
+        selfEvaluations
+          .map((item: any) => item.role)
+          .filter(Boolean)
+      )].sort((a: any, b: any) =>
+        String(a).localeCompare(String(b), 'pt-BR')
+      ),
+    [selfEvaluations]
+  );
+
+  const selfEvaluationCampusOptions = useMemo(
+    () =>
+      [...new Set(
+        selfEvaluations
+          .map((item: any) => item.campus)
+          .filter(Boolean)
+      )].sort((a: any, b: any) =>
+        String(a).localeCompare(String(b), 'pt-BR')
+      ),
+    [selfEvaluations]
+  );
 
   const absenceResponsibleCandidates = useMemo(() => {
     return links
@@ -927,6 +1033,17 @@ export default function PsEventDetail() {
             <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
             <TabsTrigger value="presenca">Presença</TabsTrigger>
             <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
+            <TabsTrigger value="auto">
+              Autoavaliações
+              {selfEvaluations.length > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="ml-2 px-1.5 py-0 text-[10px]"
+                >
+                  {selfEvaluations.length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
           </TabsList>
 
@@ -1384,18 +1501,288 @@ export default function PsEventDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="auto" className="pt-4">
+          <TabsContent value="auto" className="space-y-4 pt-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">
+                    Respostas
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {selfEvaluationSummary.total}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">
+                    Média geral
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {selfEvaluationSummary.average
+                      ? selfEvaluationSummary.average.toFixed(1)
+                      : '—'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">
+                    Ocorrências
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {selfEvaluationSummary.incidents}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">
+                    Respostas com nota 1–2
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {selfEvaluationSummary.lowRatings}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
             <Card className="rounded-2xl">
-              <CardContent className="divide-y p-0">
-                {selfEvaluations.map((e: any) => (
-                  <div key={e.id} className="space-y-1 p-4">
-                    <p className="font-medium">{e.collaborator_name}</p>
-                    {e.difficulties && <p className="text-sm text-muted-foreground">Dificuldades: {e.difficulties}</p>}
-                    {e.suggestions && <p className="text-sm text-muted-foreground">Sugestões: {e.suggestions}</p>}
-                    {e.available_next && <Badge variant="secondary">Disponível para o próximo</Badge>}
-                  </div>
-                ))}
-                {selfEvaluations.length === 0 && <p className="p-4 text-muted-foreground">Nenhuma autoavaliação recebida.</p>}
+              <CardHeader>
+                <div className="flex flex-col gap-1">
+                  <CardTitle className="text-base">
+                    Autoavaliações recebidas
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Feedback enviado pelos fiscais deste evento.
+                  </p>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                <div className="grid gap-2 lg:grid-cols-3">
+                  <Input
+                    value={selfEvaluationSearch}
+                    onChange={(event) =>
+                      setSelfEvaluationSearch(event.target.value)
+                    }
+                    placeholder="Buscar por nome, cargo, Campus..."
+                  />
+
+                  <Select
+                    value={selfEvaluationRole}
+                    onValueChange={setSelfEvaluationRole}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Cargo" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      <SelectItem value="all">
+                        Todos os cargos
+                      </SelectItem>
+
+                      {selfEvaluationRoleOptions.map((role: any) => (
+                        <SelectItem key={role} value={role}>
+                          {roles.find(
+                            (item: any) => item.value === role
+                          )?.name || role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={selfEvaluationCampus}
+                    onValueChange={setSelfEvaluationCampus}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Campus" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      <SelectItem value="all">
+                        Todos os Campus
+                      </SelectItem>
+
+                      {selfEvaluationCampusOptions.map(
+                        (campus: any) => (
+                          <SelectItem
+                            key={campus}
+                            value={campus}
+                          >
+                            {campus}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="max-h-[44rem] space-y-3 overflow-y-auto pr-1">
+                  {selfEvaluationRows.map((e: any) => {
+                    const roleLabel =
+                      roles.find(
+                        (role: any) => role.value === e.role
+                      )?.name || e.role || 'Cargo não informado';
+
+                    const ratingItems = [
+                      {
+                        label: 'Treinamento',
+                        value: e.training_rating,
+                        comment: e.training_comment,
+                      },
+                      {
+                        label: 'Organização',
+                        value: e.organization_rating,
+                        comment: e.organization_comment,
+                      },
+                      {
+                        label: 'Lanche / alimentação',
+                        value: e.snack_rating,
+                        comment: e.snack_comment,
+                      },
+                      {
+                        label: 'Fiscal parceiro',
+                        value: e.partner_fiscal_rating,
+                        comment: e.partner_fiscal_comment,
+                      },
+                    ];
+
+                    return (
+                      <div
+                        key={e.id}
+                        className="rounded-xl border p-4"
+                      >
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold">
+                                {e.identified
+                                  ? e.respondent_name ||
+                                    'Identificado sem nome'
+                                  : 'Resposta anônima'}
+                              </p>
+
+                              {!e.identified && (
+                                <Badge variant="outline">
+                                  Anônimo
+                                </Badge>
+                              )}
+
+                              {e.had_incident && (
+                                <Badge variant="destructive">
+                                  Ocorrência
+                                </Badge>
+                              )}
+                            </div>
+
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {[
+                                roleLabel,
+                                e.campus,
+                                e.floor &&
+                                  `${e.floor}º andar`,
+                                e.room &&
+                                  `Sala ${e.room}`,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          </div>
+
+                          <p className="shrink-0 text-xs text-muted-foreground">
+                            {e.created_at
+                              ? new Date(
+                                  e.created_at
+                                ).toLocaleString('pt-BR')
+                              : ''}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid gap-2 md:grid-cols-2">
+                          {ratingItems.map((item) => (
+                            <div
+                              key={item.label}
+                              className="rounded-lg bg-muted/30 p-3"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-medium">
+                                  {item.label}
+                                </p>
+
+                                {item.value ? (
+                                  <Badge
+                                    variant={
+                                      Number(item.value) <= 2
+                                        ? 'destructive'
+                                        : Number(item.value) >= 4
+                                          ? 'default'
+                                          : 'secondary'
+                                    }
+                                  >
+                                    ★ {item.value}/5
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline">
+                                    Não avaliado
+                                  </Badge>
+                                )}
+                              </div>
+
+                              {item.comment && (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  {item.comment}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {(e.had_incident ||
+                          e.suggestions) && (
+                          <div className="mt-3 space-y-2">
+                            {e.had_incident && (
+                              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                                <p className="text-xs font-semibold text-destructive">
+                                  Ocorrência informada
+                                </p>
+                                <p className="mt-1 text-sm">
+                                  {e.incident_comment ||
+                                    'Sem descrição.'}
+                                </p>
+                              </div>
+                            )}
+
+                            {e.suggestions && (
+                              <div className="rounded-lg border p-3">
+                                <p className="text-xs font-semibold">
+                                  Sugestão de melhoria
+                                </p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  {e.suggestions}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {!selfEvaluationRows.length && (
+                    <div className="rounded-xl border border-dashed p-8 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        {selfEvaluations.length
+                          ? 'Nenhuma autoavaliação corresponde aos filtros.'
+                          : 'Nenhuma autoavaliação recebida neste evento.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
