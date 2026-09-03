@@ -1,23 +1,67 @@
 export const PS_COMMUNICATION_TYPES = Object.freeze({ confirmation_request: 'confirmation_request', event_message: 'event_message' });
 export const PS_COMMUNICATION_STATUSES = Object.freeze(['pending', 'waiting_provider_quota', 'processing', 'sent', 'failed', 'failed_missing_recipient', 'cancelled']);
 
+export const DEFAULT_EVENT_MESSAGE_SUBJECT = 'Orientações para atuação no Processo Seletivo — {{evento}}';
+export const DEFAULT_EVENT_MESSAGE_TEMPLATE = `Olá, {{nome}}.
+
+Você está escalado(a) para atuar no processo seletivo {{evento}}.
+
+Confira abaixo as informações da sua atuação:
+
+Cargo/Função: {{cargo}}
+Data: {{data_evento}}
+Horário: {{horario}}
+Campus/Unidade: {{campus}} / {{unidade}}
+Prédio: {{predio}}
+Andar: {{andar}}
+Sala: {{sala}}
+
+Pedimos que confira atentamente as informações acima.
+
+Caso haja alguma divergência relacionada à sua escala, entre em contato com a equipe responsável pelo processo seletivo.
+
+Atenciosamente,
+Equipe de Processo Seletivo
+VEG System`;
+
+export const DEFAULT_CONFIRMATION_SUBJECT = 'Confirmação de participação — {{evento}}';
 export const DEFAULT_CONFIRMATION_TEMPLATE = `Olá, {{nome}}.
 
-Você foi selecionado(a) para atuar no processo seletivo {{evento}}.
+Você foi selecionado(a) para compor a equipe do processo seletivo {{evento}}.
 
-Função: {{cargo}}
-Unidade: {{unidade}}
-Andar/Sala: {{andar}} / {{sala}}
+Confira os dados da sua atuação:
+
+Cargo/Função: {{cargo}}
+Data: {{data_evento}}
 Horário: {{horario}}
+Campus/Unidade: {{campus}} / {{unidade}}
+Prédio: {{predio}}
+Andar: {{andar}}
+Sala: {{sala}}
 
-Por favor, confirme sua participação pelo link abaixo:
+Para confirmar sua participação, utilize o botão abaixo.
 
-{{link_confirmacao}}`;
+{{link_confirmacao}}
 
-const VARIABLES = ['nome','evento','cargo','unidade','predio','andar','sala','horario','link_confirmacao'];
+A confirmação é individual e vinculada à sua escala neste evento.
+
+Caso identifique alguma divergência nas informações acima, entre em contato com a equipe responsável antes de confirmar.
+
+Atenciosamente,
+Equipe de Processo Seletivo
+VEG System`;
+
+const VARIABLES = ['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'];
 export function renderPsCommunicationTemplate(template, values = {}) {
   return VARIABLES.reduce((text, key) => text.replaceAll(`{{${key}}}`, String(values[key] ?? '')), String(template ?? ''));
 }
+
+// Mirrors the Edge Function's formatDateBR: 'YYYY-MM-DD' -> 'DD/MM/YYYY', pt-BR.
+export function formatPsEventDateBR(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
+}
+
 
 export function filterPsCommunicationRecipients(rows, filters = {}) {
   const search = String(filters.search || '').trim().toLowerCase();
