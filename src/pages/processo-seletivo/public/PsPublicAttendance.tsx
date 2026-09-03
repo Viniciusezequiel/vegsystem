@@ -9,11 +9,21 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SignaturePad } from '@/components/ui/SignaturePad';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { PenLine, Search, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { usePsEvents, usePsRoles } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { submitPublicProcessSelectionSignature } from '@/lib/signatureStorage';
+import {
+  submitPublicProcessSelectionSignature,
+  submitPublicProcessSelectionAbsence,
+} from '@/lib/signatureStorage';
 
 export default function PsPublicAttendance() {
   const navigate = useNavigate();
@@ -28,6 +38,13 @@ export default function PsPublicAttendance() {
   const [saving, setSaving] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const [showSigned, setShowSigned] = useState(false);
+  const [showAbsent, setShowAbsent] = useState(false);
+
+  const [absenceTarget, setAbsenceTarget] = useState<any>(null);
+  const [absenceResponsibleId, setAbsenceResponsibleId] = useState('');
+  const [absenceReason, setAbsenceReason] = useState('');
+  const [absenceSignature, setAbsenceSignature] = useState<string | null>(null);
+  const [absenceSaving, setAbsenceSaving] = useState(false);
   const [roleChanged, setRoleChanged] = useState(false);
   const [pixChanged, setPixChanged] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
@@ -86,24 +103,63 @@ export default function PsPublicAttendance() {
 
   const visibleLinks = useMemo(() => {
     return filtered
-      .filter((item: any) =>
-        showSigned
-          ? !!item.signed_at
-          : !item.signed_at && !pendingIds.has(item.id)
-      )
+      .filter((item: any) => {
+        if (showAbsent) return !!item.absent;
+        if (showSigned) return !!item.signed_at && !item.absent;
+
+        return (
+          !item.signed_at &&
+          !item.absent &&
+          !pendingIds.has(item.id)
+        );
+      })
       .sort((a: any, b: any) =>
         String(a.collaborator_name || '').localeCompare(
           String(b.collaborator_name || ''),
           'pt-BR'
         )
       );
-  }, [filtered, pendingIds, showSigned]);
+  }, [filtered, pendingIds, showSigned, showAbsent]);
 
-  const signedCount = links.filter((l: any) => !!l.signed_at).length;
-  const savingCount = pendingIds.size;
-  const pendingCount = links.filter(
-    (l: any) => !l.signed_at && !pendingIds.has(l.id)
+  const signedCount = links.filter(
+    (l: any) => !!l.signed_at && !l.absent
   ).length;
+
+  const absentCount = links.filter(
+    (l: any) => !!l.absent
+  ).length;
+
+  const savingCount = pendingIds.size;
+
+  const pendingCount = links.filter(
+    (l: any) =>
+      !l.signed_at &&
+      !l.absent &&
+      !pendingIds.has(l.id)
+  ).length;
+
+  const absenceResponsibleCandidates = useMemo(() => {
+    return links
+      .filter((link: any) => {
+        const role = String(
+          link.role_name ||
+          link.assigned_role ||
+          ''
+        ).toLowerCase();
+
+        return (
+          role.includes('coord') &&
+          !link.absent &&
+          link.id !== absenceTarget?.id
+        );
+      })
+      .sort((a: any, b: any) =>
+        String(a.collaborator_name || '').localeCompare(
+          String(b.collaborator_name || ''),
+          'pt-BR'
+        )
+      );
+  }, [links, absenceTarget?.id]);
 
   const currentSelectedId = routeSelectedId || selectedId;
   const selected = links.find((l: any) => l.id === currentSelectedId) ?? null;
@@ -324,7 +380,88 @@ export default function PsPublicAttendance() {
       });
   };
 
+  const openAbsenceDialog = (link: any) => {
+    if (link.signed_at) {
+      toast.error('Este fiscal já registrou presença.');
+      return;
+    }
+
+    setAbsenceTarget(link);
+    setAbsenceResponsibleId('');
+    setAbsenceReason('');
+    setAbsenceSignature(null);
+  };
+
+  const closeAbsenceDialog = () => {
+    if (absenceSaving) return;
+    setAbsenceTarget(null);
+    setAbsenceResponsibleId('');
+    setAbsenceReason('');
+    setAbsenceSignature(null);
+  };
+
+  const submitAbsence = async () => {
+    if (!absenceTarget) return;
+
+    if (!absenceResponsibleId) {
+      toast.error('Selecione o responsável.');
+      return;
+    }
+
+    if (!absenceReason.trim()) {
+      toast.error('Informe o motivo da ausência.');
+      return;
+    }
+
+    if (!absenceSignature) {
+      toast.error('O responsável precisa assinar.');
+      return;
+    }
+
+    setAbsenceSaving(true);
+
+    try {
+      const fiscalName =
+        absenceTarget.collaborator_name;
+
+      await submitPublicProcessSelectionAbsence(
+        absenceTarget.id,
+        absenceResponsibleId,
+        absenceReason.trim(),
+        absenceSignature
+      );
+
+      setAbsenceTarget(null);
+      setAbsenceResponsibleId('');
+      setAbsenceReason('');
+      setAbsenceSignature(null);
+
+      toast.success(
+        `Ausência de ${fiscalName} registrada.`
+      );
+
+      await queryClient.invalidateQueries({
+        queryKey: ['ps_public_roster', eventId],
+      });
+
+      void refetch();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível registrar a ausência.'
+      );
+    } finally {
+      setAbsenceSaving(false);
+    }
+  };
+
   const handleOpenSignature = (link: any) => {
+    if (link.absent) {
+      toast.info('Fiscal registrado como ausente.');
+      return;
+    }
+
     if (link.signed_at) {
       toast.info('Presença já registrada.');
       return;
@@ -340,6 +477,7 @@ export default function PsPublicAttendance() {
     setSignature(null);
     setSearch('');
     setShowSigned(false);
+    setShowAbsent(false);
     navigate(`/ps/presenca/${nextEventId}`);
   };
 
@@ -611,8 +749,11 @@ export default function PsPublicAttendance() {
                 <Button
                   type="button"
                   size="sm"
-                  variant={!showSigned ? "default" : "outline"}
-                  onClick={() => setShowSigned(false)}
+                  variant={!showSigned && !showAbsent ? "default" : "outline"}
+                  onClick={() => {
+                    setShowSigned(false);
+                    setShowAbsent(false);
+                  }}
                 >
                   Pendentes ({pendingCount})
                 </Button>
@@ -621,9 +762,24 @@ export default function PsPublicAttendance() {
                   type="button"
                   size="sm"
                   variant={showSigned ? "default" : "outline"}
-                  onClick={() => setShowSigned(true)}
+                  onClick={() => {
+                    setShowSigned(true);
+                    setShowAbsent(false);
+                  }}
                 >
                   Ver assinados ({signedCount})
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={showAbsent ? "default" : "outline"}
+                  onClick={() => {
+                    setShowAbsent(true);
+                    setShowSigned(false);
+                  }}
+                >
+                  Ausentes ({absentCount})
                 </Button>
 
                 {savingCount > 0 && (
@@ -642,9 +798,11 @@ export default function PsPublicAttendance() {
                 <p className="p-4 text-center text-sm text-muted-foreground">
                   {search
                     ? 'Nenhum fiscal encontrado para esta busca.'
-                    : showSigned
-                      ? 'Nenhuma presença registrada ainda.'
-                      : 'Todos os fiscais disponíveis já registraram presença.'}
+                    : showAbsent
+                      ? 'Nenhuma ausência registrada.'
+                      : showSigned
+                        ? 'Nenhuma presença registrada ainda.'
+                        : 'Nenhum fiscal pendente neste evento.'}
                 </p>
               )}
               {!isLoading && error && (
@@ -655,31 +813,81 @@ export default function PsPublicAttendance() {
               )}
               {!isLoading && !error && visibleLinks.map((l: any) => {
                 const isAlreadySigned = !!l.signed_at;
+                const isAbsent = !!l.absent;
                 const isSavingSignature = pendingIds.has(l.id);
                 const isActive = selectedId === l.id;
 
                 return (
-                  <button
+                  <div
                     key={l.id}
-                    type="button"
-                    onClick={() => handleOpenSignature(l)}
-                    disabled={isAlreadySigned || isSavingSignature}
-                    className={`flex min-h-16 w-full items-center justify-between gap-2 p-3 text-left text-sm transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-70 ${isActive ? 'bg-primary/10' : ''}`}
+                    className={`flex min-h-16 items-center gap-2 border-b p-2 ${isActive ? 'bg-primary/10' : ''}`}
                   >
-                    <span className="min-w-0">
-                      <span className="block font-semibold text-foreground">{l.collaborator_name}</span>
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        {[l.role_name || l.assigned_role, l.unit, l.floor, l.room && `Sala ${l.room}`].filter(Boolean).join(' • ')}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenSignature(l)}
+                      disabled={
+                        isAlreadySigned ||
+                        isAbsent ||
+                        isSavingSignature
+                      }
+                      className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg p-2 text-left text-sm transition-colors hover:bg-muted/50 disabled:cursor-default"
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-semibold text-foreground">
+                          {l.collaborator_name}
+                        </span>
+
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {[
+                            l.role_name || l.assigned_role,
+                            l.unit,
+                            l.floor,
+                            l.room && `Sala ${l.room}`,
+                          ]
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </span>
                       </span>
-                    </span>
-                    <span className="flex flex-wrap justify-end gap-1">
-                      {isSavingSignature
-                        ? <Badge variant="secondary">Salvando...</Badge>
-                        : isAlreadySigned
-                          ? <Badge variant="secondary">Presença já registrada</Badge>
-                          : <Badge className="bg-primary/10 text-primary">Selecionar</Badge>}
-                    </span>
-                  </button>
+
+                      <span className="flex flex-wrap justify-end gap-1">
+                        {isSavingSignature ? (
+                          <Badge variant="secondary">
+                            Salvando...
+                          </Badge>
+                        ) : isAbsent ? (
+                          <Badge variant="destructive">
+                            Ausente
+                          </Badge>
+                        ) : isAlreadySigned ? (
+                          <Badge variant="secondary">
+                            Presença registrada
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-primary/10 text-primary">
+                            Selecionar
+                          </Badge>
+                        )}
+                      </span>
+                    </button>
+
+                    {!isAlreadySigned &&
+                      !isAbsent &&
+                      !isSavingSignature &&
+                      !showSigned &&
+                      !showAbsent && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          onClick={() =>
+                            openAbsenceDialog(l)
+                          }
+                        >
+                          Ausente
+                        </Button>
+                      )}
+                  </div>
                 );
               })}
               {!eventId && <p className="p-3 text-sm text-muted-foreground">Selecione um evento.</p>}
@@ -687,6 +895,111 @@ export default function PsPublicAttendance() {
           </CardContent>
         </Card>
       </div>
+      <Dialog
+        open={!!absenceTarget}
+        onOpenChange={(open) => {
+          if (!open) closeAbsenceDialog();
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Registrar ausência</DialogTitle>
+          </DialogHeader>
+
+          {absenceTarget && (
+            <div className="space-y-4">
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="font-semibold">
+                  {absenceTarget.collaborator_name}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {absenceTarget.role_name ||
+                    absenceTarget.assigned_role ||
+                    'Fiscal'}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Responsável *</Label>
+
+                <Select
+                  value={absenceResponsibleId}
+                  onValueChange={setAbsenceResponsibleId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Coordenador ou subcoordenador" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {absenceResponsibleCandidates.map(
+                      (responsible: any) => (
+                        <SelectItem
+                          key={responsible.id}
+                          value={responsible.id}
+                        >
+                          {responsible.collaborator_name} ·{' '}
+                          {responsible.role_name ||
+                            responsible.assigned_role}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Motivo / observação *</Label>
+
+                <Textarea
+                  value={absenceReason}
+                  onChange={(event) =>
+                    setAbsenceReason(event.target.value)
+                  }
+                  placeholder="Ex.: não compareceu ao Processo Seletivo"
+                  rows={3}
+                  maxLength={500}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assinatura do responsável *</Label>
+
+                <SignaturePad
+                  onSignatureChange={setAbsenceSignature}
+                  height={170}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={absenceSaving}
+              onClick={closeAbsenceDialog}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="button"
+              disabled={
+                absenceSaving ||
+                !absenceResponsibleId ||
+                !absenceReason.trim() ||
+                !absenceSignature
+              }
+              onClick={submitAbsence}
+            >
+              {absenceSaving
+                ? 'Registrando...'
+                : 'Confirmar ausência'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

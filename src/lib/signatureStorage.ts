@@ -136,3 +136,76 @@ export async function submitPublicProcessSelectionSignature(linkId: string, valu
   }
   return source.value;
 }
+
+function encodePublicSignatureHeader(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+export async function submitPublicProcessSelectionAbsence(
+  linkId: string,
+  responsibleId: string,
+  reason: string,
+  value: string
+) {
+  if (
+    !/^[0-9a-f-]{36}$/i.test(linkId) ||
+    !/^[0-9a-f-]{36}$/i.test(responsibleId)
+  ) {
+    throw new Error('invalid_process_selection_absence');
+  }
+
+  const png = signatureDataUrlToPngBlob(value);
+
+  if (png.size > 512 * 1024)
+    throw new Error('signature_file_too_large');
+
+  const supabaseUrl =
+    String(import.meta.env.VITE_SUPABASE_URL ?? '')
+      .replace(/\/+$/, '');
+
+  const publishableKey =
+    String(
+      import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
+    );
+
+  if (!supabaseUrl || !publishableKey)
+    throw new Error('signature_service_unavailable');
+
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/ps-public-signature`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: publishableKey,
+        'content-type': 'image/png',
+        'x-ps-link-id': linkId,
+        'x-ps-action': 'absence',
+        'x-ps-responsible-id': responsibleId,
+        'x-ps-reason-b64':
+          encodePublicSignatureHeader(reason),
+      },
+      body: png,
+    }
+  );
+
+  const payload =
+    await response.json().catch(() => null);
+
+  const source = getSignatureSource(payload?.locator);
+
+  if (
+    response.status !== 201 ||
+    source.provider !== 'r2' ||
+    source.module !== 'process-selection'
+  ) {
+    throw new Error(
+      payload?.error ??
+      `public_absence_failed_${response.status}`
+    );
+  }
+
+  return source.value;
+}
