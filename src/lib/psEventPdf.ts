@@ -230,13 +230,13 @@ export function generatePsAttendancePdf(event: PsEventInfo, rows: PsAttendanceRo
 
   const cols = [
     { key: 'name', label: 'FISCAL', w: 0.16 },
-    { key: 'unit', label: 'UNIDADE', w: 0.12 },
-    { key: 'role', label: 'FUNÇÃO', w: 0.19 },
-    { key: 'floor', label: 'ANDAR', w: 0.08 },
-    { key: 'room', label: 'SALA', w: 0.07 },
+    { key: 'unit', label: 'UNIDADE', w: 0.11 },
+    { key: 'role', label: 'FUNÇÃO', w: 0.16 },
+    { key: 'floor', label: 'ANDAR', w: 0.07 },
+    { key: 'room', label: 'SALA', w: 0.06 },
     { key: 'pix', label: 'PIX', w: 0.12 },
-    { key: 'sign', label: 'ASSINATURA', w: 0.16 },
-    { key: 'obs', label: 'OBSERVAÇÃO / ALTERAÇÃO', w: 0.10 },
+    { key: 'sign', label: 'ASSINATURA', w: 0.14 },
+    { key: 'obs', label: 'OBSERVAÇÃO / ALTERAÇÃO', w: 0.18 },
   ].map((c) => ({ ...c, width: c.w * tableW }));
 
   const sorted = [...rows].sort((a, b) =>
@@ -311,7 +311,7 @@ export function generatePsAttendancePdf(event: PsEventInfo, rows: PsAttendanceRo
 
   header();
 
-  const ROW_H = 16;
+  const ROW_H = 19;
   for (const row of sorted) {
     if (y + ROW_H > PH - 16) header();
 
@@ -342,11 +342,23 @@ export function generatePsAttendancePdf(event: PsEventInfo, rows: PsAttendanceRo
         else if (c.key === 'obs') text = row.absent ? 'AUSENTE' : (row.notes || '');
 
         doc.setFont('helvetica', c.key === 'name' ? 'bold' : 'normal');
-        doc.setFontSize(7.5);
+        doc.setFontSize(c.key === 'obs' ? 6.5 : 7.5);
         doc.setTextColor(30, 35, 42);
-        const lines = doc.splitTextToSize(text, c.width - 4).slice(0, 3);
-        const startY = y + ROW_H / 2 - ((lines.length - 1) * 3.2) / 2 + 1;
-        lines.forEach((line: string, i: number) => doc.text(line, cx + 2, startY + i * 3.2));
+
+        const maxLines = c.key === 'obs' ? 4 : 3;
+        const lineHeight = c.key === 'obs' ? 3 : 3.2;
+        const lines = doc
+          .splitTextToSize(text, c.width - 4)
+          .slice(0, maxLines);
+
+        const startY =
+          y + ROW_H / 2 -
+          ((lines.length - 1) * lineHeight) / 2 +
+          1;
+
+        lines.forEach((line: string, i: number) =>
+          doc.text(line, cx + 2, startY + i * lineHeight)
+        );
       }
       cx += c.width;
     }
