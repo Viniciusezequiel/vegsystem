@@ -512,6 +512,25 @@ export default function PsEventDetail() {
       return;
     }
 
+    const { data: absences, error: absenceError } = await supabase
+      .from('ps_attendance_absences')
+      .select(
+        'event_collaborator_id, responsible_name, reason, signature_url, created_at'
+      )
+      .eq('event_id', id!);
+
+    if (absenceError) {
+      toast.error('Não foi possível carregar os registros de ausência.');
+      return;
+    }
+
+    const absenceById = new Map(
+      (absences || []).map((absence: any) => [
+        absence.event_collaborator_id,
+        absence,
+      ])
+    );
+
     const attendanceById = new Map(
       (attendanceRows || []).map((row: any) => [row.id, row])
     );
@@ -531,6 +550,7 @@ export default function PsEventDetail() {
 
     const pdfRows = links.map((row: any) => {
       const attendance: any = attendanceById.get(row.id);
+      const absence: any = absenceById.get(row.id);
       const rowAdjustments = adjustmentsById.get(row.id) || [];
 
       const roleSnapshot = attendance?.attendance_role_snapshot;
@@ -545,6 +565,24 @@ export default function PsEventDetail() {
 
       if (row.notes?.trim()) {
         observations.push(row.notes.trim());
+      }
+
+      if (row.absent) {
+        if (absence) {
+          observations.push(
+            [
+              'AUSENTE',
+              absence.responsible_name
+                ? `Responsável: ${absence.responsible_name}`
+                : null,
+              absence.reason?.trim() || null,
+            ]
+              .filter(Boolean)
+              .join(' — ')
+          );
+        } else {
+          observations.push('AUSENTE');
+        }
       }
 
       for (const adjustment of rowAdjustments) {
@@ -574,7 +612,10 @@ export default function PsEventDetail() {
           attendance?.attendance_pix_snapshot?.trim() ||
           row.pix ||
           null,
-        signature_url: attendance?.signature_url ?? null,
+        signature_url:
+          row.absent && absence?.signature_url
+            ? absence.signature_url
+            : attendance?.signature_url ?? null,
         notes: observations.join(' | '),
       };
     });

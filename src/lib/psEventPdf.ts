@@ -339,7 +339,11 @@ export function generatePsAttendancePdf(event: PsEventInfo, rows: PsAttendanceRo
         else if (c.key === 'floor') text = row.floor || '-';
         else if (c.key === 'room') text = row.room || '-';
         else if (c.key === 'pix') text = row.pix || '—';
-        else if (c.key === 'obs') text = row.absent ? 'AUSENTE' : (row.notes || '');
+        else if (c.key === 'obs') {
+          text = row.absent
+            ? (row.notes || 'AUSENTE')
+            : (row.notes || '');
+        }
 
         doc.setFont('helvetica', c.key === 'name' ? 'bold' : 'normal');
         doc.setFontSize(c.key === 'obs' ? 6.5 : 7.5);
