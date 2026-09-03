@@ -217,51 +217,56 @@ export default function PsPublicSelfEvaluation() {
     setSaving(true);
 
     try {
-      const { error } = await supabase
-        .from('ps_self_evaluations')
-        .insert({
-          event_id: eventId,
-          identified,
-          respondent_name: identified
+      const { data, error } = await (supabase as any).rpc(
+        'ps_public_submit_self_evaluation',
+        {
+          p_event_id: eventId,
+          p_identified: identified,
+          p_respondent_name: identified
             ? respondentName.trim()
             : null,
 
-          role,
-          campus: campus.trim(),
-          floor: floor.trim() || null,
-          room: room.trim() || null,
+          p_role: role,
+          p_campus: campus.trim(),
+          p_floor: floor.trim() || null,
+          p_room: room.trim() || null,
 
-          training_rating:
+          p_training_rating:
             ratings.training || null,
-          training_comment:
+          p_training_comment:
             comments.training?.trim() || null,
 
-          organization_rating:
+          p_organization_rating:
             ratings.organization || null,
-          organization_comment:
+          p_organization_comment:
             comments.organization?.trim() || null,
 
-          snack_rating:
+          p_snack_rating:
             ratings.snack || null,
-          snack_comment:
+          p_snack_comment:
             comments.snack?.trim() || null,
 
-          partner_fiscal_rating:
+          p_partner_fiscal_rating:
             ratings.partner_fiscal || null,
-          partner_fiscal_comment:
+          p_partner_fiscal_comment:
             comments.partner_fiscal?.trim() || null,
 
-          had_incident: hadIncident,
-
-          incident_comment: hadIncident
+          p_had_incident: hadIncident,
+          p_incident_comment: hadIncident
             ? incidentComment.trim()
             : null,
 
-          suggestions:
+          p_suggestions:
             suggestions.trim() || null,
-        } as any);
+        }
+      );
 
       if (error) throw error;
+      if (!data) {
+        throw new Error(
+          'Não foi possível registrar a autoavaliação.'
+        );
+      }
 
       setDone(true);
     } catch (error) {
