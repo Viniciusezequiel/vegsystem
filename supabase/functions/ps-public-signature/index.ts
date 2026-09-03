@@ -147,6 +147,10 @@ Deno.serve(async request => {
           'id,event_id,signed_at,absent,collaborator_name,ps_events!inner(hidden_from_evaluation)'
         )
         .eq('id', linkId)
+        .in('participation_status', [
+          'pending_confirmation',
+          'confirmed',
+        ])
         .is('signed_at', null)
         .eq('ps_events.hidden_from_evaluation', false)
         .maybeSingle();
@@ -168,6 +172,10 @@ Deno.serve(async request => {
         )
         .eq('id', responsibleId)
         .eq('event_id', participant.event_id)
+        .in('participation_status', [
+          'pending_confirmation',
+          'confirmed',
+        ])
         .maybeSingle();
 
     const responsibleRole = [
@@ -247,6 +255,10 @@ Deno.serve(async request => {
         'id,event_id,signed_at,attendance_pix_confirmed_at,ps_events!inner(hidden_from_evaluation)'
       )
       .eq('id', linkId)
+      .in('participation_status', [
+        'pending_confirmation',
+        'confirmed',
+      ])
       .is('signed_at', null)
       .eq('ps_events.hidden_from_evaluation', false)
       .maybeSingle();

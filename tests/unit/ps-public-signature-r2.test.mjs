@@ -18,6 +18,7 @@ test('Edge Function valida participante, confirma banco e limpa somente sem refe
   assert.match(edge, /\.is\('signed_at', null\)/);
   assert.match(edge, /attendance_pix_confirmed_at/);
   assert.match(edge, /attendance_details_not_confirmed/);
+  assert.match(edge, /\.in\('participation_status'/);
   assert.match(edge, /bytes\.length > 512 \* 1024/);
   assert.match(edge, /pngMagic\.every/);
   assert.match(edge, /rpc\('ps_public_sign_attendance'/);
@@ -38,4 +39,35 @@ test('PDF resolve R2 somente na operação assíncrona', () => {
   const pdf = fs.readFileSync(new URL('../../src/lib/psEventPdf.ts', import.meta.url), 'utf8');
   assert.match(pdf, /generatePsAttendancePdfAsync/);
   assert.match(pdf, /preparePdfSignatureRows\(rows, resolveR2Signature\)/);
+});
+
+
+test('presença pública bloqueia recusados e substituídos também no banco', () => {
+  const sql = fs.readFileSync(
+    new URL(
+      '../../supabase/migrations/20260902370000_ps_attendance_active_participants_only.sql',
+      import.meta.url
+    ),
+    'utf8'
+  );
+
+  assert.match(
+    sql,
+    /participation_status\s+IN\s*\([\s\S]*?'pending_confirmation'[\s\S]*?'confirmed'/i
+  );
+
+  assert.match(
+    sql,
+    /ps_public_sign_attendance/
+  );
+
+  assert.match(
+    sql,
+    /ps_public_get_attendance_details/
+  );
+
+  assert.match(
+    sql,
+    /ps_public_confirm_attendance_details/
+  );
 });
