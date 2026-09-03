@@ -25,6 +25,7 @@ export default function PsPublicAttendance() {
   const [signature, setSignature] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+  const [showSigned, setShowSigned] = useState(false);
 
   useEffect(() => {
     if (routeEventId) setEventId(routeEventId);
@@ -76,18 +77,25 @@ export default function PsPublicAttendance() {
   }, [links, search]);
 
   const visibleLinks = useMemo(() => {
-    return [...filtered].sort((a: any, b: any) => {
-      const signedOrder = Number(!!a.signed_at) - Number(!!b.signed_at);
-      if (signedOrder !== 0) return signedOrder;
-      return String(a.collaborator_name || '').localeCompare(
-        String(b.collaborator_name || ''),
-        'pt-BR'
+    return filtered
+      .filter((item: any) =>
+        showSigned
+          ? !!item.signed_at
+          : !item.signed_at && !pendingIds.has(item.id)
+      )
+      .sort((a: any, b: any) =>
+        String(a.collaborator_name || '').localeCompare(
+          String(b.collaborator_name || ''),
+          'pt-BR'
+        )
       );
-    });
-  }, [filtered]);
+  }, [filtered, pendingIds, showSigned]);
 
   const signedCount = links.filter((l: any) => !!l.signed_at).length;
-  const pendingCount = Math.max(0, links.length - signedCount);
+  const savingCount = pendingIds.size;
+  const pendingCount = links.filter(
+    (l: any) => !l.signed_at && !pendingIds.has(l.id)
+  ).length;
 
   const currentSelectedId = routeSelectedId || selectedId;
   const selected = links.find((l: any) => l.id === currentSelectedId) ?? null;
@@ -218,6 +226,7 @@ export default function PsPublicAttendance() {
     setSelectedId('');
     setSignature(null);
     setSearch('');
+    setShowSigned(false);
     navigate(`/ps/presenca/${nextEventId}`);
   };
 
@@ -333,19 +342,45 @@ export default function PsPublicAttendance() {
             </div>
 
             {eventId && (
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <Badge variant="outline">{pendingCount} pendentes</Badge>
-                <Badge variant="secondary">{signedCount} assinados</Badge>
-                <span className="ml-auto text-muted-foreground">
-                  {links.length} fiscais no evento
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={!showSigned ? "default" : "outline"}
+                  onClick={() => setShowSigned(false)}
+                >
+                  Pendentes ({pendingCount})
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={showSigned ? "default" : "outline"}
+                  onClick={() => setShowSigned(true)}
+                >
+                  Ver assinados ({signedCount})
+                </Button>
+
+                {savingCount > 0 && (
+                  <Badge variant="secondary">{savingCount} salvando...</Badge>
+                )}
+
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {links.length} fiscais
                 </span>
               </div>
             )}
 
             <div className="max-h-[60vh] divide-y overflow-y-auto rounded-xl border">
               {isLoading && <p className="p-3 text-sm text-muted-foreground">Carregando fiscais...</p>}
-              {!isLoading && !error && filtered.length === 0 && (
-                <p className="p-3 text-sm text-muted-foreground">{search ? 'Nenhum fiscal encontrado para esta busca.' : 'Nenhum fiscal vinculado a este evento.'}</p>
+              {!isLoading && !error && visibleLinks.length === 0 && (
+                <p className="p-4 text-center text-sm text-muted-foreground">
+                  {search
+                    ? 'Nenhum fiscal encontrado para esta busca.'
+                    : showSigned
+                      ? 'Nenhuma presença registrada ainda.'
+                      : 'Todos os fiscais disponíveis já registraram presença.'}
+                </p>
               )}
               {!isLoading && error && (
                 <div className="space-y-2 p-3">
