@@ -34,12 +34,15 @@ Deno.serve(async request => {
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
   const { data: participant, error: participantError } = await admin
     .from('ps_event_collaborators')
-    .select('id,event_id,signed_at,ps_events!inner(hidden_from_evaluation)')
+    .select('id,event_id,signed_at,attendance_pix_confirmed_at,ps_events!inner(hidden_from_evaluation)')
     .eq('id', linkId)
     .is('signed_at', null)
     .eq('ps_events.hidden_from_evaluation', false)
     .maybeSingle();
   if (participantError || !participant) return json({ error: 'participant_unavailable' }, 403);
+  if (!participant.attendance_pix_confirmed_at) {
+    return json({ error: 'attendance_details_not_confirmed' }, 409);
+  }
 
   const upload = await fetch(`${workerUrl}/v1/internal/signatures/process-selection`, {
     method: 'POST', headers: { 'x-ps-signature-secret': secret, 'content-type': 'image/png' }, body: bytes,

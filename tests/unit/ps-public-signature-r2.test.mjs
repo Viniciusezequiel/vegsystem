@@ -16,6 +16,8 @@ test('Edge Function valida participante, confirma banco e limpa somente sem refe
   const edge = fs.readFileSync(new URL('../../supabase/functions/ps-public-signature/index.ts', import.meta.url), 'utf8');
   assert.match(edge, /ps_events!inner\(hidden_from_evaluation\)/);
   assert.match(edge, /\.is\('signed_at', null\)/);
+  assert.match(edge, /attendance_pix_confirmed_at/);
+  assert.match(edge, /attendance_details_not_confirmed/);
   assert.match(edge, /bytes\.length > 512 \* 1024/);
   assert.match(edge, /pngMagic\.every/);
   assert.match(edge, /rpc\('ps_public_sign_attendance'/);
