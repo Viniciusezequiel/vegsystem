@@ -8,7 +8,6 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AdminAuth from "./pages/AdminAuth";
-import Setup from "./pages/Setup";
 import Home from "./pages/Home";
 import RegisterItem from "./pages/RegisterItem";
 import ItemsList from "./pages/ItemsList";
@@ -142,7 +141,7 @@ const App = () => (
               <Routes>
               {/* Public Routes */}
               <Route path="/admin-auth" element={<AdminAuth />} />
-              <Route path="/setup" element={<Setup />} />
+              <Route path="/setup" element={<Navigate to="/admin-auth" replace />} />
               <Route path="/change-password" element={<ChangePassword />} />
               
               {/* Protected Routes */}

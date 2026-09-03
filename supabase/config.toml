@@ -1,8 +1,5 @@
 project_id = "sshyjnyvihdheofjzsca"
 
-[functions.setup-first-admin]
-verify_jwt = false
-
 [functions.create-classroom-call]
 verify_jwt = false
 
