@@ -452,6 +452,145 @@ export default function PsEventDetail() {
             <PsEventCommunicationTab event={event} links={links as any[]} />
           </TabsContent>
 
+          <TabsContent value="presenca" className="space-y-4 pt-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Presentes</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {links.filter((l:any) => l.present && !l.absent).length}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Assinados</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {links.filter((l:any) => !!l.signed_at).length}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Pendentes</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {links.filter((l:any) => !l.signed_at && !l.absent).length}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Ausentes</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {links.filter((l:any) => !!l.absent).length}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="rounded-2xl">
+              <CardHeader className="flex flex-row items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base">Controle de presença</CardTitle>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Acompanhe assinaturas, ausências e saídas em tempo real.
+                  </p>
+                </div>
+
+                <Button asChild variant="outline">
+                  <a
+                    href={`${publicBase}/presenca/${event.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir coleta de assinaturas
+                  </a>
+                </Button>
+              </CardHeader>
+
+              <CardContent className="p-0">
+                <div className="h-[calc(100vh-25rem)] min-h-[18rem] max-h-[38rem] divide-y overflow-y-auto">
+                  {[...links]
+                    .sort((a:any,b:any) =>
+                      String(a.collaborator_name || '').localeCompare(
+                        String(b.collaborator_name || ''),
+                        'pt-BR'
+                      )
+                    )
+                    .map((l:any) => (
+                      <div
+                        key={l.id}
+                        className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium">{l.collaborator_name}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {[
+                              l.role_name || l.assigned_role,
+                              l.building,
+                              l.floor,
+                              l.room && `Sala ${l.room}`
+                            ].filter(Boolean).join(' · ') || 'Sem localização definida'}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {l.absent ? (
+                            <Badge variant="destructive">Ausente</Badge>
+                          ) : l.signed_at ? (
+                            <Badge>Assinado</Badge>
+                          ) : (
+                            <Badge variant="outline">Pendente</Badge>
+                          )}
+
+                          {l.departed_at && (
+                            <Badge variant="secondary">Saída registrada</Badge>
+                          )}
+
+                          <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+                            <Label className="text-xs">Ausente</Label>
+                            <Switch
+                              checked={!!l.absent}
+                              onCheckedChange={(value) =>
+                                setParticipantState(
+                                  l,
+                                  psPresencePatch('absent', value)
+                                )
+                              }
+                            />
+                          </div>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!l.signed_at || l.absent}
+                            onClick={() =>
+                              setParticipantState(l, {
+                                departed_at: l.departed_at
+                                  ? null
+                                  : new Date().toISOString()
+                              })
+                            }
+                          >
+                            {l.departed_at ? 'Cancelar saída' : 'Registrar saída'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                  {!links.length && (
+                    <p className="p-6 text-center text-sm text-muted-foreground">
+                      Nenhum fiscal vinculado ao evento.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="avaliacoes" className="pt-4">
             <Card className="rounded-2xl">
               <CardContent className="divide-y p-0">

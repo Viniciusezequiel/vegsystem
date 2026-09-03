@@ -371,7 +371,7 @@ export default function PsPublicAttendance() {
               </div>
             )}
 
-            <div className="max-h-[60vh] divide-y overflow-y-auto rounded-xl border">
+            <div className="h-[calc(100vh-22rem)] min-h-[18rem] max-h-[42rem] divide-y overflow-y-auto rounded-xl border">
               {isLoading && <p className="p-3 text-sm text-muted-foreground">Carregando fiscais...</p>}
               {!isLoading && !error && visibleLinks.length === 0 && (
                 <p className="p-4 text-center text-sm text-muted-foreground">
