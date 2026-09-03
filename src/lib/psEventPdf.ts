@@ -221,8 +221,25 @@ export interface PsAttendanceRow extends PsBadgeRow {
   absent?: boolean;
 }
 
+export interface PsAttendanceClosure {
+  campus?: string | null;
+  building: string;
+  coordinator_name: string;
+  signature_url?: string | null;
+  signed_at?: string | null;
+  present_count?: number;
+  absent_count?: number;
+  pending_count?: number;
+  role_adjustments_count?: number;
+  pix_adjustments_count?: number;
+}
+
 /** Lista de presença — A4 paisagem, com assinaturas já coletadas no sistema. */
-export function generatePsAttendancePdf(event: PsEventInfo, rows: PsAttendanceRow[]): jsPDF {
+export function generatePsAttendancePdf(
+  event: PsEventInfo,
+  rows: PsAttendanceRow[],
+  closures: PsAttendanceClosure[] = [],
+): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
   const PW = 297, PH = 210;
   const ML = 10, MR = 10;
@@ -369,6 +386,168 @@ export function generatePsAttendancePdf(event: PsEventInfo, rows: PsAttendanceRo
     y += ROW_H;
   }
 
+  if (closures.length > 0) {
+    let closureY = 12;
+
+    const startClosurePage = () => {
+      doc.addPage('a4', 'landscape');
+      closureY = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(20, 24, 30);
+      doc.text(
+        'FECHAMENTO DA PRESENÇA',
+        PW / 2,
+        closureY,
+        { align: 'center' }
+      );
+
+      closureY += 7;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(90, 96, 105);
+      doc.text(
+        event.name || '',
+        PW / 2,
+        closureY,
+        { align: 'center' }
+      );
+
+      closureY += 9;
+    };
+
+    startClosurePage();
+
+    for (const closure of closures) {
+      const CARD_H = 48;
+
+      if (closureY + CARD_H > PH - 16) {
+        startClosurePage();
+      }
+
+      doc.setDrawColor(205, 210, 218);
+      doc.setFillColor(250, 251, 252);
+      doc.roundedRect(
+        ML,
+        closureY,
+        tableW,
+        CARD_H,
+        2,
+        2,
+        'FD'
+      );
+
+      const location = [
+        closure.building,
+        closure.campus &&
+        closure.campus !== closure.building
+          ? closure.campus
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(25, 30, 38);
+      doc.text(
+        location || 'Local',
+        ML + 5,
+        closureY + 8
+      );
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(85, 92, 102);
+
+      doc.text(
+        `Presentes: ${closure.present_count ?? 0}`,
+        ML + 5,
+        closureY + 17
+      );
+
+      doc.text(
+        `Ausentes: ${closure.absent_count ?? 0}`,
+        ML + 42,
+        closureY + 17
+      );
+
+      doc.text(
+        `Pendentes: ${closure.pending_count ?? 0}`,
+        ML + 78,
+        closureY + 17
+      );
+
+      doc.text(
+        `Alterações de cargo: ${closure.role_adjustments_count ?? 0}`,
+        ML + 5,
+        closureY + 24
+      );
+
+      doc.text(
+        `Alterações de PIX: ${closure.pix_adjustments_count ?? 0}`,
+        ML + 52,
+        closureY + 24
+      );
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(35, 40, 48);
+      doc.text(
+        `Coordenador: ${closure.coordinator_name || '-'}`,
+        ML + 5,
+        closureY + 34
+      );
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 106, 115);
+
+      const signedAt = closure.signed_at
+        ? new Date(closure.signed_at).toLocaleString('pt-BR')
+        : '-';
+
+      doc.text(
+        `Fechamento realizado em: ${signedAt}`,
+        ML + 5,
+        closureY + 41
+      );
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(95, 100, 108);
+      doc.text(
+        'ASSINATURA DO COORDENADOR',
+        PW - MR - 43,
+        closureY + 7,
+        { align: 'center' }
+      );
+
+      const sig = closure.signature_url;
+
+      if (sig && sig.startsWith('data:image')) {
+        try {
+          doc.addImage(
+            sig,
+            'PNG',
+            PW - MR - 82,
+            closureY + 10,
+            78,
+            31,
+            undefined,
+            'FAST'
+          );
+        } catch {
+          // ignora assinatura inválida
+        }
+      }
+
+      closureY += CARD_H + 5;
+    }
+  }
+
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);
@@ -386,8 +565,26 @@ export function generatePsAttendancePdf(event: PsEventInfo, rows: PsAttendanceRo
 export async function generatePsAttendancePdfAsync(
   event: PsEventInfo,
   rows: PsAttendanceRow[],
+  closures: PsAttendanceClosure[] = [],
   resolveR2Signature = resolveSignatureDataUrl,
 ): Promise<jsPDF> {
-  const prepared = await preparePdfSignatureRows(rows, resolveR2Signature);
-  return generatePsAttendancePdf(event, prepared);
+  const prepared = await preparePdfSignatureRows(
+    rows,
+    resolveR2Signature
+  );
+
+  const preparedClosures = await Promise.all(
+    closures.map(async (closure) => ({
+      ...closure,
+      signature_url: closure.signature_url
+        ? await resolveR2Signature(closure.signature_url)
+        : null,
+    }))
+  );
+
+  return generatePsAttendancePdf(
+    event,
+    prepared,
+    preparedClosures
+  );
 }

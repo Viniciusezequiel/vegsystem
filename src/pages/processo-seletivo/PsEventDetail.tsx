@@ -758,6 +758,19 @@ export default function PsEventDetail() {
       return;
     }
 
+    const { data: closures, error: closureError } = await supabase
+      .from('ps_attendance_closures')
+      .select(
+        'campus, building, coordinator_name, signature_url, signed_at, present_count, absent_count, pending_count, role_adjustments_count, pix_adjustments_count'
+      )
+      .eq('event_id', id!)
+      .order('building', { ascending: true });
+
+    if (closureError) {
+      toast.error('Não foi possível carregar os fechamentos da presença.');
+      return;
+    }
+
     const absenceById = new Map(
       (absences || []).map((absence: any) => [
         absence.event_collaborator_id,
@@ -856,7 +869,8 @@ export default function PsEventDetail() {
 
     const pdf = await generatePsAttendancePdfAsync(
       eventInfo(),
-      pdfRows as any
+      pdfRows as any,
+      (closures || []) as any
     );
 
     pdf.save(`lista-presenca-${slug}.pdf`);
