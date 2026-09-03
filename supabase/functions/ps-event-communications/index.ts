@@ -45,6 +45,31 @@ serve(async req=>{
       if(!allowedTypes.has(type)||!subject||subject.length>200||!template||template.length>10000||!uuid.test(requestKey)) return json({error:'invalid_message'},400);
       const {data:links,error:linksError}=await admin.from('ps_event_collaborators').select('id,event_id,collaborator_name,email,role_name,assigned_role,unit,building,floor,room,work_schedule,participation_status').eq('event_id',eventId).in('id',ids);
       if(linksError||!event||links?.length!==ids.length) return json({error:'recipient_scope_mismatch'},400);
+
+      const inactiveLinks=(links||[]).filter(
+        link=>!['pending_confirmation','confirmed'].includes(
+          String(link.participation_status||'')
+        )
+      );
+
+      if(inactiveLinks.length){
+        return json({
+          error:'inactive_recipients',
+          recipientIds:inactiveLinks.map(link=>link.id)
+        },400);
+      }
+
+      if(
+        type==='confirmation_request' &&
+        (links||[]).some(
+          link=>link.participation_status!=='pending_confirmation'
+        )
+      ){
+        return json({
+          error:'confirmation_recipient_not_pending'
+        },400);
+      }
+
       const batchId=crypto.randomUUID(); const rows=[];
       for(const link of links||[]){
         const logical=String(link.email||'').trim()||null; const key=await hash(`${eventId}:${link.id}:${type}:${requestKey}`);
@@ -69,7 +94,50 @@ serve(async req=>{
       if(!['pending','waiting_provider_quota','failed','failed_missing_recipient'].includes(job.status)){result.details.push({id:job.id,status:job.status});continue;}
       const {data:link}=await admin.from('ps_event_collaborators').select('id,event_id,collaborator_name,email,role_name,assigned_role,unit,campus,institution,sector,building,floor,room,work_schedule,participation_status').eq('id',job.event_collaborator_id).eq('event_id',eventId).maybeSingle();
       if(!link){result.failed++;result.details.push({id:job.id,status:'failed'});continue;}
-      if(job.communication_type==='confirmation_request'&&link.participation_status==='confirmed'){await admin.from('ps_event_communications').update({status:'cancelled',last_error:'already_confirmed',updated_at:new Date().toISOString()}).eq('id',job.id);result.details.push({id:job.id,status:'cancelled'});continue;}
+
+      if(
+        !['pending_confirmation','confirmed'].includes(
+          String(link.participation_status||'')
+        )
+      ){
+        await admin
+          .from('ps_event_communications')
+          .update({
+            status:'cancelled',
+            last_error:'inactive_participant',
+            updated_at:new Date().toISOString()
+          })
+          .eq('id',job.id);
+
+        result.details.push({
+          id:job.id,
+          status:'cancelled'
+        });
+
+        continue;
+      }
+
+      if(
+        job.communication_type==='confirmation_request' &&
+        link.participation_status!=='pending_confirmation'
+      ){
+        await admin
+          .from('ps_event_communications')
+          .update({
+            status:'cancelled',
+            last_error:'confirmation_recipient_not_pending',
+            updated_at:new Date().toISOString()
+          })
+          .eq('id',job.id);
+
+        result.details.push({
+          id:job.id,
+          status:'cancelled'
+        });
+
+        continue;
+      }
+
       const logical=String(link.email||'').trim();
       if(!logical){await admin.from('ps_event_communications').update({status:'failed_missing_recipient',failed_at:new Date().toISOString(),last_error:'missing_recipient',updated_at:new Date().toISOString()}).eq('id',job.id);result.missingRecipient++;result.details.push({id:job.id,status:'failed_missing_recipient'});continue;}
       eligibleJobs.push({job,link,logical});
