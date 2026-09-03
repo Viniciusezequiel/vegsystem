@@ -4,16 +4,16 @@ project_id = "sshyjnyvihdheofjzsca"
 verify_jwt = false
 
 [functions.update-user-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-classroom-call-config]
 verify_jwt = false
 
 [functions.notify-task-assignment]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ps-public-signature]
 verify_jwt = false
 
 [functions.ps-event-communications]
-verify_jwt = false
+verify_jwt = true
