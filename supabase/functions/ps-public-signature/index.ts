@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const cors = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers':
-    'apikey, content-type, x-client-info, x-ps-link-id, x-ps-action, x-ps-responsible-id, x-ps-reason-b64',
+    'apikey, content-type, x-client-info, x-ps-link-id, x-ps-action, x-ps-responsible-id, x-ps-reason-b64, x-ps-cpf, x-ps-responsible-cpf',
   'access-control-allow-methods': 'POST, OPTIONS',
   'cache-control': 'no-store',
 };
@@ -79,6 +79,61 @@ Deno.serve(async request => {
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false },
   });
+
+  // O UUID identifica o vínculo, mas não comprova a identidade.
+  // Presença exige CPF do fiscal.
+  // Ausência exige CPF do coordenador/subcoordenador responsável.
+  const responsibleIdHeader =
+    request.headers.get('x-ps-responsible-id') ?? '';
+
+  const identityLinkId =
+    action === 'absence'
+      ? responsibleIdHeader
+      : linkId;
+
+  const identityCpf =
+    action === 'absence'
+      ? request.headers.get('x-ps-responsible-cpf') ?? ''
+      : request.headers.get('x-ps-cpf') ?? '';
+
+  if (!/^[0-9a-f-]{36}$/i.test(identityLinkId)) {
+    return json({ error: 'invalid_identity_subject' }, 400);
+  }
+
+  const {
+    data: identityVerified,
+    error: identityError,
+  } = await admin.rpc(
+    'ps_public_verify_attendance_identity',
+    {
+      p_link_id: identityLinkId,
+      p_cpf: identityCpf,
+    }
+  );
+
+  if (identityError) {
+    if (
+      String(identityError.message || '')
+        .includes('identity_rate_limited')
+    ) {
+      return json(
+        { error: 'identity_rate_limited' },
+        429
+      );
+    }
+
+    return json(
+      { error: 'identity_verification_failed' },
+      403
+    );
+  }
+
+  if (!identityVerified) {
+    return json(
+      { error: 'identity_not_verified' },
+      403
+    );
+  }
 
   const upload = await fetch(
     `${workerUrl}/v1/internal/signatures/process-selection`,

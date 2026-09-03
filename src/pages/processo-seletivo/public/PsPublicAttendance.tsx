@@ -63,8 +63,10 @@ export default function PsPublicAttendance() {
   const [showSigned, setShowSigned] = useState(false);
   const [showAbsent, setShowAbsent] = useState(false);
 
+  const [attendanceCpf, setAttendanceCpf] = useState('');
   const [absenceTarget, setAbsenceTarget] = useState<any>(null);
   const [absenceResponsibleId, setAbsenceResponsibleId] = useState('');
+  const [absenceResponsibleCpf, setAbsenceResponsibleCpf] = useState('');
   const [absenceReason, setAbsenceReason] = useState('');
   const [absenceSignature, setAbsenceSignature] = useState<string | null>(null);
   const [absenceSaving, setAbsenceSaving] = useState(false);
@@ -187,17 +189,34 @@ export default function PsPublicAttendance() {
   const currentSelectedId = routeSelectedId || selectedId;
   const selected = links.find((l: any) => l.id === currentSelectedId) ?? null;
 
+  const attendanceCpfDigits =
+    attendanceCpf.replace(/\D/g, '');
+
+  const absenceResponsibleCpfDigits =
+    absenceResponsibleCpf.replace(/\D/g, '');
+
   const {
     data: attendanceDetails,
     isLoading: attendanceDetailsLoading,
+    error: attendanceDetailsError,
     refetch: refetchAttendanceDetails,
   } = useQuery({
-    queryKey: ['ps_public_attendance_details', currentSelectedId],
-    enabled: !!currentSelectedId,
+    queryKey: [
+      'ps_public_attendance_details',
+      currentSelectedId,
+      attendanceCpfDigits,
+    ],
+    enabled:
+      !!currentSelectedId &&
+      attendanceCpfDigits.length === 11,
+    retry: false,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc(
         'ps_public_get_attendance_details',
-        { p_link_id: currentSelectedId }
+        {
+          p_link_id: currentSelectedId,
+          p_cpf: attendanceCpfDigits,
+        }
       );
 
       if (error) throw error;
@@ -206,6 +225,7 @@ export default function PsPublicAttendance() {
   });
 
   useEffect(() => {
+    setAttendanceCpf('');
     setRoleChanged(false);
     setPixChanged(false);
     setNewPix('');
@@ -260,6 +280,11 @@ export default function PsPublicAttendance() {
   const confirmAttendanceDetails = async () => {
     if (!selected) return;
 
+    if (attendanceCpfDigits.length !== 11) {
+      toast.error('Informe seu CPF para confirmar sua identidade.');
+      return;
+    }
+
     if (roleChanged && !selectedRole) {
       toast.error('Selecione o cargo correto.');
       return;
@@ -285,6 +310,7 @@ export default function PsPublicAttendance() {
         'ps_public_confirm_attendance_details',
         {
           p_link_id: selected.id,
+          p_cpf: attendanceCpfDigits,
           p_role_changed: roleChanged,
           p_role_value: roleChanged ? selectedRole : null,
           p_pix_changed: pixChanged,
@@ -327,6 +353,7 @@ export default function PsPublicAttendance() {
 
   const resetToList = () => {
     setSelectedId('');
+    setAttendanceCpf('');
     setSignature(null);
     setSaving(false);
     if (eventId) {
@@ -364,7 +391,12 @@ export default function PsPublicAttendance() {
     setSaving(true);
 
     // Inicia o envio antes de trocar de tela.
-    const savePromise = submitPublicProcessSelectionSignature(selected.id, signature);
+    const savePromise =
+      submitPublicProcessSelectionSignature(
+        selected.id,
+        attendanceCpfDigits,
+        signature
+      );
 
     // Marca este fiscal como ocupado neste dispositivo.
     setPendingIds((current) => {
@@ -411,6 +443,7 @@ export default function PsPublicAttendance() {
 
     setAbsenceTarget(link);
     setAbsenceResponsibleId('');
+    setAbsenceResponsibleCpf('');
     setAbsenceReason('');
     setAbsenceSignature(null);
   };
@@ -419,6 +452,7 @@ export default function PsPublicAttendance() {
     if (absenceSaving) return;
     setAbsenceTarget(null);
     setAbsenceResponsibleId('');
+    setAbsenceResponsibleCpf('');
     setAbsenceReason('');
     setAbsenceSignature(null);
   };
@@ -428,6 +462,11 @@ export default function PsPublicAttendance() {
 
     if (!absenceResponsibleId) {
       toast.error('Selecione o responsável.');
+      return;
+    }
+
+    if (absenceResponsibleCpfDigits.length !== 11) {
+      toast.error('Informe o CPF do responsável.');
       return;
     }
 
@@ -450,12 +489,14 @@ export default function PsPublicAttendance() {
       await submitPublicProcessSelectionAbsence(
         absenceTarget.id,
         absenceResponsibleId,
+        absenceResponsibleCpfDigits,
         absenceReason.trim(),
         absenceSignature
       );
 
       setAbsenceTarget(null);
       setAbsenceResponsibleId('');
+      setAbsenceResponsibleCpf('');
       setAbsenceReason('');
       setAbsenceSignature(null);
 
@@ -490,6 +531,7 @@ export default function PsPublicAttendance() {
       return;
     }
     setSelectedId(link.id);
+    setAttendanceCpf('');
     setSignature(null);
     navigate(`/ps/presenca/${eventId}/${link.id}`);
   };
@@ -497,6 +539,7 @@ export default function PsPublicAttendance() {
   const handleEventChange = (nextEventId: string) => {
     setEventId(nextEventId);
     setSelectedId('');
+    setAttendanceCpf('');
     setSignature(null);
     setSearch('');
     setShowSigned(false);
@@ -559,6 +602,37 @@ export default function PsPublicAttendance() {
                     Confirme o cargo e o PIX antes de registrar a presença.
                   </p>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Confirme seu CPF *</Label>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={attendanceCpf}
+                    onChange={(event) =>
+                      setAttendanceCpf(
+                        event.target.value
+                          .replace(/\D/g, '')
+                          .slice(0, 11)
+                      )
+                    }
+                    placeholder="Digite os 11 dígitos do CPF"
+                    maxLength={11}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    O CPF é usado somente para confirmar que a presença
+                    pertence ao fiscal selecionado.
+                  </p>
+                </div>
+
+                {attendanceCpfDigits.length === 11 &&
+                  attendanceDetailsError && (
+                    <p className="text-sm font-medium text-destructive">
+                      CPF não confere ou a verificação foi temporariamente
+                      bloqueada por excesso de tentativas.
+                    </p>
+                  )}
 
                 {attendanceDetailsLoading && (
                   <p className="text-sm text-muted-foreground">
@@ -947,7 +1021,10 @@ export default function PsPublicAttendance() {
 
                 <Select
                   value={absenceResponsibleId}
-                  onValueChange={setAbsenceResponsibleId}
+                  onValueChange={(value) => {
+                    setAbsenceResponsibleId(value);
+                    setAbsenceResponsibleCpf('');
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Coordenador ou subcoordenador" />
@@ -968,6 +1045,26 @@ export default function PsPublicAttendance() {
                     )}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>CPF do responsável *</Label>
+
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={absenceResponsibleCpf}
+                  onChange={(event) =>
+                    setAbsenceResponsibleCpf(
+                      event.target.value
+                        .replace(/\D/g, '')
+                        .slice(0, 11)
+                    )
+                  }
+                  placeholder="11 dígitos do CPF"
+                  maxLength={11}
+                />
               </div>
 
               <div className="space-y-2">
@@ -1010,6 +1107,7 @@ export default function PsPublicAttendance() {
               disabled={
                 absenceSaving ||
                 !absenceResponsibleId ||
+                absenceResponsibleCpfDigits.length !== 11 ||
                 !absenceReason.trim() ||
                 !absenceSignature
               }

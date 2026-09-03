@@ -117,8 +117,19 @@ export async function cleanupUploadedSignatureIfUnreferenced(module: string, loc
   return true;
 }
 
-export async function submitPublicProcessSelectionSignature(linkId: string, value: string) {
-  if (!/^[0-9a-f-]{36}$/i.test(linkId)) throw new Error('invalid_process_selection_participant');
+export async function submitPublicProcessSelectionSignature(
+  linkId: string,
+  cpf: string,
+  value: string
+) {
+  if (!/^[0-9a-f-]{36}$/i.test(linkId))
+    throw new Error('invalid_process_selection_participant');
+
+  const cpfDigits = cpf.replace(/\D/g, '');
+
+  if (cpfDigits.length !== 11)
+    throw new Error('invalid_attendance_identity');
+
   const png = signatureDataUrlToPngBlob(value);
   if (png.size > 512 * 1024) throw new Error('signature_file_too_large');
   const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/+$/, '');
@@ -126,7 +137,12 @@ export async function submitPublicProcessSelectionSignature(linkId: string, valu
   if (!supabaseUrl || !publishableKey) throw new Error('signature_service_unavailable');
   const response = await fetch(`${supabaseUrl}/functions/v1/ps-public-signature`, {
     method: 'POST',
-    headers: { apikey: publishableKey, 'content-type': 'image/png', 'x-ps-link-id': linkId },
+    headers: {
+      apikey: publishableKey,
+      'content-type': 'image/png',
+      'x-ps-link-id': linkId,
+      'x-ps-cpf': cpfDigits,
+    },
     body: png,
   });
   const payload = await response.json().catch(() => null);
@@ -147,6 +163,7 @@ function encodePublicSignatureHeader(value: string) {
 export async function submitPublicProcessSelectionAbsence(
   linkId: string,
   responsibleId: string,
+  responsibleCpf: string,
   reason: string,
   value: string
 ) {
@@ -156,6 +173,12 @@ export async function submitPublicProcessSelectionAbsence(
   ) {
     throw new Error('invalid_process_selection_absence');
   }
+
+  const responsibleCpfDigits =
+    responsibleCpf.replace(/\D/g, '');
+
+  if (responsibleCpfDigits.length !== 11)
+    throw new Error('invalid_absence_responsible_identity');
 
   const png = signatureDataUrlToPngBlob(value);
 
@@ -184,6 +207,7 @@ export async function submitPublicProcessSelectionAbsence(
         'x-ps-link-id': linkId,
         'x-ps-action': 'absence',
         'x-ps-responsible-id': responsibleId,
+        'x-ps-responsible-cpf': responsibleCpfDigits,
         'x-ps-reason-b64':
           encodePublicSignatureHeader(reason),
       },
