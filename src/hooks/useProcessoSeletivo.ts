@@ -294,10 +294,21 @@ export function usePsRetryEventCommunications() {
 
 export function usePsProcessEventCommunicationQueue() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: async ({ eventId }: { eventId: string }) => {
-    const { data, error } = await supabase.functions.invoke('ps-event-communications', { body: { action: 'process_queue', eventId } });
-    if (error) throw error; if (data?.error) throw new Error(data.error); return data;
-  }, onSuccess: () => { qc.invalidateQueries({ queryKey: ['ps_event_communications'] }); toast.success('Fila processada.'); }, onError: (e: Error) => toast.error(e.message) });
+  return useMutation({
+    mutationFn: async ({ eventId }: { eventId: string; silent?: boolean }) => {
+      const { data, error } = await supabase.functions.invoke('ps-event-communications', {
+        body: { action: 'process_queue', eventId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['ps_event_communications'] });
+      if (!variables.silent) toast.success('Fila processada.');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 }
 
 export function usePsUpdateEventCollaboratorParticipation() {

@@ -53,7 +53,59 @@ export function PsEventCommunicationTab({ event, links }: { event:any; links:any
     setTemplate(next);
     requestAnimationFrame(()=>{el.focus();el.setSelectionRange(start+chip.length,start+chip.length);});
   };
-  const submit=async()=>{const data=await send.mutateAsync({eventId:event.id,eventCollaboratorIds:selected,communicationType:type,subject,template,requestKey});setResult(data);};
+  const submit=async()=>{
+    const first=await send.mutateAsync({
+      eventId:event.id,
+      eventCollaboratorIds:selected,
+      communicationType:type,
+      subject,
+      template,
+      requestKey,
+    });
+
+    const totalResult={
+      ...first,
+      sent:Number(first.sent||0),
+      failed:Number(first.failed||0),
+      missingRecipient:Number(first.missingRecipient||0),
+      quotaWaiting:Number(first.quotaWaiting||0),
+      pending:Number(first.pending||0),
+    };
+
+    setResult(totalResult);
+
+    const batchSize=Math.max(1,Number(config?.batchLimit||5));
+    const extraRuns=Math.ceil(Number(first.pending||0)/batchSize);
+
+    for(let i=0;i<extraRuns;i++){
+      if(totalResult.quotaWaiting>0) break;
+
+      const next=await processQueue.mutateAsync({
+        eventId:event.id,
+        silent:true,
+      });
+
+      totalResult.sent+=Number(next.sent||0);
+      totalResult.failed+=Number(next.failed||0);
+      totalResult.missingRecipient+=Number(next.missingRecipient||0);
+      totalResult.quotaWaiting+=Number(next.quotaWaiting||0);
+
+      totalResult.pending=Math.max(
+        0,
+        Number(first.total||selected.length)
+          - totalResult.sent
+          - totalResult.failed
+          - totalResult.missingRecipient
+          - totalResult.quotaWaiting
+      );
+
+      setResult({...totalResult});
+
+      if(Number(next.total||0)===0) break;
+    }
+
+    setResult({...totalResult});
+  };
   const failedJobs=history.filter((job:any)=>['failed','failed_missing_recipient'].includes(job.status)&&selected.includes(job.event_collaborator_id));
   const quotaWaiting=history.filter((job:any)=>job.status==='waiting_provider_quota').length;
   return <div className="space-y-4">
