@@ -11,43 +11,29 @@ interface CreateCallRequest {
   issue_description?: string;
 }
 
-// Simple in-memory rate limiting
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_MAX_REQUESTS = 10;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_WINDOW_SECONDS = 60;
 
-function getClientIP(req: Request): string {
+function getClientIdentifier(req: Request): string {
   const forwardedFor = req.headers.get('x-forwarded-for');
-  if (forwardedFor) return forwardedFor.split(',')[0].trim();
   const realIP = req.headers.get('x-real-ip');
-  if (realIP) return realIP;
   const userAgent = req.headers.get('user-agent') || 'unknown';
-  return `ua-${userAgent.substring(0, 50)}`;
+
+  const ip =
+    forwardedFor?.split(',')[0]?.trim() ||
+    realIP?.trim() ||
+    'unknown';
+
+  return `${ip}|${userAgent.slice(0, 200)}`;
 }
 
-function checkRateLimit(clientIP: string): { allowed: boolean; retryAfter?: number } {
-  const now = Date.now();
-  const entry = rateLimitMap.get(clientIP);
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
 
-  if (rateLimitMap.size > 1000) {
-    for (const [key, value] of rateLimitMap.entries()) {
-      if (now > value.resetTime) rateLimitMap.delete(key);
-    }
-  }
-
-  if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-    const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-    return { allowed: false, retryAfter };
-  }
-
-  entry.count++;
-  rateLimitMap.set(clientIP, entry);
-  return { allowed: true };
+  return Array.from(new Uint8Array(digest))
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 Deno.serve(async (req) => {
@@ -63,13 +49,64 @@ Deno.serve(async (req) => {
       );
     }
 
-    const clientIP = getClientIP(req);
-    const rateLimitResult = checkRateLimit(clientIP);
-    
-    if (!rateLimitResult.allowed) {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey =
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    const supabase = createClient(
+      supabaseUrl,
+      supabaseServiceKey
+    );
+
+    const clientHash = await sha256(
+      getClientIdentifier(req)
+    );
+
+    const { data: rateRows, error: rateError } =
+      await supabase.rpc(
+        'consume_public_api_rate_limit',
+        {
+          p_endpoint: 'create-classroom-call',
+          p_client_hash: clientHash,
+          p_limit: RATE_LIMIT_MAX_REQUESTS,
+          p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+        }
+      );
+
+    if (rateError) {
+      console.error('Rate limit error:', rateError);
+
       return new Response(
-        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateLimitResult.retryAfter || 60) } }
+        JSON.stringify({
+          error: 'Service temporarily unavailable'
+        }),
+        {
+          status: 503,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+
+    const rateLimitResult = rateRows?.[0];
+
+    if (!rateLimitResult?.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Too many requests. Please try again later.'
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Retry-After': String(
+              rateLimitResult?.retry_after || 60
+            )
+          }
+        }
       );
     }
 
@@ -108,10 +145,6 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data, error } = await supabase
       .from('classroom_calls')
