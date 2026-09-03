@@ -28,3 +28,8 @@ dist-ssr
 *.sw?
 # Importações locais com dados de fiscais
 tmp/imports/
+
+# Environment files
+.env
+.env.*
+!.env.example

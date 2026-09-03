@@ -5,7 +5,10 @@ import fs from 'node:fs';
 test('formulário público envia PNG ao backend intermediário e nunca chama RPC com Base64', () => {
   const page = fs.readFileSync(new URL('../../src/pages/processo-seletivo/public/PsPublicAttendance.tsx', import.meta.url), 'utf8');
   const helper = fs.readFileSync(new URL('../../src/lib/signatureStorage.ts', import.meta.url), 'utf8');
-  assert.match(page, /submitPublicProcessSelectionSignature\(selected\.id, signature\)/);
+  assert.match(
+    page,
+    /submitPublicProcessSelectionSignature\(\s*selected\.id,\s*attendanceCpfDigits,\s*signature\s*\)/
+  );
   assert.doesNotMatch(page, /rpc\('ps_public_sign_attendance'/);
   assert.match(helper, /functions\/v1\/ps-public-signature/);
   assert.match(helper, /'content-type': 'image\/png'/);
@@ -38,7 +41,10 @@ test('RPC aceita somente locator canônico de process-selection e não aceita Ba
 test('PDF resolve R2 somente na operação assíncrona', () => {
   const pdf = fs.readFileSync(new URL('../../src/lib/psEventPdf.ts', import.meta.url), 'utf8');
   assert.match(pdf, /generatePsAttendancePdfAsync/);
-  assert.match(pdf, /preparePdfSignatureRows\(rows, resolveR2Signature\)/);
+  assert.match(
+    pdf,
+    /preparePdfSignatureRows\(\s*rows,\s*resolveR2Signature\s*\)/
+  );
 });
 
 

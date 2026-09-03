@@ -33,7 +33,18 @@ test('busca pública atual aceita vazio, NULL e 1 caractere, sempre dentro do ev
   );
   assert.match(finalRosterSql, /trim\(coalesce\(p_search, ''\)\) = ''/);
   assert.doesNotMatch(finalRosterSql, /length\(trim\(coalesce\(p_search, ''\)\)\)\s*>=\s*2/);
-  assert.match(finalRosterSql, /collaborator_name ILIKE.*trim\(p_search\)|role_name ILIKE.*trim\(p_search\)|assigned_role ILIKE.*trim\(p_search\)/);
+  assert.match(
+    finalRosterSql,
+    /ec\.collaborator_name[\s\S]*?ILIKE[\s\S]*?trim\(p_search\)/
+  );
+  assert.match(
+    finalRosterSql,
+    /ec\.role_name[\s\S]*?ILIKE[\s\S]*?trim\(p_search\)/
+  );
+  assert.match(
+    finalRosterSql,
+    /ec\.assigned_role[\s\S]*?ILIKE[\s\S]*?trim\(p_search\)/
+  );
   assert.doesNotMatch(finalRosterSql.match(/CREATE OR REPLACE FUNCTION public\.ps_public_search_event_roster[\s\S]*?\$\$;/)?.[0] || '', /signature_url/);
   assert.match(attendance, /ps_public_search_event_roster/);
   assert.match(evaluation, /\/ps\/avaliador/);
@@ -60,7 +71,10 @@ test('assinatura dupla permanece condicionada e avaliações não duplicam por e
 test('não existe limite artificial de tablets e UX evita assinatura repetida', () => {
   assert.equal(REALISTIC_PS_CLIENTS, 10);
   assert.doesNotMatch(`${hook}\n${attendance}\n${evaluation}\n${historicalSql}\n${finalRosterSql}\n${broadcastSql}`, /MAX_(CLIENTS|SESSIONS)|device_limit|tablet_limit|sessions\s*[<>=]+\s*10/i);
-  assert.match(attendance, /disabled=\{[^}]*signed_at|disabled=\{isAlreadySigned\}/);
+  assert.match(
+    attendance,
+    /disabled=\{\s*isAlreadySigned\s*\|\|\s*isAbsent\s*\|\|\s*isSavingSignature\s*\}/
+  );
   assert.match(attendance, /min-h-(14|16)/);
   assert.match(attendance, /Registrando\s+presença|Registrando\s+\./);
 });

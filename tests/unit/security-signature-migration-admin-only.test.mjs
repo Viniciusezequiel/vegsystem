@@ -18,7 +18,8 @@ const functions = [
 ];
 
 test('RPCs de migração continuam SECURITY INVOKER', () => {
-  const matches = sql.match(/SECURITY INVOKER/g) ?? [];
+  const matches =
+    sql.match(/^\s*SECURITY INVOKER\s*$/gm) ?? [];
 
   assert.equal(matches.length, 4);
 });
