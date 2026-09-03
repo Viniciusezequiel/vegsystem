@@ -8,7 +8,7 @@ const attendance = fs.readFileSync(new URL('../../src/pages/processo-seletivo/pu
 const evaluation = fs.readFileSync(new URL('../../src/pages/processo-seletivo/public/PsPublicEvaluation.tsx', import.meta.url), 'utf8');
 const eventDetail = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
 const historicalSql = fs.readFileSync(new URL('../../supabase/migrations/20260901230000_ps_realtime_operations.sql', import.meta.url), 'utf8');
-const finalRosterSql = fs.readFileSync(new URL('../../supabase/migrations/20260902010000_ps_public_roster_self_eval_fix.sql', import.meta.url), 'utf8');
+const finalRosterSql = fs.readFileSync(new URL('../../supabase/migrations/20260902360000_ps_public_roster_full_list.sql', import.meta.url), 'utf8');
 const broadcastSql = fs.readFileSync(new URL('../../supabase/migrations/20260902030000_ps_public_realtime_broadcast.sql', import.meta.url), 'utf8');
 
 test('listagem interna é leve e recebe mudanças Realtime do evento atual', () => {
@@ -20,6 +20,17 @@ test('listagem interna é leve e recebe mudanças Realtime do evento atual', () 
 
 test('busca pública atual aceita vazio, NULL e 1 caractere, sempre dentro do evento', () => {
   assert.match(finalRosterSql, /WHERE ec\.event_id = p_event_id/);
+  assert.match(finalRosterSql, /LIMIT\s+1000/i);
+  assert.match(
+    finalRosterSql,
+    /participation_status\s+IN\s*\([\s\S]*pending_confirmation[\s\S]*confirmed/i
+  );
+  assert.doesNotMatch(
+    finalRosterSql.match(
+      /CREATE OR REPLACE FUNCTION public\.ps_public_search_event_roster[\s\S]*?\$\$;/
+    )?.[0] || '',
+    /participation_status\s+IN[\s\S]*declined|participation_status\s+IN[\s\S]*replaced/i
+  );
   assert.match(finalRosterSql, /trim\(coalesce\(p_search, ''\)\) = ''/);
   assert.doesNotMatch(finalRosterSql, /length\(trim\(coalesce\(p_search, ''\)\)\)\s*>=\s*2/);
   assert.match(finalRosterSql, /collaborator_name ILIKE.*trim\(p_search\)|role_name ILIKE.*trim\(p_search\)|assigned_role ILIKE.*trim\(p_search\)/);
