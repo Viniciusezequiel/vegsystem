@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ import {
 
 export default function PsEventDetail() {
   const { id } = useParams();
+  const queryClient = useQueryClient();
   const { data: event } = usePsEvent(id);
   const { finalize, save } = usePsEventMutations();
   const { data: links = [] } = usePsEventCollaborators(id);
@@ -77,7 +79,30 @@ export default function PsEventDetail() {
   const [absenceSignature, setAbsenceSignature] = useState<string | null>(null);
   const [absenceSaving, setAbsenceSaving] = useState(false);
 
+  const [closureTarget, setClosureTarget] = useState<any>(null);
+  const [closureCoordinatorId, setClosureCoordinatorId] = useState('');
+  const [closureSignature, setClosureSignature] = useState<string | null>(null);
+  const [closureSaving, setClosureSaving] = useState(false);
+
   const publicBase = `${window.location.origin}/ps`;
+
+  const { data: attendanceClosures = [] } = useQuery({
+    queryKey: ['ps-attendance-closures', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_attendance_closures')
+        .select(
+          'id, event_id, campus, building, coordinator_event_collaborator_id, coordinator_name, present_count, absent_count, pending_count, role_adjustments_count, pix_adjustments_count, signed_at'
+        )
+        .eq('event_id', id!)
+        .order('building');
+
+      if (error) throw error;
+
+      return data || [];
+    },
+  });
 
   const confirmationRows = useMemo(() => {
     const query = confirmationSearch.trim().toLowerCase();
@@ -116,6 +141,101 @@ export default function PsEventDetail() {
         )
       );
   }, [links, presenceSearch]);
+
+  const attendanceLocations = useMemo(() => {
+    const locations = new Map<string, any>();
+
+    for (const link of links as any[]) {
+      const campus = String(link.campus || '').trim();
+
+      const building = String(
+        link.building ||
+        link.unit ||
+        link.campus ||
+        'Sem prédio'
+      ).trim();
+
+      const key = `${campus}|||${building}`;
+
+      if (!locations.has(key)) {
+        locations.set(key, {
+          key,
+          campus,
+          building,
+          links: [],
+        });
+      }
+
+      locations.get(key).links.push(link);
+    }
+
+    return [...locations.values()]
+      .map((location: any) => {
+        const rows = location.links;
+
+        const presentCount = rows.filter(
+          (row: any) =>
+            !row.absent &&
+            (!!row.signed_at || !!row.present)
+        ).length;
+
+        const absentCount = rows.filter(
+          (row: any) => !!row.absent
+        ).length;
+
+        const pendingCount = rows.filter(
+          (row: any) =>
+            !row.absent &&
+            !row.signed_at &&
+            !row.present
+        ).length;
+
+        const closure = attendanceClosures.find(
+          (item: any) =>
+            String(item.campus || '').trim() === location.campus &&
+            String(item.building || '').trim() === location.building
+        );
+
+        return {
+          ...location,
+          presentCount,
+          absentCount,
+          pendingCount,
+          closure,
+        };
+      })
+      .sort((a: any, b: any) =>
+        String(a.building).localeCompare(
+          String(b.building),
+          'pt-BR'
+        )
+      );
+  }, [links, attendanceClosures]);
+
+
+  const closureCoordinatorCandidates = useMemo(() => {
+    return links
+      .filter((link: any) => {
+        const role = String(
+          link.role_name ||
+          link.assigned_role ||
+          link.role_value ||
+          ''
+        ).toLowerCase();
+
+        return (
+          role.includes('coord') &&
+          !role.includes('sub') &&
+          !link.absent
+        );
+      })
+      .sort((a: any, b: any) =>
+        String(a.collaborator_name || '').localeCompare(
+          String(b.collaborator_name || ''),
+          'pt-BR'
+        )
+      );
+  }, [links]);
 
   const absenceResponsibleCandidates = useMemo(() => {
     return links
@@ -258,6 +378,120 @@ export default function PsEventDetail() {
       seat_number: pick(r, ['CARTEIRA', 'ASSENTO']) || null,
     })).filter((r) => r.full_name);
     if (mapped.length) addMany.mutate(mapped);
+  };
+
+
+  const openClosureDialog = (location: any) => {
+    if (location.closure) {
+      toast.info('Este prédio/local já foi fechado.');
+      return;
+    }
+
+    if (location.pendingCount > 0) {
+      toast.error(
+        `Ainda existem ${location.pendingCount} fiscal(is) pendente(s) neste prédio/local.`
+      );
+      return;
+    }
+
+    setClosureTarget(location);
+    setClosureCoordinatorId('');
+    setClosureSignature(null);
+  };
+
+  const closeClosureDialog = () => {
+    if (closureSaving) return;
+
+    setClosureTarget(null);
+    setClosureCoordinatorId('');
+    setClosureSignature(null);
+  };
+
+  const submitAttendanceClosure = async () => {
+    if (!closureTarget || !id) return;
+
+    if (!closureCoordinatorId) {
+      toast.error('Selecione o coordenador responsável.');
+      return;
+    }
+
+    if (!closureSignature) {
+      toast.error('O coordenador precisa assinar o fechamento.');
+      return;
+    }
+
+    setClosureSaving(true);
+
+    let uploadedLocator: string | null = null;
+
+    try {
+      uploadedLocator = await uploadSignatureValue(
+        'process-selection',
+        closureSignature
+      );
+
+      if (!uploadedLocator) {
+        throw new Error(
+          'Não foi possível armazenar a assinatura do fechamento.'
+        );
+      }
+
+      const { data, error } = await (supabase as any).rpc(
+        'ps_admin_close_attendance_building',
+        {
+          p_event_id: id,
+          p_campus: closureTarget.campus || null,
+          p_building: closureTarget.building,
+          p_coordinator_event_collaborator_id:
+            closureCoordinatorId,
+          p_signature: uploadedLocator,
+        }
+      );
+
+      if (error) throw error;
+
+      const result = data?.[0];
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message ||
+          'Não foi possível realizar o fechamento.'
+        );
+      }
+
+      const building = closureTarget.building;
+
+      setClosureTarget(null);
+      setClosureCoordinatorId('');
+      setClosureSignature(null);
+
+      await queryClient.invalidateQueries({
+        queryKey: ['ps-attendance-closures', id],
+      });
+
+      toast.success(
+        `Fechamento de ${building} registrado com sucesso.`
+      );
+    } catch (error) {
+      if (uploadedLocator) {
+        try {
+          await cleanupUploadedSignatureIfUnreferenced(
+            'process-selection',
+            uploadedLocator
+          );
+        } catch {
+          // não bloqueia o fluxo principal
+        }
+      }
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível registrar o fechamento.'
+      );
+    } finally {
+      setClosureSaving(false);
+    }
   };
 
 
@@ -866,6 +1100,128 @@ export default function PsEventDetail() {
             </div>
 
             <Card className="rounded-2xl">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Fechamento por prédio / local
+                </CardTitle>
+
+                <p className="text-xs text-muted-foreground">
+                  O fechamento é liberado somente quando não houver fiscais pendentes.
+                </p>
+              </CardHeader>
+
+              <CardContent>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {attendanceLocations.map((location: any) => (
+                    <div
+                      key={location.key}
+                      className="rounded-xl border p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold">
+                            {location.building}
+                          </p>
+
+                          {location.campus &&
+                            location.campus !== location.building && (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {location.campus}
+                              </p>
+                            )}
+                        </div>
+
+                        {location.closure ? (
+                          <Badge>
+                            Fechado
+                          </Badge>
+                        ) : location.pendingCount > 0 ? (
+                          <Badge variant="outline">
+                            {location.pendingCount} pendente(s)
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            Pronto para fechar
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-muted/40 p-2">
+                          <p className="text-lg font-bold">
+                            {location.presentCount}
+                          </p>
+                          <p className="text-[10px] uppercase text-muted-foreground">
+                            Presentes
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg bg-muted/40 p-2">
+                          <p className="text-lg font-bold">
+                            {location.absentCount}
+                          </p>
+                          <p className="text-[10px] uppercase text-muted-foreground">
+                            Ausentes
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg bg-muted/40 p-2">
+                          <p className="text-lg font-bold">
+                            {location.pendingCount}
+                          </p>
+                          <p className="text-[10px] uppercase text-muted-foreground">
+                            Pendentes
+                          </p>
+                        </div>
+                      </div>
+
+                      {location.closure ? (
+                        <div className="mt-4 rounded-lg border bg-muted/20 p-3 text-xs">
+                          <p className="font-medium">
+                            Fechado por {location.closure.coordinator_name}
+                          </p>
+
+                          <p className="mt-1 text-muted-foreground">
+                            {location.closure.signed_at
+                              ? new Date(
+                                  location.closure.signed_at
+                                ).toLocaleString('pt-BR')
+                              : ''}
+                          </p>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          className="mt-4 w-full"
+                          variant={
+                            location.pendingCount === 0
+                              ? 'default'
+                              : 'outline'
+                          }
+                          disabled={
+                            location.pendingCount > 0 ||
+                            !closureCoordinatorCandidates.length
+                          }
+                          onClick={() =>
+                            openClosureDialog(location)
+                          }
+                        >
+                          Fechar prédio / local
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+
+                  {!attendanceLocations.length && (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum prédio/local identificado.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl">
               <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-base">Controle de presença</CardTitle>
@@ -1065,6 +1421,144 @@ export default function PsEventDetail() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Fechamento de presença por prédio */}
+      <Dialog
+        open={!!closureTarget}
+        onOpenChange={(open) => {
+          if (!open) closeClosureDialog();
+        }}
+      >
+        <DialogContent
+          className="max-w-xl"
+          onInteractOutside={(event) => {
+            if (closureSaving) event.preventDefault();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              Fechar presença do prédio / local
+            </DialogTitle>
+          </DialogHeader>
+
+          {closureTarget && (
+            <div className="space-y-5">
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-lg font-semibold">
+                  {closureTarget.building}
+                </p>
+
+                {closureTarget.campus &&
+                  closureTarget.campus !==
+                    closureTarget.building && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {closureTarget.campus}
+                    </p>
+                  )}
+
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="font-bold">
+                      {closureTarget.presentCount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Presentes
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold">
+                      {closureTarget.absentCount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Ausentes
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold">
+                      {closureTarget.pendingCount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Pendentes
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Coordenador responsável *</Label>
+
+                <Select
+                  value={closureCoordinatorId}
+                  onValueChange={setClosureCoordinatorId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o coordenador" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {closureCoordinatorCandidates.map(
+                      (coordinator: any) => (
+                        <SelectItem
+                          key={coordinator.id}
+                          value={coordinator.id}
+                        >
+                          {coordinator.collaborator_name}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+
+                {!closureCoordinatorCandidates.length && (
+                  <p className="text-xs text-destructive">
+                    Nenhum Coordenador disponível neste evento.
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                Ao assinar, o coordenador confirma que todos os fiscais deste prédio/local foram conferidos como presentes ou ausentes.
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assinatura do Coordenador *</Label>
+
+                <SignaturePad
+                  onSignatureChange={setClosureSignature}
+                  height={180}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={closureSaving}
+              onClick={closeClosureDialog}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="button"
+              disabled={
+                closureSaving ||
+                !closureCoordinatorId ||
+                !closureSignature
+              }
+              onClick={submitAttendanceClosure}
+            >
+              {closureSaving
+                ? 'Fechando...'
+                : 'Confirmar fechamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Vincular fiscais */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
