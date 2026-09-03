@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SignaturePad } from '@/components/ui/SignaturePad';
-import { PenLine, CheckCircle2, Search, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { PenLine, Search, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { usePsEvents } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,7 +24,7 @@ export default function PsPublicAttendance() {
   const [search, setSearch] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (routeEventId) setEventId(routeEventId);
@@ -116,18 +116,23 @@ export default function PsPublicAttendance() {
   }, [currentSelectedId, eventId, links, navigate, routeSelectedId, selectedId]);
 
   useEffect(() => {
-    if (!selected || !currentSelectedId || done) return;
+    if (!selected || !currentSelectedId) return;
+
+    // Se foi este dispositivo que acabou de enviar a assinatura,
+    // o realtime pode atualizar signed_at antes da troca de rota.
+    // Nesse caso não exibimos o alerta de outro dispositivo.
+    if (selected.signed_at && pendingIds.has(selected.id)) return;
+
     if (selected.signed_at) {
       setSignature(null);
       setSaving(false);
       toast.error('Esta presença já foi registrada em outro dispositivo.');
     }
-  }, [selected, currentSelectedId, done]);
+  }, [selected, currentSelectedId, pendingIds]);
 
   const resetToList = () => {
     setSelectedId('');
     setSignature(null);
-    setDone(false);
     setSaving(false);
     if (eventId) {
       navigate(`/ps/presenca/${eventId}`, { replace: true });
@@ -135,7 +140,7 @@ export default function PsPublicAttendance() {
   };
 
   const goBackToList = () => {
-    if (signature && !saving && !done) {
+    if (signature && !saving) {
       const shouldDiscard = window.confirm('Descartar assinatura e voltar para a lista?');
       if (!shouldDiscard) return;
     }
@@ -153,37 +158,49 @@ export default function PsPublicAttendance() {
     }
     if (saving) return;
 
+    const linkId = selected.id;
+    const collaboratorName = selected.collaborator_name;
+
     setSaving(true);
-    try {
-      const linkId = selected.id;
-      await submitPublicProcessSelectionSignature(linkId, signature);
 
-      const signedAt = new Date().toISOString();
+    // Inicia o envio antes de trocar de tela.
+    const savePromise = submitPublicProcessSelectionSignature(selected.id, signature);
 
-      queryClient.setQueryData<any[]>(
-        ['ps_public_roster', eventId],
-        (current = []) =>
-          current.map((item: any) =>
-            item.id === linkId
-              ? { ...item, signed_at: signedAt }
-              : item
-          )
-      );
+    // Marca este fiscal como ocupado neste dispositivo.
+    setPendingIds((current) => {
+      const next = new Set(current);
+      next.add(linkId);
+      return next;
+    });
 
-      toast.success(`Presença registrada para ${selected.collaborator_name}.`);
+    // Libera a interface imediatamente para a próxima assinatura.
+    setSignature(null);
+    setSelectedId('');
+    setSaving(false);
+    navigate(`/ps/presenca/${eventId}`, { replace: true });
 
-      setSignature(null);
-      setDone(false);
-      setSelectedId('');
-      navigate(`/ps/presenca/${eventId}`, { replace: true });
+    void savePromise
+      .then(() => {
+        toast.success(`Presença de ${collaboratorName} registrada com sucesso.`);
+      })
+      .catch((error) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : `Não foi possível registrar a presença de ${collaboratorName}.`
+        );
+      })
+      .finally(() => {
+        setPendingIds((current) => {
+          const next = new Set(current);
+          next.delete(linkId);
+          return next;
+        });
 
-      // Atualiza com o banco em segundo plano, sem travar a próxima assinatura.
-      void refetch();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível registrar a assinatura.');
-    } finally {
-      setSaving(false);
-    }
+        void queryClient.invalidateQueries({
+          queryKey: ['ps_public_roster', eventId],
+        });
+      });
   };
 
   const handleOpenSignature = (link: any) => {
@@ -193,7 +210,6 @@ export default function PsPublicAttendance() {
     }
     setSelectedId(link.id);
     setSignature(null);
-    setDone(false);
     navigate(`/ps/presenca/${eventId}/${link.id}`);
   };
 
@@ -201,35 +217,9 @@ export default function PsPublicAttendance() {
     setEventId(nextEventId);
     setSelectedId('');
     setSignature(null);
-    setDone(false);
     setSearch('');
     navigate(`/ps/presenca/${nextEventId}`);
   };
-
-  if (done && selected) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-        <Card className="w-full max-w-lg rounded-2xl border border-emerald-200 bg-white shadow-sm">
-          <CardHeader className="space-y-4 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-            <div className="space-y-2">
-              <CardTitle className="text-2xl">Presença registrada com sucesso.</CardTitle>
-              <CardDescription className="text-base text-muted-foreground">
-                {selected.collaborator_name}
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button className="w-full" size="lg" onClick={resetToList}>
-              Voltar para Lista de Presença
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   if (currentSelectedId && selected) {
     return (
@@ -365,6 +355,7 @@ export default function PsPublicAttendance() {
               )}
               {!isLoading && !error && visibleLinks.map((l: any) => {
                 const isAlreadySigned = !!l.signed_at;
+                const isSavingSignature = pendingIds.has(l.id);
                 const isActive = selectedId === l.id;
 
                 return (
@@ -372,7 +363,7 @@ export default function PsPublicAttendance() {
                     key={l.id}
                     type="button"
                     onClick={() => handleOpenSignature(l)}
-                    disabled={isAlreadySigned}
+                    disabled={isAlreadySigned || isSavingSignature}
                     className={`flex min-h-16 w-full items-center justify-between gap-2 p-3 text-left text-sm transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-70 ${isActive ? 'bg-primary/10' : ''}`}
                   >
                     <span className="min-w-0">
@@ -382,7 +373,11 @@ export default function PsPublicAttendance() {
                       </span>
                     </span>
                     <span className="flex flex-wrap justify-end gap-1">
-                      {isAlreadySigned ? <Badge variant="secondary">Presença já registrada</Badge> : <Badge className="bg-primary/10 text-primary">Selecionar</Badge>}
+                      {isSavingSignature
+                        ? <Badge variant="secondary">Salvando...</Badge>
+                        : isAlreadySigned
+                          ? <Badge variant="secondary">Presença já registrada</Badge>
+                          : <Badge className="bg-primary/10 text-primary">Selecionar</Badge>}
                     </span>
                   </button>
                 );
