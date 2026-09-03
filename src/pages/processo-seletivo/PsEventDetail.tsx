@@ -108,6 +108,25 @@ export default function PsEventDetail() {
     },
   });
 
+  const { data: confirmationHistory = [] } = useQuery({
+    queryKey: ['ps-confirmation-history', id],
+    enabled: !!id,
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_confirmation_history')
+        .select(
+          'id, event_id, event_collaborator_id, previous_status, new_status, decline_reason, replacement_event_collaborator_id, source, actor_name, collaborator_name_snapshot, role_name_snapshot, campus_snapshot, unit_snapshot, building_snapshot, floor_snapshot, room_snapshot, replacement_collaborator_name_snapshot, created_at'
+        )
+        .eq('event_id', id!)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    },
+  });
+
   const confirmationRows = useMemo(() => {
     const query = confirmationSearch.trim().toLowerCase();
     return links.filter((link: any) => (confirmationStatus === 'all' || link.participation_status === confirmationStatus)
@@ -1182,6 +1201,154 @@ export default function PsEventDetail() {
                     </div>
                   ))}
                   {confirmationRows.length === 0 && <p className="p-4 text-muted-foreground">Nenhum vínculo corresponde aos filtros.</p>}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl">
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-base">
+                      Histórico de confirmações
+                    </CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Registro permanente de confirmações, recusas e substituições.
+                    </p>
+                  </div>
+
+                  <Badge variant="secondary">
+                    {confirmationHistory.length} registro(s)
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-0">
+                <div className="max-h-[30rem] divide-y overflow-y-auto">
+                  {confirmationHistory.map((history: any) => {
+                    const name =
+                      history.collaborator_name_snapshot ||
+                      history.actor_name ||
+                      'Fiscal removido';
+
+                    const roleValue =
+                      history.role_name_snapshot || '';
+
+                    const roleLabel =
+                      roles.find(
+                        (role: any) =>
+                          role.value === roleValue
+                      )?.name ||
+                      roleValue ||
+                      'Cargo não informado';
+
+                    const replacementName =
+                      history.replacement_collaborator_name_snapshot ||
+                      links.find(
+                        (link: any) =>
+                          link.id ===
+                          history.replacement_event_collaborator_id
+                      )?.collaborator_name ||
+                      null;
+
+                    return (
+                      <div
+                        key={history.id}
+                        className="flex flex-col gap-3 p-4 lg:flex-row lg:items-start lg:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">
+                              {name}
+                            </p>
+
+                            <Badge
+                              variant={
+                                history.new_status === 'confirmed'
+                                  ? 'default'
+                                  : history.new_status === 'declined'
+                                    ? 'destructive'
+                                    : history.new_status === 'replaced'
+                                      ? 'secondary'
+                                      : 'outline'
+                              }
+                            >
+                              {getPsConfirmationStatusLabel(
+                                history.new_status
+                              )}
+                            </Badge>
+                          </div>
+
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {[
+                              roleLabel,
+                              history.campus_snapshot,
+                              history.unit_snapshot,
+                              history.building_snapshot,
+                              history.floor_snapshot &&
+                                `Andar ${history.floor_snapshot}`,
+                              history.room_snapshot &&
+                                `Sala ${history.room_snapshot}`,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+
+                          {history.previous_status && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {getPsConfirmationStatusLabel(
+                                history.previous_status
+                              )}
+                              {' → '}
+                              {getPsConfirmationStatusLabel(
+                                history.new_status
+                              )}
+                            </p>
+                          )}
+
+                          {history.decline_reason && (
+                            <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                              <p className="text-xs font-semibold text-destructive">
+                                Motivo da recusa
+                              </p>
+                              <p className="mt-1 text-sm">
+                                {history.decline_reason}
+                              </p>
+                            </div>
+                          )}
+
+                          {history.new_status === 'replaced' && (
+                            <div className="mt-3 rounded-lg border bg-muted/30 p-3">
+                              <p className="text-xs font-semibold">
+                                Substituição
+                              </p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {replacementName
+                                  ? `Substituído por ${replacementName}`
+                                  : 'Fiscal substituto registrado.'}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="shrink-0 text-xs text-muted-foreground">
+                          {history.created_at
+                            ? new Date(
+                                history.created_at
+                              ).toLocaleString('pt-BR')
+                            : ''}
+                        </p>
+                      </div>
+                    );
+                  })}
+
+                  {!confirmationHistory.length && (
+                    <div className="p-8 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum histórico de confirmação registrado ainda.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
