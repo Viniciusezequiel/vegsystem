@@ -31,7 +31,7 @@ serve(async req=>{
     const testRecipient=(Deno.env.get('PS_EMAIL_TEST_RECIPIENT')||'').trim();
     const providerName=(Deno.env.get('PS_EMAIL_PROVIDER')||'brevo').toLowerCase();
     const providerConfigured=providerName==='fake'||(providerName==='brevo'&&!!Deno.env.get('BREVO_API_KEY')&&!!Deno.env.get('PS_EMAIL_FROM'))||(providerName==='resend'&&!!Deno.env.get('RESEND_API_KEY')&&!!Deno.env.get('PS_EMAIL_FROM'));
-    const batchLimit=100; const dailyLimit=limit('PS_EMAIL_DAILY_LIMIT',providerName==='brevo'?300:100,10000); const testBatchLimit=limit('PS_EMAIL_TEST_BATCH_LIMIT',1,10);
+    const batchLimit=limit('PS_EMAIL_BATCH_LIMIT',5,100); const dailyLimit=limit('PS_EMAIL_DAILY_LIMIT',providerName==='brevo'?300:100,10000); const testBatchLimit=limit('PS_EMAIL_TEST_BATCH_LIMIT',1,10);
     if(action==='config') return json({mode:testMode?'test':'production',provider:providerName,providerConfigured,testRecipientConfigured:!!testRecipient,productionEnabled,batchLimit,dailyLimit,testBatchLimit,quotaTimezone:'UTC'});
     if(!testMode&&!productionEnabled) return json({error:'production_email_disabled'},503);
     if(testMode&&!testRecipient) return json({error:'test_recipient_required'},503);
