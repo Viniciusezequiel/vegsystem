@@ -373,7 +373,7 @@ export default function PsEventDetail() {
   );
 
   const absenceResponsibleCandidates = useMemo(() => {
-    return links
+    return operationalLinks
       .filter((link: any) => {
         const role = String(
           link.role_name ||
@@ -394,7 +394,7 @@ export default function PsEventDetail() {
           'pt-BR'
         )
       );
-  }, [links, absenceTarget?.id]);
+  }, [operationalLinks, absenceTarget?.id]);
 
   const replacementCandidates = useMemo(() => {
     const currentIds = new Set(links.map((link: any) => link.collaborator_id));
@@ -1205,7 +1205,18 @@ export default function PsEventDetail() {
                         </Badge>
                         <span>{l.confirmation_requested_at ? new Date(l.confirmation_requested_at).toLocaleDateString('pt-BR') : '—'}</span>
                         <span>{l.confirmed_at ? new Date(l.confirmed_at).toLocaleDateString('pt-BR') : '—'}</span>
-                        {l.participation_status !== 'replaced' && <Button size="sm" variant="outline" onClick={() => requestConfirmation(l)} disabled={confirmationActions.request.isPending}>Gerar link</Button>}
+                        {['pending_confirmation', 'declined'].includes(l.participation_status) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => requestConfirmation(l)}
+                            disabled={confirmationActions.request.isPending}
+                          >
+                            {l.public_confirmation_token_expires_at
+                              ? 'Gerar novo link'
+                              : 'Gerar link'}
+                          </Button>
+                        )}
                         {l.participation_status !== 'replaced' && <Button size="sm" variant="outline" onClick={() => openReplacement(l)}>Substituir fiscal</Button>}
                       </div>
                     </div>
