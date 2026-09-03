@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import {
   Card,
@@ -24,14 +25,9 @@ import {
   CheckCircle2,
   MessageSquareHeart,
 } from 'lucide-react';
-import {
-  usePsEvents,
-  usePsRoles,
-} from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { isSelfEvaluationEnabled } from '@/lib/psPublicFilters.mjs';
 
 const BLOCKS = [
   {
@@ -86,27 +82,39 @@ function Rating({
 export default function PsPublicSelfEvaluation() {
   const { eventId: routeEventId } = useParams();
 
-  const { data: events = [] } = usePsEvents();
-  const { data: roles = [] } = usePsRoles();
+  const { data: visibleEvents = [] } = useQuery({
+    queryKey: ['ps_public_events', 'self_evaluation'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc(
+        'ps_public_list_events',
+        { p_surface: 'self_evaluation' }
+      );
 
-  const visibleEvents = useMemo(
-    () =>
-      events.filter((event: any) =>
-        isSelfEvaluationEnabled(event)
-      ),
-    [events]
-  );
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: roles = [] } = useQuery({
+    queryKey: ['ps_public_roles'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc(
+        'ps_public_list_roles'
+      );
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const availableRoles = useMemo(
     () =>
-      [...roles]
-        .filter((role: any) => role.active !== false)
-        .sort((a: any, b: any) =>
-          String(a.name || '').localeCompare(
-            String(b.name || ''),
-            'pt-BR'
-          )
-        ),
+      [...roles].sort((a: any, b: any) =>
+        String(a.name || '').localeCompare(
+          String(b.name || ''),
+          'pt-BR'
+        )
+      ),
     [roles]
   );
 

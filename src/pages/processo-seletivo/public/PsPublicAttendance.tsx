@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PenLine, Search, ArrowLeft, ShieldCheck } from 'lucide-react';
-import { usePsEvents, usePsRoles } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -29,8 +28,32 @@ export default function PsPublicAttendance() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { eventId: routeEventId, eventCollaboratorId: routeSelectedId } = useParams();
-  const { data: events = [] } = usePsEvents();
-  const { data: roles = [] } = usePsRoles();
+
+  const { data: events = [] } = useQuery({
+    queryKey: ['ps_public_events', 'attendance'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc(
+        'ps_public_list_events',
+        { p_surface: 'attendance' }
+      );
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: roles = [] } = useQuery({
+    queryKey: ['ps_public_roles'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc(
+        'ps_public_list_roles'
+      );
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const [eventId, setEventId] = useState(routeEventId || '');
   const [selectedId, setSelectedId] = useState(routeSelectedId || '');
   const [search, setSearch] = useState('');
