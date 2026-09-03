@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
 import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventTeamImportDialog';
 import { PsEventCommunicationTab } from '@/components/processo-seletivo/PsEventCommunicationTab';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
   usePsCollaborators, usePsRoles, usePsEvaluations, usePsSaveEvaluation, usePsCandidates,
@@ -28,6 +29,10 @@ import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  uploadSignatureValue,
+  cleanupUploadedSignatureIfUnreferenced,
+} from '@/lib/signatureStorage';
 
 export default function PsEventDetail() {
   const { id } = useParams();
@@ -65,6 +70,12 @@ export default function PsEventDetail() {
   const [replacementData, setReplacementData] = useState<any>(null);
   const [presenceSearch, setPresenceSearch] = useState('');
   const [presenceListOpen, setPresenceListOpen] = useState(false);
+
+  const [absenceTarget, setAbsenceTarget] = useState<any>(null);
+  const [absenceResponsibleId, setAbsenceResponsibleId] = useState('');
+  const [absenceReason, setAbsenceReason] = useState('');
+  const [absenceSignature, setAbsenceSignature] = useState<string | null>(null);
+  const [absenceSaving, setAbsenceSaving] = useState(false);
 
   const publicBase = `${window.location.origin}/ps`;
 
@@ -105,6 +116,30 @@ export default function PsEventDetail() {
         )
       );
   }, [links, presenceSearch]);
+
+  const absenceResponsibleCandidates = useMemo(() => {
+    return links
+      .filter((link: any) => {
+        const role = String(
+          link.role_name ||
+          link.assigned_role ||
+          link.role_value ||
+          ''
+        ).toLowerCase();
+
+        return (
+          role.includes('coord') &&
+          !link.absent &&
+          link.id !== absenceTarget?.id
+        );
+      })
+      .sort((a: any, b: any) =>
+        String(a.collaborator_name || '').localeCompare(
+          String(b.collaborator_name || ''),
+          'pt-BR'
+        )
+      );
+  }, [links, absenceTarget?.id]);
 
   const replacementCandidates = useMemo(() => {
     const currentIds = new Set(links.map((link: any) => link.collaborator_id));
@@ -225,6 +260,141 @@ export default function PsEventDetail() {
     if (mapped.length) addMany.mutate(mapped);
   };
 
+
+  const closeAbsenceDialog = () => {
+    setAbsenceTarget(null);
+    setAbsenceResponsibleId('');
+    setAbsenceReason('');
+    setAbsenceSignature(null);
+  };
+
+  const openAbsenceDialog = (link: any) => {
+    if (link.signed_at) {
+      toast.error(
+        'Este fiscal já assinou. Use "Refazer assinatura" antes de registrar ausência.'
+      );
+      return;
+    }
+
+    setAbsenceTarget(link);
+    setAbsenceResponsibleId('');
+    setAbsenceReason('');
+    setAbsenceSignature(null);
+  };
+
+  const submitAttendanceAbsence = async () => {
+    if (!absenceTarget) return;
+
+    if (!absenceResponsibleId) {
+      toast.error('Selecione o responsável pela ausência.');
+      return;
+    }
+
+    if (!absenceReason.trim()) {
+      toast.error('Informe o motivo ou observação da ausência.');
+      return;
+    }
+
+    if (!absenceSignature) {
+      toast.error('O responsável precisa assinar para confirmar a ausência.');
+      return;
+    }
+
+    setAbsenceSaving(true);
+    let uploadedLocator: string | null = null;
+
+    try {
+      uploadedLocator = await uploadSignatureValue(
+        'process-selection',
+        absenceSignature
+      );
+
+      if (!uploadedLocator) {
+        throw new Error('Não foi possível armazenar a assinatura.');
+      }
+
+      const { data, error } = await (supabase as any).rpc(
+        'ps_admin_register_attendance_absence',
+        {
+          p_event_collaborator_id: absenceTarget.id,
+          p_responsible_event_collaborator_id: absenceResponsibleId,
+          p_reason: absenceReason.trim(),
+          p_signature: uploadedLocator,
+        }
+      );
+
+      if (error) throw error;
+
+      const result = data?.[0];
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message || 'Não foi possível registrar a ausência.'
+        );
+      }
+
+      const fiscalName = absenceTarget.collaborator_name;
+
+      closeAbsenceDialog();
+
+      toast.success(
+        `Ausência de ${fiscalName} registrada com sucesso.`
+      );
+    } catch (error) {
+      if (uploadedLocator) {
+        try {
+          await cleanupUploadedSignatureIfUnreferenced(
+            'process-selection',
+            uploadedLocator
+          );
+        } catch {
+          // A ausência não deve falhar por causa da limpeza do arquivo.
+        }
+      }
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível registrar a ausência.'
+      );
+    } finally {
+      setAbsenceSaving(false);
+    }
+  };
+
+  const cancelAttendanceAbsence = async (link: any) => {
+    const confirmed = window.confirm(
+      `Cancelar a ausência de ${link.collaborator_name}?\n\n` +
+      'O fiscal voltará para a lista de pendentes.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { data, error } = await (supabase as any).rpc(
+        'ps_admin_cancel_attendance_absence',
+        {
+          p_event_collaborator_id: link.id,
+        }
+      );
+
+      if (error) throw error;
+
+      if (!data) {
+        throw new Error('Não foi possível cancelar a ausência.');
+      }
+
+      toast.success(
+        `${link.collaborator_name} voltou para a lista de pendentes.`
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível cancelar a ausência.'
+      );
+    }
+  };
 
   const resetAttendanceSignature = async (link: any) => {
     if (!link?.signed_at) return;
@@ -731,12 +901,13 @@ export default function PsEventDetail() {
                             <Label className="text-xs">Ausente</Label>
                             <Switch
                               checked={!!l.absent}
-                              onCheckedChange={(value) =>
-                                setParticipantState(
-                                  l,
-                                  psPresencePatch('absent', value)
-                                )
-                              }
+                              onCheckedChange={(value) => {
+                                if (value) {
+                                  openAbsenceDialog(l);
+                                } else {
+                                  void cancelAttendanceAbsence(l);
+                                }
+                              }}
                             />
                           </div>
 
@@ -930,6 +1101,133 @@ export default function PsEventDetail() {
 
       {/* Importar planilha da equipe */}
       <PsEventTeamImportDialog eventId={id!} open={importOpen} onOpenChange={setImportOpen} />
+
+      {/* Registro formal de ausência */}
+      <Dialog
+        open={!!absenceTarget}
+        onOpenChange={(open) => {
+          if (!open && !absenceSaving) {
+            closeAbsenceDialog();
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl"
+          onInteractOutside={(event) => {
+            if (absenceSaving) event.preventDefault();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Registrar ausência</DialogTitle>
+          </DialogHeader>
+
+          {absenceTarget && (
+            <div className="space-y-5">
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="font-semibold">
+                  {absenceTarget.collaborator_name}
+                </p>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {[
+                    absenceTarget.role_name ||
+                      absenceTarget.assigned_role ||
+                      absenceTarget.role_value,
+                    absenceTarget.building,
+                    absenceTarget.floor &&
+                      `${absenceTarget.floor}º`,
+                    absenceTarget.room &&
+                      `Sala ${absenceTarget.room}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Sem localização definida'}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Responsável pelo registro *</Label>
+
+                <Select
+                  value={absenceResponsibleId}
+                  onValueChange={setAbsenceResponsibleId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione coordenador ou subcoordenador" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {absenceResponsibleCandidates.map((responsible: any) => (
+                      <SelectItem
+                        key={responsible.id}
+                        value={responsible.id}
+                      >
+                        {responsible.collaborator_name} ·{' '}
+                        {responsible.role_name ||
+                          responsible.assigned_role ||
+                          'Coordenação'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {!absenceResponsibleCandidates.length && (
+                  <p className="text-xs text-destructive">
+                    Nenhum coordenador ou subcoordenador disponível neste evento.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Motivo / observação *</Label>
+
+                <Textarea
+                  value={absenceReason}
+                  onChange={(event) =>
+                    setAbsenceReason(event.target.value)
+                  }
+                  placeholder="Ex.: não compareceu ao evento, informou indisponibilidade..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assinatura do responsável *</Label>
+
+                <SignaturePad
+                  onSignatureChange={setAbsenceSignature}
+                  height={180}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={absenceSaving}
+              onClick={closeAbsenceDialog}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="button"
+              disabled={
+                absenceSaving ||
+                !absenceResponsibleId ||
+                !absenceReason.trim() ||
+                !absenceSignature
+              }
+              onClick={submitAttendanceAbsence}
+            >
+              {absenceSaving
+                ? 'Registrando ausência...'
+                : 'Confirmar ausência'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Editar item importado */}
       <Dialog open={!!editLink} onOpenChange={(o) => !o && setEditLink(null)}>

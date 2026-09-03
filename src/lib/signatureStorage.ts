@@ -80,6 +80,11 @@ const referenceFields: Record<string, Array<{ table: string; fields: string[] }>
     { table: 'lost_items', fields: ['owner_signature'] },
     { table: 'lost_items_archive', fields: ['owner_signature'] },
   ],
+  'process-selection': [
+    { table: 'ps_event_collaborators', fields: ['signature_url'] },
+    { table: 'ps_attendance_absences', fields: ['signature_url'] },
+    { table: 'ps_attendance_closures', fields: ['signature_url'] },
+  ],
 };
 
 export async function countSignatureReferences(module: string, locator: string) {
