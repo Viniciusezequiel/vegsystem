@@ -75,6 +75,20 @@ export default function PsPublicAttendance() {
     });
   }, [links, search]);
 
+  const visibleLinks = useMemo(() => {
+    return [...filtered].sort((a: any, b: any) => {
+      const signedOrder = Number(!!a.signed_at) - Number(!!b.signed_at);
+      if (signedOrder !== 0) return signedOrder;
+      return String(a.collaborator_name || '').localeCompare(
+        String(b.collaborator_name || ''),
+        'pt-BR'
+      );
+    });
+  }, [filtered]);
+
+  const signedCount = links.filter((l: any) => !!l.signed_at).length;
+  const pendingCount = Math.max(0, links.length - signedCount);
+
   const currentSelectedId = routeSelectedId || selectedId;
   const selected = links.find((l: any) => l.id === currentSelectedId) ?? null;
 
@@ -143,10 +157,28 @@ export default function PsPublicAttendance() {
     try {
       const linkId = selected.id;
       await submitPublicProcessSelectionSignature(linkId, signature);
-      await refetch();
-      setDone(true);
+
+      const signedAt = new Date().toISOString();
+
+      queryClient.setQueryData<any[]>(
+        ['ps_public_roster', eventId],
+        (current = []) =>
+          current.map((item: any) =>
+            item.id === linkId
+              ? { ...item, signed_at: signedAt }
+              : item
+          )
+      );
+
+      toast.success(`Presença registrada para ${selected.collaborator_name}.`);
+
       setSignature(null);
-      toast.success(`Presença registrada com sucesso para ${selected.collaborator_name}.`);
+      setDone(false);
+      setSelectedId('');
+      navigate(`/ps/presenca/${eventId}`, { replace: true });
+
+      // Atualiza com o banco em segundo plano, sem travar a próxima assinatura.
+      void refetch();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível registrar a assinatura.');
     } finally {
@@ -310,7 +342,17 @@ export default function PsPublicAttendance() {
               <Input className="pl-9" placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala" value={search} onChange={(e) => setSearch(e.target.value)} disabled={!eventId} />
             </div>
 
-            <div className="max-h-[26rem] divide-y overflow-y-auto rounded-xl border">
+            {eventId && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant="outline">{pendingCount} pendentes</Badge>
+                <Badge variant="secondary">{signedCount} assinados</Badge>
+                <span className="ml-auto text-muted-foreground">
+                  {links.length} fiscais no evento
+                </span>
+              </div>
+            )}
+
+            <div className="max-h-[60vh] divide-y overflow-y-auto rounded-xl border">
               {isLoading && <p className="p-3 text-sm text-muted-foreground">Carregando fiscais...</p>}
               {!isLoading && !error && filtered.length === 0 && (
                 <p className="p-3 text-sm text-muted-foreground">{search ? 'Nenhum fiscal encontrado para esta busca.' : 'Nenhum fiscal vinculado a este evento.'}</p>
@@ -321,7 +363,7 @@ export default function PsPublicAttendance() {
                   <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Tentar novamente</Button>
                 </div>
               )}
-              {!isLoading && !error && filtered.map((l: any) => {
+              {!isLoading && !error && visibleLinks.map((l: any) => {
                 const isAlreadySigned = !!l.signed_at;
                 const isActive = selectedId === l.id;
 
