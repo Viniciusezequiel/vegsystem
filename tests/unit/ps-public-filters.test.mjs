@@ -31,10 +31,14 @@ test('lista pública mostra todos os fiscais por default e filtra em tempo real 
   assert.deepEqual(filterPublicRoster(rows, 'sala 301').map((row) => row.id), ['3']);
 });
 
-test('avaliação pública usa lista visível com busca opcional e sem campo redundante de “fiscal avaliado”', () => {
-  assert.match(evaluationSource, /listar|fiscais\)|onClick=\{\(\) => setCollaboratorId\(l.id\)\}/);
-  assert.doesNotMatch(evaluationSource, /<Label>Fiscal avaliado<\/Label>/);
-  assert.doesNotMatch(evaluationSource, /<Select value=\{collaboratorId\}/);
+test('avaliação pública legada redireciona para o portal seguro do avaliador', () => {
+  assert.match(evaluationSource, /Navigate/);
+  assert.match(evaluationSource, /\/ps\/avaliador/);
+  assert.match(evaluationSource, /eventId/);
+  assert.doesNotMatch(
+    evaluationSource,
+    /ps_public_submit_evaluation/
+  );
 });
 
 test('detalhe do evento restaura a aba de candidatos sem perder o layout por abas', () => {

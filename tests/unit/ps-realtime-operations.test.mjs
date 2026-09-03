@@ -36,7 +36,8 @@ test('busca pública atual aceita vazio, NULL e 1 caractere, sempre dentro do ev
   assert.match(finalRosterSql, /collaborator_name ILIKE.*trim\(p_search\)|role_name ILIKE.*trim\(p_search\)|assigned_role ILIKE.*trim\(p_search\)/);
   assert.doesNotMatch(finalRosterSql.match(/CREATE OR REPLACE FUNCTION public\.ps_public_search_event_roster[\s\S]*?\$\$;/)?.[0] || '', /signature_url/);
   assert.match(attendance, /ps_public_search_event_roster/);
-  assert.match(evaluation, /ps_public_search_event_roster/);
+  assert.match(evaluation, /\/ps\/avaliador/);
+  assert.doesNotMatch(evaluation, /ps_public_submit_evaluation/);
   assert.doesNotMatch(attendance, /refetchInterval:\s*3_000/);
   assert.doesNotMatch(historicalSql, /trim\(coalesce\(p_search, ''\)\) = ''/);
 });
@@ -71,8 +72,6 @@ test('páginas públicas e dados do evento usam broadcast por event_id sem fanou
   assert.match(attendance, /channel\(`ps:event:\$\{eventId\}`\)|channel\("ps:event:\$\{eventId\}"\)/);
   assert.match(attendance, /on\('broadcast', \{ event: 'roster_changed' \}/);
   assert.match(attendance, /ps_public_search_event_roster/);
-  assert.match(evaluation, /channel\(`ps:event:\$\{eventId\}`\)|channel\("ps:event:\$\{eventId\}"\)/);
-  assert.match(evaluation, /on\('broadcast', \{ event: 'roster_changed' \}/);
   assert.doesNotMatch(`${attendance}\n${evaluation}`, /postgres_changes[\s\S]*ps_event_collaborators[\s\S]*event_id=eq\.\$\{eventId\}/);
   assert.doesNotMatch(`${attendance}\n${evaluation}`, /from\('ps_event_collaborators'\)|from\("ps_event_collaborators"\)|table: 'ps_event_collaborators'/);
   assert.doesNotMatch(`${hook}\n${attendance}\n${evaluation}`, /channel\(['\"]realtime-multi|channel\(['\"][^\n]*all[^\n]*\)/);
