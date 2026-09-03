@@ -63,6 +63,7 @@ export default function PsEventDetail() {
   const [replacementTarget, setReplacementTarget] = useState<any>(null);
   const [replacementFiscalId, setReplacementFiscalId] = useState('');
   const [replacementData, setReplacementData] = useState<any>(null);
+  const [presenceSearch, setPresenceSearch] = useState('');
 
   const publicBase = `${window.location.origin}/ps`;
 
@@ -73,6 +74,36 @@ export default function PsEventDetail() {
       && (confirmationUnit === 'all' || (link.unit || 'Sem unidade') === confirmationUnit)
       && (!query || [link.collaborator_name, link.role_name, link.assigned_role, link.unit, link.room].filter(Boolean).join(' ').toLowerCase().includes(query)));
   }, [links, confirmationSearch, confirmationStatus, confirmationRole, confirmationUnit]);
+
+  const presenceRows = useMemo(() => {
+    const query = presenceSearch.trim().toLowerCase();
+
+    return [...links]
+      .filter((link: any) => {
+        if (!query) return true;
+
+        return [
+          link.collaborator_name,
+          link.role_name,
+          link.assigned_role,
+          link.building,
+          link.floor,
+          link.room,
+          link.unit,
+          link.sector,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(query);
+      })
+      .sort((a: any, b: any) =>
+        String(a.collaborator_name || '').localeCompare(
+          String(b.collaborator_name || ''),
+          'pt-BR'
+        )
+      );
+  }, [links, presenceSearch]);
 
   const replacementCandidates = useMemo(() => {
     const currentIds = new Set(links.map((link: any) => link.collaborator_id));
@@ -193,6 +224,43 @@ export default function PsEventDetail() {
     if (mapped.length) addMany.mutate(mapped);
   };
 
+
+  const resetAttendanceSignature = async (link: any) => {
+    if (!link?.signed_at) return;
+
+    const confirmed = window.confirm(
+      `Refazer a assinatura de ${link.collaborator_name}?\n\n` +
+      'A assinatura atual será apagada e o fiscal voltará para a lista de pendentes.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('ps_event_collaborators')
+        .update({
+          signature_url: null,
+          signature_ip: null,
+          signed_at: null,
+          present: false,
+          absent: false,
+          departed_at: null,
+        })
+        .eq('id', link.id);
+
+      if (error) throw error;
+
+      toast.success(
+        `${link.collaborator_name} está liberado para assinar novamente.`
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível apagar a assinatura.'
+      );
+    }
+  };
 
   const exportPresence = () => {
     const rows = links.map((l: any) => ({
@@ -512,15 +580,16 @@ export default function PsEventDetail() {
               </CardHeader>
 
               <CardContent className="p-0">
+                <div className="border-b p-4">
+                  <Input
+                    value={presenceSearch}
+                    onChange={(event) => setPresenceSearch(event.target.value)}
+                    placeholder="Buscar por nome, cargo, prédio, andar ou sala..."
+                  />
+                </div>
+
                 <div className="h-[calc(100vh-25rem)] min-h-[18rem] max-h-[38rem] divide-y overflow-y-auto">
-                  {[...links]
-                    .sort((a:any,b:any) =>
-                      String(a.collaborator_name || '').localeCompare(
-                        String(b.collaborator_name || ''),
-                        'pt-BR'
-                      )
-                    )
-                    .map((l:any) => (
+                  {presenceRows.map((l:any) => (
                       <div
                         key={l.id}
                         className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between"
@@ -563,6 +632,16 @@ export default function PsEventDetail() {
                             />
                           </div>
 
+                          {l.signed_at && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => resetAttendanceSignature(l)}
+                            >
+                              Refazer assinatura
+                            </Button>
+                          )}
+
                           <Button
                             size="sm"
                             variant="outline"
@@ -581,9 +660,11 @@ export default function PsEventDetail() {
                       </div>
                     ))}
 
-                  {!links.length && (
+                  {!presenceRows.length && (
                     <p className="p-6 text-center text-sm text-muted-foreground">
-                      Nenhum fiscal vinculado ao evento.
+                      {presenceSearch
+                        ? 'Nenhum fiscal encontrado.'
+                        : 'Nenhum fiscal vinculado ao evento.'}
                     </p>
                   )}
                 </div>
