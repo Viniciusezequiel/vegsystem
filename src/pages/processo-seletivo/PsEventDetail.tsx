@@ -64,6 +64,7 @@ export default function PsEventDetail() {
   const [replacementFiscalId, setReplacementFiscalId] = useState('');
   const [replacementData, setReplacementData] = useState<any>(null);
   const [presenceSearch, setPresenceSearch] = useState('');
+  const [presenceListOpen, setPresenceListOpen] = useState(false);
 
   const publicBase = `${window.location.origin}/ps`;
 
@@ -568,17 +569,30 @@ export default function PsEventDetail() {
                   </p>
                 </div>
 
-                <Button asChild variant="outline">
-                  <a
-                    href={`${publicBase}/presenca/${event.id}`}
-                    target="_blank"
-                    rel="noreferrer"
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setPresenceListOpen((open) => !open)}
                   >
-                    Abrir coleta de assinaturas
-                  </a>
-                </Button>
+                    {presenceListOpen
+                      ? 'Ocultar fiscais'
+                      : `Ver fiscais (${links.length})`}
+                  </Button>
+
+                  <Button asChild variant="outline">
+                    <a
+                      href={`${publicBase}/presenca/${event.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Abrir coleta de assinaturas
+                    </a>
+                  </Button>
+                </div>
               </CardHeader>
 
+              {presenceListOpen && (
               <CardContent className="p-0">
                 <div className="border-b p-4">
                   <Input
@@ -588,7 +602,7 @@ export default function PsEventDetail() {
                   />
                 </div>
 
-                <div className="h-[calc(100vh-25rem)] min-h-[18rem] max-h-[38rem] divide-y overflow-y-auto">
+                <div className="max-h-[22rem] divide-y overflow-y-auto">
                   {presenceRows.map((l:any) => (
                       <div
                         key={l.id}
@@ -669,6 +683,7 @@ export default function PsEventDetail() {
                   )}
                 </div>
               </CardContent>
+              )}
             </Card>
           </TabsContent>
 
