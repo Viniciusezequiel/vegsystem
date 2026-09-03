@@ -9,6 +9,13 @@ import { installActivityAutoLog } from "./lib/activityAutoLog";
 // Falha cedo e de forma legível se o ambiente de deploy não tiver as variáveis
 assertSupabaseEnv();
 
+// Segurança: versões anteriores da PWA armazenavam respostas da API
+// Supabase no Cache Storage. O sistema não depende desse cache para
+// funcionar e ele não deve sobreviver entre sessões de usuários.
+if ("caches" in window) {
+  void caches.delete("supabase-api");
+}
+
 // Setup native notification channel (no-op on web)
 setupNotificationChannel();
 

@@ -48,19 +48,10 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/~oauth/],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-api",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 300,
-              },
-            },
-          },
-        ],
+        // Não armazenar respostas autenticadas do Supabase no
+        // Cache Storage do navegador. Dados da API devem sempre
+        // respeitar a sessão/RLS corrente.
+        runtimeCaching: [],
       },
     }),
   ].filter(Boolean),
