@@ -311,15 +311,109 @@ export default function PsEventDetail() {
   };
 
   const exportAttendancePdf = async () => {
-    if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
-    const { data: signatures, error } = await supabase
+    if (!links.length) {
+      toast.error('Nenhum colaborador vinculado ao evento.');
+      return;
+    }
+
+    const { data: attendanceRows, error } = await supabase
       .from('ps_event_collaborators')
-      .select('id, signature_url')
+      .select(
+        'id, signature_url, attendance_pix_snapshot, attendance_role_snapshot'
+      )
       .eq('event_id', id!);
-    if (error) { toast.error('Não foi possível carregar as assinaturas para o PDF.'); return; }
-    const signatureById = new Map((signatures || []).map(row => [row.id, row.signature_url]));
-    const pdfRows = links.map((row: any) => ({ ...row, signature_url: signatureById.get(row.id) ?? null }));
-    const pdf = await generatePsAttendancePdfAsync(eventInfo(), pdfRows as any);
+
+    if (error) {
+      toast.error('Não foi possível carregar os dados da presença para o PDF.');
+      return;
+    }
+
+    const { data: adjustments, error: adjustmentError } = await supabase
+      .from('ps_event_collaborator_adjustments')
+      .select(
+        'event_collaborator_id, adjustment_type, old_value, new_value, justification, created_at'
+      )
+      .eq('event_id', id!)
+      .eq('source', 'attendance')
+      .order('created_at', { ascending: true });
+
+    if (adjustmentError) {
+      toast.error('Não foi possível carregar as alterações da presença.');
+      return;
+    }
+
+    const attendanceById = new Map(
+      (attendanceRows || []).map((row: any) => [row.id, row])
+    );
+
+    const adjustmentsById = new Map<string, any[]>();
+
+    for (const adjustment of adjustments || []) {
+      const current =
+        adjustmentsById.get(adjustment.event_collaborator_id) || [];
+
+      current.push(adjustment);
+      adjustmentsById.set(
+        adjustment.event_collaborator_id,
+        current
+      );
+    }
+
+    const pdfRows = links.map((row: any) => {
+      const attendance: any = attendanceById.get(row.id);
+      const rowAdjustments = adjustmentsById.get(row.id) || [];
+
+      const roleSnapshot = attendance?.attendance_role_snapshot;
+
+      const confirmedRole = roleSnapshot
+        ? roles.find((role: any) => role.value === roleSnapshot)?.name ||
+          row.role_name ||
+          row.assigned_role
+        : row.role_name || row.assigned_role;
+
+      const observations: string[] = [];
+
+      if (row.notes?.trim()) {
+        observations.push(row.notes.trim());
+      }
+
+      for (const adjustment of rowAdjustments) {
+        if (adjustment.adjustment_type === 'role') {
+          observations.push(
+            `Cargo alterado: ${adjustment.old_value || '-'} → ${adjustment.new_value}` +
+            (adjustment.justification
+              ? ` — ${adjustment.justification}`
+              : '')
+          );
+        }
+
+        if (adjustment.adjustment_type === 'pix') {
+          observations.push(
+            `PIX alterado` +
+            (adjustment.justification
+              ? ` — ${adjustment.justification}`
+              : '')
+          );
+        }
+      }
+
+      return {
+        ...row,
+        role_name: confirmedRole,
+        pix:
+          attendance?.attendance_pix_snapshot?.trim() ||
+          row.pix ||
+          null,
+        signature_url: attendance?.signature_url ?? null,
+        notes: observations.join(' | '),
+      };
+    });
+
+    const pdf = await generatePsAttendancePdfAsync(
+      eventInfo(),
+      pdfRows as any
+    );
+
     pdf.save(`lista-presenca-${slug}.pdf`);
   };
 
