@@ -12,7 +12,7 @@ const main = fs.readFileSync(
   'utf8'
 );
 
-test('PWA não armazena respostas da API Supabase em cache', () => {
+test('PWA não mantém cache persistente da API Supabase', () => {
   assert.doesNotMatch(
     vite,
     /cacheName:\s*["']supabase-api["']/
@@ -24,7 +24,7 @@ test('PWA não armazena respostas da API Supabase em cache', () => {
   );
 });
 
-test('cache legado do Supabase é removido dos navegadores existentes', () => {
+test('cache legado é removido dos navegadores existentes', () => {
   assert.match(
     main,
     /caches\.delete\(["']supabase-api["']\)/
