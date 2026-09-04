@@ -59,7 +59,7 @@ export default function DashboardStats() {
     data: recentActivity,
     isLoading: isLoadingActivity,
   } = useActivityLogs({
-    limit: 5,
+    limit: 3,
   });
 
   const equipmentStats = {
@@ -222,11 +222,18 @@ export default function DashboardStats() {
                       ))}
                     </Pie>
                     <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }} 
+                        borderRadius: '8px',
+                        color: 'hsl(var(--foreground))'
+                      }}
+                      itemStyle={{
+                        color: 'hsl(var(--foreground))'
+                      }}
+                      labelStyle={{
+                        color: 'hsl(var(--foreground))'
+                      }}
                     />
                     <Legend />
                   </PieChart>
@@ -267,11 +274,18 @@ export default function DashboardStats() {
                       ))}
                     </Pie>
                     <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }} 
+                        borderRadius: '8px',
+                        color: 'hsl(var(--foreground))'
+                      }}
+                      itemStyle={{
+                        color: 'hsl(var(--foreground))'
+                      }}
+                      labelStyle={{
+                        color: 'hsl(var(--foreground))'
+                      }}
                     />
                     <Legend />
                   </PieChart>
