@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Package, Send, UserCheck } from 'lucide-react';
+import { Plus, Trash2, Send, UserCheck } from 'lucide-react';
 import { useCreateMaterialRequest, MaterialRequestItem } from '@/hooks/useMaterialRequests';
 import { useUsersList } from '@/hooks/useUsers';
 import { MaterialsModuleNav } from '@/components/materials/MaterialsModuleNav';
@@ -70,17 +71,12 @@ export default function MaterialRequestForm() {
     <MainLayout>
       <div className="mb-6"><MaterialsModuleNav /></div>
 
-      <div className="page-header">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
-            <Package className="w-5 h-5 text-white" />
-          </div>
-          <h1 className="page-title">Nova Solicitação</h1>
-        </div>
-        <p className="page-subtitle">Solicite materiais para sua equipe</p>
-      </div>
+      <PageHeader
+        title="Nova Solicitação"
+        description="Solicite materiais para sua equipe"
+      />
 
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+      <form onSubmit={handleSubmit} className="max-w-4xl space-y-5">
         <Card>
           <CardHeader>
             <CardTitle>Informações da Solicitação</CardTitle>

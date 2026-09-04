@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +17,8 @@ import {
   Truck,
   Search,
   Edit2,
-  MessageSquare
+  MessageSquare,
+  X
 } from 'lucide-react';
 import { useMyMaterialRequests, MaterialRequest } from '@/hooks/useMaterialRequests';
 import { format } from 'date-fns';
@@ -101,23 +104,16 @@ export default function MyMaterialRequests() {
     <MainLayout>
       <div className="mb-6"><MaterialsModuleNav /></div>
 
-      <div className="page-header">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
-                <Package className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="page-title">Minhas Solicitações</h1>
-            </div>
-            <p className="page-subtitle">Acompanhe suas solicitações de materiais</p>
-          </div>
+      <PageHeader
+        title="Minhas Solicitações"
+        description="Acompanhe suas solicitações de materiais"
+        actions={
           <Button onClick={() => navigate('/materials/new')} className="gap-2">
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             Nova Solicitação
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -176,15 +172,30 @@ export default function MyMaterialRequests() {
       </div>
 
       {/* Search */}
-      <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar solicitações..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      <PageToolbar className="mb-5">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar minhas solicitações..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {search && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearch('')}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="mr-1 h-4 w-4" />
+              Limpar
+            </Button>
+          )}
+        </div>
+      </PageToolbar>
 
       {/* Tabs */}
       <Tabs defaultValue="all">
