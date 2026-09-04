@@ -233,7 +233,7 @@ const navSections: NavSection[] = [
   {
     key: 'rooms',
     name: 'Salas e Checklists',
-    groups: moduleGroups.filter(group => ['Gestão de Salas', 'Checklist de Salas', 'Checklist Semestral'].includes(group.name)),
+    groups: moduleGroups.filter(group => ['Reservas de Salas', 'Checklist de Salas', 'Checklist Semestral'].includes(group.name)),
   },
   { key: 'management', name: 'Gestão', items: managementNav },
   { key: 'administration', name: 'Administração', items: administrationNav },
