@@ -85,6 +85,23 @@ export default function ItemDetail() {
     enabled: !!item?.registered_by,
   });
 
+  // Fetch the name of the logged-in team member who delivered the item
+  const { data: deliveredByName } = useQuery({
+    queryKey: ['profile-name', item?.delivered_by_team_member],
+    queryFn: async () => {
+      if (!item?.delivered_by_team_member) return null;
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', item.delivered_by_team_member)
+        .maybeSingle();
+
+      return data?.full_name || null;
+    },
+    enabled: !!item?.delivered_by_team_member,
+  });
+
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -503,9 +520,26 @@ export default function ItemDetail() {
                 </div>
                 {item.delivered_at && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Data da entrega</p>
+                    <p className="text-sm text-muted-foreground">
+                      Data da entrega
+                    </p>
                     <p className="font-medium">
-                      {format(new Date(item.delivered_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      {format(
+                        new Date(item.delivered_at),
+                        "dd/MM/yyyy 'às' HH:mm",
+                        { locale: ptBR }
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {item.delivered_by_team_member && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Responsável pela entrega
+                    </p>
+                    <p className="font-medium">
+                      {deliveredByName || 'Usuário não identificado'}
                     </p>
                   </div>
                 )}
