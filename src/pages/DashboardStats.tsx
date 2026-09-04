@@ -11,11 +11,20 @@ import {
   CheckCircle2,
   AlertCircle,
   Lock,
-  ArrowUpRight
+  ArrowUpRight,
+  History,
+  Loader2
 } from 'lucide-react';
 import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
 import { useEquipmentList, useEquipmentLoans } from '@/hooks/useEquipment';
 import { useLockersList, useLockerLoans } from '@/hooks/useLockers';
+import {
+  getActionLabel,
+  getModuleLabel,
+  useActivityLogs,
+} from '@/hooks/useActivityLogs';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { 
   PieChart,
   Pie,
@@ -45,6 +54,13 @@ export default function DashboardStats() {
   const { data: activeLoans } = useEquipmentLoans('active');
   const { data: lockers } = useLockersList();
   const { data: lockerLoans } = useLockerLoans('active');
+
+  const {
+    data: recentActivity,
+    isLoading: isLoadingActivity,
+  } = useActivityLogs({
+    limit: 5,
+  });
 
   const equipmentStats = {
     total: equipment?.length || 0,
@@ -353,6 +369,87 @@ export default function DashboardStats() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Atividade recente */}
+      <Card className="mt-4 overflow-hidden rounded-xl border-border/60 bg-card/65 shadow-sm">
+        <CardHeader className="flex flex-row items-start justify-between gap-4 px-5 pb-3 pt-4">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-[15px] font-medium">
+              <History className="h-4 w-4 text-primary" />
+              Atividade recente
+            </CardTitle>
+
+            <CardDescription className="mt-1 text-xs text-muted-foreground/90">
+              Últimas movimentações registradas no sistema
+            </CardDescription>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/activity-history')}
+            className="group flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            Ver histórico
+            <ArrowUpRight className="h-3.5 w-3.5 transition-colors group-hover:text-primary" />
+          </button>
+        </CardHeader>
+
+        <CardContent className="px-5 pb-4 pt-0">
+          {isLoadingActivity ? (
+            <div className="flex min-h-[110px] items-center justify-center text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : recentActivity && recentActivity.length > 0 ? (
+            <div className="divide-y divide-border/50">
+              {recentActivity.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="flex items-center gap-4 py-3 first:pt-1 last:pb-0"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/8">
+                    <History className="h-3.5 w-3.5 text-primary/80" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {activity.user_name || 'Sistema'}
+                      </span>
+
+                      <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {getModuleLabel(activity.module)}
+                      </span>
+                    </div>
+
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground/90">
+                      {getActionLabel(activity.action)}
+                      {activity.entity_description
+                        ? ` · ${activity.entity_description}`
+                        : activity.details
+                          ? ` · ${activity.details}`
+                          : ''}
+                    </p>
+                  </div>
+
+                  <span className="shrink-0 text-right text-[11px] text-muted-foreground/80">
+                    {formatDistanceToNow(
+                      new Date(activity.created_at),
+                      {
+                        addSuffix: true,
+                        locale: ptBR,
+                      }
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-[110px] items-center justify-center text-sm text-muted-foreground">
+              Nenhuma atividade recente registrada
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </MainLayout>
   );
 }

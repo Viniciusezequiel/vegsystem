@@ -43,6 +43,7 @@ export function useActivityLogs(filters?: {
   dateFrom?: string;
   dateTo?: string;
   search?: string;
+  limit?: number;
 }) {
   return useQuery({
     queryKey: ['activity-logs', filters],
@@ -52,7 +53,12 @@ export function useActivityLogs(filters?: {
         .from('activity_logs')
         .select('id, user_id, user_name, module, action, entity_id, entity_description, details, created_at')
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(
+          Math.max(
+            1,
+            Math.min(filters?.limit ?? 200, 200)
+          )
+        );
 
       if (filters?.module) {
         query = query.eq('module', filters.module);
