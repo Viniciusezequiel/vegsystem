@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,7 +53,6 @@ import {
   XCircle,
   Calendar,
   User,
-  Filter,
 } from 'lucide-react';
 import { useTasks, useDeleteTask, useUpdateTask, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
 import { useUserPermissions } from '@/hooks/usePermissions';
@@ -113,36 +114,22 @@ export default function TasksList() {
     <MainLayout>
       <div className="mb-6"><TasksModuleNav /></div>
 
-      <div className="page-header">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="page-title flex items-center gap-2">
-              <ClipboardList className="w-6 h-6" />
-              Gestão de Demandas
-            </h1>
-            <p className="page-subtitle">Acompanhe todas as demandas da equipe</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Gestão de Demandas"
+        description="Acompanhe todas as demandas da equipe"
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar demandas..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      <PageToolbar>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-[240px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar demandas..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
@@ -184,13 +171,12 @@ export default function TasksList() {
                 Limpar Filtros
               </Button>
             )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </PageToolbar>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+      <Card className="border-border/60 bg-card/65">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between text-base">
             <span>Demandas</span>
             {tasks && <Badge variant="secondary">{tasks.length} registro(s)</Badge>}
           </CardTitle>
