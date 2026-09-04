@@ -2,6 +2,8 @@ import { useState } from 'react';
 import CommentAttachmentDisplay from '@/components/tasks/CommentAttachmentDisplay';
 import CommentWithAttachments from '@/components/tasks/CommentWithAttachments';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +67,7 @@ import {
   Trash2,
   User,
   XCircle,
+  X,
 } from 'lucide-react';
 import { useMyTasks, useUpdateTask, useAddTaskComment, useTaskComments, useDeleteTask, Task, getStatusLabel, getPriorityLabel, getStatusColor, getPriorityColor } from '@/hooks/useTasks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -217,77 +220,90 @@ export default function MyTasks() {
     <MainLayout>
       <div className="mb-6"><TasksModuleNav /></div>
 
-      <div className="page-header">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="page-title flex items-center gap-2">
-              <ClipboardCheck className="w-6 h-6" />
-              Minhas Demandas
-            </h1>
-            <p className="page-subtitle">Acompanhe demandas atribuídas e da equipe</p>
-          </div>
+      <PageHeader
+        title="Minhas Demandas"
+        description="Acompanhe demandas atribuídas e da equipe"
+        actions={
           <Button onClick={() => setFormOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             Nova Demanda
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-yellow-500/10 border-yellow-500/30">
-          <CardContent className="p-4 flex items-center gap-3">
-            <AlertCircle className="w-8 h-8 text-yellow-600" />
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card className="border-border/60 bg-card/65">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
+              <AlertCircle className="h-4 w-4 text-amber-400" />
+            </div>
             <div>
-              <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
-              <p className="text-sm text-muted-foreground">Pendentes</p>
+              <p className="text-2xl font-semibold text-foreground">{pendingCount}</p>
+              <p className="text-xs text-muted-foreground">Pendentes</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-blue-500/10 border-blue-500/30">
-          <CardContent className="p-4 flex items-center gap-3">
-            <Play className="w-8 h-8 text-blue-600" />
+
+        <Card className="border-border/60 bg-card/65">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <Play className="h-4 w-4 text-primary" />
+            </div>
             <div>
-              <p className="text-2xl font-bold text-blue-600">{inProgressCount}</p>
-              <p className="text-sm text-muted-foreground">Em Andamento</p>
+              <p className="text-2xl font-semibold text-foreground">{inProgressCount}</p>
+              <p className="text-xs text-muted-foreground">Em andamento</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-green-500/10 border-green-500/30">
-          <CardContent className="p-4 flex items-center gap-3">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+
+        <Card className="border-border/60 bg-card/65">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
+              <CheckCircle className="h-4 w-4 text-emerald-400" />
+            </div>
             <div>
-              <p className="text-2xl font-bold text-green-600">{tasks?.length || 0}</p>
-              <p className="text-sm text-muted-foreground">Total Atribuídas</p>
+              <p className="text-2xl font-semibold text-foreground">{tasks?.length || 0}</p>
+              <p className="text-xs text-muted-foreground">Total atribuídas</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex gap-4">
-             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="pending">Pendentes</SelectItem>
-                <SelectItem value="in_progress">Em Andamento</SelectItem>
-                <SelectItem value="completed">Concluídas</SelectItem>
-                <SelectItem value="rejected">Rejeitadas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <PageToolbar className="mb-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[190px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="pending">Pendentes</SelectItem>
+              <SelectItem value="in_progress">Em andamento</SelectItem>
+              <SelectItem value="completed">Concluídas</SelectItem>
+              <SelectItem value="rejected">Rejeitadas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {statusFilter !== 'all' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStatusFilter('all')}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="mr-1 h-4 w-4" />
+              Limpar
+            </Button>
+          )}
+        </div>
+      </PageToolbar>
 
       {/* Tasks List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+      <Card className="border-border/60 bg-card/65">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between text-base">
             <span>Demandas Atribuídas</span>
             {filteredTasks && (
               <Badge variant="secondary">{filteredTasks.length} demanda(s)</Badge>

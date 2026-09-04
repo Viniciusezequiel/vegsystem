@@ -1,8 +1,8 @@
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  BarChart3,
   ClipboardCheck,
   Clock,
   CheckCircle,
@@ -117,17 +117,14 @@ export default function TasksDashboard() {
     <MainLayout>
       <div className="mb-6"><TasksModuleNav /></div>
 
-      <div className="page-header">
-        <h1 className="page-title flex items-center gap-2">
-          <BarChart3 className="w-6 h-6" />
-          Dashboard de Demandas
-        </h1>
-        <p className="page-subtitle">Métricas e análises das demandas do sistema</p>
-      </div>
+      <PageHeader
+        title="Dashboard de Demandas"
+        description="Métricas e análises das demandas do sistema"
+      />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card>
+      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card className="border-border/60 bg-card/65">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-500/10">
@@ -141,7 +138,7 @@ export default function TasksDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60 bg-card/65">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-yellow-500/10">
@@ -155,7 +152,7 @@ export default function TasksDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60 bg-card/65">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-green-500/10">
@@ -169,7 +166,7 @@ export default function TasksDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60 bg-card/65">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-red-500/10">
@@ -209,7 +206,16 @@ export default function TasksDashboard() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      color: 'hsl(var(--foreground))',
+                    }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -231,7 +237,16 @@ export default function TasksDashboard() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="name" className="text-xs" />
                 <YAxis className="text-xs" />
-                <Tooltip />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    color: 'hsl(var(--foreground))',
+                  }}
+                  itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
                 <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
