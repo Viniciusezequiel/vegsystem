@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -100,12 +101,8 @@ export default function ActivityHistory() {
         description="Acompanhe todas as ações realizadas no sistema"
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4">
+      <PageToolbar>
+        <div className="flex flex-wrap items-center gap-2.5">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
@@ -162,11 +159,10 @@ export default function ActivityHistory() {
                 Limpar Filtros
               </Button>
             )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </PageToolbar>
 
-      <Card className="mt-6">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Atividades Recentes</span>
