@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +17,6 @@ import {
   ClipboardCheck,
   Download,
   Search,
-  Filter,
-  BarChart3,
   TrendingUp,
   Users,
   Clock
@@ -103,19 +103,14 @@ export default function Reports() {
 
   return (
     <MainLayout>
-      <div className="page-header">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
-            <BarChart3 className="w-5 h-5 text-white" />
-          </div>
-          <h1 className="page-title">Relatórios</h1>
-        </div>
-        <p className="page-subtitle">Visualize e exporte dados de todos os módulos do sistema</p>
-      </div>
+      <PageHeader
+        title="Relatórios"
+        description="Visualize e exporte dados de todos os módulos do sistema"
+      />
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-        <Card>
+      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+        <Card className="border-border/60 bg-card/65">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-500/10">
@@ -128,7 +123,7 @@ export default function Reports() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-border/60 bg-card/65">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-orange-500/10">
@@ -141,7 +136,7 @@ export default function Reports() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-border/60 bg-card/65">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-green-500/10">
@@ -157,15 +152,8 @@ export default function Reports() {
       </div>
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Filter className="w-4 h-4" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4">
+      <PageToolbar className="mb-5">
+        <div className="flex flex-wrap gap-4">
             <div className="space-y-1">
               <Label className="text-xs">Período</Label>
               <Select value={dateRange} onValueChange={(v) => setDateRange(v as typeof dateRange)}>
@@ -229,8 +217,7 @@ export default function Reports() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </PageToolbar>
 
       <Tabs defaultValue="equipment" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3 h-auto">

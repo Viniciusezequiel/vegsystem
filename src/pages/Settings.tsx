@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const EmbeddedShell = ({ children }: { children?: import('react').ReactNode }) => <>{children}</>;
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings, useUpdateSystemSettings, SystemSettings, ModuleSettings } from '@/hooks/useSystemSettings';
 import { useTaskCategories, useUpdateTaskCategories, AVAILABLE_FIELDS, type TaskCategoryConfig } from '@/hooks/useTaskCategories';
 import { 
-  Settings as SettingsIcon, 
   Bell, 
   Shield, 
   Database, 
@@ -54,7 +54,13 @@ function ModuleSettingsCard({
   const module = moduleLabels[moduleKey];
   
   return (
-    <Card className={!settings.enabled ? 'opacity-60' : ''}>
+    <Card
+      className={
+        settings.enabled
+          ? 'border-border/60 bg-card/65'
+          : 'border-border/60 bg-card/65 opacity-60'
+      }
+    >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -326,18 +332,13 @@ export default function Settings({ embedded }: { embedded?: boolean } = {}) {
 
   return (
     <Shell>
-      <div className="page-header">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 flex items-center justify-center shadow-lg">
-            <SettingsIcon className="w-5 h-5 text-white" />
-          </div>
-          <h1 className="page-title">Configurações</h1>
-        </div>
-        <p className="page-subtitle">Gerencie as configurações do sistema</p>
-      </div>
+      <PageHeader
+        title="Configurações"
+        description="Gerencie as configurações do sistema"
+      />
 
       <Tabs defaultValue="modules" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto">
+        <TabsList className="grid h-auto w-full grid-cols-2 rounded-xl border border-border/60 bg-card/65 p-1 lg:grid-cols-5">
           <TabsTrigger value="modules" className="gap-2 py-3">
             <Database className="w-4 h-4" />
             Módulos

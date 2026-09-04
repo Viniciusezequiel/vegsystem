@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 
 const EmbeddedShell = ({ children }: { children?: import('react').ReactNode }) => <>{children}</>;
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -33,7 +35,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History, Search, Bell } from 'lucide-react';
+import { UserPlus, Shield, Eye, Edit2, Loader2, Trash2, BarChart3, KeyRound, Settings2, History, Search, Bell, X } from 'lucide-react';
 import { UserActivityDialog } from '@/components/users/UserActivityDialog';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
@@ -231,12 +233,11 @@ export default function Users({ embedded }: { embedded?: boolean } = {}) {
 
   return (
     <Shell>
-      <div className="page-header flex flex-col sm:flex-row items-start justify-between gap-4">
-        <div>
-          <h1 className="page-title">Gerenciar Usuários</h1>
-          <p className="page-subtitle">Adicione e gerencie os usuários do sistema</p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+      <PageHeader
+        title="Gerenciar Usuários"
+        description="Adicione e gerencie os usuários do sistema"
+        actions={
+          <div className="flex w-full gap-2 sm:w-auto">
           <PdfExportButton
             title="Relatório de Usuários"
             filename="usuarios"
@@ -371,7 +372,8 @@ export default function Users({ embedded }: { embedded?: boolean } = {}) {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+        }
+      />
 
       {/* Permission Levels Info */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
@@ -383,7 +385,7 @@ export default function Users({ embedded }: { embedded?: boolean } = {}) {
           </Button>
         </Link>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {Object.entries(roleLabels).map(([key, config]) => {
           const Icon = config.icon;
           return (
@@ -405,19 +407,33 @@ export default function Users({ embedded }: { embedded?: boolean } = {}) {
       </div>
 
       {/* Users List */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        {/* Search */}
-        <div className="p-4 border-b border-border">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <PageToolbar className="mb-4">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome, email ou setor..."
+              placeholder="Buscar por nome, email, cargo ou setor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
             />
           </div>
+
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery('')}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="mr-1 h-4 w-4" />
+              Limpar
+            </Button>
+          )}
         </div>
+      </PageToolbar>
+
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card/65">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-muted/50">
