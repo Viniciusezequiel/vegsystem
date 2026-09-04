@@ -228,7 +228,7 @@ export default function DashboardStats() {
           <CardHeader className="px-5 pb-0 pt-4">
             <CardTitle className="flex items-center gap-2 text-[15px] font-medium">
               <AlertCircle className="h-4 w-4 text-primary" />
-              Status dos Itens Perdidos
+              Status dos Achados e Perdidos
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground/90">Distribuição por status</CardDescription>
           </CardHeader>
@@ -285,13 +285,13 @@ export default function DashboardStats() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">Empréstimos Ativos</p>
               <p className="truncate text-xs text-muted-foreground">Equipamentos emprestados no momento</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground/75">
+              <p className="mt-0.5 text-[11px] text-muted-foreground/90">
                 {equipmentUsagePercent}% do inventário em uso
               </p>
             </div>
             <div className="flex items-center gap-2">
               <div className="text-xl font-semibold tabular-nums">{activeEquipmentLoans}</div>
-              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/40 transition-colors group-hover:text-primary" />
+              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/65 transition-colors group-hover:text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -309,13 +309,13 @@ export default function DashboardStats() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">Alocações de Escaninhos</p>
               <p className="truncate text-xs text-muted-foreground">Escaninhos atualmente em uso</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground/75">
+              <p className="mt-0.5 text-[11px] text-muted-foreground/90">
                 {lockerUsagePercent}% dos escaninhos ocupados
               </p>
             </div>
             <div className="flex items-center gap-2">
               <div className="text-xl font-semibold tabular-nums">{activeLockerLoans}</div>
-              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/40 transition-colors group-hover:text-primary" />
+              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/65 transition-colors group-hover:text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -342,13 +342,13 @@ export default function DashboardStats() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">Itens Disponíveis</p>
               <p className="truncate text-xs text-muted-foreground">Itens aguardando retirada</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground/75">
+              <p className="mt-0.5 text-[11px] text-muted-foreground/90">
                 {availableLostItemsPercent}% do total cadastrado
               </p>
             </div>
             <div className="flex items-center gap-2">
               <div className="text-xl font-semibold tabular-nums">{availableLostItems}</div>
-              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/40 transition-colors group-hover:text-primary" />
+              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/65 transition-colors group-hover:text-primary" />
             </div>
           </CardContent>
         </Card>
