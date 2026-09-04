@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -332,9 +333,17 @@ export default function RoomReservationsList() {
 
         {/* Content */}
         {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+          <ContentState
+            loading
+            title="Carregando reservas"
+            description="Buscando os dados mais recentes."
+          />
         ) : !reservations?.length ? (
-          <div className="text-center py-8 text-muted-foreground">Nenhuma reserva encontrada</div>
+          <ContentState
+            icon={CalendarDays}
+            title="Nenhuma reserva encontrada"
+            description="Ajuste os filtros ou crie uma nova reserva."
+          />
         ) : viewMode === 'list' ? (
           <div className="space-y-3">
             {reservations.map(renderReservationCard)}

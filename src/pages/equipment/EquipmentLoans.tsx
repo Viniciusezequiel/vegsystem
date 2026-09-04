@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -228,9 +229,11 @@ export default function EquipmentLoans() {
   const renderGroupedLoansCards = (groups: GroupedLoan[], showReturnButton = false) => {
     if (!groups.length) {
       return (
-        <div className="text-center py-8 text-muted-foreground">
-          Nenhum empréstimo encontrado
-        </div>
+        <ContentState
+          title="Nenhum empréstimo encontrado"
+          description="Não há registros para os filtros selecionados."
+          className="py-8"
+        />
       );
     }
 

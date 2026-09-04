@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -141,9 +142,11 @@ export default function LockerLoans() {
   const renderLoansTable = (loans: LockerLoan[] | undefined, showReturnButton = false) => {
     if (!loans?.length) {
       return (
-        <div className="text-center py-8 text-muted-foreground">
-          Nenhuma locação encontrada
-        </div>
+        <ContentState
+          title="Nenhuma locação encontrada"
+          description="Não há registros para os filtros selecionados."
+          className="py-8"
+        />
       );
     }
 
