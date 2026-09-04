@@ -64,6 +64,7 @@ import * as XLSX from 'xlsx';
 import type { Database } from '@/integrations/supabase/types';
 import { classifyExpiredItem, getDestinationLabel } from '@/lib/expiredItemsDestination';
 import { LostFoundModuleNav } from '@/components/lost-found/LostFoundModuleNav';
+import { smartSearchLostItems } from '@/lib/lostItemSmartSearch';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -255,6 +256,40 @@ export default function ItemsList() {
     let offset = 0;
     let hasMore = true;
 
+    // Mantém PDF/Excel consistentes com a busca inteligente da tela.
+    if (searchQuery.trim()) {
+      while (hasMore) {
+        const result = await smartSearchLostItems({
+          search: searchQuery,
+          status:
+            statusFilter === 'all'
+              ? undefined
+              : statusFilter,
+          campus:
+            campusFilter === 'all'
+              ? undefined
+              : campusFilter,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          destination:
+            statusFilter === 'all'
+              ? destinationFilter
+              : undefined,
+          limit: BATCH_SIZE,
+          offset,
+        });
+
+        allData.push(...result.items);
+        offset += result.items.length;
+
+        hasMore =
+          result.items.length > 0 &&
+          offset < result.totalCount;
+      }
+
+      return allData;
+    }
+
     while (hasMore) {
       let query = supabase
         .from('lost_items')
@@ -264,9 +299,6 @@ export default function ItemsList() {
 
       if (statusFilter && statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
-      }
-      if (searchQuery) {
-        query = query.or(`code.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,found_location.ilike.%${searchQuery}%`);
       }
       if (campusFilter && campusFilter !== 'all') {
         query = query.eq('campus', campusFilter);
@@ -737,7 +769,7 @@ export default function ItemsList() {
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Buscar por código, descrição ou local..."
+              placeholder="Busca inteligente: caneca preta, stanlei, óculos..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"

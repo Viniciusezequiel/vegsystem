@@ -5,6 +5,10 @@ import { loadLostItemsFromCache } from '@/lib/lostItemsCache';
 import type { Database } from '@/integrations/supabase/types';
 import { LostItem } from './useLostItems';
 import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
+import {
+  matchesSmartLostItemOffline,
+  smartSearchLostItems,
+} from '@/lib/lostItemSmartSearch';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
 
@@ -33,11 +37,11 @@ export function useInfiniteLostItems(filters?: InfiniteFilters) {
           list = list.filter(i => i.status === filters.status);
         }
         if (filters?.search) {
-          const q = filters.search.toLowerCase();
-          list = list.filter(i =>
-            i.code?.toLowerCase().includes(q) ||
-            i.description?.toLowerCase().includes(q) ||
-            i.found_location?.toLowerCase().includes(q)
+          list = list.filter((item) =>
+            matchesSmartLostItemOffline(
+              item,
+              filters.search!
+            )
           );
         }
         if (filters?.campus && filters.campus !== 'all') {
@@ -67,6 +71,32 @@ export function useInfiniteLostItems(filters?: InfiniteFilters) {
         };
       }
 
+      // Smart search: tokenized, accent-insensitive and fuzzy.
+      if (filters?.search?.trim()) {
+        const result = await smartSearchLostItems({
+          search: filters.search,
+          status: filters.status,
+          campus: filters.campus,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          destination: filters.destination,
+          limit: PAGE_SIZE,
+          offset: pageParam * PAGE_SIZE,
+        });
+
+        const hasMore =
+          (pageParam + 1) * PAGE_SIZE <
+          result.totalCount;
+
+        return {
+          items: result.items,
+          nextPage: hasMore
+            ? pageParam + 1
+            : undefined,
+          totalCount: result.totalCount,
+        };
+      }
+
       // Build query
       let query = supabase
         .from('lost_items')
@@ -76,10 +106,6 @@ export function useInfiniteLostItems(filters?: InfiniteFilters) {
 
       if (filters?.status && filters.status !== 'all') {
         query = query.eq('status', filters.status);
-      }
-
-      if (filters?.search) {
-        query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
       }
 
       if (filters?.campus && filters.campus !== 'all') {
