@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeftRight, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search, Unlock } from 'lucide-react';
+import { ArrowLeftRight, Plus, Box, Clock, CheckCircle, AlertTriangle, Phone, Mail, Eye, Search, Unlock, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useLockerLoan, useLockerLoans, useOverdueLockerLoans, useReturnLocker, useExchangeLocker, useLockersList, useBulkReturnLockers, LockerLoan } from '@/hooks/useLockers';
 import { LockerReturnDialog, LockerReturnData } from '@/components/lockers/LockerReturnDialog';
@@ -278,54 +280,55 @@ export default function LockerLoans() {
       <div className="space-y-6">
         <ModuleNav title="Escaninhos" description="Gestão de escaninhos e alocações" items={lockerModuleItems} />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Locações de Escaninhos</h2>
-            <p className="text-sm text-muted-foreground">Gerencie as locações e devoluções</p>
-          </div>
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              className="flex-1 sm:flex-initial"
-              onClick={() => setBulkReturnOpen(true)}
-              disabled={!activeLoans?.length}
-            >
-              <Unlock className="mr-2 h-4 w-4" />
-              Liberar Escaninhos
-            </Button>
-            <PdfExportButton
-              title="Relatório de Locações de Escaninhos"
-              filename="locacoes_escaninhos"
-              columns={[
-                { header: 'Escaninho', accessor: (row) => row.locker?.code || 'N/A' },
-                { header: 'Campus', accessor: (row) => row.locker?.campus || 'N/A' },
-                { header: 'Cliente', accessor: 'borrower_name' },
-                { header: 'Telefone', accessor: 'borrower_phone' },
-                { header: 'Email', accessor: (row) => row.borrower_email || '-' },
-                { header: 'Prev. Devolução', accessor: (row) => formatDate(row.expected_return_date) },
-                { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
-              ]}
-              data={[...(activeLoans || []), ...(returnedLoans || [])]}
-              filters={[
-                {
-                  label: 'Status',
-                  key: 'status',
-                  options: [
-                    { label: 'Ativo', value: 'active' },
-                    { label: 'Devolvido', value: 'returned' },
-                    { label: 'Atrasado', value: 'overdue' },
-                  ],
-                },
-              ]}
-            />
-            <Button asChild className="flex-1 sm:flex-initial">
-              <Link to="/lockers/loan/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Locação
-              </Link>
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Locações de Escaninhos"
+          description="Gerencie alocações, devoluções e liberações"
+          actions={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setBulkReturnOpen(true)}
+                disabled={!activeLoans?.length}
+              >
+                <Unlock className="mr-2 h-4 w-4" />
+                Liberar Escaninhos
+              </Button>
+
+              <PdfExportButton
+                title="Relatório de Locações de Escaninhos"
+                filename="locacoes_escaninhos"
+                columns={[
+                  { header: 'Escaninho', accessor: (row) => row.locker?.code || 'N/A' },
+                  { header: 'Campus', accessor: (row) => row.locker?.campus || 'N/A' },
+                  { header: 'Cliente', accessor: 'borrower_name' },
+                  { header: 'Telefone', accessor: 'borrower_phone' },
+                  { header: 'Email', accessor: (row) => row.borrower_email || '-' },
+                  { header: 'Prev. Devolução', accessor: (row) => formatDate(row.expected_return_date) },
+                  { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
+                ]}
+                data={[...(activeLoans || []), ...(returnedLoans || [])]}
+                filters={[
+                  {
+                    label: 'Status',
+                    key: 'status',
+                    options: [
+                      { label: 'Ativo', value: 'active' },
+                      { label: 'Devolvido', value: 'returned' },
+                      { label: 'Atrasado', value: 'overdue' },
+                    ],
+                  },
+                ]}
+              />
+
+              <Button asChild>
+                <Link to="/lockers/loan/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Locação
+                </Link>
+              </Button>
+            </>
+          }
+        />
 
         {overdueLoans && overdueLoans.length > 0 && (
           <Card className="border-destructive bg-destructive/5">
@@ -338,23 +341,33 @@ export default function LockerLoans() {
           </Card>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Box className="h-5 w-5" />
+        <PageToolbar className="mb-0">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por escaninho, nome ou telefone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {searchQuery && (
+              <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
+                <X className="mr-1 h-4 w-4" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </PageToolbar>
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Box className="h-4 w-4" />
               Lista de Locações
             </CardTitle>
-            <div className="mt-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por número do escaninho, nome ou telefone..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>

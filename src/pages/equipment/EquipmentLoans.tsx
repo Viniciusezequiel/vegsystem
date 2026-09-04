@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2, ChevronDown, ChevronUp, User, MapPin, FileText, Calendar, Pencil } from 'lucide-react';
+import { Plus, Package, Clock, CheckCircle, AlertTriangle, Phone, Eye, Search, CalendarClock, Trash2, ChevronDown, ChevronUp, User, MapPin, FileText, Calendar, Pencil, X } from 'lucide-react';
 import { useEquipmentLoan, useEquipmentLoans, useOverdueLoans, useReturnEquipment, useDeleteEquipmentLoan, EquipmentLoan } from '@/hooks/useEquipment';
 import { ReturnDialog, ReturnData } from '@/components/equipment/ReturnDialog';
 import { EquipmentLoanDetailsDialog } from '@/components/equipment/EquipmentLoanDetailsDialog';
@@ -379,53 +381,55 @@ export default function EquipmentLoans() {
       <div className="space-y-6">
         <EquipmentModuleNav />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Empréstimos de Equipamentos</h2>
-            <p className="text-sm text-muted-foreground">Gerencie os empréstimos e devoluções</p>
-          </div>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <PdfExportButton
-              title="Relatório de Empréstimos de Equipamentos"
-              filename="emprestimos_equipamentos"
-              columns={[
-                { header: 'Equipamento', accessor: (row) => row.equipment?.name || 'N/A' },
-                { header: 'Patrimônio', accessor: (row) => row.equipment?.patrimony_code || 'N/A' },
-                { header: 'Qtd.', accessor: (row) => String(row.quantity_borrowed) },
-                { header: 'Tipo', accessor: (row) => borrowerTypeLabels[row.borrower_type || 'aluno'] || row.borrower_type || '' },
-                { header: 'Solicitante', accessor: 'borrower_name' },
-                { header: 'Setor', accessor: 'borrower_sector' },
-                { header: 'Telefone', accessor: 'borrower_phone' },
-                { header: 'Finalidade', accessor: (row) => row.purpose || '' },
-                { header: 'Prev. Devolução', accessor: (row) => formatDate(row.expected_return_date) },
-                { header: 'Colaborador', accessor: (row) => row.collaborator_name || '' },
-                { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
-              ]}
-              data={[...(activeLoans || []), ...(returnedLoans || [])]}
-              filters={[
-                {
-                  label: 'Status',
-                  key: 'status',
-                  options: [
-                    { label: 'Ativo', value: 'active' },
-                    { label: 'Devolvido', value: 'returned' },
-                    { label: 'Atrasado', value: 'overdue' },
-                  ],
-                },
-              ]}
-            />
-            <Button onClick={() => setReservationDialogOpen(true)} variant="outline" className="flex-1 sm:flex-initial">
-              <CalendarClock className="mr-2 h-4 w-4" />
-              Nova Pré-Reserva
-            </Button>
-            <Button asChild className="flex-1 sm:flex-initial">
-              <Link to="/equipment/loan/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Empréstimo
-              </Link>
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Empréstimos de Equipamentos"
+          description="Gerencie empréstimos, pré-reservas e devoluções"
+          actions={
+            <>
+              <PdfExportButton
+                title="Relatório de Empréstimos de Equipamentos"
+                filename="emprestimos_equipamentos"
+                columns={[
+                  { header: 'Equipamento', accessor: (row) => row.equipment?.name || 'N/A' },
+                  { header: 'Patrimônio', accessor: (row) => row.equipment?.patrimony_code || 'N/A' },
+                  { header: 'Qtd.', accessor: (row) => String(row.quantity_borrowed) },
+                  { header: 'Tipo', accessor: (row) => borrowerTypeLabels[row.borrower_type || 'aluno'] || row.borrower_type || '' },
+                  { header: 'Solicitante', accessor: 'borrower_name' },
+                  { header: 'Setor', accessor: 'borrower_sector' },
+                  { header: 'Telefone', accessor: 'borrower_phone' },
+                  { header: 'Finalidade', accessor: (row) => row.purpose || '' },
+                  { header: 'Prev. Devolução', accessor: (row) => formatDate(row.expected_return_date) },
+                  { header: 'Colaborador', accessor: (row) => row.collaborator_name || '' },
+                  { header: 'Status', accessor: (row) => statusLabels[row.status as keyof typeof statusLabels]?.label || row.status },
+                ]}
+                data={[...(activeLoans || []), ...(returnedLoans || [])]}
+                filters={[
+                  {
+                    label: 'Status',
+                    key: 'status',
+                    options: [
+                      { label: 'Ativo', value: 'active' },
+                      { label: 'Devolvido', value: 'returned' },
+                      { label: 'Atrasado', value: 'overdue' },
+                    ],
+                  },
+                ]}
+              />
+
+              <Button onClick={() => setReservationDialogOpen(true)} variant="outline">
+                <CalendarClock className="mr-2 h-4 w-4" />
+                Nova Pré-Reserva
+              </Button>
+
+              <Button asChild>
+                <Link to="/equipment/loan/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Empréstimo
+                </Link>
+              </Button>
+            </>
+          }
+        />
 
         {overdueLoans && overdueLoans.length > 0 && (
           <Card className="border-destructive bg-destructive/5">
@@ -438,23 +442,33 @@ export default function EquipmentLoans() {
           </Card>
         )}
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Lista de Empréstimos
-              </CardTitle>
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome, equipamento, setor..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
+        <PageToolbar className="mb-0">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, equipamento, patrimônio ou setor..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
+
+            {searchQuery && (
+              <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
+                <X className="mr-1 h-4 w-4" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </PageToolbar>
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Package className="h-4 w-4" />
+              Lista de Empréstimos
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>

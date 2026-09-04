@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -184,10 +185,10 @@ export default function RegisterItem() {
     <MainLayout>
       <div className="mb-6"><LostFoundModuleNav /></div>
 
-      <div className="page-header">
-        <h1 className="page-title">Registrar Novo Item</h1>
-        <p className="page-subtitle">Cadastre um item encontrado no sistema</p>
-      </div>
+      <PageHeader
+        title="Registrar Novo Item"
+        description="Cadastre um item encontrado no sistema"
+      />
 
       <form onSubmit={handleSubmit} className="max-w-4xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
