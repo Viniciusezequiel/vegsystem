@@ -45,9 +45,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   Plus, Search, Package, Edit, Trash2, ArrowLeftRight,
-  History, Ban, Upload, Loader2, X
+  History, Ban, Upload, Loader2, X, MoreHorizontal
 } from 'lucide-react';
 import { useEquipmentList, useDeleteEquipment, Equipment } from '@/hooks/useEquipment';
 import {
@@ -79,6 +86,7 @@ export default function EquipmentList() {
   const [writeOffDialogOpen, setWriteOffDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [deleteEquipmentTarget, setDeleteEquipmentTarget] = useState<Equipment | null>(null);
   const [importData, setImportData] = useState<any[]>([]);
 
   const { data: equipment, isLoading } = useEquipmentList(search);
@@ -448,65 +456,73 @@ export default function EquipmentList() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1">
                                 <Button asChild variant="outline" size="sm">
                                   <Link to={`/equipment/loan/new?equipment=${item.id}`}>
                                     Emprestar
                                   </Link>
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedEquipment(item);
-                                    setTransferDialogOpen(true);
-                                  }}
-                                  disabled={item.status === 'maintenance'}
-                                  title="Transferir"
-                                >
-                                  <ArrowLeftRight className="w-4 h-4" />
-                                </Button>
-                                <Button asChild variant="ghost" size="sm" title="Editar">
-                                  <Link to={`/equipment/edit/${item.id}`}>
-                                    <Edit className="h-4 w-4" />
-                                  </Link>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedEquipment(item);
-                                    setWriteOffDialogOpen(true);
-                                  }}
-                                  disabled={item.status === 'maintenance'}
-                                  title="Dar baixa"
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </Button>
-                                {isAdmin && (
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="sm" title="Excluir">
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Tem certeza que deseja excluir o equipamento "{item.name}"?
-                                          Esta ação não pode ser desfeita.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(item.id)}>
+
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      aria-label={`Mais ações para ${item.name}`}
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="w-44"
+                                  >
+                                    <DropdownMenuItem
+                                      onSelect={() => {
+                                        setSelectedEquipment(item);
+                                        setTransferDialogOpen(true);
+                                      }}
+                                      disabled={item.status === 'maintenance'}
+                                    >
+                                      <ArrowLeftRight className="mr-2 h-4 w-4" />
+                                      Transferir
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuItem asChild>
+                                      <Link to={`/equipment/edit/${item.id}`}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Editar
+                                      </Link>
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuItem
+                                      onSelect={() => {
+                                        setSelectedEquipment(item);
+                                        setWriteOffDialogOpen(true);
+                                      }}
+                                      disabled={item.status === 'maintenance'}
+                                    >
+                                      <Ban className="mr-2 h-4 w-4" />
+                                      Dar baixa
+                                    </DropdownMenuItem>
+
+                                    {isAdmin && (
+                                      <>
+                                        <DropdownMenuSeparator />
+
+                                        <DropdownMenuItem
+                                          onSelect={() => setDeleteEquipmentTarget(item)}
+                                          className="text-destructive focus:text-destructive"
+                                        >
+                                          <Trash2 className="mr-2 h-4 w-4" />
                                           Excluir
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                )}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -604,6 +620,39 @@ export default function EquipmentList() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <AlertDialog
+          open={!!deleteEquipmentTarget}
+          onOpenChange={(open) => {
+            if (!open) setDeleteEquipmentTarget(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir o equipamento
+                {deleteEquipmentTarget ? ` "${deleteEquipmentTarget.name}"` : ''}?
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+
+              <AlertDialogAction
+                onClick={() => {
+                  if (deleteEquipmentTarget) {
+                    handleDelete(deleteEquipmentTarget.id);
+                    setDeleteEquipmentTarget(null);
+                  }
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Transfer Dialog */}
         <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
