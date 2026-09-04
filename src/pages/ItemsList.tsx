@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -758,26 +760,27 @@ export default function ItemsList() {
     <MainLayout>
       <div className="mb-6"><LostFoundModuleNav /></div>
 
-      <div className="page-header">
-        <h1 className="page-title">Buscar Itens</h1>
-        <p className="page-subtitle">Pesquise e visualize os itens cadastrados</p>
-      </div>
+      <PageHeader
+        title="Buscar Itens"
+        description="Pesquise e gerencie os itens cadastrados"
+      />
 
       {/* Search and Filters */}
-      <div className="mb-6 space-y-4">
-        <div className="flex flex-wrap gap-4">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+      <PageToolbar className="mb-5">
+        <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative min-w-[260px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Busca inteligente: caneca preta, stanlei, óculos..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-10"
+              className="pl-9"
             />
           </div>
           
           <Select value={campusFilter} onValueChange={(v) => handleCampusFilterChange(v as CampusEnum | 'all')}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[170px]">
               <SelectValue placeholder="Campus" />
             </SelectTrigger>
             <SelectContent>
@@ -788,19 +791,19 @@ export default function ItemsList() {
             </SelectContent>
           </Select>
 
-          <div className="flex gap-2 items-center">
+          <div className="flex items-center gap-2">
             <DatePickerInput
               value={dateFrom}
               onChange={handleDateFromChange}
               placeholder="De"
-              className="w-[130px]"
+              className="w-[125px]"
             />
             <span className="text-muted-foreground">-</span>
             <DatePickerInput
               value={dateTo}
               onChange={handleDateToChange}
               placeholder="Até"
-              className="w-[130px]"
+              className="w-[125px]"
             />
           </div>
 
@@ -832,7 +835,7 @@ export default function ItemsList() {
         </div>
 
         {/* Status Filter */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
           {availableStatusFilters.map((filter) => (
             <Button
               key={filter.value}
@@ -840,8 +843,8 @@ export default function ItemsList() {
               size="sm"
               onClick={() => handleStatusFilterChange(filter.value)}
               className={cn(
-                'transition-all',
-                statusFilter === filter.value && 'shadow-md'
+                'transition-colors',
+                statusFilter === filter.value && 'font-medium'
               )}
             >
               {filter.label}
@@ -882,7 +885,7 @@ export default function ItemsList() {
         )}
 
         {isAdvancedUser && (
-        <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
           {/* Export/Import Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1039,7 +1042,8 @@ export default function ItemsList() {
           )}
         </div>
         )}
-      </div>
+        </div>
+      </PageToolbar>
 
       {/* Results */}
       {isLoading ? (
