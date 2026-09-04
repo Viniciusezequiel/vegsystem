@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,13 +95,10 @@ export default function ActivityHistory() {
 
   return (
     <MainLayout>
-      <div className="page-header">
-        <h1 className="page-title flex items-center gap-2">
-          <History className="w-6 h-6" />
-          Histórico de Atividades
-        </h1>
-        <p className="page-subtitle">Acompanhe todas as ações realizadas no sistema</p>
-      </div>
+      <PageHeader
+        title="Histórico de Atividades"
+        description="Acompanhe todas as ações realizadas no sistema"
+      />
 
       <Card>
         <CardHeader>
