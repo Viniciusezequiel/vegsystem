@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -163,27 +165,43 @@ export default function ReservationRoomsManagement() {
       <div className="space-y-4">
         <ReservationsModuleNav />
 
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-2xl font-bold">Gestão de Salas</h1>
-              <p className="text-sm text-muted-foreground">Cadastre e gerencie as salas para reserva</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => navigate('/reservations/import')}>
-              <Upload className="h-4 w-4 mr-2" /> Importar Aulas / Mapa
-            </Button>
-            <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" /> Nova Sala
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Gestão de Salas"
+          description="Cadastre e gerencie as salas disponíveis para reserva"
+          actions={
+            <>
+              <Button variant="outline" onClick={() => navigate('/reservations/import')}>
+                <Upload className="mr-2 h-4 w-4" />
+                Importar Aulas / Mapa
+              </Button>
+              <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Sala
+              </Button>
+            </>
+          }
+        />
 
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar sala..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-        </div>
+        <PageToolbar className="mb-0">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por sala, código ou campus..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {search && (
+              <Button variant="ghost" size="sm" onClick={() => setSearch('')}>
+                <X className="mr-1 h-4 w-4" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </PageToolbar>
 
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">Carregando...</div>

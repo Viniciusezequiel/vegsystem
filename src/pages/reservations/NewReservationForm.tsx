@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -118,17 +119,22 @@ export default function NewReservationForm() {
     <MainLayout>
       <div className="mb-6"><ReservationsModuleNav /></div>
 
-      <div className="max-w-3xl mx-auto space-y-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => step === 2 ? setStep(1) : navigate('/reservations')}>
+      <div className="mx-auto max-w-4xl space-y-4">
+        <div className="flex items-start gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-1 shrink-0"
+            onClick={() => step === 2 ? setStep(1) : navigate('/reservations')}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Nova Reserva</h1>
-            <p className="text-sm text-muted-foreground">
-              {step === 1 ? 'Busque salas disponíveis' : 'Complete os dados da reserva'}
-            </p>
-          </div>
+
+          <PageHeader
+            title="Nova Reserva"
+            description={step === 1 ? 'Busque salas disponíveis' : 'Complete os dados da reserva'}
+            className="mb-0 flex-1"
+          />
         </div>
 
         {step === 1 && (

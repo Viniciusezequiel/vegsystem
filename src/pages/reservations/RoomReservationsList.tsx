@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -242,27 +244,28 @@ export default function RoomReservationsList() {
       <div className="space-y-4">
         <ReservationsModuleNav />
 
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Gestão de Salas</h1>
-            <p className="text-sm text-muted-foreground">Gerencie as reservas de salas e espaços</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {isAdmin && (
-              <Button variant="outline" onClick={() => navigate('/reservations/rooms')}>
-                <MapPin className="h-4 w-4 mr-2" />
-                Gestão de Salas
+        <PageHeader
+          title="Reservas de Salas"
+          description="Gerencie reservas de salas e espaços"
+          actions={
+            <>
+              {isAdmin && (
+                <Button variant="outline" onClick={() => navigate('/reservations/rooms')}>
+                  <MapPin className="mr-2 h-4 w-4" />
+                  Gestão de Salas
+                </Button>
+              )}
+              <Button onClick={() => navigate('/reservations/new')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Reserva
               </Button>
-            )}
-            <Button onClick={() => navigate('/reservations/new')}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Reserva
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* Quick actions */}
-        <div className="flex gap-2 flex-wrap">
+        <PageToolbar className="mb-0">
+          <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => applyReportFilter('today')}>
             <FileText className="h-3 w-3 mr-1" /> Hoje
           </Button>
@@ -290,7 +293,8 @@ export default function RoomReservationsList() {
               <Upload className="h-3 w-3 mr-1" /> Importar Mapa
             </Button>
           )}
-        </div>
+          </div>
+        </PageToolbar>
 
         {/* Filters bar */}
         <ReservationFiltersBar value={filters} onChange={setFilters} rooms={rooms || []} />
