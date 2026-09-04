@@ -23,7 +23,7 @@ export function useLostItemImage(itemId: string | null, enabled: boolean = true)
 
       if (error) {
         console.error('Error fetching item image:', error);
-        return null;
+        throw error;
       }
 
       const path = getDeletableLostItemImagePath(data?.image_url);
@@ -35,8 +35,10 @@ export function useLostItemImage(itemId: string | null, enabled: boolean = true)
     staleTime: 10 * 60 * 1000, // 10 minutes - images don't change often
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    refetchOnMount: false,
-    retry: 1,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
+    retryDelay: (attempt) =>
+      Math.min(500 * 2 ** attempt, 3000),
   });
 }
