@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,13 +29,14 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Plus, Box, ArrowLeftRight, Edit, Trash2, Search } from 'lucide-react';
+import { Plus, Box, ArrowLeftRight, Edit, Trash2, Search, X } from 'lucide-react';
 import { useLockersList, useCreateLocker, useUpdateLocker, useDeleteLocker, Locker } from '@/hooks/useLockers';
 import { useAuth } from '@/contexts/AuthContext';
 import { PdfExportButton } from '@/components/ui/PdfExportButton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -196,18 +199,41 @@ export default function LockersList() {
 
   const availableCount = lockers?.filter(l => l.status === 'available').length || 0;
   const occupiedCount = lockers?.filter(l => l.status === 'occupied').length || 0;
+  const totalLockers = lockers?.length || 0;
+
+  const availableRate = totalLockers
+    ? Math.round((availableCount / totalLockers) * 100)
+    : 0;
+
+  const occupiedRate = totalLockers
+    ? Math.round((occupiedCount / totalLockers) * 100)
+    : 0;
+
+  const hasActiveFilters =
+    statusFilter !== 'all' ||
+    campusFilter !== 'all' ||
+    floorFilter !== 'all' ||
+    sideFilter !== 'all' ||
+    searchTerm.trim().length > 0;
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setCampusFilter('all');
+    setFloorFilter('all');
+    setSideFilter('all');
+    setSearchTerm('');
+  };
 
   return (
     <MainLayout>
       <div className="space-y-6">
         <ModuleNav title="Escaninhos" description="Gestão de escaninhos e alocações" items={lockerModuleItems} />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Gestão de Escaninhos</h1>
-            <p className="text-muted-foreground">Visualize e gerencie os escaninhos</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <PageHeader
+          title="Gestão de Escaninhos"
+          description="Visualize disponibilidade, ocupação e localização dos escaninhos"
+          actions={
+            <div className="flex flex-wrap gap-2">
             <PdfExportButton
               title="Relatório de Escaninhos"
               filename="escaninhos"
@@ -332,96 +358,147 @@ export default function LockersList() {
                 </DialogContent>
               </Dialog>
             )}
+            </div>
+          }
+        />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Card className="border-border/60 bg-card/65">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground">
+                Total de Escaninhos
+              </p>
+              <div className="mt-1 text-2xl font-semibold text-foreground">
+                {totalLockers}
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground/80">
+                Base cadastrada
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 bg-card/65">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground">
+                Disponíveis
+              </p>
+              <div className="mt-1 text-2xl font-semibold text-emerald-400">
+                {availableCount}
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground/80">
+                {availableRate}% dos escaninhos livres
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 bg-card/65">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground">
+                Ocupados
+              </p>
+              <div className="mt-1 text-2xl font-semibold text-amber-400">
+                {occupiedCount}
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground/80">
+                {occupiedRate}% atualmente em uso
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <PageToolbar>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por código, local ou descrição..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full lg:w-[150px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="available">Disponíveis</SelectItem>
+                <SelectItem value="occupied">Ocupados</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={campusFilter} onValueChange={setCampusFilter}>
+              <SelectTrigger className="w-full lg:w-[165px]">
+                <SelectValue placeholder="Campus" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Campus</SelectItem>
+                <SelectItem value="Campus I">Campus I</SelectItem>
+                <SelectItem value="Campus II">Campus II</SelectItem>
+                <SelectItem value="Campus IV">Campus IV</SelectItem>
+                <SelectItem value="Campus HUCM Adm">Campus HUCM Adm</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={floorFilter} onValueChange={setFloorFilter}>
+              <SelectTrigger className="w-full lg:w-[155px]">
+                <SelectValue placeholder="Andar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Andares</SelectItem>
+                {uniqueFloors.map(floor => (
+                  <SelectItem key={floor} value={floor}>{floor}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sideFilter} onValueChange={setSideFilter}>
+              <SelectTrigger className="w-full lg:w-[150px]">
+                <SelectValue placeholder="Parte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Partes</SelectItem>
+                {uniqueSides.map(side => (
+                  <SelectItem key={side} value={side}>{side}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <X className="mr-1 h-4 w-4" />
+                Limpar
+              </Button>
+            )}
           </div>
-        </div>
+        </PageToolbar>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{lockers?.length || 0}</div>
-              <p className="text-muted-foreground">Total de Escaninhos</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-green-600">{availableCount}</div>
-              <p className="text-muted-foreground">Disponíveis</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-amber-600">{occupiedCount}</div>
-              <p className="text-muted-foreground">Ocupados</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Box className="h-5 w-5" />
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Box className="h-4 w-4 text-primary" />
                   Escaninhos
                 </CardTitle>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filtrar por status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="available">Disponíveis</SelectItem>
-                    <SelectItem value="occupied">Ocupados</SelectItem>
-                  </SelectContent>
-                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Consulte disponibilidade e localização
+                </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <Select value={campusFilter} onValueChange={setCampusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Campus" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os Campus</SelectItem>
-                    <SelectItem value="Campus I">Campus I</SelectItem>
-                    <SelectItem value="Campus II">Campus II</SelectItem>
-                    <SelectItem value="Campus IV">Campus IV</SelectItem>
-                    <SelectItem value="Campus HUCM Adm">Campus HUCM Adm</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={floorFilter} onValueChange={setFloorFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Andar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os Andares</SelectItem>
-                    {uniqueFloors.map(floor => (
-                      <SelectItem key={floor} value={floor}>{floor}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={sideFilter} onValueChange={setSideFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Parte" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as Partes</SelectItem>
-                    {uniqueSides.map(side => (
-                      <SelectItem key={side} value={side}>{side}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
+
+              <span className="shrink-0 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium text-muted-foreground">
+                {filteredLockers.length} registro(s)
+              </span>
             </div>
           </CardHeader>
+
           <CardContent>
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">Carregando...</div>
@@ -431,12 +508,16 @@ export default function LockersList() {
               </div>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {filteredLockers.length} escaninho(s) encontrado(s)
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filteredLockers.map((locker) => (
-                    <Card key={locker.id} className={locker.status === 'occupied' ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/20' : ''}>
+                    <Card
+                      key={locker.id}
+                      className={cn(
+                        'transition-colors hover:border-primary/30',
+                        locker.status === 'occupied' &&
+                          'border-amber-500/25 bg-amber-500/[0.035]'
+                      )}
+                    >
                       <CardContent className="pt-4">
                         <div className="flex justify-between items-start mb-2">
                           <div className="font-bold text-lg">{locker.code}</div>
