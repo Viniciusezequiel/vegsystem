@@ -381,7 +381,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
         to={item.href}
         onClick={handleNavClick}
         className={cn(
-          'sidebar-link relative min-h-10 rounded-lg transition-colors duration-200',
+          'sidebar-link relative min-h-10 rounded-lg border border-transparent transition-colors duration-200 hover:border-sidebar-border/20',
           isActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
           collapsed && 'justify-center px-2'
         )}
@@ -417,7 +417,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
           onClick={handleNavClick}
           onMouseEnter={group.basePath === '/lost-found' ? handleLostItemsHover : undefined}
           className={cn(
-            'sidebar-link relative min-h-10 rounded-lg transition-colors duration-200',
+            'sidebar-link relative min-h-10 rounded-lg border border-transparent transition-colors duration-200 hover:border-sidebar-border/20',
             isGroupActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
             collapsed && 'justify-center px-2'
           )}
@@ -433,7 +433,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
               </span>
             )}
           </div>
-          {!collapsed && <span className="truncate text-[13px] font-medium">{group.name}</span>}
+          {!collapsed && <span className="truncate text-[13px] font-medium tracking-[-0.01em]">{group.name}</span>}
           {!collapsed && showBadge && (
             <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">{badgeCount}</span>
           )}
@@ -537,7 +537,11 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
     <TooltipProvider delayDuration={0}>
       <aside className={cn(
         'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-x-hidden border-r border-sidebar-border/35 bg-sidebar transition-all duration-200',
-        collapsed ? 'w-[68px]' : 'w-60'
+        isMobile
+          ? 'w-[min(280px,calc(100vw-24px))] shadow-2xl'
+          : collapsed
+            ? 'w-[68px]'
+            : 'w-60'
       )}>
         {/* Logo */}
         <div className={cn('border-b border-sidebar-border/35 px-3 py-3', collapsed && 'px-2.5')}>
@@ -586,7 +590,7 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                 to={item.href}
                 onClick={handleNavClick}
                 className={cn(
-                  'sidebar-link relative min-h-10 rounded-lg transition-colors duration-200',
+                  'sidebar-link relative min-h-10 rounded-lg border border-transparent transition-colors duration-200 hover:border-sidebar-border/20',
                   isActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
                   collapsed && 'justify-center px-2'
                 )}
@@ -623,14 +627,16 @@ export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: Sideba
                 key={section.key}
                 open={isSectionOpen}
                 onOpenChange={() => toggleSection(section.key)}
-                className="pt-1.5"
+                className="border-t border-sidebar-border/20 pt-1.5 first:border-t-0 first:pt-0"
                 data-testid={`sidebar-section-${section.key}`}
               >
                 <CollapsibleTrigger
                   aria-label={`${isSectionOpen ? 'Recolher' : 'Expandir'} ${section.name}`}
                   className={cn(
                     'flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] transition-colors duration-200',
-                    isSectionActive ? 'text-primary' : 'text-sidebar-foreground/40 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground/65'
+                    isSectionActive
+                      ? 'bg-primary/[0.045] text-primary'
+                      : 'text-sidebar-foreground/40 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground/65'
                   )}
                 >
                   <span>{section.name}</span>

@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { OnlineUsersIndicator } from './OnlineUsersIndicator';
 import { ImagePrefetchIndicator } from './ImagePrefetchIndicator';
@@ -16,6 +17,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   // Enable global realtime subscriptions
   useGlobalRealtimeSubscription();
   const isMobile = useIsMobile();
+  const location = useLocation();
 
   const topBarRef = useRef<HTMLDivElement | null>(null);
 
@@ -55,10 +57,22 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }, [isMobile, mobileMenuOpen]);
 
-  // Close mobile menu on route change
+  // Close mobile menu whenever the route changes
   useEffect(() => {
     setMobileMenuOpen(false);
-  }, []);
+  }, [location.pathname]);
+
+  // Prevent the page behind the mobile drawer from scrolling
+  useEffect(() => {
+    if (!isMobile || !mobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobile, mobileMenuOpen]);
 
   const handleToggleSidebar = () => {
     if (isMobile) {
@@ -87,7 +101,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Mobile Overlay */}
       {isMobile && mobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 xl:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[1px] xl:hidden"
           onClick={closeMobileMenu}
         />
       )}
@@ -126,6 +140,8 @@ export function MainLayout({ children }: MainLayoutProps) {
               size="icon"
               className="xl:hidden"
               onClick={handleToggleSidebar}
+              aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? (
                 <X className="h-5 w-5" />
