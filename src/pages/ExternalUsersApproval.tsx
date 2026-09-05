@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +17,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Check, X, Mail, Phone, Building, UserIcon, ArrowLeft, Loader2 } from 'lucide-react';
+import { Check, X, Mail, Phone, Building, UserIcon, ArrowLeft, Search, ShieldAlert } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -109,11 +112,11 @@ export default function ExternalUsersApproval() {
   const rejected = filterBy('rejected');
 
   const renderCard = (u: ExternalUserRow, opts?: { actions?: boolean; showRejection?: boolean }) => (
-    <Card key={u.id}>
+    <Card key={u.id} className="border-border/60 bg-card/65 transition-colors hover:border-primary/20">
       <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="space-y-1 flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold">{u.full_name}</h3>
               {u.user_type && <Badge variant="outline" className="text-[10px]">{u.user_type}</Badge>}
             </div>
@@ -133,11 +136,16 @@ export default function ExternalUsersApproval() {
           {opts?.actions && (
             <div className="flex gap-2">
               <Button size="sm" disabled={actioning === u.id} onClick={() => approve(u)}>
-                <Check className="h-3 w-3 mr-1" /> Aprovar
+                <Check className="mr-1 h-3 w-3" /> Aprovar
               </Button>
-              <Button size="sm" variant="outline" className="text-destructive" disabled={actioning === u.id}
-                onClick={() => { setRejecting(u); setRejectReason(''); }}>
-                <X className="h-3 w-3 mr-1" /> Rejeitar
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive"
+                disabled={actioning === u.id}
+                onClick={() => { setRejecting(u); setRejectReason(''); }}
+              >
+                <X className="mr-1 h-3 w-3" /> Rejeitar
               </Button>
             </div>
           )}
@@ -149,7 +157,11 @@ export default function ExternalUsersApproval() {
   if (!isAdmin) {
     return (
       <MainLayout>
-        <div className="text-center py-12 text-muted-foreground">Acesso restrito a administradores.</div>
+        <ContentState
+          icon={ShieldAlert}
+          title="Acesso restrito"
+          description="Apenas administradores podem gerenciar os cadastros de clientes externos."
+        />
       </MainLayout>
     );
   }
@@ -157,37 +169,60 @@ export default function ExternalUsersApproval() {
   return (
     <MainLayout>
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Aprovação de Clientes Externos</h1>
-            <p className="text-sm text-muted-foreground">Gerencie cadastros do Portal do Cliente</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Aprovação de Clientes Externos"
+          description="Gerencie cadastros do Portal do Cliente"
+          actions={
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+          }
+        />
 
-        <Input placeholder="Buscar por nome, e-mail, CPF..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-md" />
+        <PageToolbar className="mb-0">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, e-mail, CPF ou setor..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            {search && (
+              <Button variant="ghost" size="sm" onClick={() => setSearch('')}>
+                <X className="mr-1 h-4 w-4" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </PageToolbar>
 
         {loading ? (
-          <div className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
+          <ContentState loading title="Carregando cadastros" description="Buscando os usuários externos mais recentes." />
         ) : (
           <Tabs defaultValue="pending">
-            <TabsList>
+            <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl border border-border/60 bg-card/65 p-1 sm:w-auto">
               <TabsTrigger value="pending">Pendentes ({pending.length})</TabsTrigger>
               <TabsTrigger value="approved">Aprovados ({approved.length})</TabsTrigger>
               <TabsTrigger value="rejected">Rejeitados ({rejected.length})</TabsTrigger>
             </TabsList>
-            <TabsContent value="pending" className="space-y-2 mt-3">
+            <TabsContent value="pending" className="mt-3 space-y-2">
               {pending.length === 0
-                ? <p className="text-muted-foreground text-sm py-4">Nenhum cadastro pendente.</p>
+                ? <ContentState title="Nenhum cadastro pendente" description="Não há solicitações aguardando análise." className="min-h-[140px]" />
                 : pending.map(u => renderCard(u, { actions: true }))}
             </TabsContent>
-            <TabsContent value="approved" className="space-y-2 mt-3">
-              {approved.map(u => renderCard(u))}
+            <TabsContent value="approved" className="mt-3 space-y-2">
+              {approved.length === 0
+                ? <ContentState title="Nenhum cadastro aprovado" className="min-h-[140px]" />
+                : approved.map(u => renderCard(u))}
             </TabsContent>
-            <TabsContent value="rejected" className="space-y-2 mt-3">
-              {rejected.map(u => renderCard(u, { showRejection: true }))}
+            <TabsContent value="rejected" className="mt-3 space-y-2">
+              {rejected.length === 0
+                ? <ContentState title="Nenhum cadastro rejeitado" className="min-h-[140px]" />
+                : rejected.map(u => renderCard(u, { showRejection: true }))}
             </TabsContent>
           </Tabs>
         )}
@@ -205,7 +240,6 @@ export default function ExternalUsersApproval() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejecting(null)}>Voltar</Button>
             <Button variant="destructive" onClick={reject} disabled={!!actioning}>
-              {actioning && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Confirmar rejeição
             </Button>
           </DialogFooter>
