@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
-import { usePsCollaborators, usePsGeneralEvaluations, usePsSaveGeneralEvaluation } from '@/hooks/useProcessoSeletivo';
-import { useAuth } from '@/contexts/AuthContext';
-import { PS_CLASSIFICATION_LABEL } from '@/lib/psConstants';
 import { ClipboardCheck } from 'lucide-react';
+
+import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePsCollaborators, usePsGeneralEvaluations, usePsSaveGeneralEvaluation } from '@/hooks/useProcessoSeletivo';
+import { PS_CLASSIFICATION_LABEL } from '@/lib/psConstants';
 
 export default function PsGeneralEvaluation() {
   const { data: collaborators = [] } = usePsCollaborators();
@@ -26,7 +28,7 @@ export default function PsGeneralEvaluation() {
 
   const submit = async () => {
     if (!collaboratorId || !period.trim()) return;
-    const collaborator: any = collaborators.find((c: any) => c.id === collaboratorId);
+    const collaborator: any = collaborators.find((candidate: any) => candidate.id === collaboratorId);
     await saveEval.mutateAsync({
       collaborator_id: collaboratorId,
       collaborator_name: collaborator?.full_name,
@@ -41,58 +43,84 @@ export default function PsGeneralEvaluation() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-            <ClipboardCheck className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Avaliação Geral</h1>
-            <p className="text-muted-foreground">Avaliações periódicas fora de um evento específico.</p>
-          </div>
-        </div>
+      <PageHeader
+        title="Avaliação Geral"
+        description="Registre avaliações periódicas dos colaboradores fora de um evento específico."
+      />
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="rounded-2xl">
-            <CardHeader><CardTitle className="text-base">Nova avaliação</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Colaborador *</Label>
-                <Select value={collaboratorId} onValueChange={setCollaboratorId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {collaborators.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label>Período</Label><Input placeholder="Ex.: 2026/1" value={period} onChange={(e) => setPeriod(e.target.value)} /></div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <Card className="border-border/60 bg-card/65 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardCheck className="h-4 w-4 text-primary" />
+              Nova avaliação
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Colaborador *</Label>
+              <Select value={collaboratorId} onValueChange={setCollaboratorId}>
+                <SelectTrigger><SelectValue placeholder="Selecione um colaborador" /></SelectTrigger>
+                <SelectContent>
+                  {collaborators.map((collaborator: any) => (
+                    <SelectItem key={collaborator.id} value={collaborator.id}>{collaborator.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Período *</Label>
+              <Input placeholder="Ex.: 2026/1" value={period} onChange={event => setPeriod(event.target.value)} />
+            </div>
+
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
               <PsCriteriaFields values={values} onChange={setValues} />
-              <div><Label>Comentários</Label><Textarea value={comments} onChange={(e) => setComments(e.target.value)} /></div>
-              <Button className="w-full" onClick={submit} disabled={saveEval.isPending || !collaboratorId}>Registrar avaliação</Button>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card className="rounded-2xl">
-            <CardHeader><CardTitle className="text-base">Histórico</CardTitle></CardHeader>
-            <CardContent className="divide-y p-0">
-              {evaluations.map((e: any) => (
-                <div key={e.id} className="flex items-center justify-between gap-3 p-4">
-                  <div>
-                    <p className="font-medium">{e.collaborator_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {e.batch_name || '-'} · {new Date(e.evaluation_date || e.created_at).toLocaleDateString('pt-BR')} · {e.evaluator_name}
-                    </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Comentários</Label>
+              <Textarea rows={3} value={comments} onChange={event => setComments(event.target.value)} placeholder="Observações complementares sobre o desempenho" />
+            </div>
+
+            <Button className="w-full" onClick={() => void submit()} disabled={saveEval.isPending || !collaboratorId || !period.trim()}>
+              {saveEval.isPending ? 'Registrando...' : 'Registrar avaliação'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-card/65 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+            <CardTitle className="text-base">Histórico</CardTitle>
+            <Badge variant="secondary">{evaluations.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            {evaluations.length === 0 ? (
+              <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 px-6 text-center">
+                <ClipboardCheck className="h-8 w-8 text-muted-foreground/45" />
+                <p className="mt-3 text-sm font-medium">Nenhuma avaliação registrada</p>
+                <p className="mt-1 text-xs text-muted-foreground">As avaliações periódicas aparecerão aqui.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {evaluations.map((evaluation: any) => (
+                  <div key={evaluation.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{evaluation.collaborator_name}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {evaluation.batch_name || 'Sem período'} · {new Date(evaluation.evaluation_date || evaluation.created_at).toLocaleDateString('pt-BR')} · {evaluation.evaluator_name}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px]">{PS_CLASSIFICATION_LABEL[evaluation.classification] || evaluation.classification}</Badge>
+                      <Badge>{Number(evaluation.final_score).toFixed(2)}</Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{PS_CLASSIFICATION_LABEL[e.classification] || e.classification}</Badge>
-                    <Badge>{Number(e.final_score).toFixed(2)}</Badge>
-                  </div>
-                </div>
-              ))}
-              {evaluations.length === 0 && <p className="p-4 text-muted-foreground">Nenhuma avaliação registrada.</p>}
-            </CardContent>
-          </Card>
-        </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   );
