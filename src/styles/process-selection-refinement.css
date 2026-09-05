@@ -1,0 +1,198 @@
+/*
+ * Refinamento visual isolado para duas superfícies críticas do Processo Seletivo.
+ * Os seletores :has() usam elementos exclusivos de cada tela para evitar
+ * qualquer mudança no fluxo funcional ou impacto nos demais módulos.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* Detalhe do Evento                                                          */
+/* Escopo único: a tela contém o link público de autoavaliação do evento.     */
+/* -------------------------------------------------------------------------- */
+
+body:has(a[href*="/ps/autoavaliacao/"]) .rounded-2xl {
+  border-radius: 0.75rem !important;
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [data-radix-collection-item][role="tab"] {
+  min-height: 2.25rem;
+  border-radius: 0.5rem;
+  padding-inline: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [data-radix-collection-item][role="tab"][data-state="active"] {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tablist"] {
+  border: 1px solid hsl(var(--border) / 0.6);
+  background: hsl(var(--muted) / 0.25);
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+  gap: 0.125rem;
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] > .rounded-2xl,
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] > .grid > .rounded-2xl {
+  border-color: hsl(var(--border) / 0.6);
+  background: hsl(var(--card) / 0.65);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.035);
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] .divide-y > * {
+  border-color: hsl(var(--border) / 0.5);
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] .bg-muted\/40,
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] .bg-muted\/30,
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] .bg-muted\/20 {
+  background-color: hsl(var(--muted) / 0.2) !important;
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] input,
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] textarea,
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] button[role="combobox"] {
+  border-color: hsl(var(--border) / 0.75);
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] input:focus-visible,
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] textarea:focus-visible,
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] button[role="combobox"]:focus-visible {
+  border-color: hsl(var(--primary) / 0.45);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.12);
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] .text-2xl.font-bold,
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] .text-3xl.font-bold {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+}
+
+body:has(a[href*="/ps/autoavaliacao/"]) [role="tabpanel"] a[target="_blank"] {
+  text-decoration: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Presença Pública — lista                                                   */
+/* Escopo único: placeholder de busca exclusivo desta superfície.             */
+/* -------------------------------------------------------------------------- */
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) > #root {
+  background: hsl(var(--background));
+}
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) .min-h-screen.bg-muted\/30 {
+  background: hsl(var(--background)) !important;
+}
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) .max-w-2xl > .flex.items-center.gap-3 {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) .max-w-2xl > .flex.items-center.gap-3 .rounded-xl {
+  border-radius: 0.75rem;
+}
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) .rounded-2xl {
+  border-radius: 0.75rem !important;
+  border-color: hsl(var(--border) / 0.6);
+  background: hsl(var(--card) / 0.75);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.035);
+}
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) .h-\[calc\(100vh-22rem\)\] {
+  border-color: hsl(var(--border) / 0.6);
+  background: hsl(var(--card) / 0.45);
+}
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) .divide-y > * {
+  border-color: hsl(var(--border) / 0.45);
+}
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) input,
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) button[role="combobox"] {
+  border-color: hsl(var(--border) / 0.75);
+}
+
+body:has(input[placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala"]) button:not([role="combobox"]) {
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Presença Pública — identificação e assinatura                              */
+/* Escopo único: campo de CPF exclusivo da etapa de assinatura.               */
+/* -------------------------------------------------------------------------- */
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) > #root {
+  background: hsl(var(--background));
+}
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .min-h-screen.bg-muted\/30 {
+  background: hsl(var(--background)) !important;
+}
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .max-w-3xl > .rounded-2xl {
+  overflow: hidden;
+  border-radius: 0.875rem !important;
+  border-color: hsl(var(--border) / 0.6);
+  background: hsl(var(--card) / 0.8);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 0.055);
+}
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .max-w-3xl > .rounded-2xl > [class*="border-b"] {
+  background: hsl(var(--card) / 0.9) !important;
+  border-color: hsl(var(--border) / 0.5);
+}
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .rounded-xl,
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .rounded-2xl {
+  border-radius: 0.75rem !important;
+}
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) input,
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) textarea,
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) button[role="combobox"] {
+  border-color: hsl(var(--border) / 0.75);
+}
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) input:focus-visible,
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) textarea:focus-visible,
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) button[role="combobox"]:focus-visible {
+  border-color: hsl(var(--primary) / 0.45);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.12);
+}
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .border-amber-200.bg-amber-50 {
+  border-color: hsl(var(--warning) / 0.25) !important;
+  background: hsl(var(--warning) / 0.08) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .border-emerald-500\/30.bg-emerald-500\/10 {
+  border-color: hsl(var(--success) / 0.3) !important;
+  background: hsl(var(--success) / 0.08) !important;
+  color: hsl(var(--success)) !important;
+}
+
+@media (max-width: 640px) {
+  body:has(a[href*="/ps/autoavaliacao/"]) [role="tablist"] {
+    overflow-x: auto;
+    justify-content: flex-start;
+    flex-wrap: nowrap !important;
+    scrollbar-width: thin;
+  }
+
+  body:has(a[href*="/ps/autoavaliacao/"]) [role="tablist"] [role="tab"] {
+    flex: 0 0 auto;
+  }
+
+  body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .max-w-3xl {
+    padding-block: 0.5rem;
+  }
+}
