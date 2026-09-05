@@ -1,23 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
+import { format, isAfter, isBefore, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { ArrowRightLeft, Calendar, Clock, Loader2, MapPin, Plus, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Calendar, Clock, MapPin, X, ArrowRightLeft, Loader2 } from 'lucide-react';
-import { format, parseISO, isAfter, isBefore } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 import type { PortalOutletContext } from './PortalLayout';
 
 interface MyRes {
@@ -55,26 +61,28 @@ export default function PortalMyReservations() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [externalUser.email]);
+  useEffect(() => {
+    void load();
+  }, [externalUser.email]);
 
   const now = new Date();
-  const futureRes = reservations.filter(r => isAfter(parseISO(r.end_datetime), now) && r.status !== 'cancelled');
-  const pastRes = reservations.filter(r => isBefore(parseISO(r.end_datetime), now) && r.status !== 'cancelled');
-  const cancelledRes = reservations.filter(r => r.status === 'cancelled');
+  const futureRes = reservations.filter(reservation => isAfter(parseISO(reservation.end_datetime), now) && reservation.status !== 'cancelled');
+  const pastRes = reservations.filter(reservation => isBefore(parseISO(reservation.end_datetime), now) && reservation.status !== 'cancelled');
+  const cancelledRes = reservations.filter(reservation => reservation.status === 'cancelled');
 
   const handleCancel = async (id: string) => {
-    const { error } = await supabase
-      .from('reservations')
-      .update({ status: 'cancelled' })
-      .eq('id', id);
+    const { error } = await supabase.from('reservations').update({ status: 'cancelled' }).eq('id', id);
     if (error) toast.error('Erro ao cancelar');
-    else { toast.success('Reserva cancelada'); load(); }
+    else {
+      toast.success('Reserva cancelada');
+      void load();
+    }
   };
 
-  const openReschedule = (r: MyRes) => {
-    const start = parseISO(r.start_datetime);
-    const end = parseISO(r.end_datetime);
-    setRescheduling(r);
+  const openReschedule = (reservation: MyRes) => {
+    const start = parseISO(reservation.start_datetime);
+    const end = parseISO(reservation.end_datetime);
+    setRescheduling(reservation);
     setReschedForm({
       date: format(start, 'yyyy-MM-dd'),
       start_time: format(start, 'HH:mm'),
@@ -87,13 +95,13 @@ export default function PortalMyReservations() {
     if (!reschedForm.date || !reschedForm.start_time || !reschedForm.end_time) {
       return toast.error('Preencha todos os campos.');
     }
+
     const newStart = `${reschedForm.date}T${reschedForm.start_time}:00`;
     const newEnd = `${reschedForm.date}T${reschedForm.end_time}:00`;
     if (newEnd <= newStart) return toast.error('Término deve ser após início.');
 
     setSubmittingResched(true);
     try {
-      // Check conflict for the new date/time
       const { data: hasConflict } = await supabase.rpc('check_reservation_conflict', {
         p_room_id: rescheduling.room_id,
         p_start_datetime: newStart,
@@ -103,14 +111,13 @@ export default function PortalMyReservations() {
       });
       if (hasConflict) throw new Error('Conflito de horário nessa sala.');
 
-      // Cancel old + create new pending linked
-      const { error: cancelErr } = await supabase
+      const { error: cancelError } = await supabase
         .from('reservations')
         .update({ status: 'cancelled', notes: `${rescheduling.notes || ''}\n[Remarcada pelo cliente]`.trim() })
         .eq('id', rescheduling.id);
-      if (cancelErr) throw cancelErr;
+      if (cancelError) throw cancelError;
 
-      const { error: insertErr } = await supabase.from('reservations').insert({
+      const { error: insertError } = await supabase.from('reservations').insert({
         title: rescheduling.title,
         description: rescheduling.description,
         room_id: rescheduling.room_id,
@@ -125,65 +132,79 @@ export default function PortalMyReservations() {
         notes: '[Remarcação do cliente]',
         original_reservation_id: rescheduling.id,
       } as never);
-      if (insertErr) throw insertErr;
+      if (insertError) throw insertError;
 
       toast.success('Remarcação enviada! Aguarde a aprovação.');
       setRescheduling(null);
-      load();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao remarcar';
-      toast.error(msg);
+      void load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao remarcar');
     } finally {
       setSubmittingResched(false);
     }
   };
 
-  const renderCard = (r: MyRes, opts?: { actions?: boolean }) => {
+  const renderCard = (reservation: MyRes, options?: { actions?: boolean }) => {
     const statusLabel: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       pending: { label: 'Pendente', variant: 'secondary' },
       confirmed: { label: 'Confirmada', variant: 'default' },
       cancelled: { label: 'Cancelada', variant: 'destructive' },
       completed: { label: 'Concluída', variant: 'outline' },
     };
-    const st = statusLabel[r.status] || { label: r.status, variant: 'outline' as const };
+    const status = statusLabel[reservation.status] || { label: reservation.status, variant: 'outline' as const };
 
     return (
-      <Card key={r.id}>
+      <Card key={reservation.id} className="border-border/60 bg-card/65 shadow-sm transition-colors hover:bg-card/80">
         <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold">{r.title}</h3>
-                <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="truncate text-sm font-semibold">{reservation.title}</h3>
+                <Badge variant={status.variant} className="text-[10px]">{status.label}</Badge>
               </div>
-              <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{r.room?.name} ({r.room?.code}) • {r.room?.campus}</span>
-                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{format(parseISO(r.start_datetime), 'dd/MM/yyyy', { locale: ptBR })}</span>
-                <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(parseISO(r.start_datetime), 'HH:mm')} - {format(parseISO(r.end_datetime), 'HH:mm')}</span>
+
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {reservation.room?.name || 'Sala a definir'}{reservation.room?.code ? ` (${reservation.room.code})` : ''}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {format(parseISO(reservation.start_datetime), 'dd/MM/yyyy', { locale: ptBR })}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  {format(parseISO(reservation.start_datetime), 'HH:mm')} – {format(parseISO(reservation.end_datetime), 'HH:mm')}
+                </span>
               </div>
-              {r.description && <p className="text-xs mt-2 text-muted-foreground">{r.description}</p>}
+
+              {reservation.room?.campus && <p className="mt-1 text-[11px] text-muted-foreground">{reservation.room.campus}</p>}
+              {reservation.description && <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{reservation.description}</p>}
             </div>
-            {opts?.actions && (
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={() => openReschedule(r)}>
-                  <ArrowRightLeft className="h-3 w-3 mr-1" /> Remarcar
+
+            {options?.actions && (
+              <div className="flex shrink-0 flex-wrap gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => openReschedule(reservation)}>
+                  <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+                  Remarcar
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="text-destructive">
-                      <X className="h-3 w-3 mr-1" /> Cancelar
+                    <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+                      <X className="mr-1.5 h-3.5 w-3.5" />
+                      Cancelar
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Cancelar reserva?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Essa ação cancela a reserva. Você poderá criar uma nova se precisar.
+                        Essa ação cancela a reserva selecionada. Você poderá fazer uma nova solicitação depois.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Voltar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleCancel(r.id)}>Sim, cancelar</AlertDialogAction>
+                      <AlertDialogAction onClick={() => void handleCancel(reservation.id)}>Sim, cancelar</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -195,75 +216,92 @@ export default function PortalMyReservations() {
     );
   };
 
+  const emptyState = (message: string) => (
+    <div className="rounded-xl border border-dashed border-border/60 bg-card/35 px-6 py-10 text-center">
+      <Calendar className="mx-auto h-8 w-8 text-muted-foreground/45" />
+      <p className="mt-3 text-sm font-medium">{message}</p>
+      <p className="mt-1 text-xs text-muted-foreground">As reservas correspondentes aparecerão aqui.</p>
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Minhas Reservas</h1>
-          <p className="text-sm text-muted-foreground">Acompanhe e gerencie suas reservas</p>
+          <h1 className="text-[28px] font-semibold tracking-tight sm:text-[30px]">Minhas reservas</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">Acompanhe solicitações, remarcações e histórico.</p>
         </div>
-        <Button onClick={() => navigate('/portal-cliente/nova-reserva')}>Nova Reserva</Button>
+        <Button onClick={() => navigate('/portal-cliente/nova-reserva')}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nova reserva
+        </Button>
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+        <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/35 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Carregando reservas...
+        </div>
       ) : (
-        <Tabs defaultValue="future">
-          <TabsList>
+        <Tabs defaultValue="future" className="space-y-4">
+          <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl border border-border/60 bg-muted/25 p-1 sm:w-[440px]">
             <TabsTrigger value="future">Futuras ({futureRes.length})</TabsTrigger>
             <TabsTrigger value="past">Passadas ({pastRes.length})</TabsTrigger>
             <TabsTrigger value="cancelled">Canceladas ({cancelledRes.length})</TabsTrigger>
           </TabsList>
-          <TabsContent value="future" className="space-y-2 mt-3">
-            {futureRes.length === 0
-              ? <p className="text-muted-foreground text-sm py-4">Você não tem reservas futuras.</p>
-              : futureRes.map(r => renderCard(r, { actions: true }))}
+
+          <TabsContent value="future" className="mt-0 space-y-2.5">
+            {futureRes.length === 0 ? emptyState('Você não tem reservas futuras') : futureRes.map(reservation => renderCard(reservation, { actions: true }))}
           </TabsContent>
-          <TabsContent value="past" className="space-y-2 mt-3">
-            {pastRes.length === 0
-              ? <p className="text-muted-foreground text-sm py-4">Sem reservas anteriores.</p>
-              : pastRes.map(r => renderCard(r))}
+          <TabsContent value="past" className="mt-0 space-y-2.5">
+            {pastRes.length === 0 ? emptyState('Sem reservas anteriores') : pastRes.map(reservation => renderCard(reservation))}
           </TabsContent>
-          <TabsContent value="cancelled" className="space-y-2 mt-3">
-            {cancelledRes.length === 0
-              ? <p className="text-muted-foreground text-sm py-4">Nenhuma reserva cancelada.</p>
-              : cancelledRes.map(r => renderCard(r))}
+          <TabsContent value="cancelled" className="mt-0 space-y-2.5">
+            {cancelledRes.length === 0 ? emptyState('Nenhuma reserva cancelada') : cancelledRes.map(reservation => renderCard(reservation))}
           </TabsContent>
         </Tabs>
       )}
 
-      <Dialog open={!!rescheduling} onOpenChange={v => { if (!v) setRescheduling(null); }}>
-        <DialogContent>
+      <Dialog open={!!rescheduling} onOpenChange={open => { if (!open) setRescheduling(null); }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Remarcar reserva</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Sala: <strong>{rescheduling?.room?.name}</strong>. A reserva atual será cancelada e uma nova ficará pendente de aprovação.
-            </p>
-            <div>
-              <Label>Nova data</Label>
-              <Input type="date" min={new Date().toISOString().split('T')[0]}
-                value={reschedForm.date}
-                onChange={e => setReschedForm(f => ({ ...f, date: e.target.value }))} />
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3 text-sm">
+              <p className="font-medium">{rescheduling?.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Sala: {rescheduling?.room?.name || 'não informada'}. A reserva atual será cancelada e a nova ficará pendente de aprovação.
+              </p>
             </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Nova data</Label>
+              <Input
+                type="date"
+                min={new Date().toISOString().split('T')[0]}
+                value={reschedForm.date}
+                onChange={event => setReschedForm(current => ({ ...current, date: event.target.value }))}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Início</Label>
-                <Input type="time" value={reschedForm.start_time}
-                  onChange={e => setReschedForm(f => ({ ...f, start_time: e.target.value }))} />
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Início</Label>
+                <Input type="time" value={reschedForm.start_time} onChange={event => setReschedForm(current => ({ ...current, start_time: event.target.value }))} />
               </div>
-              <div>
-                <Label>Término</Label>
-                <Input type="time" value={reschedForm.end_time}
-                  onChange={e => setReschedForm(f => ({ ...f, end_time: e.target.value }))} />
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Término</Label>
+                <Input type="time" value={reschedForm.end_time} onChange={event => setReschedForm(current => ({ ...current, end_time: event.target.value }))} />
               </div>
             </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setRescheduling(null)}>Voltar</Button>
-            <Button onClick={submitReschedule} disabled={submittingResched}>
-              {submittingResched && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button onClick={() => void submitReschedule()} disabled={submittingResched}>
+              {submittingResched && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Enviar remarcação
             </Button>
           </DialogFooter>
