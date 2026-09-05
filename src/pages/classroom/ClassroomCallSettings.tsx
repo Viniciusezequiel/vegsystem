@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, Check, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, Building2, AlertTriangle, MessageSquare, ChevronRight, Search, X } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   useClassroomCallRooms,
@@ -33,27 +35,16 @@ const CAMPUSES = ['Campus I', 'Campus II', 'Campus IV', 'Campus HUCM Adm'];
 
 export default function ClassroomCallSettings() {
   const [activeTab, setActiveTab] = useState('rooms');
-
-  // Rooms state
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomCampus, setNewRoomCampus] = useState('Campus I');
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-
-  // Issues state
   const [newIssueDesc, setNewIssueDesc] = useState('');
   const [bulkIssueRoomIds, setBulkIssueRoomIds] = useState<string[]>([]);
-
-  // Filter state
   const [roomSearch, setRoomSearch] = useState('');
   const [campusFilter, setCampusFilter] = useState<string>('all');
-
-  // Responses state
   const [newResponseMsg, setNewResponseMsg] = useState('');
-
-  // Edit dialog
   const [editDialog, setEditDialog] = useState<{ type: 'room' | 'issue' | 'response'; id: string; value: string; campus?: string } | null>(null);
 
-  // Data hooks
   const { data: rooms = [] } = useClassroomCallRooms();
   const { data: issues = [] } = useClassroomCallRoomIssues(selectedRoomId || undefined);
   const { data: responses = [] } = useClassroomCallResponses();
@@ -61,11 +52,9 @@ export default function ClassroomCallSettings() {
   const createRoom = useCreateClassroomCallRoom();
   const updateRoom = useUpdateClassroomCallRoom();
   const deleteRoom = useDeleteClassroomCallRoom();
-
   const createIssue = useCreateClassroomCallRoomIssue();
   const deleteIssue = useDeleteClassroomCallRoomIssue();
   const updateIssue = useUpdateClassroomCallRoomIssue();
-
   const createResponse = useCreateClassroomCallResponse();
   const deleteResponse = useDeleteClassroomCallResponse();
   const updateResponse = useUpdateClassroomCallResponse();
@@ -78,8 +67,8 @@ export default function ClassroomCallSettings() {
 
   const handleAddIssue = async () => {
     if (!newIssueDesc.trim()) return;
-    const targetRoomIds = bulkIssueRoomIds.length > 0 
-      ? [...new Set([selectedRoomId!, ...bulkIssueRoomIds])] 
+    const targetRoomIds = bulkIssueRoomIds.length > 0
+      ? [...new Set([selectedRoomId!, ...bulkIssueRoomIds])]
       : (selectedRoomId ? [selectedRoomId] : []);
     if (targetRoomIds.length === 0) return;
     for (const roomId of targetRoomIds) {
@@ -123,18 +112,20 @@ export default function ClassroomCallSettings() {
     });
   }, [rooms, roomSearch, campusFilter]);
 
+  const hasRoomFilters = roomSearch || campusFilter !== 'all';
+
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-5">
         <ClassroomCallsModuleNav />
 
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Configurações de Chamados</h1>
-          <p className="text-muted-foreground">Gerencie salas, problemas e respostas pré-definidas</p>
-        </div>
+        <PageHeader
+          title="Configurações de Chamados"
+          description="Gerencie salas, problemas e respostas pré-definidas"
+        />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-xl border border-border/60 bg-card/65 p-1 sm:w-fit sm:min-w-[320px]">
             <TabsTrigger value="rooms" className="gap-2">
               <Building2 className="h-4 w-4" />
               Salas
@@ -145,33 +136,25 @@ export default function ClassroomCallSettings() {
             </TabsTrigger>
           </TabsList>
 
-          {/* ROOMS TAB */}
-          <TabsContent value="rooms" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Rooms List */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Salas Cadastradas</CardTitle>
+          <TabsContent value="rooms" className="mt-0 space-y-4">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Card className="border-border/60 bg-card/65">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Salas Cadastradas</CardTitle>
                   <CardDescription>Salas que aparecem no formulário externo</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Add Room Form */}
-                  <div className="flex gap-2">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_170px_auto]">
                     <Input
                       placeholder="Nome da sala..."
                       value={newRoomName}
                       onChange={(e) => setNewRoomName(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddRoom()}
-                      className="flex-1"
                     />
                     <Select value={newRoomCampus} onValueChange={setNewRoomCampus}>
-                      <SelectTrigger className="w-[160px]">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {CAMPUSES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
+                        {CAMPUSES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Button onClick={handleAddRoom} disabled={!newRoomName.trim() || createRoom.isPending}>
@@ -179,33 +162,36 @@ export default function ClassroomCallSettings() {
                     </Button>
                   </div>
 
-                  {/* Filters */}
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <div className="grid gap-2 sm:grid-cols-[1fr_170px_auto]">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         placeholder="Buscar sala..."
                         value={roomSearch}
                         onChange={(e) => setRoomSearch(e.target.value)}
-                        className="pl-8"
+                        className="pl-9"
                       />
                     </div>
                     <Select value={campusFilter} onValueChange={setCampusFilter}>
-                      <SelectTrigger className="w-[160px]">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos os campus</SelectItem>
-                        {CAMPUSES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
+                        {CAMPUSES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    {hasRoomFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setRoomSearch(''); setCampusFilter('all'); }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
 
-                  {/* Rooms Table */}
                   {filteredRooms.length > 0 ? (
-                    <div className="border rounded-lg">
+                    <div className="overflow-hidden rounded-lg border border-border/60">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -219,7 +205,7 @@ export default function ClassroomCallSettings() {
                           {filteredRooms.map((room) => (
                             <TableRow
                               key={room.id}
-                              className={`cursor-pointer ${selectedRoomId === room.id ? 'bg-primary/5' : ''}`}
+                              className={`cursor-pointer ${selectedRoomId === room.id ? 'bg-primary/[0.06]' : ''}`}
                               onClick={() => setSelectedRoomId(room.id)}
                             >
                               <TableCell className="font-medium">
@@ -228,9 +214,7 @@ export default function ClassroomCallSettings() {
                                   {selectedRoomId === room.id && <ChevronRight className="h-3 w-3 text-primary" />}
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{room.campus}</Badge>
-                              </TableCell>
+                              <TableCell><Badge variant="outline">{room.campus}</Badge></TableCell>
                               <TableCell>
                                 <Switch
                                   checked={room.is_active}
@@ -285,19 +269,20 @@ export default function ClassroomCallSettings() {
                       </Table>
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Building2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                      <p>{rooms.length > 0 ? 'Nenhuma sala encontrada com os filtros aplicados' : 'Nenhuma sala cadastrada'}</p>
-                    </div>
+                    <ContentState
+                      icon={Building2}
+                      title={rooms.length > 0 ? 'Nenhuma sala encontrada' : 'Nenhuma sala cadastrada'}
+                      description={rooms.length > 0 ? 'Ajuste a busca ou o filtro de campus.' : 'Cadastre uma sala para disponibilizá-la no formulário externo.'}
+                      className="min-h-[150px]"
+                    />
                   )}
                 </CardContent>
               </Card>
 
-              {/* Room Issues */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5" />
+              <Card className="border-border/60 bg-card/65">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <AlertTriangle className="h-4 w-4" />
                     Problemas da Sala
                   </CardTitle>
                   <CardDescription>
@@ -309,7 +294,6 @@ export default function ClassroomCallSettings() {
                 <CardContent className="space-y-4">
                   {selectedRoomId ? (
                     <>
-                      {/* Add Issue Form with multi-room option */}
                       <div className="space-y-3">
                         <div className="flex gap-2">
                           <Input
@@ -324,17 +308,14 @@ export default function ClassroomCallSettings() {
                           </Button>
                         </div>
 
-                        {/* Multi-room selector */}
                         {newIssueDesc.trim() && (
-                          <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Adicionar também em outras salas:
-                            </p>
-                            <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto">
+                          <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+                            <p className="text-xs font-medium text-muted-foreground">Adicionar também em outras salas:</p>
+                            <div className="grid max-h-40 grid-cols-1 gap-1.5 overflow-y-auto">
                               {rooms.filter(r => r.id !== selectedRoomId).map((room) => (
                                 <div
                                   key={room.id}
-                                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded p-1"
+                                  className="flex cursor-pointer items-center gap-2 rounded p-1 text-sm hover:bg-muted/50"
                                   onClick={() => toggleBulkRoom(room.id)}
                                 >
                                   <Checkbox
@@ -343,30 +324,27 @@ export default function ClassroomCallSettings() {
                                     onCheckedChange={() => toggleBulkRoom(room.id)}
                                   />
                                   <span>{room.name}</span>
-                                  <Badge variant="outline" className="text-xs ml-auto">{room.campus}</Badge>
+                                  <Badge variant="outline" className="ml-auto text-xs">{room.campus}</Badge>
                                 </div>
                               ))}
                             </div>
                             {bulkIssueRoomIds.length > 0 && (
-                              <p className="text-xs text-primary">
-                                Será adicionado em {bulkIssueRoomIds.length + 1} sala(s) (incluindo a atual)
-                              </p>
+                              <p className="text-xs text-primary">Será adicionado em {bulkIssueRoomIds.length + 1} sala(s), incluindo a atual.</p>
                             )}
                           </div>
                         )}
                       </div>
 
-                      {/* Issues List */}
                       {issues.length > 0 ? (
                         <div className="space-y-2">
                           {issues.map((issue) => (
-                            <div key={issue.id} className="flex items-center justify-between p-3 border rounded-lg">
-                              <div className="flex items-center gap-2">
+                            <div key={issue.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/60 p-3">
+                              <div className="flex min-w-0 items-center gap-2">
                                 <Switch
                                   checked={issue.is_active}
                                   onCheckedChange={(checked) => updateIssue.mutate({ id: issue.id, is_active: checked })}
                                 />
-                                <span className={!issue.is_active ? 'text-muted-foreground line-through' : ''}>
+                                <span className={`truncate ${!issue.is_active ? 'text-muted-foreground line-through' : ''}`}>
                                   {issue.description}
                                 </span>
                               </div>
@@ -378,12 +356,7 @@ export default function ClassroomCallSettings() {
                                 >
                                   <Edit2 className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="text-destructive"
-                                  onClick={() => deleteIssue.mutate(issue.id)}
-                                >
+                                <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteIssue.mutate(issue.id)}>
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -391,35 +364,36 @@ export default function ClassroomCallSettings() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">Nenhum problema cadastrado para esta sala</p>
-                          <p className="text-xs mt-1">Os problemas aparecem como opções no formulário externo</p>
-                        </div>
+                        <ContentState
+                          icon={AlertTriangle}
+                          title="Nenhum problema cadastrado"
+                          description="Os problemas cadastrados aparecem como opções no formulário externo."
+                          className="min-h-[150px]"
+                        />
                       )}
                     </>
                   ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <ChevronRight className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Selecione uma sala ao lado</p>
-                    </div>
+                    <ContentState
+                      icon={ChevronRight}
+                      title="Selecione uma sala"
+                      description="Escolha uma sala ao lado para configurar seus tipos de problema."
+                      className="min-h-[180px]"
+                    />
                   )}
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          {/* RESPONSES TAB */}
-          <TabsContent value="responses">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Respostas Pré-definidas</CardTitle>
+          <TabsContent value="responses" className="mt-0">
+            <Card className="border-border/60 bg-card/65">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Respostas Pré-definidas</CardTitle>
                 <CardDescription>
-                  Mensagens que o colaborador pode enviar ao aceitar um chamado. O solicitante verá essa mensagem na tela de aguardando.
+                  Mensagens rápidas que o colaborador pode enviar ao aceitar um chamado.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Add Response Form */}
                 <div className="flex gap-2">
                   <Input
                     placeholder="Ex: Estou a caminho, aguarde 5 minutos..."
@@ -429,23 +403,22 @@ export default function ClassroomCallSettings() {
                     className="flex-1"
                   />
                   <Button onClick={handleAddResponse} disabled={!newResponseMsg.trim() || createResponse.isPending}>
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="mr-2 h-4 w-4" />
                     Adicionar
                   </Button>
                 </div>
 
-                {/* Responses List */}
                 {responses.length > 0 ? (
                   <div className="space-y-2">
                     {responses.map((resp) => (
-                      <div key={resp.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-2">
+                      <div key={resp.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/60 p-3">
+                        <div className="flex min-w-0 items-center gap-2">
                           <Switch
                             checked={resp.is_active}
                             onCheckedChange={(checked) => updateResponse.mutate({ id: resp.id, is_active: checked })}
                           />
-                          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                          <span className={!resp.is_active ? 'text-muted-foreground line-through' : ''}>
+                          <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className={`truncate ${!resp.is_active ? 'text-muted-foreground line-through' : ''}`}>
                             {resp.message}
                           </span>
                         </div>
@@ -457,12 +430,7 @@ export default function ClassroomCallSettings() {
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive"
-                            onClick={() => deleteResponse.mutate(resp.id)}
-                          >
+                          <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteResponse.mutate(resp.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -470,11 +438,12 @@ export default function ClassroomCallSettings() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                    <p>Nenhuma resposta cadastrada</p>
-                    <p className="text-xs mt-1">Adicione mensagens como "Estou a caminho" ou "Aguarde 5 minutos"</p>
-                  </div>
+                  <ContentState
+                    icon={MessageSquare}
+                    title="Nenhuma resposta cadastrada"
+                    description="Adicione mensagens rápidas como “Estou a caminho” ou “Aguarde 5 minutos”."
+                    className="min-h-[160px]"
+                  />
                 )}
               </CardContent>
             </Card>
@@ -482,7 +451,6 @@ export default function ClassroomCallSettings() {
         </Tabs>
       </div>
 
-      {/* Edit Dialog */}
       <Dialog open={!!editDialog} onOpenChange={(open) => !open && setEditDialog(null)}>
         <DialogContent>
           <DialogHeader>
@@ -505,13 +473,9 @@ export default function ClassroomCallSettings() {
                   value={editDialog.campus || 'Campus I'}
                   onValueChange={(v) => setEditDialog(prev => prev ? { ...prev, campus: v } : null)}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CAMPUSES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
+                    {CAMPUSES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
