@@ -1,11 +1,13 @@
 import { useSearchParams } from 'react-router-dom';
+import { Settings as SettingsIcon, Shield, Users as UsersIcon } from 'lucide-react';
+
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, Users as UsersIcon, Shield } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import Permissions from '@/pages/Permissions';
 import Settings from '@/pages/Settings';
 import Users from '@/pages/Users';
-import Permissions from '@/pages/Permissions';
-import { useAuth } from '@/contexts/AuthContext';
 
 const VALID = ['configuracoes', 'usuarios', 'permissoes'];
 
@@ -16,46 +18,45 @@ export default function SystemAdmin() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Administração do Sistema</h1>
-          <p className="text-muted-foreground">
-            Configurações, usuários e permissões reunidos em um único módulo.
-          </p>
-        </div>
+      <PageHeader
+        title="Administração do Sistema"
+        description="Configurações, usuários e permissões reunidos em uma única área administrativa."
+      />
 
-        <Tabs value={tab} onValueChange={(v) => setParams({ tab: v })}>
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="configuracoes">
-              <SettingsIcon className="mr-2 h-4 w-4" /> Configurações
+      <Tabs value={tab} onValueChange={value => setParams({ tab: value })} className="space-y-4">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-xl border border-border/60 bg-muted/25 p-1 sm:w-fit sm:grid-cols-3">
+          <TabsTrigger value="configuracoes" className="min-w-[150px]">
+            <SettingsIcon className="mr-2 h-4 w-4" />
+            Configurações
+          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="usuarios" className="min-w-[130px]">
+              <UsersIcon className="mr-2 h-4 w-4" />
+              Usuários
             </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="usuarios">
-                <UsersIcon className="mr-2 h-4 w-4" /> Usuários
-              </TabsTrigger>
-            )}
-            {isAdmin && (
-              <TabsTrigger value="permissoes">
-                <Shield className="mr-2 h-4 w-4" /> Permissões
-              </TabsTrigger>
-            )}
-          </TabsList>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="permissoes" className="min-w-[145px]">
+              <Shield className="mr-2 h-4 w-4" />
+              Permissões
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-          <TabsContent value="configuracoes" className="pt-4">
-            <Settings embedded />
+        <TabsContent value="configuracoes" className="mt-0">
+          <Settings embedded />
+        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="usuarios" className="mt-0">
+            <Users embedded />
           </TabsContent>
-          {isAdmin && (
-            <TabsContent value="usuarios" className="pt-4">
-              <Users embedded />
-            </TabsContent>
-          )}
-          {isAdmin && (
-            <TabsContent value="permissoes" className="pt-4">
-              <Permissions embedded />
-            </TabsContent>
-          )}
-        </Tabs>
-      </div>
+        )}
+        {isAdmin && (
+          <TabsContent value="permissoes" className="mt-0">
+            <Permissions embedded />
+          </TabsContent>
+        )}
+      </Tabs>
     </MainLayout>
   );
 }
