@@ -21,22 +21,9 @@ import {
   Building2,
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
-
-function StatCard({ icon: Icon, label, value, color }: any) {
-  return (
-    <Card>
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${color}`}>
-          <Icon className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="text-xl font-bold">{value}</div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
+import { StatCard } from '@/components/dashboard/StatCard';
 
 export default function SemesterDashboard() {
   const { data: competencies = [] } = useCompetencies();
@@ -63,73 +50,100 @@ export default function SemesterDashboard() {
       byCategory[i.category] = (byCategory[i.category] ?? 0) + (i.quantity ?? 1);
     });
 
-    return { totalRooms, totalItems, totalFurniture, internal, external, pendingTicket, openedTickets, completed, byCategory };
+    return {
+      totalRooms,
+      totalItems,
+      totalFurniture,
+      internal,
+      external,
+      pendingTicket,
+      openedTickets,
+      completed,
+      byCategory,
+    };
   }, [checklists, items, furniture]);
 
-  return (<MainLayout>
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard — Checklist Semestral</h1>
-          <p className="text-sm text-muted-foreground">Indicadores de manutenção por competência.</p>
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        <PageHeader
+          title="Dashboard — Checklist Semestral"
+          description="Indicadores de manutenção por competência"
+          actions={
+            <div className="w-full sm:w-72">
+              <Select value={competencyId} onValueChange={setCompetencyId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas competências</SelectItem>
+                  {competencies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          }
+        />
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <StatCard title="Salas vistoriadas" value={stats.totalRooms} icon={<Building2 className="h-5 w-5" />} />
+          <StatCard title="Itens levantados" value={stats.totalItems} icon={<ClipboardCheck className="h-5 w-5" />} />
+          <StatCard title="Carteiras/cadeiras" value={stats.totalFurniture} icon={<Armchair className="h-5 w-5" />} />
+          <StatCard title="Etiquetas geradas" value={labels.length} icon={<Tag className="h-5 w-5" />} />
+          <StatCard title="Manutenções internas" value={stats.internal} icon={<Wrench className="h-5 w-5" />} />
+          <StatCard title="Manutenções externas" value={stats.external} icon={<Wrench className="h-5 w-5" />} />
+          <StatCard title="Pendentes de chamado" value={stats.pendingTicket} icon={<AlertTriangle className="h-5 w-5" />} />
+          <StatCard title="Chamados abertos" value={stats.openedTickets} icon={<Inbox className="h-5 w-5" />} />
+          <StatCard title="Concluídos / Baixados" value={stats.completed} icon={<CheckCircle2 className="h-5 w-5" />} />
         </div>
-        <div className="w-72">
-          <Select value={competencyId} onValueChange={setCompetencyId}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas competências</SelectItem>
-              {competencies.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={Building2} label="Salas vistoriadas" value={stats.totalRooms} color="bg-blue-500" />
-        <StatCard icon={ClipboardCheck} label="Itens levantados" value={stats.totalItems} color="bg-emerald-500" />
-        <StatCard icon={Armchair} label="Carteiras/cadeiras" value={stats.totalFurniture} color="bg-amber-500" />
-        <StatCard icon={Tag} label="Etiquetas geradas" value={labels.length} color="bg-violet-500" />
-        <StatCard icon={Wrench} label="Manutenções internas" value={stats.internal} color="bg-indigo-500" />
-        <StatCard icon={Wrench} label="Manutenções externas" value={stats.external} color="bg-pink-500" />
-        <StatCard icon={AlertTriangle} label="Pendentes de chamado" value={stats.pendingTicket} color="bg-orange-500" />
-        <StatCard icon={Inbox} label="Chamados abertos" value={stats.openedTickets} color="bg-cyan-600" />
-        <StatCard icon={CheckCircle2} label="Concluídos / Baixados" value={stats.completed} color="bg-green-600" />
-      </div>
-
-      <Card>
-        <CardHeader><CardTitle>Itens por categoria</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(stats.byCategory).map(([cat, qty]) => (
-              <Badge key={cat} variant={qty > 0 ? 'default' : 'outline'} className="text-sm">
-                {cat}: {qty}
-              </Badge>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Distribuição por status</CardTitle></CardHeader>
-        <CardContent>
-          {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem dados.</p>
-          ) : (
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Itens por categoria</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="flex flex-wrap gap-2">
-              {Object.entries(
-                items.reduce<Record<string, number>>((acc, i) => {
-                  acc[i.status] = (acc[i.status] ?? 0) + 1;
-                  return acc;
-                }, {}),
-              ).map(([s, q]) => (
-                <Badge key={s} variant="secondary" className="text-sm">{statusLabel(s)}: {q}</Badge>
+              {Object.entries(stats.byCategory).map(([cat, qty]) => (
+                <Badge key={cat} variant={qty > 0 ? 'default' : 'outline'} className="text-sm">
+                  {cat}: {qty}
+                </Badge>
               ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  </MainLayout>);
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Distribuição por status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {items.length === 0 ? (
+              <ContentState
+                icon={Inbox}
+                title="Sem dados nesta competência"
+                description="Os indicadores aparecerão assim que houver itens levantados."
+                className="min-h-[140px]"
+              />
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(
+                  items.reduce<Record<string, number>>((acc, i) => {
+                    acc[i.status] = (acc[i.status] ?? 0) + 1;
+                    return acc;
+                  }, {}),
+                ).map(([s, q]) => (
+                  <Badge key={s} variant="secondary" className="text-sm">
+                    {statusLabel(s)}: {q}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </MainLayout>
+  );
 }
