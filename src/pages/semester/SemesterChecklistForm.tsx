@@ -52,6 +52,8 @@ import { ArrowLeft, Plus, Trash2, Armchair, Save, ShieldAlert, CheckCircle2, Cir
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
 
 function useRooms() {
   return useQuery({
@@ -102,13 +104,13 @@ export default function SemesterChecklistForm() {
   }, [existing, profile, released]);
 
   const competenciesAvailable = isAdmin ? allComps : released;
-
   const room = rooms.find((r) => r.id === roomId);
 
   const saveHeader = async () => {
     if (!competencyId) return toast.error('Selecione uma competência');
     if (!roomId && !existing) return toast.error('Selecione uma sala');
     if (!responsible.trim()) return toast.error('Informe o responsável');
+
     const basePayload: any = {
       competency_id: competencyId,
       room_id: roomId || existing?.room_id || null,
@@ -120,6 +122,7 @@ export default function SemesterChecklistForm() {
       checklist_date: date,
       general_observation: observation || null,
     };
+
     try {
       if (isNew) {
         const payload = {
@@ -131,7 +134,6 @@ export default function SemesterChecklistForm() {
         toast.success('Levantamento criado');
         navigate(`/semester/${created.id}`, { replace: true });
       } else if (id) {
-        // Never overwrite creator on updates
         await update.mutateAsync({ id, patch: basePayload });
         toast.success('Levantamento atualizado');
       }
@@ -140,97 +142,114 @@ export default function SemesterChecklistForm() {
     }
   };
 
-  if (!isNew && !existing) return <div className="p-8 text-muted-foreground">Carregando...</div>;
+  if (!isNew && !existing) {
+    return (
+      <MainLayout>
+        <ContentState
+          loading
+          title="Carregando levantamento"
+          description="Preparando os dados do checklist semestral."
+        />
+      </MainLayout>
+    );
+  }
 
   const releasedSelected = competenciesAvailable.find((c) => c.id === competencyId);
   const currentUserId = profile?.user_id ?? null;
-  const fillerLocked =
-    !!existing?.filled_by_id && !isAdmin && existing.filled_by_id !== currentUserId;
-  const canEditItems =
-    (isAdmin || releasedSelected?.status === 'released') && !fillerLocked;
+  const fillerLocked = !!existing?.filled_by_id && !isAdmin && existing.filled_by_id !== currentUserId;
+  const canEditItems = (isAdmin || releasedSelected?.status === 'released') && !fillerLocked;
 
   return (
     <MainLayout>
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={() => navigate('/semester')}><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</Button>
-        <Button onClick={saveHeader} disabled={create.isPending || update.isPending}>
-          <Save className="h-4 w-4 mr-1" /> {isNew ? 'Criar levantamento' : 'Salvar cabeçalho'}
-        </Button>
+      <div className="mx-auto max-w-6xl space-y-5">
+        <PageHeader
+          title={isNew ? 'Novo Levantamento Semestral' : existing?.room_name ? `Checklist Semestral — ${existing.room_name}` : 'Checklist Semestral'}
+          description={isNew ? 'Cadastre a sala e inicie o levantamento' : 'Revise os dados, itens, projetores e andamento do levantamento'}
+          actions={
+            <>
+              <Button variant="outline" onClick={() => navigate('/semester')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Button>
+              <Button onClick={saveHeader} disabled={create.isPending || update.isPending}>
+                <Save className="mr-2 h-4 w-4" />
+                {isNew ? 'Criar levantamento' : 'Salvar cabeçalho'}
+              </Button>
+            </>
+          }
+        />
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Dados do levantamento</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div>
+              <Label>Competência *</Label>
+              <Select value={competencyId} onValueChange={setCompetencyId}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {competenciesAvailable.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {competenciesAvailable.length === 0 && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-orange-600">
+                  <ShieldAlert className="h-3 w-3" /> Nenhuma competência liberada no momento.
+                </p>
+              )}
+            </div>
+            <div>
+              <Label>Sala *</Label>
+              <Select value={roomId} onValueChange={setRoomId} disabled={!isNew}>
+                <SelectTrigger><SelectValue placeholder="Selecione a sala" /></SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r: any) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name} {r.code ? `(${r.code})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {existing && !isNew && (
+                <p className="mt-1 text-xs text-muted-foreground">{existing.room_name} — {existing.campus}</p>
+              )}
+            </div>
+            <div>
+              <Label>Responsável *</Label>
+              <Input value={responsible} onChange={(e) => setResponsible(e.target.value)} />
+            </div>
+            <div>
+              <Label>Data *</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {!isNew && existing && (
+          <>
+            <ChecklistPeopleCard checklist={existing} locked={fillerLocked} />
+            <OverallProgressCard checklist={existing} />
+            <ItemsSection checklist={existing} canEdit={canEditItems} />
+            <ProjectorsSection checklist={existing} canEdit={canEditItems} />
+          </>
+        )}
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Observação geral</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={observation}
+              onChange={(e) => setObservation(e.target.value)}
+              rows={3}
+              placeholder="Anotações gerais sobre este levantamento"
+            />
+          </CardContent>
+        </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Dados do levantamento</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <Label>Competência *</Label>
-            <Select value={competencyId} onValueChange={setCompetencyId}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {competenciesAvailable.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {competenciesAvailable.length === 0 && (
-              <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
-                <ShieldAlert className="h-3 w-3" /> Nenhuma competência liberada no momento.
-              </p>
-            )}
-          </div>
-          <div>
-            <Label>Sala *</Label>
-            <Select value={roomId} onValueChange={setRoomId} disabled={!isNew}>
-              <SelectTrigger><SelectValue placeholder="Selecione a sala" /></SelectTrigger>
-              <SelectContent>
-                {rooms.map((r: any) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name} {r.code ? `(${r.code})` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {existing && !isNew && (
-              <p className="text-xs text-muted-foreground mt-1">{existing.room_name} — {existing.campus}</p>
-            )}
-          </div>
-          <div>
-            <Label>Responsável *</Label>
-            <Input value={responsible} onChange={(e) => setResponsible(e.target.value)} />
-          </div>
-          <div>
-            <Label>Data *</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {!isNew && existing && (
-        <>
-          <ChecklistPeopleCard checklist={existing} locked={fillerLocked} />
-          <OverallProgressCard checklist={existing} />
-          <ItemsSection checklist={existing} canEdit={canEditItems} />
-          <ProjectorsSection checklist={existing} canEdit={canEditItems} />
-        </>
-      )}
-
-      {/* Observação geral — sempre por último */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Observação geral</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={observation}
-            onChange={(e) => setObservation(e.target.value)}
-            rows={3}
-            placeholder="Anotações gerais sobre este levantamento"
-          />
-        </CardContent>
-      </Card>
-    </div>
     </MainLayout>
   );
 }
@@ -269,14 +288,14 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-3">
+    <Card className="border-border/60 bg-card/65">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex flex-col gap-1 text-base sm:flex-row sm:items-center sm:justify-between">
           <span>Itens por categoria</span>
           <span className="text-sm font-normal text-muted-foreground">{doneCount}/{SEMESTER_CATEGORIES.length} categorias revisadas ({progress}%)</span>
         </CardTitle>
-        <Progress value={progress} className="h-2 mt-2" />
-        <p className="text-xs text-muted-foreground mt-1">
+        <Progress value={progress} className="mt-2 h-2" />
+        <p className="mt-1 text-xs text-muted-foreground">
           Entre em cada categoria e adicione itens ou marque como "em conformidade" para concluir o levantamento.
         </p>
       </CardHeader>
@@ -287,9 +306,9 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
             const isConfirmed = confirmed.includes(cat);
             const hasItems = grouped[cat].length > 0;
             return (
-              <AccordionItem key={cat} value={cat}>
+              <AccordionItem key={cat} value={cat} className="border-border/60">
                 <AccordionTrigger>
-                  <span className="flex items-center gap-2">
+                  <span className="flex flex-wrap items-center gap-2">
                     {done ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     ) : (
@@ -298,7 +317,7 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
                     {cat}
                     {hasItems && <Badge variant="secondary">{grouped[cat].length}</Badge>}
                     {isConfirmed && !hasItems && (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
                         Em conformidade
                       </Badge>
                     )}
@@ -306,7 +325,7 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
                 </AccordionTrigger>
                 <AccordionContent>
                   {canEdit && !hasItems && (
-                    <div className="flex items-center justify-between gap-3 mb-3 p-3 rounded-md border bg-muted/30">
+                    <div className="mb-3 flex flex-col gap-3 rounded-md border border-border/60 bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="text-sm">
                         {isConfirmed
                           ? 'Categoria marcada como em conformidade (nada a incluir).'
@@ -329,13 +348,12 @@ function ItemsSection({ checklist, canEdit }: { checklist: any; canEdit: boolean
                     canEdit={canEdit}
                     stampFiller={stampFiller}
                   />
-
                 </AccordionContent>
               </AccordionItem>
             );
           })}
         </Accordion>
-        {isLoading && <div className="text-sm text-muted-foreground mt-3">Carregando...</div>}
+        {isLoading && <ContentState loading title="Carregando itens" className="mt-3 min-h-[110px]" />}
       </CardContent>
     </Card>
   );
@@ -357,11 +375,9 @@ function CategoryEditor({
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
-
   const { data: allOptions = [] } = useItemOptions();
   const baseItems = useMemo(() => {
     const fromDb = allOptions.filter((o) => o.category === category).map((o) => o.label);
-    // Fall back to constants only when the database has no options for this category yet
     const fromConst = fromDb.length === 0 ? (SEMESTER_BASE_ITEMS[category] ?? []) : [];
     return Array.from(new Set([...fromDb, ...fromConst]));
   }, [category, allOptions]);
@@ -373,7 +389,7 @@ function CategoryEditor({
     quantity: 1,
     maintenance_type: 'internal' as 'internal' | 'external',
     needs_ticket: false,
-    needs_label: isFurnitureCategory, // Mobiliário sempre gera etiqueta por padrão
+    needs_label: isFurnitureCategory,
     observation: '',
   });
 
@@ -422,13 +438,13 @@ function CategoryEditor({
 
       {canEdit && !adding && (
         <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Adicionar item
+          <Plus className="mr-1 h-4 w-4" /> Adicionar item
         </Button>
       )}
 
       {adding && (
-        <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <Label>Item</Label>
               <Select value={form.item_name} onValueChange={(v) => setForm({ ...form, item_name: v })}>
@@ -518,10 +534,10 @@ function ItemRow({
   const isFurnitureRelevant = category === 'Mobiliário';
 
   return (
-    <div className="border rounded-lg p-3 bg-card">
+    <div className="rounded-lg border border-border/60 bg-card/70 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h4 className="font-medium">{item.item_name}</h4>
             <Badge variant="secondary">{item.quantity}x</Badge>
             {item.maintenance_type && (
@@ -531,12 +547,12 @@ function ItemRow({
             {item.needs_ticket && <Badge variant="outline">Chamado</Badge>}
             {item.needs_label && <Badge variant="outline">Etiqueta</Badge>}
           </div>
-          {item.observation && <p className="text-sm text-muted-foreground mt-1">{item.observation}</p>}
+          {item.observation && <p className="mt-1 text-sm text-muted-foreground">{item.observation}</p>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {isFurnitureRelevant && (
             <Button size="sm" variant="outline" onClick={() => setOpenFurniture(true)}>
-              <Armchair className="h-4 w-4 mr-1" /> Detalhar
+              <Armchair className="mr-1 h-4 w-4" /> Detalhar
             </Button>
           )}
           {canEdit && (
@@ -593,7 +609,6 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
     observation: '',
   });
 
-  // Sincroniza defaults quando as opções chegam do banco
   useEffect(() => {
     setForm((f) => ({
       ...f,
@@ -602,7 +617,6 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeOptions.join('|'), problemOptions.join('|')]);
-
 
   const toggleProblem = (p: string) => {
     setForm((f) => ({
@@ -628,7 +642,6 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
   const totals = useMemo(() => {
     const byProblem: Record<string, number> = {};
     details.forEach((d) => {
-      // problem_type pode conter múltiplos problemas separados por " + " ou ","
       const parts = (d.problem_type || '').split(/\s*\+\s*|\s*,\s*/).filter(Boolean);
       parts.forEach((p) => {
         byProblem[p] = (byProblem[p] ?? 0) + d.quantity;
@@ -639,13 +652,13 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalhamento de carteiras/cadeiras</DialogTitle>
         </DialogHeader>
 
         {Object.keys(totals).length > 0 && (
-          <div className="rounded-lg bg-muted/50 p-3 flex flex-wrap gap-2 text-sm">
+          <div className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
             <span className="font-medium">Totais por problema:</span>
             {Object.entries(totals).map(([p, q]) => (
               <Badge key={p} variant="secondary">{p}: {q}</Badge>
@@ -653,24 +666,24 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
           </div>
         )}
 
-        <div className="divide-y border rounded">
+        <div className="divide-y divide-border/60 rounded-lg border border-border/60">
           {details.length === 0 && <div className="p-3 text-sm text-muted-foreground">Nenhum detalhe.</div>}
           {details.map((d) => {
             const probs = (d.problem_type || '').split(/\s*\+\s*|\s*,\s*/).filter(Boolean);
             return (
-              <div key={d.id} className="p-3 flex items-start justify-between gap-2">
-                <div className="text-sm flex-1">
-                  <div className="flex items-center flex-wrap gap-1.5">
+              <div key={d.id} className="flex items-start justify-between gap-2 p-3">
+                <div className="flex-1 text-sm">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <strong>{d.quantity}x</strong>
                     <span>{d.item_type}</span>
                     <Badge variant="outline">{d.maintenance_type === 'internal' ? 'Interna' : 'Externa'}</Badge>
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-1.5">
+                  <div className="mt-1.5 flex flex-wrap gap-1">
                     {probs.map((p) => (
                       <Badge key={p} variant="secondary" className="text-[11px]">{p}</Badge>
                     ))}
                   </div>
-                  {d.observation && <p className="text-xs text-muted-foreground mt-1">{d.observation}</p>}
+                  {d.observation && <p className="mt-1 text-xs text-muted-foreground">{d.observation}</p>}
                 </div>
                 {canEdit && (
                   <Button size="sm" variant="destructive" onClick={() => del.mutate(d.id)}>
@@ -683,8 +696,8 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
         </div>
 
         {canEdit && (
-          <div className="border rounded p-3 space-y-3 bg-muted/30">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
                 <Label>Tipo</Label>
                 <Select value={form.item_type} onValueChange={(v) => setForm({ ...form, item_type: v })}>
@@ -711,14 +724,14 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
 
             <div>
               <Label>Problemas (selecione um ou mais)</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1 p-3 border rounded bg-background">
+              <div className="mt-1 grid grid-cols-2 gap-2 rounded-md border border-border/60 bg-background p-3 md:grid-cols-3">
                 {problemOptions.length === 0 && (
                   <p className="col-span-full text-xs text-muted-foreground">
                     Nenhuma opção cadastrada. Peça ao administrador para adicionar em "Opções de Itens → Mobiliário — Problemas".
                   </p>
                 )}
                 {problemOptions.map((p) => (
-                  <label key={p} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <label key={p} className="flex cursor-pointer items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       className="h-4 w-4"
@@ -730,11 +743,9 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
                 ))}
               </div>
               {form.problems.length > 1 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Os problemas selecionados aparecerão juntos na mesma etiqueta.
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Os problemas selecionados aparecerão juntos na mesma etiqueta.</p>
               )}
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Para incluir/editar/remover opções, acesse "Opções de Itens" na tela principal do Checklist Semestral (somente admin).
               </p>
             </div>
@@ -744,7 +755,9 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
               <Textarea rows={2} value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} />
             </div>
             <div className="flex justify-end">
-              <Button size="sm" onClick={submit} disabled={create.isPending}><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
+              <Button size="sm" onClick={submit} disabled={create.isPending}>
+                <Plus className="mr-1 h-4 w-4" /> Adicionar
+              </Button>
             </div>
           </div>
         )}
@@ -757,7 +770,6 @@ function FurnitureDialog({ itemId, canEdit, onClose }: { itemId: string; canEdit
   );
 }
 
-// ============ PROJECTORS SECTION ============
 const PROJECTOR_ACTIONS = [
   'Limpeza do filtro',
   'Troca do filtro',
@@ -827,14 +839,14 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Projector className="h-5 w-5" /> Check List de Projetores
+    <Card className="border-border/60 bg-card/65">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          <Projector className="h-4 w-4" /> Check List de Projetores
           {projectors.length > 0 && <Badge variant="secondary">{projectors.length}</Badge>}
           {projectorsDone && (
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-              <CheckCircle2 className="h-3 w-3 mr-1" /> Concluído
+            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+              <CheckCircle2 className="mr-1 h-3 w-3" /> Concluído
             </Badge>
           )}
         </CardTitle>
@@ -843,9 +855,9 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
+        {isLoading && <ContentState loading title="Carregando projetores" className="min-h-[110px]" />}
         {!isLoading && projectors.length === 0 && !adding && canEdit && (
-          <div className="flex items-center justify-between gap-3 p-3 rounded-md border bg-muted/30">
+          <div className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm">
               {projectorsConfirmed
                 ? 'Seção marcada como em conformidade (nenhum projetor a registrar).'
@@ -863,14 +875,14 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
         )}
 
         {projectors.map((p) => (
-          <div key={p.id} className="border rounded-lg p-3 flex items-start justify-between gap-3">
-            <div className="text-sm space-y-1 flex-1">
-              <div className="flex flex-wrap gap-2 items-center">
+          <div key={p.id} className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-card/70 p-3">
+            <div className="flex-1 space-y-1 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">Patrimônio: {p.patrimony || '—'}</Badge>
                 <Badge variant="outline">Modelo: {p.model || '—'}</Badge>
                 {typeof p.lamp_hours === 'number' && (
-                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                    <Lightbulb className="h-3 w-3 mr-1" /> {p.lamp_hours}h lâmpada
+                  <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                    <Lightbulb className="mr-1 h-3 w-3" /> {p.lamp_hours}h lâmpada
                   </Badge>
                 )}
               </div>
@@ -896,13 +908,13 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
 
         {canEdit && !adding && (
           <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Adicionar projetor
+            <Plus className="mr-1 h-4 w-4" /> Adicionar projetor
           </Button>
         )}
 
         {adding && (
-          <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
                 <Label>Patrimônio</Label>
                 <Input value={form.patrimony} onChange={(e) => setForm({ ...form, patrimony: e.target.value })} />
@@ -923,9 +935,9 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
             </div>
             <div>
               <Label>Tipo de manutenção realizada</Label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+              <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
                 {PROJECTOR_ACTIONS.map((act) => (
-                  <label key={act} className="flex items-center gap-2 text-sm border rounded-md p-2 cursor-pointer">
+                  <label key={act} className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
                     <Checkbox checked={form.actions.includes(act)} onCheckedChange={() => toggleAction(act)} />
                     {act}
                   </label>
@@ -945,7 +957,7 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setForm(emptyForm); }}>Cancelar</Button>
               <Button size="sm" onClick={submit} disabled={create.isPending}>
-                <Plus className="h-4 w-4 mr-1" /> Adicionar
+                <Plus className="mr-1 h-4 w-4" /> Adicionar
               </Button>
             </div>
           </div>
@@ -955,7 +967,6 @@ function ProjectorsSection({ checklist, canEdit }: { checklist: any; canEdit: bo
   );
 }
 
-// ============ FILLER TRACKING & OVERALL PROGRESS ============
 function useFillerStamp(checklist: any) {
   const { profile } = useAuth();
   const updateChecklist = useUpdateChecklist();
@@ -973,7 +984,6 @@ function useFillerStamp(checklist: any) {
         } as any,
       });
     } catch (e) {
-      // silent — non-critical
       console.warn('Failed to stamp filler', e);
     }
   };
@@ -981,8 +991,8 @@ function useFillerStamp(checklist: any) {
 
 function ChecklistPeopleCard({ checklist, locked }: { checklist: any; locked: boolean }) {
   return (
-    <Card>
-      <CardContent className="p-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+    <Card className="border-border/60 bg-card/65">
+      <CardContent className="flex flex-wrap gap-x-6 gap-y-2 p-4 text-sm">
         <div>
           <span className="text-muted-foreground">Criado por: </span>
           <strong>{checklist.created_by_name ?? '—'}</strong>
@@ -995,7 +1005,7 @@ function ChecklistPeopleCard({ checklist, locked }: { checklist: any; locked: bo
           )}
         </div>
         {locked && (
-          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
             Somente o preenchedor original (ou um admin) pode continuar este levantamento.
           </Badge>
         )}
@@ -1015,15 +1025,15 @@ function OverallProgressCard({ checklist }: { checklist: any }) {
     done: items.some((i) => i.category === cat) || confirmed.includes(cat),
   }));
   const doneCats = cats.filter((c) => c.done).length;
-  const total = SEMESTER_CATEGORIES.length + 1; // + projetores
+  const total = SEMESTER_CATEGORIES.length + 1;
   const done = doneCats + (projectorsDone ? 1 : 0);
   const pct = Math.round((done / total) * 100);
   const color = pct === 100 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-muted-foreground';
 
   return (
-    <Card>
+    <Card className="border-border/60 bg-card/65">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center justify-between gap-3">
+        <CardTitle className="flex flex-col gap-1 text-base sm:flex-row sm:items-center sm:justify-between">
           <span>Progresso geral do levantamento</span>
           <span className={`text-sm font-normal ${color}`}>{done}/{total} · {pct}%</span>
         </CardTitle>
@@ -1032,11 +1042,11 @@ function OverallProgressCard({ checklist }: { checklist: any }) {
         <Progress value={pct} className="h-2" />
         <div className="mt-3 flex flex-wrap gap-1.5">
           {cats.map(({ cat, done }) => (
-            <Badge key={cat} variant="outline" className={done ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}>
+            <Badge key={cat} variant="outline" className={done ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : ''}>
               {done ? '✓' : '○'} {cat}
             </Badge>
           ))}
-          <Badge variant="outline" className={projectorsDone ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}>
+          <Badge variant="outline" className={projectorsDone ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : ''}>
             {projectorsDone ? '✓' : '○'} Projetores
           </Badge>
         </div>
@@ -1044,4 +1054,3 @@ function OverallProgressCard({ checklist }: { checklist: any }) {
     </Card>
   );
 }
-
