@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -89,7 +91,7 @@ export default function RoomsList() {
     await createRoom.mutateAsync({
       name: data.name,
       campus: data.campus,
-      building: data.name, // Use room name as building for backwards compatibility
+      building: data.name,
       floor: data.floor || null,
       capacity: data.capacity || null,
       description: data.description || null,
@@ -107,153 +109,161 @@ export default function RoomsList() {
       <div className="space-y-6">
         <RoomsModuleNav />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Gestão de Salas</h1>
-            <p className="text-muted-foreground">Gerencie as salas e checklists</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <PdfExportButton
-              title="Relatório de Salas"
-              filename="salas"
-              columns={[
-                { header: 'Nome', accessor: 'name' },
-                { header: 'Campus', accessor: 'campus' },
-                { header: 'Andar', accessor: (row) => row.floor || '-' },
-                { header: 'Capacidade', accessor: (row) => row.capacity ? String(row.capacity) : '-' },
-              ]}
-              data={rooms || []}
-              filters={[
-                {
-                  label: 'Campus',
-                  key: 'campus',
-                  options: [
-                    { label: 'Campus I', value: 'Campus I' },
-                    { label: 'Campus II', value: 'Campus II' },
-                    { label: 'Campus IV', value: 'Campus IV' },
-                    { label: 'Campus HUCM Adm', value: 'Campus HUCM Adm' },
-                  ],
-                },
-              ]}
-            />
-            <Button asChild variant="outline">
-              <Link to="/rooms/checklists">
-                <ClipboardCheck className="mr-2 h-4 w-4" />
-                Ver Checklists
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link to="/rooms/checklist/new">
-                <ArrowRight className="mr-2 h-4 w-4" />
-                Novo Checklist
-              </Link>
-            </Button>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nova Sala
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Cadastrar Sala</DialogTitle>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nome da Sala *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ex: Sala 101" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="campus"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Campus *</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Campus I">Campus I</SelectItem>
-                              <SelectItem value="Campus II">Campus II</SelectItem>
-                              <SelectItem value="Campus IV">Campus IV</SelectItem>
-                              <SelectItem value="Campus HUCM Adm">Campus HUCM Adm</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="floor"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Andar</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Ex: 2º" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="capacity"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Capacidade</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="Nº pessoas" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                        Cancelar
-                      </Button>
-                      <Button type="submit" disabled={createRoom.isPending}>
-                        {createRoom.isPending ? 'Salvando...' : 'Cadastrar'}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
+        <PageHeader
+          title="Gestão de Salas"
+          description="Gerencie as salas e checklists"
+          actions={
+            <>
+              <PdfExportButton
+                title="Relatório de Salas"
+                filename="salas"
+                columns={[
+                  { header: 'Nome', accessor: 'name' },
+                  { header: 'Campus', accessor: 'campus' },
+                  { header: 'Andar', accessor: (row) => row.floor || '-' },
+                  { header: 'Capacidade', accessor: (row) => row.capacity ? String(row.capacity) : '-' },
+                ]}
+                data={rooms || []}
+                filters={[
+                  {
+                    label: 'Campus',
+                    key: 'campus',
+                    options: [
+                      { label: 'Campus I', value: 'Campus I' },
+                      { label: 'Campus II', value: 'Campus II' },
+                      { label: 'Campus IV', value: 'Campus IV' },
+                      { label: 'Campus HUCM Adm', value: 'Campus HUCM Adm' },
+                    ],
+                  },
+                ]}
+              />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" />
+              <Button asChild variant="outline">
+                <Link to="/rooms/checklists">
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Ver Checklists
+                </Link>
+              </Button>
+
+              <Button asChild variant="outline">
+                <Link to="/rooms/checklist/new">
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Novo Checklist
+                </Link>
+              </Button>
+
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nova Sala
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Cadastrar Sala</DialogTitle>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nome da Sala *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Sala 101" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="campus"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Campus *</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Campus I">Campus I</SelectItem>
+                                <SelectItem value="Campus II">Campus II</SelectItem>
+                                <SelectItem value="Campus IV">Campus IV</SelectItem>
+                                <SelectItem value="Campus HUCM Adm">Campus HUCM Adm</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="floor"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Andar</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Ex: 2º" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="capacity"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Capacidade</FormLabel>
+                              <FormControl>
+                                <Input type="number" placeholder="Nº pessoas" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={createRoom.isPending}>
+                          {createRoom.isPending ? 'Salvando...' : 'Cadastrar'}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </>
+          }
+        />
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building className="h-4 w-4" />
               Salas Cadastradas
             </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+              <ContentState loading title="Carregando salas" description="Buscando as salas cadastradas." />
             ) : rooms?.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Nenhuma sala cadastrada
-              </div>
+              <ContentState
+                icon={Building}
+                title="Nenhuma sala cadastrada"
+                description="Cadastre uma sala para começar a utilizar os checklists."
+              />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -268,12 +278,12 @@ export default function RoomsList() {
                   </TableHeader>
                   <TableBody>
                     {rooms?.map((room) => (
-                      <TableRow key={room.id}>
+                      <TableRow key={room.id} className="transition-colors hover:bg-muted/30">
                         <TableCell className="font-medium">
                           <div className="flex flex-col gap-1">
                             <span>{room.name}</span>
                             {room.checklist_items && room.checklist_items.length > 0 && (
-                              <Badge variant="secondary" className="text-xs w-fit">
+                              <Badge variant="secondary" className="w-fit text-xs">
                                 {room.checklist_items.length} item(s) específico(s)
                               </Badge>
                             )}
@@ -284,12 +294,8 @@ export default function RoomsList() {
                         <TableCell>{room.capacity || '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setEditingRoom(room)}
-                            >
-                              <Pencil className="h-4 w-4 mr-1" />
+                            <Button variant="outline" size="sm" onClick={() => setEditingRoom(room)}>
+                              <Pencil className="mr-1 h-4 w-4" />
                               Editar
                             </Button>
                             {isAdmin && (
@@ -303,8 +309,7 @@ export default function RoomsList() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      Tem certeza que deseja excluir a sala "{room.name}"?
-                                      Todos os checklists associados serão excluídos.
+                                      Tem certeza que deseja excluir a sala "{room.name}"? Todos os checklists associados serão excluídos.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
