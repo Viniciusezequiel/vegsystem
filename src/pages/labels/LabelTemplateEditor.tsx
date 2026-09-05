@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,9 +38,16 @@ const blankTemplate = (): Partial<LabelTemplate> => ({
   name: 'Novo modelo',
   page_size: 'A4',
   orientation: 'portrait',
-  page_margin_top: 10, page_margin_bottom: 10, page_margin_left: 10, page_margin_right: 10,
-  label_width: 60, label_height: 30, columns: 3, rows: 9,
-  horizontal_gap: 2, vertical_gap: 0,
+  page_margin_top: 10,
+  page_margin_bottom: 10,
+  page_margin_left: 10,
+  page_margin_right: 10,
+  label_width: 60,
+  label_height: 30,
+  columns: 3,
+  rows: 9,
+  horizontal_gap: 2,
+  vertical_gap: 0,
   fields: [],
 });
 
@@ -58,13 +67,18 @@ export default function LabelTemplateEditor() {
 
   const update = (patch: Partial<LabelTemplate>) => setTpl((p) => ({ ...p, ...patch }));
   const updateField = (fid: string, patch: Partial<LabelField>) => {
-    setTpl((p) => ({ ...p, fields: (p.fields || []).map((f) => (f.id === fid ? { ...f, ...patch } : f)) }));
+    setTpl((p) => ({
+      ...p,
+      fields: (p.fields || []).map((f) => (f.id === fid ? { ...f, ...patch } : f)),
+    }));
   };
+
   const addField = () => {
     const f = newField();
     setTpl((p) => ({ ...p, fields: [...(p.fields || []), f] }));
     setSelectedFieldId(f.id);
   };
+
   const removeField = (fid: string) => {
     setTpl((p) => ({ ...p, fields: (p.fields || []).filter((f) => f.id !== fid) }));
     if (selectedFieldId === fid) setSelectedFieldId(null);
@@ -77,6 +91,7 @@ export default function LabelTemplateEditor() {
       toast({ title: 'Informe o nome', variant: 'destructive' });
       return;
     }
+
     try {
       const saved: any = await save.mutateAsync(tpl as any);
       toast({ title: 'Modelo salvo' });
@@ -86,32 +101,53 @@ export default function LabelTemplateEditor() {
     }
   };
 
-  if (isLoading) return <MainLayout><p className="text-muted-foreground">Carregando...</p></MainLayout>;
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <ContentState
+          loading
+          title="Carregando modelo"
+          description="Preparando o editor de etiquetas."
+        />
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/labels')}><ArrowLeft className="h-4 w-4" /></Button>
-            <h1 className="text-2xl font-bold">{id ? 'Editar modelo' : 'Novo modelo'}</h1>
-          </div>
-          <Button onClick={handleSave} disabled={save.isPending}>
-            <Save className="h-4 w-4 mr-2" /> Salvar
-          </Button>
-        </div>
+      <div className="space-y-5">
+        <PageHeader
+          title={id ? 'Editar modelo de etiqueta' : 'Novo modelo de etiqueta'}
+          description="Configure a página, dimensões e campos que serão impressos"
+          actions={
+            <>
+              <Button variant="outline" onClick={() => navigate('/labels')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Button>
+              <Button onClick={handleSave} disabled={save.isPending}>
+                <Save className="mr-2 h-4 w-4" />
+                {save.isPending ? 'Salvando...' : 'Salvar modelo'}
+              </Button>
+            </>
+          }
+        />
 
-        <Tabs defaultValue="page">
-          <TabsList>
-            <TabsTrigger value="page">1. Página e Etiqueta</TabsTrigger>
+        <Tabs defaultValue="page" className="space-y-4">
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-xl border border-border/60 bg-card/65 p-1 sm:w-fit sm:min-w-[360px]">
+            <TabsTrigger value="page">1. Página e etiqueta</TabsTrigger>
             <TabsTrigger value="fields">2. Campos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="page" className="space-y-4">
-            <Card className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card className="grid gap-4 border-border/60 bg-card/65 p-4 md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
                 <Label>Nome do modelo</Label>
-                <Input value={tpl.name || ''} onChange={(e) => update({ name: e.target.value })} placeholder="Ex: Colacril CC182" />
+                <Input
+                  value={tpl.name || ''}
+                  onChange={(e) => update({ name: e.target.value })}
+                  placeholder="Ex: Colacril CC182"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Tamanho da página</Label>
@@ -149,36 +185,55 @@ export default function LabelTemplateEditor() {
           </TabsContent>
 
           <TabsContent value="fields" className="space-y-4">
-            <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-              <Card className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Editor visual da etiqueta</h3>
-                  <Button size="sm" onClick={addField}><Plus className="h-4 w-4 mr-1" /> Adicionar campo</Button>
+            <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
+              <Card className="space-y-3 border-border/60 bg-card/65 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">Editor visual da etiqueta</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Arraste os campos dentro da etiqueta para ajustar a posição.
+                    </p>
+                  </div>
+                  <Button size="sm" onClick={addField}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Adicionar campo
+                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Arraste os campos dentro da área da etiqueta para posicioná-los.</p>
-                <LabelCanvas
-                  tpl={tpl as LabelTemplate}
-                  selectedId={selectedFieldId}
-                  onSelect={setSelectedFieldId}
-                  onMove={(fid, x, y) => updateField(fid, { x, y })}
-                />
+
+                <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                  <LabelCanvas
+                    tpl={tpl as LabelTemplate}
+                    selectedId={selectedFieldId}
+                    onSelect={setSelectedFieldId}
+                    onMove={(fid, x, y) => updateField(fid, { x, y })}
+                  />
+                </div>
               </Card>
 
-              <Card className="p-4 space-y-3">
+              <Card className="space-y-3 border-border/60 bg-card/65 p-4">
                 {selectedField ? (
-                  <FieldEditor field={selectedField} onChange={(p) => updateField(selectedField.id, p)} onRemove={() => removeField(selectedField.id)} />
+                  <FieldEditor
+                    field={selectedField}
+                    onChange={(p) => updateField(selectedField.id, p)}
+                    onRemove={() => removeField(selectedField.id)}
+                  />
                 ) : (
-                  <p className="text-sm text-muted-foreground">Selecione um campo no editor para configurá-lo, ou adicione um novo campo.</p>
+                  <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-5 text-center">
+                    <p className="text-sm font-medium">Nenhum campo selecionado</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Selecione um campo no editor ou adicione um novo.
+                    </p>
+                  </div>
                 )}
 
                 {(tpl.fields || []).length > 0 && (
-                  <div className="pt-3 border-t space-y-1">
+                  <div className="space-y-1 border-t border-border/60 pt-3">
                     <p className="text-xs font-medium text-muted-foreground">Lista de campos</p>
                     {(tpl.fields || []).map((f) => (
                       <button
                         key={f.id}
                         onClick={() => setSelectedFieldId(f.id)}
-                        className={`w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent ${selectedFieldId === f.id ? 'bg-accent' : ''}`}
+                        className={`w-full rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent ${selectedFieldId === f.id ? 'bg-accent' : ''}`}
                       >
                         <span className="font-medium">{f.name}</span>
                         <span className="text-muted-foreground"> · coluna: {f.column || '—'}</span>
@@ -195,24 +250,47 @@ export default function LabelTemplateEditor() {
   );
 }
 
-function NumField({ label, value, onChange, step = 0.5 }: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
+function NumField({
+  label,
+  value,
+  onChange,
+  step = 0.5,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  step?: number;
+}) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input type="number" step={step} value={value ?? 0} onChange={(e) => onChange(Number(e.target.value))} />
+      <Input
+        type="number"
+        step={step}
+        value={value ?? 0}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
     </div>
   );
 }
 
 function PageOverview({ tpl }: { tpl: LabelTemplate }) {
   const { w: pageW, h: pageH } = getPageDims(tpl);
-  const scale = 1.6; // px per mm
+  const scale = 1.6;
+
   return (
-    <Card className="p-4">
-      <p className="text-sm font-medium mb-2">Pré-visualização da página</p>
-      <div className="overflow-auto">
+    <Card className="border-border/60 bg-card/65 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">Pré-visualização da página</p>
+          <p className="text-xs text-muted-foreground">
+            {tpl.columns} coluna(s) × {tpl.rows} linha(s)
+          </p>
+        </div>
+      </div>
+      <div className="overflow-auto rounded-lg border border-border/60 bg-muted/20 p-4">
         <div
-          className="relative bg-white border border-border shadow-sm"
+          className="relative mx-auto border border-border bg-white shadow-sm"
           style={{ width: pageW * scale, height: pageH * scale }}
         >
           {Array.from({ length: tpl.rows || 0 }).map((_, r) =>
@@ -223,7 +301,12 @@ function PageOverview({ tpl }: { tpl: LabelTemplate }) {
                 <div
                   key={`${r}-${c}`}
                   className="absolute border border-dashed border-primary/40 bg-primary/5"
-                  style={{ left: x, top: y, width: tpl.label_width * scale, height: tpl.label_height * scale }}
+                  style={{
+                    left: x,
+                    top: y,
+                    width: tpl.label_width * scale,
+                    height: tpl.label_height * scale,
+                  }}
                 />
               );
             })
@@ -235,14 +318,17 @@ function PageOverview({ tpl }: { tpl: LabelTemplate }) {
 }
 
 function LabelCanvas({
-  tpl, selectedId, onSelect, onMove,
+  tpl,
+  selectedId,
+  onSelect,
+  onMove,
 }: {
   tpl: LabelTemplate;
   selectedId: string | null;
   onSelect: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
 }) {
-  const scale = 4; // px per mm — large for editing
+  const scale = 4;
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: string; offX: number; offY: number } | null>(null);
 
@@ -257,22 +343,25 @@ function LabelCanvas({
       offY: e.clientY - f.y * scale,
     };
   };
+
   const onPointerMove = (e: React.PointerEvent) => {
     if (!drag.current || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
     let xMm = (e.clientX - drag.current.offX) / scale;
     let yMm = (e.clientY - drag.current.offY) / scale;
     xMm = Math.max(0, Math.min(tpl.label_width - 1, xMm));
     yMm = Math.max(0, Math.min(tpl.label_height - 1, yMm));
     onMove(drag.current.id, Math.round(xMm * 10) / 10, Math.round(yMm * 10) / 10);
   };
-  const onPointerUp = () => { drag.current = null; };
+
+  const onPointerUp = () => {
+    drag.current = null;
+  };
 
   return (
     <div className="overflow-auto">
       <div
         ref={ref}
-        className="relative bg-white border-2 border-border shadow-inner mx-auto"
+        className="relative mx-auto border-2 border-border bg-white shadow-inner"
         style={{ width: tpl.label_width * scale, height: tpl.label_height * scale }}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -281,7 +370,7 @@ function LabelCanvas({
           <div
             key={f.id}
             onPointerDown={(e) => onPointerDown(e, f)}
-            className={`absolute cursor-move select-none px-1 py-0.5 border ${selectedId === f.id ? 'border-primary bg-primary/10' : 'border-muted-foreground/40 bg-muted/30'} hover:border-primary`}
+            className={`absolute cursor-move select-none border px-1 py-0.5 transition-colors ${selectedId === f.id ? 'border-primary bg-primary/10' : 'border-muted-foreground/40 bg-muted/30'} hover:border-primary`}
             style={{
               left: f.x * scale,
               top: f.y * scale,
@@ -306,30 +395,48 @@ function LabelCanvas({
   );
 }
 
-function FieldEditor({ field, onChange, onRemove }: { field: LabelField; onChange: (p: Partial<LabelField>) => void; onRemove: () => void }) {
+function FieldEditor({
+  field,
+  onChange,
+  onRemove,
+}: {
+  field: LabelField;
+  onChange: (p: Partial<LabelField>) => void;
+  onRemove: () => void;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm">Campo</h3>
+        <div>
+          <h3 className="text-sm font-semibold">Configuração do campo</h3>
+          <p className="text-xs text-muted-foreground">Ajuste conteúdo, posição e tipografia.</p>
+        </div>
         <Button size="sm" variant="ghost" className="text-destructive" onClick={onRemove}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
+
       <div className="space-y-1.5">
         <Label>Nome do campo</Label>
         <Input value={field.name} onChange={(e) => onChange({ name: e.target.value })} />
       </div>
       <div className="space-y-1.5">
         <Label>Coluna da planilha</Label>
-        <Input value={field.column} onChange={(e) => onChange({ column: e.target.value })} placeholder="Ex: Nome" />
+        <Input
+          value={field.column}
+          onChange={(e) => onChange({ column: e.target.value })}
+          placeholder="Ex: Nome"
+        />
         <p className="text-xs text-muted-foreground">Será mapeado também na hora de gerar.</p>
       </div>
+
       <div className="grid grid-cols-2 gap-2">
         <NumField label="X (mm)" value={field.x} onChange={(v) => onChange({ x: v })} />
         <NumField label="Y (mm)" value={field.y} onChange={(v) => onChange({ y: v })} />
         <NumField label="Largura (mm)" value={field.width} onChange={(v) => onChange({ width: v })} />
         <NumField label="Tamanho fonte (pt)" value={field.fontSize} onChange={(v) => onChange({ fontSize: v })} step={1} />
       </div>
+
       <div className="space-y-1.5">
         <Label>Fonte</Label>
         <Select value={field.fontFamily} onValueChange={(v: any) => onChange({ fontFamily: v })}>
@@ -341,6 +448,7 @@ function FieldEditor({ field, onChange, onRemove }: { field: LabelField; onChang
           </SelectContent>
         </Select>
       </div>
+
       <div className="space-y-1.5">
         <Label>Alinhamento</Label>
         <Select value={field.align} onValueChange={(v: any) => onChange({ align: v })}>
@@ -352,6 +460,7 @@ function FieldEditor({ field, onChange, onRemove }: { field: LabelField; onChang
           </SelectContent>
         </Select>
       </div>
+
       <div className="grid grid-cols-2 gap-2">
         <NumField label="Espaç. linhas" value={field.lineHeight} onChange={(v) => onChange({ lineHeight: v })} step={0.1} />
         <div className="space-y-1.5">
@@ -359,17 +468,20 @@ function FieldEditor({ field, onChange, onRemove }: { field: LabelField; onChang
           <Input type="color" value={field.color} onChange={(e) => onChange({ color: e.target.value })} />
         </div>
       </div>
-      <div className="flex items-center justify-between">
-        <Label>Negrito</Label>
-        <Switch checked={field.bold} onCheckedChange={(v) => onChange({ bold: v })} />
-      </div>
-      <div className="flex items-center justify-between">
-        <Label>Itálico</Label>
-        <Switch checked={field.italic} onCheckedChange={(v) => onChange({ italic: v })} />
-      </div>
-      <div className="flex items-center justify-between">
-        <Label>Quebra de linha automática</Label>
-        <Switch checked={field.wrap} onCheckedChange={(v) => onChange({ wrap: v })} />
+
+      <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="flex items-center justify-between">
+          <Label>Negrito</Label>
+          <Switch checked={field.bold} onCheckedChange={(v) => onChange({ bold: v })} />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label>Itálico</Label>
+          <Switch checked={field.italic} onCheckedChange={(v) => onChange({ italic: v })} />
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <Label>Quebra de linha automática</Label>
+          <Switch checked={field.wrap} onCheckedChange={(v) => onChange({ wrap: v })} />
+        </div>
       </div>
     </div>
   );
