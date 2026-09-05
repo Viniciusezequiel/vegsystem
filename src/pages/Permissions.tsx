@@ -1,21 +1,24 @@
 import { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
 
 const EmbeddedShell = ({ children }: { children?: import('react').ReactNode }) => <>{children}</>;
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Loader2, Shield, ShieldCheck, ShieldX } from 'lucide-react';
-import { 
-  useRolePermissions, 
+import { Eye, Shield, ShieldCheck, ShieldX } from 'lucide-react';
+import {
+  useRolePermissions,
   useUpdatePermission,
   MODULE_LABELS,
   ACTION_LABELS,
   ROLE_LABELS,
   type Module,
   type Action,
-  type AppRole
+  type AppRole,
 } from '@/hooks/usePermissions';
 
 const MODULES: Module[] = [
@@ -43,7 +46,7 @@ export default function Permissions({ embedded }: { embedded?: boolean } = {}) {
 
   const permissionsByRole = useMemo(() => {
     if (!permissions) return {};
-    
+
     const grouped: Record<AppRole, Record<string, Record<string, { id: string; allowed: boolean }>>> = {
       admin: {},
       supervisor: {},
@@ -54,9 +57,7 @@ export default function Permissions({ embedded }: { embedded?: boolean } = {}) {
     };
 
     permissions.forEach(p => {
-      if (!grouped[p.role as AppRole][p.module]) {
-        grouped[p.role as AppRole][p.module] = {};
-      }
+      if (!grouped[p.role as AppRole][p.module]) grouped[p.role as AppRole][p.module] = {};
       grouped[p.role as AppRole][p.module][p.action] = {
         id: p.id,
         allowed: p.allowed,
@@ -82,66 +83,60 @@ export default function Permissions({ embedded }: { embedded?: boolean } = {}) {
   if (isLoading) {
     return (
       <Shell>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <ContentState
+          loading
+          title="Carregando permissões"
+          description="Preparando a matriz de acesso por perfil."
+        />
       </Shell>
     );
   }
 
   return (
     <Shell>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Matriz de Permissões</h1>
-          <p className="text-muted-foreground mt-2">
-            Configure permissões específicas para cada perfil de usuário
-          </p>
-        </div>
+      <div className="space-y-5">
+        {!embedded && (
+          <PageHeader
+            title="Matriz de Permissões"
+            description="Configure permissões específicas para cada perfil de usuário"
+          />
+        )}
 
-        {/* Role Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {ROLES.map(role => {
             const stats = getPermissionStats(role);
             const percentage = stats.total > 0 ? Math.round((stats.allowed / stats.total) * 100) : 0;
-            
+            const Icon = role === 'admin'
+              ? ShieldCheck
+              : role === 'visualizador'
+                ? Eye
+                : role === 'assistente'
+                  ? ShieldX
+                  : Shield;
+
             return (
-              <Card 
-                key={role} 
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  selectedRole === role ? 'ring-2 ring-primary' : ''
+              <Card
+                key={role}
+                className={`cursor-pointer border-border/60 bg-card/65 transition-all hover:border-primary/25 hover:bg-card/80 ${
+                  selectedRole === role ? 'ring-1 ring-primary/60' : ''
                 }`}
                 onClick={() => setSelectedRole(role)}
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      {role === 'admin' && <ShieldCheck className="h-5 w-5 text-green-500" />}
-                      {role === 'supervisor' && <Shield className="h-5 w-5 text-purple-500" />}
-                      {role === 'analista' && <Shield className="h-5 w-5 text-blue-500" />}
-                      {role === 'assistente' && <ShieldX className="h-5 w-5 text-orange-500" />}
-                      {role === 'visualizador' && <Eye className="h-5 w-5 text-gray-500" />}
-                      {ROLE_LABELS[role]}
-                    </CardTitle>
-                    <Badge variant={role === 'admin' ? 'default' : 'secondary'}>
-                      {percentage}%
-                    </Badge>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${selectedRole === role ? 'bg-primary/10 text-primary' : 'bg-muted/50 text-muted-foreground'}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{ROLE_LABELS[role]}</p>
+                        <p className="text-xs text-muted-foreground">{stats.allowed}/{stats.total} ativas</p>
+                      </div>
+                    </div>
+                    <Badge variant={role === 'admin' ? 'default' : 'secondary'}>{percentage}%</Badge>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    {stats.allowed} de {stats.total} permissões ativas
-                  </p>
-                  <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-                    <div 
-                      className={`h-full transition-all ${
-                        role === 'admin' ? 'bg-green-500' : 
-                        role === 'supervisor' ? 'bg-purple-500' :
-                        role === 'analista' ? 'bg-blue-500' : 
-                        role === 'assistente' ? 'bg-orange-500' : 'bg-gray-500'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    />
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full bg-primary transition-all" style={{ width: `${percentage}%` }} />
                   </div>
                 </CardContent>
               </Card>
@@ -149,34 +144,30 @@ export default function Permissions({ embedded }: { embedded?: boolean } = {}) {
           })}
         </div>
 
-        {/* Permissions Matrix */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Permissões - {ROLE_LABELS[selectedRole]}</CardTitle>
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Permissões — {ROLE_LABELS[selectedRole]}</CardTitle>
             <CardDescription>
-              {selectedRole === 'admin' 
+              {selectedRole === 'admin'
                 ? 'Administradores têm acesso total ao sistema'
-                : `Configure as permissões específicas para ${ROLE_LABELS[selectedRole].toLowerCase()}s`
-              }
+                : `Configure as permissões específicas para ${ROLE_LABELS[selectedRole].toLowerCase()}s`}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="matrix" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs defaultValue="matrix" className="w-full space-y-4">
+              <TabsList className="grid h-auto w-full grid-cols-2 rounded-xl border border-border/60 bg-muted/30 p-1 sm:w-[320px]">
                 <TabsTrigger value="matrix">Matriz</TabsTrigger>
                 <TabsTrigger value="modules">Por Módulo</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="matrix" className="mt-4">
-                <div className="overflow-x-auto">
+              <TabsContent value="matrix" className="mt-0">
+                <div className="overflow-x-auto rounded-lg border border-border/60">
                   <table className="w-full border-collapse">
                     <thead>
                       <tr>
-                        <th className="text-left p-3 border-b bg-muted/50 font-medium">
-                          Módulo
-                        </th>
+                        <th className="border-b border-border/60 bg-muted/40 p-3 text-left font-medium">Módulo</th>
                         {ACTIONS.map(action => (
-                          <th key={action} className="text-center p-3 border-b bg-muted/50 font-medium">
+                          <th key={action} className="border-b border-border/60 bg-muted/40 p-3 text-center font-medium">
                             {ACTION_LABELS[action]}
                           </th>
                         ))}
@@ -184,16 +175,14 @@ export default function Permissions({ embedded }: { embedded?: boolean } = {}) {
                     </thead>
                     <tbody>
                       {MODULES.map(module => (
-                        <tr key={module} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-3 border-b font-medium">
-                            {MODULE_LABELS[module]}
-                          </td>
+                        <tr key={module} className="transition-colors hover:bg-muted/20">
+                          <td className="border-b border-border/50 p-3 font-medium">{MODULE_LABELS[module]}</td>
                           {ACTIONS.map(action => {
                             const perm = permissionsByRole[selectedRole]?.[module]?.[action];
-                            if (!perm) return <td key={action} className="p-3 border-b text-center">-</td>;
-                            
+                            if (!perm) return <td key={action} className="border-b border-border/50 p-3 text-center text-muted-foreground">—</td>;
+
                             return (
-                              <td key={action} className="p-3 border-b text-center">
+                              <td key={action} className="border-b border-border/50 p-3 text-center">
                                 <Switch
                                   checked={perm.allowed}
                                   onCheckedChange={() => handleToggle(perm.id, perm.allowed)}
@@ -208,26 +197,26 @@ export default function Permissions({ embedded }: { embedded?: boolean } = {}) {
                   </table>
                 </div>
                 {selectedRole === 'admin' && (
-                  <p className="text-sm text-muted-foreground mt-4 text-center">
-                    As permissões de administradores não podem ser alteradas
+                  <p className="mt-4 text-center text-sm text-muted-foreground">
+                    As permissões de administradores não podem ser alteradas.
                   </p>
                 )}
               </TabsContent>
 
-              <TabsContent value="modules" className="mt-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <TabsContent value="modules" className="mt-0">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {MODULES.map(module => (
-                    <Card key={module}>
+                    <Card key={module} className="border-border/60 bg-card/70">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
+                        <CardTitle className="text-sm">{MODULE_LABELS[module]}</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         {ACTIONS.map(action => {
                           const perm = permissionsByRole[selectedRole]?.[module]?.[action];
                           if (!perm) return null;
-                          
+
                           return (
-                            <div key={action} className="flex items-center justify-between">
+                            <div key={action} className="flex items-center justify-between gap-3">
                               <span className="text-sm">{ACTION_LABELS[action]}</span>
                               <Switch
                                 checked={perm.allowed}
