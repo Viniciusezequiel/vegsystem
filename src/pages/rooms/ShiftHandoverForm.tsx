@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,7 +38,6 @@ const DEFAULT_TASKS = [
   'Abertura de chamados',
 ];
 
-// Tasks where observation is required when "Sim" (not when "Não")
 const OBSERVATION_REQUIRED_ON_YES = [
   'Aviso para remanejamento',
   'Intercorrências',
@@ -104,10 +104,8 @@ export default function ShiftHandoverForm() {
   const allNoTasksHaveObservation = tasks.every(t => {
     const isYesRequired = OBSERVATION_REQUIRED_ON_YES.includes(t.task_name);
     if (isYesRequired) {
-      // For these tasks, observation is required when "Sim"
       return t.answer !== true || t.observation.trim() !== '';
     }
-    // For other tasks, observation is required when "Não"
     return t.answer !== false || t.observation.trim() !== '';
   });
   const hasAnyIncidentDescription = incidents.some(i => i.description.trim());
@@ -125,14 +123,12 @@ export default function ShiftHandoverForm() {
       return;
     }
 
-    // If impact incident is checked, at least one incident must have description
     if (hasImpactIncident) {
       const hasAnyIncident = incidents.some(i => i.description.trim());
       if (!hasAnyIncident) {
         toast.error('Descreva pelo menos uma intercorrência quando há intercorrência de impacto.');
         return;
       }
-      // Incidents with description must have treatment
       const incidentsMissingTreatment = incidents.filter(i => i.description.trim() && !i.treatment.trim());
       if (incidentsMissingTreatment.length > 0) {
         toast.error('Preencha a tratativa para todas as intercorrências descritas.');
@@ -168,30 +164,29 @@ export default function ShiftHandoverForm() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="icon">
-            <Link to="/rooms/shift-handovers">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Passagem de Plantão</h1>
-            <p className="text-muted-foreground">Preencha o formulário de passagem de turno</p>
-          </div>
-        </div>
+      <div className="mx-auto max-w-5xl space-y-5">
+        <PageHeader
+          title="Passagem de Plantão"
+          description="Preencha o formulário de passagem de turno"
+          actions={
+            <Button asChild variant="outline">
+              <Link to="/rooms/shift-handovers">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Link>
+            </Button>
+          }
+        />
 
-        {/* Info Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ClipboardList className="h-5 w-5 text-primary" />
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardList className="h-4 w-4 text-primary" />
               Informações do Plantão
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>Dia da Semana</Label>
                 <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
@@ -234,20 +229,19 @@ export default function ShiftHandoverForm() {
           </CardContent>
         </Card>
 
-        {/* Tasks Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
               Tarefas <span className="text-sm font-normal text-muted-foreground">(obrigatório Sim ou Não)</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {tasks.map((task, index) => (
-                <div key={index} className="space-y-2 pb-4 border-b last:border-b-0 last:pb-0">
+                <div key={index} className="space-y-2 border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-medium flex-1">{task.task_name}</span>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <span className="flex-1 text-sm font-medium">{task.task_name}</span>
+                    <div className="flex shrink-0 items-center gap-2">
                       <Button
                         type="button"
                         size="sm"
@@ -255,7 +249,7 @@ export default function ShiftHandoverForm() {
                         onClick={() => updateTask(index, 'answer', true)}
                         className={task.answer === null ? 'border-destructive/50' : ''}
                       >
-                        <Check className="h-4 w-4 mr-1" /> Sim
+                        <Check className="mr-1 h-4 w-4" /> Sim
                       </Button>
                       <Button
                         type="button"
@@ -264,7 +258,7 @@ export default function ShiftHandoverForm() {
                         onClick={() => updateTask(index, 'answer', false)}
                         className={task.answer === null ? 'border-destructive/50' : ''}
                       >
-                        <X className="h-4 w-4 mr-1" /> Não
+                        <X className="mr-1 h-4 w-4" /> Não
                       </Button>
                     </div>
                   </div>
@@ -272,7 +266,7 @@ export default function ShiftHandoverForm() {
                     const isYesRequired = OBSERVATION_REQUIRED_ON_YES.includes(task.task_name);
                     const isObsRequired = isYesRequired ? task.answer === true : task.answer === false;
                     const requiredLabel = isYesRequired ? 'Sim' : 'Não';
-                    
+
                     return isObsRequired ? (
                       <div className="space-y-1">
                         <Input
@@ -300,29 +294,26 @@ export default function ShiftHandoverForm() {
                 <p className="text-sm text-destructive">* Selecione Sim ou Não em todas as tarefas</p>
               )}
               {allTasksAnswered && !allNoTasksHaveObservation && (
-                <p className="text-sm text-destructive">* Preencha a observação para todas as tarefas marcadas como "Não"</p>
+                <p className="text-sm text-destructive">* Preencha as observações obrigatórias antes de continuar</p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Incidents Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
               Intercorrências
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
               <Switch
                 checked={hasImpactIncident}
                 onCheckedChange={setHasImpactIncident}
               />
-              <Label className="font-medium">
-                Intercorrência de Impacto?
-              </Label>
+              <Label className="font-medium">Intercorrência de Impacto?</Label>
               <Badge variant={hasImpactIncident ? 'destructive' : 'secondary'}>
                 {hasImpactIncident ? 'SIM' : 'NÃO'}
               </Badge>
@@ -336,9 +327,9 @@ export default function ShiftHandoverForm() {
                 )}
                 <div className="space-y-4">
                   {incidents.map((incident, index) => (
-                    <div key={index} className="space-y-2 pb-4 border-b last:border-b-0 last:pb-0">
+                    <div key={index} className="space-y-2 border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
                       <span className="text-sm font-medium">{incident.incident_type}</span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <Input
                           placeholder="Descrição"
                           value={incident.description}
@@ -374,10 +365,9 @@ export default function ShiftHandoverForm() {
           </CardContent>
         </Card>
 
-        {/* Observations */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Observações Gerais</CardTitle>
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Observações Gerais</CardTitle>
           </CardHeader>
           <CardContent>
             <Textarea
@@ -389,23 +379,21 @@ export default function ShiftHandoverForm() {
           </CardContent>
         </Card>
 
-        {/* Collaborator Info */}
-        <Card>
+        <Card className="border-border/60 bg-card/65">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Colaborador(a)</p>
+                <p className="text-xs text-muted-foreground">Colaborador(a)</p>
                 <p className="font-semibold">{profile?.full_name || 'Desconhecido'}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-muted-foreground">Horário</p>
+                <p className="text-xs text-muted-foreground">Horário</p>
                 <p className="font-semibold">{collaboratorTime}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Submit */}
         <div className="flex justify-end gap-3">
           <Button variant="outline" asChild>
             <Link to="/rooms/shift-handovers">Cancelar</Link>
@@ -414,7 +402,7 @@ export default function ShiftHandoverForm() {
             onClick={handleSubmit}
             disabled={!allTasksAnswered || !allNoTasksHaveObservation || !incidentsValid || createHandover.isPending}
           >
-            <Save className="h-4 w-4 mr-2" />
+            <Save className="mr-2 h-4 w-4" />
             {createHandover.isPending ? 'Salvando...' : 'Registrar Passagem'}
           </Button>
         </div>
