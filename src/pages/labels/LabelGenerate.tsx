@@ -2,9 +2,10 @@ import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -21,7 +22,7 @@ export default function LabelGenerate() {
 
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
-  const [mapping, setMapping] = useState<Record<string, string>>({}); // fieldId -> column
+  const [mapping, setMapping] = useState<Record<string, string>>({});
   const [cutBorders, setCutBorders] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -39,7 +40,6 @@ export default function LabelGenerate() {
       const cols = Object.keys(json[0]);
       setRows(json);
       setColumns(cols);
-      // auto-map: if field.column matches a column header, keep it
       if (tpl) {
         const m: Record<string, string> = {};
         tpl.fields.forEach((f) => {
@@ -62,7 +62,6 @@ export default function LabelGenerate() {
 
   const generate = () => {
     if (!tpl || rows.length === 0) return null;
-    // Apply mapping: clone fields w/ mapped column
     const mapped = {
       ...tpl,
       fields: tpl.fields.map((f) => ({ ...f, column: mapping[f.id] || f.column })),
@@ -83,28 +82,52 @@ export default function LabelGenerate() {
     doc.save(`${tpl?.name || 'etiquetas'}.pdf`);
   };
 
-  if (isLoading) return <MainLayout><p className="text-muted-foreground">Carregando...</p></MainLayout>;
-  if (!tpl) return <MainLayout><p>Modelo não encontrado.</p></MainLayout>;
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <ContentState loading title="Carregando modelo" description="Preparando a geração das etiquetas." />
+      </MainLayout>
+    );
+  }
+
+  if (!tpl) {
+    return (
+      <MainLayout>
+        <ContentState
+          title="Modelo não encontrado"
+          description="O modelo solicitado não está disponível."
+          action={<Button variant="outline" onClick={() => navigate('/labels')}>Voltar aos modelos</Button>}
+        />
+      </MainLayout>
+    );
+  }
 
   const dims = getPageDims(tpl);
 
   return (
     <MainLayout>
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/labels')}><ArrowLeft className="h-4 w-4" /></Button>
-          <div>
-            <h1 className="text-2xl font-bold">Gerar etiquetas</h1>
-            <p className="text-sm text-muted-foreground">
-              {tpl.name} · {tpl.page_size} {tpl.orientation === 'portrait' ? 'retrato' : 'paisagem'} · {dims.w}×{dims.h}mm
-            </p>
-          </div>
-        </div>
+      <div className="space-y-5">
+        <PageHeader
+          title="Gerar etiquetas"
+          description={`${tpl.name} · ${tpl.page_size} ${tpl.orientation === 'portrait' ? 'retrato' : 'paisagem'} · ${dims.w}×${dims.h}mm`}
+          actions={
+            <Button variant="outline" onClick={() => navigate('/labels')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+          }
+        />
 
-        <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
+        <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
           <div className="space-y-4">
-            <Card className="p-4 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> 1. Importar planilha</h3>
+            <Card className="space-y-3 border-border/60 bg-card/65 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs text-primary">1</span>
+                  Importar planilha
+                </h3>
+                <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+              </div>
               <input
                 ref={fileRef}
                 type="file"
@@ -116,13 +139,16 @@ export default function LabelGenerate() {
                 {rows.length > 0 ? `${rows.length} linha(s) — trocar planilha` : 'Selecionar arquivo .xlsx/.xls'}
               </Button>
               {columns.length > 0 && (
-                <p className="text-xs text-muted-foreground">Colunas detectadas: {columns.join(', ')}</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">Colunas detectadas: {columns.join(', ')}</p>
               )}
             </Card>
 
             {columns.length > 0 && (
-              <Card className="p-4 space-y-3">
-                <h3 className="font-semibold">2. Mapear campos</h3>
+              <Card className="space-y-3 border-border/60 bg-card/65 p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs text-primary">2</span>
+                  Mapear campos
+                </h3>
                 {tpl.fields.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Este modelo não possui campos. Edite o modelo primeiro.</p>
                 ) : (
@@ -141,34 +167,45 @@ export default function LabelGenerate() {
               </Card>
             )}
 
-            <Card className="p-4 space-y-3">
-              <h3 className="font-semibold">3. Gerar PDF</h3>
-              <div className="flex items-center justify-between">
+            <Card className="space-y-3 border-border/60 bg-card/65 p-4">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs text-primary">3</span>
+                Gerar PDF
+              </h3>
+              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
                 <Label className="text-sm">Bordas de corte</Label>
                 <Switch checked={cutBorders} onCheckedChange={setCutBorders} />
               </div>
               <p className="text-sm text-muted-foreground">
                 {rows.length} etiqueta(s) em {totalPages} página(s)
               </p>
-              <div className="flex gap-2">
-                <Button className="flex-1" onClick={handlePreview} disabled={rows.length === 0}>
-                  <Printer className="h-4 w-4 mr-1" /> Pré-visualizar
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={handlePreview} disabled={rows.length === 0}>
+                  <Printer className="mr-1 h-4 w-4" />
+                  Pré-visualizar
                 </Button>
-                <Button className="flex-1" variant="default" onClick={handleDownload} disabled={rows.length === 0}>
-                  <Download className="h-4 w-4 mr-1" /> Baixar PDF
+                <Button variant="outline" onClick={handleDownload} disabled={rows.length === 0}>
+                  <Download className="mr-1 h-4 w-4" />
+                  Baixar PDF
                 </Button>
               </div>
             </Card>
           </div>
 
-          <Card className="p-4 min-h-[600px]">
-            <h3 className="font-semibold mb-2">Pré-visualização</h3>
+          <Card className="min-h-[600px] border-border/60 bg-card/65 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Pré-visualização</h3>
+              {previewUrl && <span className="text-xs text-muted-foreground">PDF atualizado</span>}
+            </div>
             {previewUrl ? (
-              <iframe src={previewUrl} className="w-full h-[800px] border rounded" title="Pré-visualização" />
+              <iframe src={previewUrl} className="h-[800px] w-full rounded-lg border border-border/60 bg-background" title="Pré-visualização" />
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Importe uma planilha, mapeie os campos e clique em "Pré-visualizar" para ver o resultado.
-              </p>
+              <ContentState
+                icon={Printer}
+                title="Pré-visualização ainda não gerada"
+                description="Importe uma planilha, mapeie os campos e clique em Pré-visualizar."
+                className="min-h-[520px]"
+              />
             )}
           </Card>
         </div>
