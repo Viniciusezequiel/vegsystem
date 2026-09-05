@@ -5,11 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Copy, FileSpreadsheet } from 'lucide-react';
+import { Copy, FileSpreadsheet, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 
 interface GroupRow {
   room: string;
@@ -68,7 +71,6 @@ export default function SemesterSummary() {
     return r;
   }, [items, furniture]);
 
-  // group room -> category -> rows
   const grouped = useMemo(() => {
     const g: Record<string, Record<string, GroupRow[]>> = {};
     rows.forEach((r) => {
@@ -123,17 +125,32 @@ export default function SemesterSummary() {
     XLSX.writeFile(wb, `checklist-semestral-resumo-${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
-  return (<MainLayout>
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Resumo para Chamados</h1>
-          <p className="text-sm text-muted-foreground">Agrupamento por sala e categoria para abrir chamados de manutenção.</p>
-        </div>
-        <div className="flex gap-2">
-          <div className="w-64">
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        <PageHeader
+          title="Resumo para Chamados"
+          description="Agrupamento por sala e categoria para abertura de chamados de manutenção"
+          actions={
+            <>
+              <Button variant="outline" onClick={copy} disabled={!rows.length}>
+                <Copy className="mr-1 h-4 w-4" />
+                Copiar texto
+              </Button>
+              <Button variant="outline" onClick={exportXlsx} disabled={!rows.length}>
+                <FileSpreadsheet className="mr-1 h-4 w-4" />
+                Excel
+              </Button>
+            </>
+          }
+        />
+
+        <PageToolbar className="mb-0">
+          <div className="w-full sm:max-w-xs">
             <Select value={competencyId} onValueChange={setCompetencyId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas competências</SelectItem>
                 {competencies.map((c) => (
@@ -142,45 +159,49 @@ export default function SemesterSummary() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={copy}><Copy className="h-4 w-4 mr-1" /> Copiar texto</Button>
-          <Button variant="outline" onClick={exportXlsx}><FileSpreadsheet className="h-4 w-4 mr-1" /> Excel</Button>
-        </div>
-      </div>
+        </PageToolbar>
 
-      {Object.keys(grouped).length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">Sem dados para esta competência.</CardContent></Card>
-      ) : (
-        Object.entries(grouped).map(([room, cats]) => (
-          <Card key={room}>
-            <CardHeader><CardTitle>{room}</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {Object.entries(cats).map(([cat, list]) => (
-                <div key={cat}>
-                  <h4 className="font-semibold mb-1">{cat}</h4>
-                  <ul className="space-y-1 text-sm">
-                    {list.map((r, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <Badge variant="secondary">{r.quantity}x</Badge>
-                        <span className="flex-1">
-                          {r.item}
-                          {r.problem && <span className="text-muted-foreground"> — {r.problem}</span>}
-                          {r.maintenance && (
-                            <Badge variant="outline" className="ml-2 text-xs">
-                              {r.maintenance === 'internal' ? 'Interna' : 'Externa'}
-                            </Badge>
-                          )}
-                          {r.observation && <p className="text-xs text-muted-foreground mt-0.5">{r.observation}</p>}
-                        </span>
-                        <Badge variant="outline" className="text-xs">{statusLabel(r.status)}</Badge>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        ))
-      )}
-    </div>
-  </MainLayout>);
+        {Object.keys(grouped).length === 0 ? (
+          <ContentState
+            icon={Inbox}
+            title="Sem dados para esta competência"
+            description="Os itens aparecerão aqui quando houver levantamentos com manutenção registrada."
+          />
+        ) : (
+          Object.entries(grouped).map(([room, cats]) => (
+            <Card key={room} className="border-border/60 bg-card/65">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{room}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {Object.entries(cats).map(([cat, list]) => (
+                  <div key={cat} className="rounded-lg border border-border/50 bg-muted/10 p-3">
+                    <h4 className="mb-2 font-semibold">{cat}</h4>
+                    <ul className="space-y-2 text-sm">
+                      {list.map((r, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <Badge variant="secondary">{r.quantity}x</Badge>
+                          <span className="flex-1">
+                            {r.item}
+                            {r.problem && <span className="text-muted-foreground"> — {r.problem}</span>}
+                            {r.maintenance && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                {r.maintenance === 'internal' ? 'Interna' : 'Externa'}
+                              </Badge>
+                            )}
+                            {r.observation && <p className="mt-0.5 text-xs text-muted-foreground">{r.observation}</p>}
+                          </span>
+                          <Badge variant="outline" className="text-xs">{statusLabel(r.status)}</Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+    </MainLayout>
+  );
 }
