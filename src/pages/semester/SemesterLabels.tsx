@@ -14,10 +14,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Printer, Search } from 'lucide-react';
+import { Printer, Search, Tag, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 import { SemesterModuleNav } from '@/components/semester/SemesterModuleNav';
 
 interface Candidate {
@@ -51,19 +54,15 @@ export default function SemesterLabels() {
 
   const candidates: Candidate[] = useMemo(() => {
     const list: Candidate[] = [];
-    // IDs de itens (parent) que já possuem detalhes de mobiliário — para não duplicar
     const parentIdsWithFurniture = new Set(
       furniture.map((f) => f.checklist_item_id ?? f.semester_checklist_items?.id).filter(Boolean),
     );
+
     items.forEach((i) => {
       if (!i.needs_label) return;
-      // Se o item de Mobiliário já foi detalhado por peça em furniture_details,
-      // as etiquetas vêm dos detalhes (com o problema real) e não do item pai.
       if (i.category === 'Mobiliário' && parentIdsWithFurniture.has(i.id)) return;
       const ch = i.semester_checklists;
       const comp = competencies.find((c) => c.id === ch?.competency_id);
-      // Problema real: observação preenchida ou o próprio nome do item.
-      // Nunca cair para o nome da categoria (evita imprimir "Mobiliário" no lugar do problema).
       const problem = (i.observation && i.observation.trim()) || i.item_name || '-';
       list.push({
         key: `item:${i.id}`,
@@ -80,6 +79,7 @@ export default function SemesterLabels() {
         quantity: i.quantity ?? 1,
       });
     });
+
     furniture.forEach((f) => {
       const ci = f.semester_checklist_items;
       const ch = ci?.semester_checklists;
@@ -99,9 +99,9 @@ export default function SemesterLabels() {
         quantity: f.quantity ?? 1,
       });
     });
+
     return list;
   }, [items, furniture, competencies]);
-
 
   const rooms = useMemo(() => Array.from(new Set(candidates.map((c) => c.room))).sort(), [candidates]);
 
@@ -116,12 +116,21 @@ export default function SemesterLabels() {
   }, [candidates, search, filterRoom, filterMaintenance]);
 
   const allSelected = filtered.length > 0 && filtered.every((c) => selected[c.key]);
+
   const toggleAll = () => {
     const next = { ...selected };
     if (allSelected) filtered.forEach((c) => delete next[c.key]);
     else filtered.forEach((c) => (next[c.key] = true));
     setSelected(next);
   };
+
+  const clearFilters = () => {
+    setSearch('');
+    setFilterRoom('all');
+    setFilterMaintenance('all');
+  };
+
+  const hasFilters = search || filterRoom !== 'all' || filterMaintenance !== 'all';
 
   const generate = async () => {
     const chosen = filtered.filter((c) => selected[c.key]);
@@ -132,6 +141,7 @@ export default function SemesterLabels() {
       sourceId: string;
       competencyId: string;
     };
+
     const expanded: ExpandedRow[] = [];
     chosen.forEach((c) => {
       const total = c.quantity;
@@ -176,91 +186,111 @@ export default function SemesterLabels() {
     }
   };
 
-  return (<MainLayout>
-    <div className="mb-6"><SemesterModuleNav /></div>
-
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Etiquetas — Checklist Semestral</h1>
-          <p className="text-sm text-muted-foreground">Geração no padrão Pimaco A4365 (8 etiquetas por folha A4).</p>
-        </div>
-        <Button onClick={generate} disabled={createLabels.isPending}>
-          <Printer className="h-4 w-4 mr-1" /> Gerar PDF
-        </Button>
+  return (
+    <MainLayout>
+      <div className="mb-6">
+        <SemesterModuleNav />
       </div>
 
-      <Card>
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-          <Select value={competencyId} onValueChange={setCompetencyId}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas competências</SelectItem>
-              {competencies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterRoom} onValueChange={setFilterRoom}>
-            <SelectTrigger><SelectValue placeholder="Sala" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas salas</SelectItem>
-              {rooms.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterMaintenance} onValueChange={(v) => setFilterMaintenance(v as any)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toda manutenção</SelectItem>
-              <SelectItem value="internal">Interna</SelectItem>
-              <SelectItem value="external">Externa</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <PageHeader
+          title="Etiquetas — Checklist Semestral"
+          description="Geração no padrão Pimaco A4365, com 8 etiquetas por folha A4"
+          actions={
+            <Button onClick={generate} disabled={createLabels.isPending}>
+              <Printer className="mr-1 h-4 w-4" />
+              Gerar PDF
+            </Button>
+          }
+        />
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Itens marcados para etiqueta</CardTitle>
-          <Label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={allSelected} onCheckedChange={toggleAll} /> Selecionar todos
-          </Label>
-        </CardHeader>
-        <CardContent className="p-0">
-          {filtered.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              Nenhum item marcado como "Gerar etiqueta" para os filtros atuais.
+        <PageToolbar className="mb-0">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Select value={competencyId} onValueChange={setCompetencyId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas competências</SelectItem>
+                {competencies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterRoom} onValueChange={setFilterRoom}>
+              <SelectTrigger><SelectValue placeholder="Sala" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas salas</SelectItem>
+                {rooms.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterMaintenance} onValueChange={(v) => setFilterMaintenance(v as 'all' | 'internal' | 'external')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toda manutenção</SelectItem>
+                <SelectItem value="internal">Interna</SelectItem>
+                <SelectItem value="external">Externa</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Buscar..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              {hasFilters && (
+                <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="mr-1 h-4 w-4" />
+                  Limpar
+                </Button>
+              )}
             </div>
-          ) : (
-            <div className="divide-y">
-              {filtered.map((c) => (
-                <div key={c.key} className="p-3 flex items-start gap-3">
-                  <Checkbox
-                    checked={!!selected[c.key]}
-                    onCheckedChange={(v) => setSelected((s) => ({ ...s, [c.key]: !!v }))}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center flex-wrap gap-2">
-                      <strong>{c.room}</strong>
-                      <Badge variant="outline">{c.maintenance}</Badge>
-                      <Badge variant="secondary">{c.quantity} etiquetas</Badge>
-                      <Badge variant="outline">{c.competencyName}</Badge>
-                    </div>
-                    <div className="text-sm mt-1">
-                      <strong>{c.itemType}</strong> — {c.problem}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Responsável: {c.responsible} • {c.date && format(new Date(c.date), 'dd/MM/yyyy')}
+          </div>
+        </PageToolbar>
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="flex-row items-center justify-between pb-3">
+            <CardTitle className="text-base">Itens marcados para etiqueta</CardTitle>
+            <Label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+              Selecionar todos
+            </Label>
+          </CardHeader>
+          <CardContent className="p-0">
+            {filtered.length === 0 ? (
+              <ContentState
+                icon={Tag}
+                title="Nenhum item para etiqueta"
+                description="Não há itens marcados como gerar etiqueta para os filtros atuais."
+                className="m-4"
+              />
+            ) : (
+              <div className="divide-y divide-border/60">
+                {filtered.map((c) => (
+                  <div key={c.key} className="flex items-start gap-3 p-3 transition-colors hover:bg-muted/20">
+                    <Checkbox
+                      checked={!!selected[c.key]}
+                      onCheckedChange={(v) => setSelected((s) => ({ ...s, [c.key]: !!v }))}
+                    />
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong>{c.room}</strong>
+                        <Badge variant="outline">{c.maintenance}</Badge>
+                        <Badge variant="secondary">{c.quantity} etiquetas</Badge>
+                        <Badge variant="outline">{c.competencyName}</Badge>
+                      </div>
+                      <div className="mt-1 text-sm">
+                        <strong>{c.itemType}</strong> — {c.problem}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Responsável: {c.responsible} • {c.date && format(new Date(c.date), 'dd/MM/yyyy')}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  </MainLayout>);
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </MainLayout>
+  );
 }
