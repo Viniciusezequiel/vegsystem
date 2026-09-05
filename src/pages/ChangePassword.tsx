@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Shield, CheckCircle } from 'lucide-react';
+import { Loader2, Lock, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,14 +47,12 @@ export default function ChangePassword() {
     setIsLoading(true);
 
     try {
-      // Update password
       const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
+        password,
       });
 
       if (updateError) throw updateError;
 
-      // Clear the force_password_change flag
       if (user) {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -71,7 +69,6 @@ export default function ChangePassword() {
         description: 'Você será redirecionado para o sistema.',
       });
 
-      // Navigate to home
       setTimeout(() => {
         navigate('/', { replace: true });
       }, 1500);
@@ -87,110 +84,99 @@ export default function ChangePassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden p-4">
-      {/* Animated Background Orbs */}
-      <div className="floating-orb w-96 h-96 bg-primary/40 -top-48 -left-48 animate-float" style={{ animationDelay: '0s' }} />
-      <div className="floating-orb w-80 h-80 bg-warning/20 -bottom-40 -right-40 animate-float" style={{ animationDelay: '2s' }} />
-      
-      {/* Mesh Gradient Overlay */}
-      <div className="absolute inset-0 mesh-gradient opacity-50" />
-      
-      {/* Grid Pattern */}
-      <div className="absolute inset-0 opacity-5" style={{
-        backgroundImage: `linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px)`,
-        backgroundSize: '60px 60px'
-      }} />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_34%),radial-gradient(circle_at_bottom_right,hsl(var(--primary)/0.08),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(hsl(var(--foreground))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground))_1px,transparent_1px)] [background-size:48px_48px]" />
 
-      {/* Theme Toggle */}
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute right-4 top-4 z-20">
         <ThemeToggle collapsed />
       </div>
-      
-      <Card className="w-full max-w-md relative z-10 glass-morphism border-primary/20 shadow-glow animate-fade-in">
-        <CardHeader className="text-center pb-4">
-          {/* Logo with Glow Effect */}
-          <div className="mx-auto mb-6 relative">
-            <div className="absolute inset-0 bg-primary/30 rounded-full blur-2xl scale-150 animate-pulse" />
-            <div className="w-24 h-24 relative flex items-center justify-center">
-              <img 
-                src={vegSystemLogo} 
-                alt="VEG System Logo" 
-                className="w-full h-full object-contain"
-                style={{ filter: 'drop-shadow(0 0 20px hsl(265 85% 65% / 0.5))' }}
-              />
+
+      <Card className="relative z-10 w-full max-w-md border-border/60 bg-card/80 shadow-2xl backdrop-blur-xl">
+        <CardHeader className="space-y-4 pb-4 text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-border/60 bg-background/60 p-3 shadow-sm">
+            <img
+              src={vegSystemLogo}
+              alt="VEG System Logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <CardTitle className="text-2xl font-semibold tracking-tight">
+                Defina sua nova senha
+              </CardTitle>
             </div>
+            <CardDescription className="mx-auto max-w-sm text-sm leading-relaxed">
+              {profile?.full_name ? (
+                <>Olá, <span className="font-medium text-foreground">{profile.full_name}</span>. Para continuar, crie uma nova senha de acesso.</>
+              ) : (
+                'Para continuar, crie uma nova senha de acesso.'
+              )}
+            </CardDescription>
           </div>
-          
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="w-6 h-6 text-primary" />
-            <CardTitle className="text-2xl font-bold gradient-text">
-              Alteração de Senha
-            </CardTitle>
-          </div>
-          <CardDescription className="text-muted-foreground">
-            {profile?.full_name ? (
-              <>Olá, <span className="font-medium text-foreground">{profile.full_name}</span>! Por favor, defina uma nova senha para continuar.</>
-            ) : (
-              'Por favor, defina uma nova senha para continuar.'
-            )}
-          </CardDescription>
         </CardHeader>
-        
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground font-medium">Nova Senha</Label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Label htmlFor="password" className="text-sm font-medium">Nova senha</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Mínimo de 6 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.password ? 'border-destructive' : ''}`}
+                  className={`h-11 pl-10 ${errors.password ? 'border-destructive' : ''}`}
                   disabled={isLoading}
                   autoComplete="new-password"
                 />
               </div>
               {errors.password && (
-                <p className="text-xs text-destructive animate-fade-in">{errors.password}</p>
+                <p className="text-xs text-destructive">{errors.password}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-foreground font-medium">Confirmar Nova Senha</Label>
-              <div className="relative group">
-                <CheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirmar nova senha</Label>
+              <div className="relative">
+                <CheckCircle2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="confirmPassword"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Repita a nova senha"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`pl-11 h-12 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all ${errors.confirmPassword ? 'border-destructive' : ''}`}
+                  className={`h-11 pl-10 ${errors.confirmPassword ? 'border-destructive' : ''}`}
                   disabled={isLoading}
                   autoComplete="new-password"
                 />
               </div>
               {errors.confirmPassword && (
-                <p className="text-xs text-destructive animate-fade-in">{errors.confirmPassword}</p>
+                <p className="text-xs text-destructive">{errors.confirmPassword}</p>
               )}
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full h-12 btn-gradient text-primary-foreground font-semibold rounded-xl text-base"
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              Use uma senha exclusiva e evite reutilizar credenciais de outros serviços.
+            </div>
+
+            <Button
+              type="submit"
+              className="h-11 w-full rounded-lg font-semibold"
               disabled={isLoading}
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Alterando...
                 </>
               ) : (
-                'Alterar Senha'
+                'Salvar nova senha'
               )}
             </Button>
           </form>
