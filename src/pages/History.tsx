@@ -1,16 +1,20 @@
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 import { useLostItemLogs } from '@/hooks/useLostItemLogs';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Package, UserPlus, PackageCheck, Search, Loader2 } from 'lucide-react';
+import { Package, UserPlus, PackageCheck, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
 const getActionIcon = (action: string) => {
-  if (action.includes('registrado')) return <Package className="w-4 h-4" />;
-  if (action.includes('entregue')) return <PackageCheck className="w-4 h-4" />;
-  if (action.includes('Usuário')) return <UserPlus className="w-4 h-4" />;
-  return <Package className="w-4 h-4" />;
+  if (action.includes('registrado')) return <Package className="h-4 w-4" />;
+  if (action.includes('entregue')) return <PackageCheck className="h-4 w-4" />;
+  if (action.includes('Usuário')) return <UserPlus className="h-4 w-4" />;
+  return <Package className="h-4 w-4" />;
 };
 
 const getActionColor = (action: string) => {
@@ -24,7 +28,7 @@ export default function History() {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: logs = [], isLoading } = useLostItemLogs();
 
-  const filteredLogs = logs.filter(log => 
+  const filteredLogs = logs.filter(log =>
     log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
     log.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     log.itemCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -33,63 +37,72 @@ export default function History() {
 
   return (
     <MainLayout>
-      <div className="page-header">
-        <h1 className="page-title">Histórico de Atividades</h1>
-        <p className="page-subtitle">Registro de todas as ações realizadas no sistema</p>
-      </div>
+      <PageHeader
+        title="Histórico de Atividades"
+        description="Registro de todas as ações realizadas no sistema"
+      />
 
-      {/* Search */}
-      <div className="mb-8 max-w-md">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar no histórico..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+      <PageToolbar className="mb-5">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por ação, usuário, código ou detalhes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {searchQuery && (
+            <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
+              <X className="mr-1 h-4 w-4" />
+              Limpar
+            </Button>
+          )}
         </div>
-      </div>
+      </PageToolbar>
 
-      {/* Timeline */}
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <ContentState
+          loading
+          title="Carregando histórico"
+          description="Buscando as atividades mais recentes."
+        />
       ) : filteredLogs.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          Nenhuma atividade encontrada
-        </div>
+        <ContentState
+          title="Nenhuma atividade encontrada"
+          description={searchQuery ? 'Tente ajustar os termos da busca.' : 'As próximas ações do sistema aparecerão aqui.'}
+        />
       ) : (
         <div className="relative">
-          <div className="absolute left-6 top-0 bottom-0 w-px bg-border" />
-          
-          <div className="space-y-6">
+          <div className="absolute bottom-0 left-6 top-0 w-px bg-border/70" />
+
+          <div className="space-y-4">
             {filteredLogs.map((log, index) => (
-              <div 
-                key={log.id} 
-                className="relative flex gap-6 animate-fade-in"
+              <div
+                key={log.id}
+                className="relative flex gap-4 animate-fade-in"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center z-10 ${getActionColor(log.action)}`}>
+                <div className={`z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-sm ${getActionColor(log.action)}`}>
                   {getActionIcon(log.action)}
                 </div>
-                <div className="flex-1 bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div>
+                <div className="flex-1 rounded-xl border border-border/60 bg-card/65 p-4 transition-colors hover:border-primary/20 hover:bg-card/80">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                       <h3 className="font-medium text-foreground">{log.action}</h3>
                       {log.itemCode && (
-                        <p className="text-sm font-mono text-primary mt-0.5">{log.itemCode}</p>
+                        <p className="mt-0.5 font-mono text-sm text-primary">{log.itemCode}</p>
                       )}
                       {log.details && (
-                        <p className="text-sm text-muted-foreground mt-2">{log.details}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">{log.details}</p>
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {format(new Date(log.timestamp), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    <span className="whitespace-nowrap text-xs text-muted-foreground">
+                      {format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-3">
+                  <p className="mt-3 text-sm text-muted-foreground">
                     Por: <span className="font-medium text-foreground">{log.userName}</span>
                   </p>
                 </div>
