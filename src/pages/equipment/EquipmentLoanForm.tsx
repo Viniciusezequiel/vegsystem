@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/DatePickerInput';
@@ -240,27 +241,25 @@ export default function EquipmentLoanForm() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/equipment/loans')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-              {reservationData ? 'Retirada de Pré-Reserva' : 'Novo Empréstimo'}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {reservationData 
-                ? 'Complete o formulário para registrar a retirada do equipamento pré-reservado'
-                : 'Termo de Responsabilidade pelo Empréstimo e Uso de Equipamentos'
-              }
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          title={reservationData ? 'Retirada de Pré-Reserva' : 'Novo Empréstimo'}
+          description={
+            reservationData
+              ? 'Complete o formulário para registrar a retirada do equipamento pré-reservado'
+              : 'Termo de responsabilidade pelo empréstimo e uso de equipamentos'
+          }
+          actions={
+            <Button variant="outline" onClick={() => navigate('/equipment/loans')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+          }
+        />
 
         {/* Equipment Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Package className="h-5 w-5" />
               Equipamentos
             </CardTitle>
@@ -270,7 +269,7 @@ export default function EquipmentLoanForm() {
             {selectedItems.length > 0 && (
               <div className="space-y-3 mb-4">
                 {selectedItems.map((item) => (
-                  <div key={item.equipment.id} className="flex items-center gap-4 p-3 rounded-lg border bg-secondary/20">
+                  <div key={item.equipment.id} className="flex items-center gap-4 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex-1">
                       <p className="font-medium">{item.equipment.name}</p>
                       <p className="text-xs text-muted-foreground">Patrimônio: {item.equipment.patrimony_code}</p>
@@ -348,9 +347,9 @@ export default function EquipmentLoanForm() {
         </Card>
 
         {/* Borrower Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
               <UserCheck className="h-5 w-5" />
               Identificação do Responsável
             </CardTitle>

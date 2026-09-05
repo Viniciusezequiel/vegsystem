@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Package, Loader2 } from 'lucide-react';
+import { ArrowLeft, Package } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -145,9 +147,11 @@ export default function EquipmentRegister() {
   if (isEditing && loadingEquipment) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <ContentState
+          loading
+          title="Carregando equipamento"
+          description="Preparando os dados para edição."
+        />
       </MainLayout>
     );
   }
@@ -155,23 +159,24 @@ export default function EquipmentRegister() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/equipment')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isEditing ? 'Editar Equipamento' : 'Cadastrar Equipamento'}
-            </h1>
-            <p className="text-muted-foreground">
-              {isEditing ? 'Atualize as informações do equipamento' : 'Adicione um novo item ao inventário'}
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          title={isEditing ? 'Editar Equipamento' : 'Cadastrar Equipamento'}
+          description={
+            isEditing
+              ? 'Atualize as informações do equipamento'
+              : 'Adicione um novo item ao inventário'
+          }
+          actions={
+            <Button variant="outline" onClick={() => navigate('/equipment')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+          }
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Package className="h-5 w-5" />
               Informações do Equipamento
             </CardTitle>

@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Plus, CalendarClock, Clock, CheckCircle, XCircle, Search, Phone, Package } from 'lucide-react';
+import { ArrowLeft, Plus, CalendarClock, Clock, CheckCircle, XCircle, Search, Phone, Package, X } from 'lucide-react';
 import { useEquipmentReservations, useCancelReservation, EquipmentReservation, groupReservations, GroupedReservation } from '@/hooks/useEquipmentReservations';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -74,9 +77,12 @@ export default function EquipmentReservations() {
   const renderTable = (groups: GroupedReservation[], showActions = false) => {
     if (!groups.length) {
       return (
-        <div className="text-center py-8 text-muted-foreground">
-          Nenhuma pré-reserva encontrada
-        </div>
+        <ContentState
+          icon={CalendarClock}
+          title="Nenhuma pré-reserva encontrada"
+          description="Não há registros para os filtros selecionados."
+          className="py-8"
+        />
       );
     }
 
@@ -215,41 +221,53 @@ export default function EquipmentReservations() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="icon">
-              <Link to="/equipment">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Pré-Reservas de Equipamentos</h1>
-              <p className="text-sm text-muted-foreground">Agende equipamentos para retirada futura</p>
-            </div>
-          </div>
-          <Button onClick={() => setFormDialogOpen(true)} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Pré-Reserva
-          </Button>
-        </div>
+        <PageHeader
+          title="Pré-Reservas de Equipamentos"
+          description="Agende equipamentos para retirada futura"
+          actions={
+            <>
+              <Button asChild variant="outline">
+                <Link to="/equipment">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Patrimônios
+                </Link>
+              </Button>
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <CardTitle className="flex items-center gap-2">
-                <CalendarClock className="h-5 w-5" />
-                Pré-Reservas
-              </CardTitle>
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome, equipamento, setor..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
+              <Button onClick={() => setFormDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Pré-Reserva
+              </Button>
+            </>
+          }
+        />
+
+        <PageToolbar className="mb-0">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por solicitante, equipamento, patrimônio ou setor..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
+
+            {searchQuery && (
+              <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
+                <X className="mr-1 h-4 w-4" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </PageToolbar>
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarClock className="h-4 w-4" />
+              Pré-Reservas
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>

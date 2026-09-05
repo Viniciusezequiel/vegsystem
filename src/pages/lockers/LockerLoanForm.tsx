@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -86,19 +87,20 @@ export default function LockerLoanForm() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/lockers')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Novo Empréstimo de Escaninho</h1>
-            <p className="text-muted-foreground">Registre um empréstimo de escaninho</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Nova Locação de Escaninho"
+          description="Registre a utilização de um escaninho"
+          actions={
+            <Button variant="outline" onClick={() => navigate('/lockers')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+          }
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Box className="h-5 w-5" />
               Dados do Empréstimo
             </CardTitle>
