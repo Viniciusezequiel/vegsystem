@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ContentState } from '@/components/layout/ContentState';
 import {
   useItemOptions,
   useCreateItemOption,
@@ -25,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Trash2, ShieldAlert, Pencil, Check, X } from 'lucide-react';
+import { SemesterModuleNav } from '@/components/semester/SemesterModuleNav';
 
 export default function SemesterItemOptions() {
   const { isAdmin } = useAuth();
@@ -41,7 +44,6 @@ export default function SemesterItemOptions() {
   const [inlineAddCat, setInlineAddCat] = useState<string | null>(null);
   const [inlineAddValue, setInlineAddValue] = useState('');
 
-  // Categorias exibidas: as normais + as duas especiais de Mobiliário (tipos e problemas)
   const ALL_CATS = useMemo(
     () => [...SEMESTER_CATEGORIES, FURNITURE_TYPES_CATEGORY, FURNITURE_PROBLEMS_CATEGORY],
     [],
@@ -52,7 +54,6 @@ export default function SemesterItemOptions() {
     [FURNITURE_PROBLEMS_CATEGORY]: 'Mobiliário — Problemas',
   };
 
-  // Auto-seed missing defaults so admins can edit every option from the database
   const seedTriedRef = useRef(false);
   useEffect(() => {
     if (!isAdmin || isLoading || seedTriedRef.current || seed.isPending) return;
@@ -145,24 +146,27 @@ export default function SemesterItemOptions() {
 
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/semester"><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</Link>
+      <div className="mb-6">
+        <SemesterModuleNav />
+      </div>
+
+      <div className="space-y-6">
+        <PageHeader
+          title="Opções de Itens — Checklist Semestral"
+          description="Edite, renomeie ou remova as opções disponíveis nos levantamentos"
+          actions={
+            <Button variant="outline" asChild>
+              <Link to="/semester">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Link>
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Opções de Itens — Checklist Semestral</h1>
-              <p className="text-sm text-muted-foreground">
-                Todas as opções podem ser editadas, renomeadas ou removidas pelo administrador.
-              </p>
-            </div>
-          </div>
-        </div>
+          }
+        />
 
         {!isAdmin && (
-          <Card className="border-yellow-500/40">
-            <CardContent className="p-4 flex items-center gap-2 text-sm text-yellow-700">
+          <Card className="border-yellow-500/30 bg-yellow-500/5">
+            <CardContent className="flex items-center gap-2 p-4 text-sm text-yellow-700 dark:text-yellow-300">
               <ShieldAlert className="h-4 w-4" />
               Apenas administradores podem editar as opções.
             </CardContent>
@@ -170,11 +174,11 @@ export default function SemesterItemOptions() {
         )}
 
         {isAdmin && (
-          <Card>
-            <CardHeader>
+          <Card className="border-border/60 bg-card/65">
+            <CardHeader className="pb-3">
               <CardTitle className="text-base">Nova opção</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-[200px_1fr_auto] gap-3">
+            <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr_auto]">
               <div>
                 <Label>Categoria</Label>
                 <Select value={category} onValueChange={setCategory}>
@@ -197,133 +201,159 @@ export default function SemesterItemOptions() {
               </div>
               <div className="flex items-end">
                 <Button onClick={submit} disabled={create.isPending}>
-                  <Plus className="h-4 w-4 mr-1" /> Adicionar
+                  <Plus className="mr-1 h-4 w-4" />
+                  Adicionar
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {ALL_CATS.map((cat) => (
-          <Card key={cat}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>{CAT_LABEL[cat] ?? cat}</span>
-                <Badge variant="outline">{byCategory[cat]?.length ?? 0} opções</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {(!byCategory[cat] || byCategory[cat].length === 0) ? (
-                <p className="text-sm text-muted-foreground">Nenhuma opção cadastrada.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {byCategory[cat].map((o) => {
-                    const isEditing = editingId === o.id;
-                    return (
-                      <div
-                        key={o.id}
-                        className="flex items-center gap-1 border rounded-full pl-3 pr-1 py-1 text-sm bg-muted/40"
-                      >
-                        {isEditing ? (
-                          <>
-                            <Input
-                              autoFocus
-                              value={editingValue}
-                              onChange={(e) => setEditingValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') saveEdit(cat);
-                                if (e.key === 'Escape') { setEditingId(null); setEditingValue(''); }
-                              }}
-                              className="h-7 w-56"
-                            />
-                            <button
-                              type="button"
-                              className="rounded-full hover:bg-emerald-500/10 p-1 text-emerald-600"
-                              title="Salvar"
-                              onClick={() => saveEdit(cat)}
-                            >
-                              <Check className="h-3 w-3" />
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded-full hover:bg-muted p-1 text-muted-foreground"
-                              title="Cancelar"
-                              onClick={() => { setEditingId(null); setEditingValue(''); }}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <span>{o.label}</span>
-                            {isAdmin && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="rounded-full hover:bg-primary/10 p-1 text-primary"
-                                  title="Editar"
-                                  onClick={() => startEdit(o.id, o.label)}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="rounded-full hover:bg-destructive/10 p-1 text-destructive"
-                                  title="Remover"
-                                  onClick={() => {
-                                    if (confirm(`Remover "${o.label}"?`)) {
-                                      del.mutate(o.id, { onSuccess: () => toast.success('Removida') });
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {isAdmin && (
-                inlineAddCat === cat ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      autoFocus
-                      value={inlineAddValue}
-                      onChange={(e) => setInlineAddValue(e.target.value)}
-                      placeholder={`Nova opção em ${cat}`}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') submitInline(cat);
-                        if (e.key === 'Escape') { setInlineAddCat(null); setInlineAddValue(''); }
-                      }}
-                      className="h-8 max-w-xs"
-                    />
-                    <Button size="sm" onClick={() => submitInline(cat)} disabled={create.isPending}>
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setInlineAddCat(null); setInlineAddValue(''); }}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
+        {(isLoading || seed.isPending) && options.length === 0 ? (
+          <ContentState
+            loading
+            title="Carregando opções"
+            description="Preparando as categorias do checklist semestral."
+          />
+        ) : (
+          ALL_CATS.map((cat) => (
+            <Card key={cat} className="border-border/60 bg-card/65">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center justify-between gap-3 text-base">
+                  <span>{CAT_LABEL[cat] ?? cat}</span>
+                  <Badge variant="outline">{byCategory[cat]?.length ?? 0} opções</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!byCategory[cat] || byCategory[cat].length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma opção cadastrada.</p>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => { setInlineAddCat(cat); setInlineAddValue(''); }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> Adicionar opção
-                  </Button>
-                )
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                  <div className="flex flex-wrap gap-2">
+                    {byCategory[cat].map((o) => {
+                      const isEditing = editingId === o.id;
+                      return (
+                        <div
+                          key={o.id}
+                          className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/30 py-1 pl-3 pr-1 text-sm"
+                        >
+                          {isEditing ? (
+                            <>
+                              <Input
+                                autoFocus
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveEdit(cat);
+                                  if (e.key === 'Escape') {
+                                    setEditingId(null);
+                                    setEditingValue('');
+                                  }
+                                }}
+                                className="h-7 w-56"
+                              />
+                              <button
+                                type="button"
+                                className="rounded-full p-1 text-emerald-600 hover:bg-emerald-500/10"
+                                title="Salvar"
+                                onClick={() => saveEdit(cat)}
+                              >
+                                <Check className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-full p-1 text-muted-foreground hover:bg-muted"
+                                title="Cancelar"
+                                onClick={() => {
+                                  setEditingId(null);
+                                  setEditingValue('');
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span>{o.label}</span>
+                              {isAdmin && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="rounded-full p-1 text-primary hover:bg-primary/10"
+                                    title="Editar"
+                                    onClick={() => startEdit(o.id, o.label)}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded-full p-1 text-destructive hover:bg-destructive/10"
+                                    title="Remover"
+                                    onClick={() => {
+                                      if (confirm(`Remover "${o.label}"?`)) {
+                                        del.mutate(o.id, { onSuccess: () => toast.success('Removida') });
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-        {(isLoading || seed.isPending) && (
-          <div className="text-sm text-muted-foreground">Carregando...</div>
+                {isAdmin && (
+                  inlineAddCat === cat ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        autoFocus
+                        value={inlineAddValue}
+                        onChange={(e) => setInlineAddValue(e.target.value)}
+                        placeholder={`Nova opção em ${cat}`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') submitInline(cat);
+                          if (e.key === 'Escape') {
+                            setInlineAddCat(null);
+                            setInlineAddValue('');
+                          }
+                        }}
+                        className="h-8 max-w-xs"
+                      />
+                      <Button size="sm" onClick={() => submitInline(cat)} disabled={create.isPending}>
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setInlineAddCat(null);
+                          setInlineAddValue('');
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setInlineAddCat(cat);
+                        setInlineAddValue('');
+                      }}
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      Adicionar opção
+                    </Button>
+                  )
+                )}
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
     </MainLayout>
