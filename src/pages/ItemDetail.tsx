@@ -1,19 +1,34 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { MainLayout } from '@/components/layout/MainLayout';
-import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, type ReactNode } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Archive,
+  ArrowLeft,
+  Building2,
+  Calendar,
+  CalendarCheck,
+  Camera,
+  Clock,
+  Image as ImageIcon,
+  Loader2,
+  MapPin,
+  Package,
+  PackageCheck,
+  Pencil,
+  PenLine,
+  Phone,
+  Tag,
+  Trash2,
+  User,
+} from 'lucide-react';
+
+import { ContentState } from '@/components/layout/ContentState';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -22,42 +37,50 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Calendar, 
-  User, 
-  Phone, 
-  Clock,
-  PackageCheck,
-  Mail,
-  Building2,
-  Archive,
-  Package,
-  Tag,
-  CalendarCheck,
-  Pencil,
-  Loader2,
-  PenLine,
-  Trash2,
-  Camera,
-  Image as ImageIcon,
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { useToast } from '@/hooks/use-toast';
-import { useLostItem, useUpdateLostItem, useDeliverLostItem, useDeleteLostItem } from '@/hooks/useLostItems';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
-import { Constants } from '@/integrations/supabase/types';
-import { SignaturePad } from '@/components/ui/SignaturePad';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ProviderAwareSignatureImage } from '@/components/ui/ProviderAwareSignatureImage';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SignaturePad } from '@/components/ui/SignaturePad';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
-import { deleteLostItemImageIfUnreferenced, deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
+import { useDeleteLostItem, useDeliverLostItem, useLostItem, useUpdateLostItem } from '@/hooks/useLostItems';
+import { supabase } from '@/integrations/supabase/client';
+import { Constants } from '@/integrations/supabase/types';
+import {
+  deleteLostItemImageIfUnreferenced,
+  deleteStorageObjectSafely,
+  uploadLostItemImage,
+} from '@/lib/lostItemStorage';
 import { replaceImageSafely } from '@/lib/lostItemStorageCore.mjs';
+import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 
 const campusOptions = Constants.public.Enums.campus_enum;
+
+function DetailField({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: typeof MapPin;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-3 rounded-lg border border-border/50 bg-muted/15 p-3">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted/55 text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <div className="mt-0.5 break-words text-sm font-medium text-foreground">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 export default function ItemDetail() {
   const { id } = useParams();
@@ -70,7 +93,6 @@ export default function ItemDetail() {
   const deleteItem = useDeleteLostItem();
   const { url: resolvedImageUrl } = useSignedImageUrl(item?.image_url);
 
-  // Fetch the name of who registered the item
   const { data: registeredByName } = useQuery({
     queryKey: ['profile-name', item?.registered_by],
     queryFn: async () => {
@@ -85,18 +107,15 @@ export default function ItemDetail() {
     enabled: !!item?.registered_by,
   });
 
-  // Fetch the name of the logged-in team member who delivered the item
   const { data: deliveredByName } = useQuery({
     queryKey: ['profile-name', item?.delivered_by_team_member],
     queryFn: async () => {
       if (!item?.delivered_by_team_member) return null;
-
       const { data } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('user_id', item.delivered_by_team_member)
         .maybeSingle();
-
       return data?.full_name || null;
     },
     enabled: !!item?.delivered_by_team_member,
@@ -125,15 +144,18 @@ export default function ItemDetail() {
     delivered_by_contact: '',
   });
 
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const canDeliver = role === 'admin' || role === 'analista' || role === 'assistente';
+  const canEdit = role === 'admin' || role === 'analista' || role === 'supervisor' || role === 'assistente';
+
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file || !item) return;
 
     setIsUploadingPhoto(true);
     try {
       const uploadFile = await optimizeImage(file);
-      const ext = optimizedImageExtension(uploadFile.type);
-      const supabasePath = `${item.code}-${Date.now()}.${ext}`;
+      const extension = optimizedImageExtension(uploadFile.type);
+      const supabasePath = `${item.code}-${Date.now()}.${extension}`;
 
       const result = await replaceImageSafely({
         oldLocator: item.image_url,
@@ -165,38 +187,30 @@ export default function ItemDetail() {
       });
     } finally {
       setIsUploadingPhoto(false);
-      // Reset the input so the same file can be selected again
-      e.target.value = '';
+      event.target.value = '';
     }
   };
-
-  // Admin, analista e assistente podem dar baixa em itens disponíveis
-  // Admin e analista podem editar itens entregues/expirados
-  const isDeliveredOrExpired = item?.status === 'delivered' || item?.status === 'expired';
-  const canDeliver = role === 'admin' || role === 'analista' || role === 'assistente';
-  const canEdit = role === 'admin' || role === 'analista' || role === 'supervisor' || role === 'assistente';
 
   const handleOpenEditDialog = () => {
-    if (item) {
-      setEditData({
-        description: item.description,
-        campus: item.campus,
-        found_location: item.found_location,
-        found_date: item.found_date,
-        received_date: item.received_date,
-        shelf: item.shelf || '',
-        box: item.box || '',
-        box_number: item.box_number || '',
-        seal_number: item.seal_number || '',
-        delivered_by_name: item.delivered_by_name,
-        delivered_by_contact: item.delivered_by_contact || '',
-      });
-      setIsEditDialogOpen(true);
-    }
+    if (!item) return;
+    setEditData({
+      description: item.description,
+      campus: item.campus,
+      found_location: item.found_location,
+      found_date: item.found_date,
+      received_date: item.received_date,
+      shelf: item.shelf || '',
+      box: item.box || '',
+      box_number: item.box_number || '',
+      seal_number: item.seal_number || '',
+      delivered_by_name: item.delivered_by_name,
+      delivered_by_contact: item.delivered_by_contact || '',
+    });
+    setIsEditDialogOpen(true);
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEditSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!item) return;
 
     updateItem.mutate(
@@ -209,18 +223,14 @@ export default function ItemDetail() {
         seal_number: editData.seal_number || null,
         delivered_by_contact: editData.delivered_by_contact || null,
       },
-      {
-        onSuccess: () => {
-          setIsEditDialogOpen(false);
-        },
-      }
+      { onSuccess: () => setIsEditDialogOpen(false) }
     );
   };
 
-  const handleDeliverySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleDeliverySubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!item) return;
-    
+
     if (!deliveryData.owner_signature) {
       toast({
         title: 'Assinatura obrigatória',
@@ -250,9 +260,7 @@ export default function ItemDetail() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
+        <ContentState loading title="Carregando item" description="Buscando os dados e o histórico do registro." />
       </MainLayout>
     );
   }
@@ -260,562 +268,356 @@ export default function ItemDetail() {
   if (error || !item) {
     return (
       <MainLayout>
-        <div className="text-center py-16">
-          <h2 className="text-xl font-semibold">Item não encontrado</h2>
-          <Button onClick={() => navigate('/items')} className="mt-4">
-            Voltar para lista
-          </Button>
-        </div>
+        <ContentState
+          icon={Package}
+          title="Item não encontrado"
+          description="O registro pode ter sido removido ou você pode não ter acesso a ele."
+          action={<Button variant="outline" onClick={() => navigate('/lost-found/items')}>Voltar para a lista</Button>}
+        />
       </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <button
-        onClick={() => navigate('/items')}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Voltar para lista
-      </button>
+      <PageHeader
+        title={item.description}
+        description={`Registro ${item.code} · detalhes, armazenamento e movimentação do item.`}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => navigate('/lost-found/items')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+            {canEdit && (
+              <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar
+              </Button>
+            )}
+            {role === 'admin' && (
+              <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Image and Status */}
-        <div className="lg:col-span-1">
-          <div className="bg-card rounded-xl border border-border overflow-hidden animate-fade-in">
-            <div className="aspect-square relative group">
+      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <Card className="overflow-hidden border-border/60 bg-card/65 shadow-sm">
+            <div className="group relative aspect-square bg-muted/30">
               {resolvedImageUrl ? (
-                <>
-                  <img
-                    src={resolvedImageUrl}
-                    alt={item.description}
-                    className="w-full h-full object-cover"
-                  />
-                  {canEdit && (
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      {isUploadingPhoto ? (
-                        <Loader2 className="w-8 h-8 text-white animate-spin" />
-                      ) : (
-                        <>
-                          <label className="cursor-pointer">
-                            <Button type="button" variant="secondary" size="sm" asChild>
-                              <span>
-                                <Camera className="w-4 h-4 mr-2" />
-                                Câmera
-                                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="hidden" />
-                              </span>
-                            </Button>
-                          </label>
-                          <label className="cursor-pointer">
-                            <Button type="button" variant="secondary" size="sm" asChild>
-                              <span>
-                                <ImageIcon className="w-4 h-4 mr-2" />
-                                Galeria
-                                <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-                              </span>
-                            </Button>
-                          </label>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </>
+                <img src={resolvedImageUrl} alt={item.description} className="h-full w-full object-cover" />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-muted gap-3">
-                  <Package className="w-16 h-16 text-muted-foreground/50" />
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      {isUploadingPhoto ? (
-                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                      ) : (
-                        <>
-                          <label className="cursor-pointer">
-                            <Button type="button" variant="outline" size="sm" asChild>
-                              <span>
-                                <Camera className="w-4 h-4 mr-2" />
-                                Câmera
-                                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="hidden" />
-                              </span>
-                            </Button>
-                          </label>
-                          <label className="cursor-pointer">
-                            <Button type="button" variant="outline" size="sm" asChild>
-                              <span>
-                                <ImageIcon className="w-4 h-4 mr-2" />
-                                Galeria
-                                <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-                              </span>
-                            </Button>
-                          </label>
-                        </>
-                      )}
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <Package className="h-14 w-14 opacity-35" />
+                  <p className="text-xs">Sem foto cadastrada</p>
+                </div>
+              )}
+
+              {canEdit && (
+                <div className="absolute inset-x-0 bottom-0 flex flex-wrap justify-center gap-2 bg-gradient-to-t from-black/75 via-black/35 to-transparent p-4 pt-12 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                  {isUploadingPhoto ? (
+                    <div className="flex items-center gap-2 rounded-md bg-background/90 px-3 py-2 text-xs text-foreground shadow">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Atualizando foto...
                     </div>
+                  ) : (
+                    <>
+                      <label className="cursor-pointer">
+                        <Button type="button" variant="secondary" size="sm" asChild>
+                          <span>
+                            <Camera className="mr-2 h-4 w-4" />
+                            Câmera
+                            <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="hidden" />
+                          </span>
+                        </Button>
+                      </label>
+                      <label className="cursor-pointer">
+                        <Button type="button" variant="secondary" size="sm" asChild>
+                          <span>
+                            <ImageIcon className="mr-2 h-4 w-4" />
+                            Galeria
+                            <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                          </span>
+                        </Button>
+                      </label>
+                    </>
                   )}
                 </div>
               )}
             </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-sm text-muted-foreground">{item.code}</span>
+
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] text-muted-foreground">Código do item</p>
+                  <p className="mt-0.5 font-mono text-sm font-semibold">{item.code}</p>
+                </div>
                 <StatusBadge status={item.status} />
               </div>
-            </div>
-          </div>
-        </div>
+            </CardContent>
+          </Card>
 
-        {/* Details */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="form-section animate-fade-in" style={{ animationDelay: '100ms' }}>
-            <div className="flex items-start justify-between">
-              <h2 className="text-xl font-semibold text-foreground mb-4">
-                {item.description}
-              </h2>
-              <div className="flex gap-2">
-                {canEdit && (
-                  <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
-                    <Pencil className="w-4 h-4 mr-2" />
-                    Editar
-                  </Button>
-                )}
-                {role === 'admin' && (
-                  <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)}>
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Excluir
-                  </Button>
-                )}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Campus</p>
-                  <p className="font-medium">{item.campus}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Local encontrado</p>
-                  <p className="font-medium">{item.found_location}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Data encontrado</p>
-                  <p className="font-medium">
-                    {format(new Date(item.found_date + 'T00:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <CalendarCheck className="w-5 h-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Data recebido</p>
-                  <p className="font-medium">
-                    {format(new Date(item.received_date + 'T00:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Storage Info */}
-            <div className="mt-6 pt-4 border-t border-border">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Armazenamento</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="flex items-start gap-3">
-                  <Archive className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Prateleira</p>
-                    <p className="font-medium">{item.shelf || '-'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Package className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Caixa</p>
-                    <p className="font-medium">{item.box || '-'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Package className="w-5 h-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Nº da Caixa</p>
-                    <p className="font-medium">{item.box_number || '-'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Tag className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Nº Lacre</p>
-                    <p className="font-medium">{item.seal_number || '-'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Delivery Person Info */}
-            <div className="mt-6 pt-4 border-t border-border">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Quem entregou o item</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Nome</p>
-                    <p className="font-medium">{item.delivered_by_name}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Phone className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Contato</p>
-                    <p className="font-medium">{item.delivered_by_contact || '-'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Registration Info */}
-            <div className="mt-6 pt-4 border-t border-border">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Registro no Sistema</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Data/Hora do registro</p>
-                    <p className="font-medium">
-                      {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Cadastrado por</p>
-                    <p className="font-medium">{registeredByName || 'Não identificado'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Delivery Info (if delivered) */}
-          {item.status === 'delivered' && item.owner_name && (
-            <div className="form-section animate-fade-in bg-muted/50" style={{ animationDelay: '200ms' }}>
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <PackageCheck className="w-5 h-5 text-success" />
-                Informações da Entrega
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Nome do proprietário</p>
-                  <p className="font-medium">{item.owner_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Telefone</p>
-                  <p className="font-medium">{item.owner_phone}</p>
-                </div>
-                {item.delivered_at && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Data da entrega
-                    </p>
-                    <p className="font-medium">
-                      {format(
-                        new Date(item.delivered_at),
-                        "dd/MM/yyyy 'às' HH:mm",
-                        { locale: ptBR }
-                      )}
-                    </p>
-                  </div>
-                )}
-
-                {item.delivered_by_team_member && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Responsável pela entrega
-                    </p>
-                    <p className="font-medium">
-                      {deliveredByName || 'Usuário não identificado'}
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Owner Signature */}
-              {item.owner_signature && (
-                <div className="mt-6 pt-4 border-t border-border">
-                  <div className="flex items-center gap-2 mb-3">
-                    <PenLine className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm font-medium text-muted-foreground">Assinatura do Proprietário</p>
-                  </div>
-                  <div className="bg-white rounded-lg border border-border p-2 inline-block">
-                    <ProviderAwareSignatureImage
-                      value={item.owner_signature}
-                      expectedModule="lost-items"
-                      alt="Assinatura do proprietário" 
-                      className="max-w-[300px] max-h-[150px] object-contain"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Actions */}
           {item.status === 'available' && canDeliver && (
-            <div className="flex gap-4 animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <Dialog open={isDeliverDialogOpen} onOpenChange={(open) => { if (!open && deliverItem.isPending) return; setIsDeliverDialogOpen(open); }}>
-                <DialogTrigger asChild>
-                  <Button size="lg">
-                    <PackageCheck className="w-5 h-5 mr-2" />
-                    Dar Baixa / Entregar
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
-                  <DialogHeader>
-                    <DialogTitle>Registrar Entrega</DialogTitle>
-                    <DialogDescription>
-                      Preencha as informações do proprietário para dar baixa no item.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleDeliverySubmit} className="space-y-4 mt-4">
-                    <div>
-                      <Label htmlFor="ownerName">Nome completo do proprietário *</Label>
+            <Dialog
+              open={isDeliverDialogOpen}
+              onOpenChange={open => {
+                if (!open && deliverItem.isPending) return;
+                setIsDeliverDialogOpen(open);
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button className="w-full" size="lg">
+                  <PackageCheck className="mr-2 h-5 w-5" />
+                  Dar baixa / Entregar
+                </Button>
+              </DialogTrigger>
+              <DialogContent
+                className="sm:max-w-lg"
+                onPointerDownOutside={event => event.preventDefault()}
+                onInteractOutside={event => event.preventDefault()}
+              >
+                <DialogHeader>
+                  <DialogTitle>Registrar entrega</DialogTitle>
+                  <DialogDescription>
+                    Identifique o proprietário e colete a assinatura de recebimento.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <form onSubmit={handleDeliverySubmit} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="ownerName" className="text-xs text-muted-foreground">Nome completo do proprietário *</Label>
                       <Input
                         id="ownerName"
-                        placeholder="Nome completo"
-                        className="mt-1.5"
                         value={deliveryData.owner_name}
-                        onChange={(e) => setDeliveryData(prev => ({ ...prev, owner_name: e.target.value }))}
+                        onChange={event => setDeliveryData(previous => ({ ...previous, owner_name: event.target.value }))}
                         required
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="ownerPhone">Telefone *</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ownerPhone" className="text-xs text-muted-foreground">Telefone *</Label>
                       <Input
                         id="ownerPhone"
-                        placeholder="(11) 99999-9999"
-                        className="mt-1.5"
                         value={deliveryData.owner_phone}
-                        onChange={(e) => setDeliveryData(prev => ({ ...prev, owner_phone: e.target.value }))}
+                        onChange={event => setDeliveryData(previous => ({ ...previous, owner_phone: event.target.value }))}
                         required
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="teamMember">Membro da equipe entregando</Label>
-                      <Input
-                        id="teamMember"
-                        value={profile?.full_name || ''}
-                        readOnly
-                        className="mt-1.5 bg-muted"
+                    <div className="space-y-1.5">
+                      <Label htmlFor="teamMember" className="text-xs text-muted-foreground">Responsável pela entrega</Label>
+                      <Input id="teamMember" value={profile?.full_name || ''} readOnly className="bg-muted/35" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 rounded-xl border border-border/60 bg-muted/15 p-3">
+                    <Label className="flex items-center gap-2 text-sm">
+                      <PenLine className="h-4 w-4" />
+                      Assinatura do proprietário *
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Assine abaixo para confirmar o recebimento do item.</p>
+                    <SignaturePad onSignatureChange={signature => setDeliveryData(previous => ({ ...previous, owner_signature: signature }))} />
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-2 border-t border-border/50 pt-4 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" onClick={() => setIsDeliverDialogOpen(false)}>Cancelar</Button>
+                    <Button type="submit" disabled={deliverItem.isPending || !deliveryData.owner_signature}>
+                      {deliverItem.isPending ? 'Registrando...' : 'Confirmar entrega'}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <Card className="border-border/60 bg-card/65 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Informações do item</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2">
+              <DetailField icon={Building2} label="Campus">{item.campus}</DetailField>
+              <DetailField icon={MapPin} label="Local encontrado">{item.found_location}</DetailField>
+              <DetailField icon={Calendar} label="Data encontrado">
+                {format(new Date(`${item.found_date}T00:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </DetailField>
+              <DetailField icon={CalendarCheck} label="Data recebido">
+                {format(new Date(`${item.received_date}T00:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </DetailField>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 bg-card/65 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Armazenamento</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <DetailField icon={Archive} label="Prateleira">{item.shelf || '—'}</DetailField>
+              <DetailField icon={Package} label="Caixa">{item.box || '—'}</DetailField>
+              <DetailField icon={Package} label="Nº da caixa">{item.box_number || '—'}</DetailField>
+              <DetailField icon={Tag} label="Nº do lacre">{item.seal_number || '—'}</DetailField>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="border-border/60 bg-card/65 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Origem do item</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <DetailField icon={User} label="Quem entregou">{item.delivered_by_name}</DetailField>
+                <DetailField icon={Phone} label="Contato">{item.delivered_by_contact || '—'}</DetailField>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60 bg-card/65 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Registro no sistema</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <DetailField icon={Clock} label="Data/Hora do registro">
+                  {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </DetailField>
+                <DetailField icon={User} label="Cadastrado por">{registeredByName || 'Não identificado'}</DetailField>
+              </CardContent>
+            </Card>
+          </div>
+
+          {item.status === 'delivered' && item.owner_name && (
+            <Card className="border-primary/20 bg-primary/[0.025] shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <PackageCheck className="h-4 w-4 text-primary" />
+                  Informações da entrega
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <DetailField icon={User} label="Proprietário">{item.owner_name}</DetailField>
+                  <DetailField icon={Phone} label="Telefone">{item.owner_phone || '—'}</DetailField>
+                  {item.delivered_at && (
+                    <DetailField icon={CalendarCheck} label="Data da entrega">
+                      {format(new Date(item.delivered_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </DetailField>
+                  )}
+                  {item.delivered_by_team_member && (
+                    <DetailField icon={PackageCheck} label="Responsável pela entrega">
+                      {deliveredByName || 'Usuário não identificado'}
+                    </DetailField>
+                  )}
+                </div>
+
+                {item.owner_signature && (
+                  <div className="mt-4 border-t border-border/50 pt-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                      <PenLine className="h-3.5 w-3.5" />
+                      Assinatura do proprietário
+                    </div>
+                    <div className="inline-flex max-w-full rounded-lg border border-border/60 bg-white p-2">
+                      <ProviderAwareSignatureImage
+                        value={item.owner_signature}
+                        expectedModule="lost-items"
+                        alt="Assinatura do proprietário"
+                        className="max-h-[150px] max-w-full object-contain sm:max-w-[320px]"
                       />
                     </div>
-                    <div>
-                      <Label className="flex items-center gap-2">
-                        <PenLine className="w-4 h-4" />
-                        Assinatura do Proprietário *
-                      </Label>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        O proprietário deve assinar abaixo para confirmar o recebimento do item.
-                      </p>
-                      <SignaturePad 
-                        onSignatureChange={(signature) => setDeliveryData(prev => ({ ...prev, owner_signature: signature }))}
-                      />
-                    </div>
-                    <div className="flex justify-end gap-3 pt-4">
-                      <Button type="button" variant="outline" onClick={() => setIsDeliverDialogOpen(false)}>
-                        Cancelar
-                      </Button>
-                      <Button type="submit" disabled={deliverItem.isPending || !deliveryData.owner_signature}>
-                        {deliverItem.isPending ? 'Registrando...' : 'Confirmar Entrega'}
-                      </Button>
-                      {!deliveryData.owner_signature && (
-                        <p className="text-sm text-destructive">Assinatura obrigatória</p>
-                      )}
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Editar Item</DialogTitle>
-            <DialogDescription>
-              Atualize as informações do item cadastrado.
-            </DialogDescription>
+            <DialogTitle>Editar item</DialogTitle>
+            <DialogDescription>Atualize as informações operacionais do registro.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="space-y-4 mt-4">
-            <div>
-              <Label htmlFor="editDescription">Descrição *</Label>
+
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="editDescription" className="text-xs text-muted-foreground">Descrição *</Label>
               <Textarea
                 id="editDescription"
-                placeholder="Descrição do item"
-                className="mt-1.5"
                 value={editData.description}
-                onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                onChange={event => setEditData({ ...editData, description: event.target.value })}
                 required
               />
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="editCampus">Campus *</Label>
-                <Select
-                  value={editData.campus}
-                  onValueChange={(value) => setEditData({ ...editData, campus: value as typeof campusOptions[number] })}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Selecione o campus" />
-                  </SelectTrigger>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Campus *</Label>
+                <Select value={editData.campus} onValueChange={value => setEditData({ ...editData, campus: value as typeof campusOptions[number] })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o campus" /></SelectTrigger>
                   <SelectContent>
-                    {campusOptions.map((campus) => (
-                      <SelectItem key={campus} value={campus}>
-                        {campus}
-                      </SelectItem>
-                    ))}
+                    {campusOptions.map(campus => <SelectItem key={campus} value={campus}>{campus}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="editFoundLocation">Local encontrado *</Label>
-                <Input
-                  id="editFoundLocation"
-                  placeholder="Ex: Biblioteca, Sala 301..."
-                  className="mt-1.5"
-                  value={editData.found_location}
-                  onChange={(e) => setEditData({ ...editData, found_location: e.target.value })}
-                  required
-                />
+              <div className="space-y-1.5">
+                <Label htmlFor="editFoundLocation" className="text-xs text-muted-foreground">Local encontrado *</Label>
+                <Input id="editFoundLocation" value={editData.found_location} onChange={event => setEditData({ ...editData, found_location: event.target.value })} required />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="editFoundDate">Data encontrado *</Label>
-                <Input
-                  id="editFoundDate"
-                  type="date"
-                  className="mt-1.5"
-                  value={editData.found_date}
-                  onChange={(e) => setEditData({ ...editData, found_date: e.target.value })}
-                  required
-                />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="editFoundDate" className="text-xs text-muted-foreground">Data encontrado *</Label>
+                <Input id="editFoundDate" type="date" value={editData.found_date} onChange={event => setEditData({ ...editData, found_date: event.target.value })} required />
               </div>
-              <div>
-                <Label htmlFor="editReceivedDate">Data recebido *</Label>
-                <Input
-                  id="editReceivedDate"
-                  type="date"
-                  className="mt-1.5"
-                  value={editData.received_date}
-                  onChange={(e) => setEditData({ ...editData, received_date: e.target.value })}
-                  required
-                />
+              <div className="space-y-1.5">
+                <Label htmlFor="editReceivedDate" className="text-xs text-muted-foreground">Data recebido *</Label>
+                <Input id="editReceivedDate" type="date" value={editData.received_date} onChange={event => setEditData({ ...editData, received_date: event.target.value })} required />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="editShelf">Prateleira</Label>
-                <Input
-                  id="editShelf"
-                  placeholder="Ex: A1, B2..."
-                  className="mt-1.5"
-                  value={editData.shelf}
-                  onChange={(e) => setEditData({ ...editData, shelf: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="editBox">Caixa</Label>
-                <Input
-                  id="editBox"
-                  placeholder="Ex: 01, 02..."
-                  className="mt-1.5"
-                  value={editData.box}
-                  onChange={(e) => setEditData({ ...editData, box: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="editBoxNumber">Nº da Caixa</Label>
-                <Input
-                  id="editBoxNumber"
-                  placeholder="Ex: 001, 002..."
-                  className="mt-1.5"
-                  value={editData.box_number}
-                  onChange={(e) => setEditData({ ...editData, box_number: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="editSealNumber">Nº Lacre</Label>
-                <Input
-                  id="editSealNumber"
-                  placeholder="Ex: 123456"
-                  className="mt-1.5"
-                  value={editData.seal_number}
-                  onChange={(e) => setEditData({ ...editData, seal_number: e.target.value })}
-                />
+            <div className="rounded-xl border border-border/60 bg-muted/15 p-4">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Armazenamento</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1.5"><Label htmlFor="editShelf" className="text-xs text-muted-foreground">Prateleira</Label><Input id="editShelf" value={editData.shelf} onChange={event => setEditData({ ...editData, shelf: event.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="editBox" className="text-xs text-muted-foreground">Caixa</Label><Input id="editBox" value={editData.box} onChange={event => setEditData({ ...editData, box: event.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="editBoxNumber" className="text-xs text-muted-foreground">Nº da caixa</Label><Input id="editBoxNumber" value={editData.box_number} onChange={event => setEditData({ ...editData, box_number: event.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="editSealNumber" className="text-xs text-muted-foreground">Nº do lacre</Label><Input id="editSealNumber" value={editData.seal_number} onChange={event => setEditData({ ...editData, seal_number: event.target.value })} /></div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="editDeliveredByName">Quem entregou (Nome) *</Label>
-                <Input
-                  id="editDeliveredByName"
-                  placeholder="Nome de quem encontrou/entregou"
-                  className="mt-1.5"
-                  value={editData.delivered_by_name}
-                  onChange={(e) => setEditData({ ...editData, delivered_by_name: e.target.value })}
-                  required
-                />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="editDeliveredByName" className="text-xs text-muted-foreground">Quem entregou (Nome) *</Label>
+                <Input id="editDeliveredByName" value={editData.delivered_by_name} onChange={event => setEditData({ ...editData, delivered_by_name: event.target.value })} required />
               </div>
-              <div>
-                <Label htmlFor="editDeliveredByContact">Contato de quem entregou</Label>
-                <Input
-                  id="editDeliveredByContact"
-                  placeholder="Telefone ou email"
-                  className="mt-1.5"
-                  value={editData.delivered_by_contact}
-                  onChange={(e) => setEditData({ ...editData, delivered_by_contact: e.target.value })}
-                />
+              <div className="space-y-1.5">
+                <Label htmlFor="editDeliveredByContact" className="text-xs text-muted-foreground">Contato de quem entregou</Label>
+                <Input id="editDeliveredByContact" value={editData.delivered_by_contact} onChange={event => setEditData({ ...editData, delivered_by_contact: event.target.value })} />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={updateItem.isPending}>
-                {updateItem.isPending ? 'Salvando...' : 'Salvar Alterações'}
-              </Button>
+            <div className="flex flex-col-reverse gap-2 border-t border-border/50 pt-4 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={updateItem.isPending}>{updateItem.isPending ? 'Salvando...' : 'Salvar alterações'}</Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Excluir Item</DialogTitle>
+            <DialogTitle>Excluir item</DialogTitle>
             <DialogDescription>
               Tem certeza que deseja excluir o item <strong>{item.code}</strong>? Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancelar
-            </Button>
+          <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
             <Button
               variant="destructive"
               disabled={deleteItem.isPending}
@@ -823,7 +625,7 @@ export default function ItemDetail() {
                 deleteItem.mutate(item.id, {
                   onSuccess: () => {
                     setIsDeleteDialogOpen(false);
-                    navigate('/items');
+                    navigate('/lost-found/items');
                   },
                 });
               }}
