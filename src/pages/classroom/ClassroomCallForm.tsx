@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bell, CheckCircle, Loader2, Navigation, Clock, MessageSquare } from 'lucide-react';
+import { Bell, CheckCircle, Loader2, Navigation, Clock, MessageSquare, Building2, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface CallStatus {
@@ -38,20 +38,17 @@ export default function ClassroomCallForm() {
   const [submittedRoomName, setSubmittedRoomName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Derive unique campuses from rooms
   const campuses = useMemo(() => {
     const unique = [...new Set(rooms.map(r => r.campus))];
     unique.sort();
     return unique;
   }, [rooms]);
 
-  // Filter rooms by selected campus
   const filteredRooms = useMemo(() => {
     if (!selectedCampus) return [];
     return rooms.filter(r => r.campus === selectedCampus);
   }, [rooms, selectedCampus]);
 
-  // Fetch rooms config directly from database (faster than edge function)
   const fetchConfig = async () => {
     try {
       const [roomsResult, issuesResult] = await Promise.all([
@@ -77,12 +74,9 @@ export default function ClassroomCallForm() {
 
       setRooms(roomsWithIssues);
 
-      // Auto-select room from URL param
       const urlRoom = searchParams.get('sala') || searchParams.get('room');
       if (urlRoom) {
-        const found = roomsWithIssues.find(r =>
-          r.name.toLowerCase() === urlRoom.toLowerCase()
-        );
+        const found = roomsWithIssues.find(r => r.name.toLowerCase() === urlRoom.toLowerCase());
         if (found) {
           setSelectedCampus(found.campus);
           setSelectedRoomId(found.id);
@@ -99,7 +93,6 @@ export default function ClassroomCallForm() {
     fetchConfig();
   }, [searchParams]);
 
-  // Subscribe to realtime updates on rooms and issues config
   useEffect(() => {
     const roomsChannel = supabase
       .channel('classroom-call-rooms-config')
@@ -123,7 +116,6 @@ export default function ClassroomCallForm() {
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
   const selectedIssue = selectedRoom?.issues.find(i => i.id === selectedIssueId);
 
-  // Poll public status of the submitted call (no public read access to the table)
   useEffect(() => {
     if (!submittedCallId) return;
 
@@ -169,21 +161,17 @@ export default function ClassroomCallForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRoom) return;
-    
+
     setIsSubmitting(true);
     try {
       const roomName = `${selectedRoom.name} (${selectedRoom.campus})`;
       let reason = '';
       if (selectedIssueId === '__other__') {
         reason = customIssueText.trim();
-        if (additionalInfo.trim()) {
-          reason += ' — ' + additionalInfo.trim();
-        }
+        if (additionalInfo.trim()) reason += ' — ' + additionalInfo.trim();
       } else if (selectedIssue?.description) {
         reason = selectedIssue.description;
-        if (additionalInfo.trim()) {
-          reason += ' — ' + additionalInfo.trim();
-        }
+        if (additionalInfo.trim()) reason += ' — ' + additionalInfo.trim();
       } else {
         reason = additionalInfo.trim();
       }
@@ -194,9 +182,7 @@ export default function ClassroomCallForm() {
         p_campus: selectedRoom.campus,
       });
 
-      if (error) {
-        throw new Error(error.message || 'Erro ao criar chamado');
-      }
+      if (error) throw new Error(error.message || 'Erro ao criar chamado');
 
       setSubmittedRoomName(roomName);
       setSubmittedCallId(data as unknown as string);
@@ -221,100 +207,95 @@ export default function ClassroomCallForm() {
     setAdditionalInfo('');
   };
 
-  // Determine if form can be submitted
   const hasIssues = selectedRoom && selectedRoom.issues.length > 0;
   const isOther = selectedIssueId === '__other__';
   const canSubmit = selectedRoomId && (
-    hasIssues 
+    hasIssues
       ? (isOther ? customIssueText.trim() : selectedIssueId)
       : additionalInfo.trim()
   );
 
-  if (submittedCallId && callStatus) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardHeader>
-            {callStatus.status === 'pending' && (
-              <>
-                <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-yellow-100 flex items-center justify-center animate-pulse">
-                  <Clock className="h-8 w-8 text-yellow-600" />
-                </div>
-                <CardTitle className="text-2xl text-yellow-600">Aguardando Atendimento</CardTitle>
-                <CardDescription className="text-base">
-                  Seu chamado foi recebido. Aguarde enquanto um colaborador aceita o chamado.
-                </CardDescription>
-              </>
-            )}
-            
-            {callStatus.status === 'accepted' && (
-              <>
-                <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Navigation className="h-8 w-8 text-blue-600 animate-bounce" />
-                </div>
-                <CardTitle className="text-2xl text-blue-600">Chamado Aceito!</CardTitle>
-                <CardDescription className="text-base">
-                  {callStatus.accepted_by_name ? (
-                    <span><strong>{callStatus.accepted_by_name}</strong> aceitou seu chamado.</span>
-                  ) : (
-                    <span>Um colaborador aceitou seu chamado.</span>
-                  )}
-                </CardDescription>
-              </>
-            )}
-            
-            {callStatus.status === 'resolved' && (
-              <>
-                <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="h-8 w-8 text-green-600" />
-                </div>
-                <CardTitle className="text-2xl text-green-600">Chamado Resolvido</CardTitle>
-                <CardDescription className="text-base">
-                  Seu chamado foi atendido e marcado como resolvido.
-                </CardDescription>
-              </>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Sala</p>
-                <p className="font-semibold">{submittedRoomName}</p>
-              </div>
+  const statusPresentation = callStatus?.status === 'accepted'
+    ? {
+        icon: Navigation,
+        iconClass: 'bg-primary/10 text-primary',
+        title: 'Chamado aceito',
+        titleClass: 'text-primary',
+        description: callStatus.accepted_by_name
+          ? `${callStatus.accepted_by_name} aceitou seu chamado e está em atendimento.`
+          : 'Um colaborador aceitou seu chamado e está em atendimento.',
+      }
+    : callStatus?.status === 'resolved'
+      ? {
+          icon: CheckCircle,
+          iconClass: 'bg-emerald-500/10 text-emerald-600',
+          title: 'Chamado resolvido',
+          titleClass: 'text-emerald-600',
+          description: 'Seu chamado foi atendido e marcado como resolvido.',
+        }
+      : {
+          icon: Clock,
+          iconClass: 'bg-amber-500/10 text-amber-600',
+          title: 'Aguardando atendimento',
+          titleClass: 'text-amber-600',
+          description: 'Seu chamado foi recebido e já está disponível para a equipe de apoio.',
+        };
 
-              {/* Show response message from collaborator */}
-              {callStatus.status === 'accepted' && callStatus.response_message && (
-                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MessageSquare className="h-4 w-4 text-blue-600" />
-                    <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Mensagem do Colaborador</p>
-                  </div>
-                  <p className="text-blue-800 dark:text-blue-300 font-semibold">{callStatus.response_message}</p>
-                </div>
-              )}
-              
-              {/* Status indicator */}
-              <div className="flex items-center justify-center gap-2 py-2">
-                <div className={`w-3 h-3 rounded-full ${
-                  callStatus.status === 'pending' ? 'bg-yellow-500 animate-pulse' :
-                  callStatus.status === 'accepted' ? 'bg-blue-500 animate-pulse' :
-                  'bg-green-500'
-                }`} />
-                <span className="text-sm text-muted-foreground">
-                  {callStatus.status === 'pending' && 'Aguardando...'}
-                  {callStatus.status === 'accepted' && 'Em atendimento...'}
-                  {callStatus.status === 'resolved' && 'Concluído'}
-                </span>
-              </div>
-              
-              <Button 
-                onClick={handleNewCall}
-                variant="outline"
-                className="w-full"
-              >
-                Enviar Novo Chamado
-              </Button>
+  if (submittedCallId && callStatus) {
+    const StatusIcon = statusPresentation.icon;
+    return (
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_35%),radial-gradient(circle_at_bottom_right,hsl(var(--primary)/0.08),transparent_30%)]" />
+
+        <Card className="relative z-10 w-full max-w-lg border-border/60 bg-card/85 shadow-2xl backdrop-blur-xl">
+          <CardHeader className="pb-4 text-center">
+            <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${statusPresentation.iconClass}`}>
+              <StatusIcon className={`h-8 w-8 ${callStatus.status !== 'resolved' ? 'animate-pulse' : ''}`} />
             </div>
+            <CardTitle className={`text-2xl font-semibold tracking-tight ${statusPresentation.titleClass}`}>
+              {statusPresentation.title}
+            </CardTitle>
+            <CardDescription className="mx-auto max-w-sm text-sm leading-relaxed">
+              {statusPresentation.description}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-xl border border-border/60 bg-muted/25 p-4">
+              <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Local do chamado</p>
+                  <p className="font-semibold">{submittedRoomName}</p>
+                </div>
+              </div>
+            </div>
+
+            {callStatus.status === 'accepted' && callStatus.response_message && (
+              <div className="rounded-xl border border-primary/20 bg-primary/[0.06] p-4">
+                <div className="mb-1 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium text-primary">Mensagem da equipe</p>
+                </div>
+                <p className="font-medium text-foreground">{callStatus.response_message}</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-border/50 bg-background/40 py-2.5">
+              <div className={`h-2.5 w-2.5 rounded-full ${
+                callStatus.status === 'pending' ? 'bg-amber-500 animate-pulse' :
+                callStatus.status === 'accepted' ? 'bg-primary animate-pulse' :
+                'bg-emerald-500'
+              }`} />
+              <span className="text-sm text-muted-foreground">
+                {callStatus.status === 'pending' && 'Aguardando aceite da equipe'}
+                {callStatus.status === 'accepted' && 'Atendimento em andamento'}
+                {callStatus.status === 'resolved' && 'Atendimento concluído'}
+              </span>
+            </div>
+
+            <Button onClick={handleNewCall} variant="outline" className="w-full">
+              Enviar Novo Chamado
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -322,73 +303,86 @@ export default function ClassroomCallForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Bell className="h-8 w-8 text-primary" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4 sm:p-6">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_35%),radial-gradient(circle_at_bottom_right,hsl(var(--primary)/0.08),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.03] [background-image:linear-gradient(hsl(var(--foreground))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground))_1px,transparent_1px)] [background-size:48px_48px]" />
+
+      <Card className="relative z-10 w-full max-w-lg border-border/60 bg-card/85 shadow-2xl backdrop-blur-xl">
+        <CardHeader className="pb-4 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Bell className="h-7 w-7" />
           </div>
-          <CardTitle className="text-2xl">Chamado de Sala</CardTitle>
-          <CardDescription>
-            Solicite atendimento de um colaborador
+          <CardTitle className="text-2xl font-semibold tracking-tight">Chamado de Sala</CardTitle>
+          <CardDescription className="mx-auto max-w-sm leading-relaxed">
+            Informe onde você está e o que precisa. A equipe receberá o chamado imediatamente.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingConfig ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="flex min-h-[260px] flex-col items-center justify-center gap-3">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Carregando salas disponíveis...</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Campus Selection */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/60 bg-muted/20 p-2 text-center text-[11px] text-muted-foreground">
+                <div className={selectedCampus ? 'font-medium text-primary' : ''}>1. Campus</div>
+                <div className={selectedRoomId ? 'font-medium text-primary' : ''}>2. Sala</div>
+                <div className={selectedIssueId || (!hasIssues && additionalInfo) ? 'font-medium text-primary' : ''}>3. Motivo</div>
+              </div>
+
               <div className="space-y-2">
-                <Label>Campus *</Label>
+                <Label className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  Campus *
+                </Label>
                 <Select value={selectedCampus} onValueChange={handleCampusChange}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Selecione o campus..." />
                   </SelectTrigger>
                   <SelectContent>
                     {campuses.map((campus) => (
-                      <SelectItem key={campus} value={campus}>
-                        {campus}
-                      </SelectItem>
+                      <SelectItem key={campus} value={campus}>{campus}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Room Selection (filtered by campus) */}
               {selectedCampus && (
                 <div className="space-y-2">
-                  <Label>Sala *</Label>
+                  <Label className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    Sala *
+                  </Label>
                   <Select value={selectedRoomId} onValueChange={handleRoomChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione a sala..." />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredRooms.map((room) => (
-                        <SelectItem key={room.id} value={room.id}>
-                          {room.name}
-                        </SelectItem>
+                        <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               )}
 
-              {/* Issue Selection (if room has issues) */}
               {selectedRoom && selectedRoom.issues.length > 0 && (
                 <div className="space-y-2">
                   <Label>Tipo do Problema *</Label>
-                  <Select value={selectedIssueId} onValueChange={(v) => { setSelectedIssueId(v); if (v !== '__other__') setCustomIssueText(''); }}>
-                    <SelectTrigger>
+                  <Select
+                    value={selectedIssueId}
+                    onValueChange={(v) => {
+                      setSelectedIssueId(v);
+                      if (v !== '__other__') setCustomIssueText('');
+                    }}
+                  >
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione o problema..." />
                     </SelectTrigger>
                     <SelectContent>
                       {selectedRoom.issues.map((issue) => (
-                        <SelectItem key={issue.id} value={issue.id}>
-                          {issue.description}
-                        </SelectItem>
+                        <SelectItem key={issue.id} value={issue.id}>{issue.description}</SelectItem>
                       ))}
                       <SelectItem value="__other__">Outros</SelectItem>
                     </SelectContent>
@@ -406,7 +400,6 @@ export default function ClassroomCallForm() {
                 </div>
               )}
 
-              {/* Additional Info (optional if has issues, required if no issues) */}
               {selectedRoomId && (
                 <div className="space-y-2">
                   <Label htmlFor="additionalInfo">
@@ -421,12 +414,13 @@ export default function ClassroomCallForm() {
                     maxLength={500}
                     rows={3}
                   />
+                  <div className="text-right text-[11px] text-muted-foreground">{additionalInfo.length}/500</div>
                 </div>
               )}
-              
-              <Button 
-                type="submit" 
-                className="w-full" 
+
+              <Button
+                type="submit"
+                className="h-11 w-full font-semibold"
                 size="lg"
                 disabled={isSubmitting || !canSubmit}
               >
