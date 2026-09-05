@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageToolbar } from '@/components/layout/PageToolbar';
+import { ContentState } from '@/components/layout/ContentState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,11 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ClipboardList, Plus, Search, Eye, AlertTriangle } from 'lucide-react';
+import { ClipboardList, Plus, Search, Eye, AlertTriangle, X } from 'lucide-react';
 import { useShiftHandovers, type ShiftHandover } from '@/hooks/useShiftHandovers';
 import { ShiftHandoverDetailsDialog } from '@/components/rooms/ShiftHandoverDetailsDialog';
 import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { RoomsModuleNav } from '@/components/rooms/RoomsModuleNav';
@@ -73,7 +75,7 @@ function HandoverRow({ handover, onView }: { handover: ShiftHandover; onView: ()
       </TableCell>
       <TableCell className="text-right">
         <Button variant="outline" size="sm" onClick={onView}>
-          <Eye className="h-4 w-4 mr-1" />
+          <Eye className="mr-1 h-4 w-4" />
           Detalhes
         </Button>
       </TableCell>
@@ -102,64 +104,93 @@ export default function ShiftHandoverHistory() {
     );
   }, [handovers, searchQuery]);
 
+  const hasFilters = searchQuery.trim().length > 0 || shiftFilter !== 'all';
+
   return (
     <MainLayout>
       <div className="space-y-6">
         <RoomsModuleNav />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Passagem de Plantão</h1>
-              <p className="text-muted-foreground">Histórico de passagens de turno</p>
-            </div>
-          </div>
-          <Button asChild>
-            <Link to="/rooms/shift-handover/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Passagem
-            </Link>
-          </Button>
-        </div>
+        <PageHeader
+          title="Passagem de Plantão"
+          description="Histórico de passagens de turno"
+          actions={
+            <Button asChild>
+              <Link to="/rooms/shift-handover/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Passagem
+              </Link>
+            </Button>
+          }
+        />
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
-                  Passagens de Plantão
-                </CardTitle>
-                <Select value={shiftFilter} onValueChange={setShiftFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filtrar por turno" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os turnos</SelectItem>
-                    <SelectItem value="Manhã">Manhã</SelectItem>
-                    <SelectItem value="Tarde">Tarde</SelectItem>
-                    <SelectItem value="Noite">Noite</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Pesquisar por colaborador, setor ou unidade..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="pl-10 max-w-md"
-                />
-              </div>
+        <PageToolbar className="mb-0">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_190px_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por colaborador, setor ou unidade..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
+
+            <Select value={shiftFilter} onValueChange={setShiftFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por turno" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os turnos</SelectItem>
+                <SelectItem value="Manhã">Manhã</SelectItem>
+                <SelectItem value="Tarde">Tarde</SelectItem>
+                <SelectItem value="Noite">Noite</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {hasFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setShiftFilter('all');
+                }}
+              >
+                <X className="mr-1 h-4 w-4" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </PageToolbar>
+
+        <Card className="border-border/60 bg-card/65">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardList className="h-4 w-4" />
+              Passagens de Plantão
+              <Badge variant="outline" className="ml-auto">
+                {filtered.length}
+              </Badge>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+              <ContentState
+                loading
+                title="Carregando passagens"
+                description="Buscando o histórico mais recente."
+              />
             ) : filtered.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchQuery ? 'Nenhum resultado encontrado' : 'Nenhuma passagem de plantão registrada'}
-              </div>
+              <ContentState
+                icon={ClipboardList}
+                title={searchQuery ? 'Nenhum resultado encontrado' : 'Nenhuma passagem registrada'}
+                description={
+                  hasFilters
+                    ? 'Ajuste ou limpe os filtros para ampliar a busca.'
+                    : 'As passagens de plantão registradas aparecerão aqui.'
+                }
+              />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
