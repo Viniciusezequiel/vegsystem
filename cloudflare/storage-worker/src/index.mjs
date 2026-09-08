@@ -120,31 +120,46 @@ function normalizeAiProductFields(productName, modelVariant, brand) {
   const normalizeForMatch = (value) => String(value ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 
-  const isQuantityLike = (value) => /(?:capsula|capsulas|ml|mg|g|l\b|litro|volume|quantidade|pack|embalagem|caixa|frasco|unidades?)/i.test(normalizeForMatch(value));
+  const isQuantityLike = (value) => /(?:^|\s)\d+\s*(?:ml|mg|g|l)\b|\b\d+\s*(?:capsulas?|comprimidos?|tabletes?|unidades?)\b|\b(?:capsulas?|comprimidos?|tabletes?|unidades?|ml|mg|litro|volume|quantidade|pack|embalagem|caixa|frasco)\b/i.test(normalizeForMatch(value));
+  const isBrandInstitutionalName = (value) => /(?:vitaminas?|suplementos?|cosmeticos?|perfumes?|saude|saúde|marca|linha|colecao|coleção|series?|range|collection|linea?|cartao|cartão)/i.test(normalizeForMatch(value));
+  const isLikelyColorName = (value) => /^(?:azul|verde|vermelho|preto|branco|prata|laranja|roxo|amarelo|cinza|rosa|marrom|dourado|bege)$/i.test(normalizeForMatch(value));
 
   if (safeProductName && safeBrand) {
-    const normalizedProduct = safeProductName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-    const normalizedBrand = safeBrand.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-    if (normalizedProduct === normalizedBrand) {
-      safeProductName = safeBrand;
+    const normalizedProduct = normalizeForMatch(safeProductName);
+    const normalizedBrand = normalizeForMatch(safeBrand);
+
+    if (normalizedProduct === normalizedBrand || normalizedProduct === `${normalizedBrand} ${normalizedBrand}`) {
+      safeProductName = null;
       safeModelVariant = null;
     } else if (normalizedProduct.startsWith(`${normalizedBrand} `)) {
       const remainder = safeProductName.slice(safeBrand.length).trim();
       if (remainder) {
-        const remainderNormalized = remainder.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-        if (!isQuantityLike(remainder) && (!safeModelVariant || normalizeAiText(safeModelVariant) === remainder)) {
+        const remainderNormalized = normalizeForMatch(remainder);
+        if (!isQuantityLike(remainder) && !isBrandInstitutionalName(remainder) && (!safeModelVariant || normalizeAiText(safeModelVariant) === remainder)) {
           safeModelVariant = remainder;
-          safeProductName = safeBrand;
+          safeProductName = null;
         }
+      }
+    } else if (normalizedProduct.endsWith(` ${normalizedBrand}`)) {
+      const prefix = safeProductName.slice(0, safeProductName.length - safeBrand.length).trim();
+      const prefixNormalized = normalizeForMatch(prefix);
+      if (!prefixNormalized || isBrandInstitutionalName(prefixNormalized) || isQuantityLike(prefix) || isLikelyColorName(prefix)) {
+        safeProductName = null;
       }
     }
   }
 
+  if (safeProductName && (isQuantityLike(safeProductName) || isBrandInstitutionalName(safeProductName) || hasSensitivePersonalDataValue(safeProductName))) {
+    safeProductName = null;
+  }
+
   if (safeProductName && safeModelVariant) {
-    const normalizedProduct = safeProductName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-    const normalizedVariant = safeModelVariant.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const normalizedProduct = normalizeForMatch(safeProductName);
+    const normalizedVariant = normalizeForMatch(safeModelVariant);
     if (normalizedProduct === normalizedVariant || normalizedProduct.includes(normalizedVariant) || normalizedVariant.includes(normalizedProduct) || isQuantityLike(safeModelVariant)) {
       safeModelVariant = null;
     }
@@ -200,7 +215,8 @@ function hasSensitivePersonalDataValue(value) {
   if (value === null || value === undefined) return false;
   const text = String(value);
   if (!text) return false;
-  return /(?:cpf|rg|cnh|telefone|matricula|endereco|nascimento|conta|cartao|documento|qr\s*code|qrcode|e-mail|email|@\w+\.\w+)/i.test(text)
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return /(?:cpf|rg|cnh|telefone|matricula|endereco|nascimento|conta|cartao|documento|qr\s*code|qrcode|e-mail|email|@\w+\.\w+)/i.test(normalized)
     || /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/.test(text)
     || /\b\d{2}\.\d{3}\.\d{3}-\d{1}\b/.test(text)
     || /(?<!\d)(?:\d[ -]?){13,19}(?!\d)/.test(text.replace(/\s+/g, ''))
@@ -246,16 +262,37 @@ function sanitizeAiPayload(raw) {
   const visibleText = normalizeAiStringArray(candidate.visible_text_safe)
     .map(value => stripSensitiveVisibleText(value))
     .filter(Boolean);
+
+  const safeProductName = normalizedProductFields.product_name;
+  const fallbackProductName = (() => {
+    if (safeProductName && !/^(?:vitaminas?|suplementos?|cosmeticos?|perfumes?|saude|saúde|marca|linha|colecao|coleção|series?|range|collection)$/i.test(String(safeProductName).trim())) {
+      return safeProductName;
+    }
+
+    const recoverable = visibleText.filter(entry => {
+      const normalized = String(entry).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+      if (!normalized || normalized.length > 80) return false;
+      if (brand && normalized === String(brand).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()) return false;
+      if (/(?:\d+\s*(?:ml|mg|g|l)\b|capsulas?|ml|mg|litro|volume|quantidade|pack|embalagem|caixa|frasco|unidades?)/i.test(normalized)) return false;
+      if (/^(?:azul|verde|vermelho|preto|branco|prata|laranja|roxo|amarelo|cinza|rosa|marrom|dourado|bege)$/i.test(normalized)) return false;
+      if (/(?:vitaminas?|suplementos?|cosmeticos?|perfumes?|saude|saúde|marca|linha|colecao|coleção|series?|range|collection|cartao|cartão)/i.test(normalized)) return false;
+      if (hasSensitivePersonalDataValue(entry)) return false;
+      return true;
+    });
+
+    return recoverable[0] ?? null;
+  })();
+
   const safeConfidence = Math.min(1, Math.max(0, confidence));
 
-  const sensitive = [itemType, normalizedProductFields.product_name, normalizedProductFields.model_variant, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
+  const sensitive = [itemType, fallbackProductName || safeProductName, normalizedProductFields.model_variant, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
   const shouldStripVisibleText = category === 'documentos_valores' || sensitive || /documento|cartao|identidade|cpf|rg|cnh/i.test(String(itemType ?? ''));
 
   const sanitizedDescription = description ? redactSensitiveText(description).trim() || null : null;
 
   return {
     item_type: itemType,
-    product_name: normalizedProductFields.product_name,
+    product_name: fallbackProductName || normalizedProductFields.product_name || null,
     model_variant: normalizedProductFields.model_variant,
     description_suggestion: sanitizedDescription,
     primary_color: primaryColor,
