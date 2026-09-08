@@ -1,0 +1,61 @@
+name: R2 Signature Inventory
+
+on:
+  push:
+    branches:
+      - ui/professional-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  inventory:
+    if: "github.event.head_commit.message == 'chore: run R2 signature inventory'"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: https://sshyjnyvihdheofjzsca.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ui/professional-foundation
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Inventory process-selection signatures
+        id: inventory
+        shell: bash
+        run: |
+          set +e
+          output="$(node scripts/migrate-signatures-to-r2.mjs --module process-selection --dry-run 2>&1)"
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 0 ]; then
+            echo "$output"
+          else
+            echo "Inventory could not run: $output"
+          fi
+          rm -f backup/r2-signatures-process-selection-migration.json
+
+      - name: Remove temporary workflow
+        if: always()
+        shell: bash
+        run: |
+          rm .github/workflows/r2-signature-dry-run.yml
+          git config user.name "Viniciusezequiel"
+          git config user.email "164230144+Viniciusezequiel@users.noreply.github.com"
+          git add .github/workflows/r2-signature-dry-run.yml
+          git commit -m "chore: remove R2 signature inventory workflow"
+          git push origin HEAD:ui/professional-foundation
+
+      - name: Preserve inventory result
+        if: steps.inventory.outputs.exit_code != '0'
+        run: exit 1
