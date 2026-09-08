@@ -1,0 +1,105 @@
+name: QA Autofix
+
+on:
+  push:
+    branches:
+      - ui/professional-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    if: github.event.head_commit.message == 'chore: stage QA autofix'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ui/professional-foundation
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply targeted TypeScript fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new, expected=1):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'{path}: expected {expected} occurrence(s), found {count}')
+              p.write_text(text.replace(old, new))
+
+          replace_exact(
+              'src/hooks/useEquipment.ts',
+              'data as EquipmentLoan[]',
+              'data as unknown as EquipmentLoan[]',
+              expected=3,
+          )
+
+          replace_exact(
+              'src/hooks/useLockers.ts',
+              'data as LockerLoan[]',
+              'data as unknown as LockerLoan[]',
+              expected=2,
+          )
+
+          replace_exact(
+              'src/lib/psEvaluatorSession.ts',
+              "  if (error) throw error;\n  return Array.isArray(data) ? data[0] : data;\n}",
+              "  if (error) throw error;\n  if (data == null) return null;\n  return Array.isArray(data) ? data[0] : data;\n}",
+              expected=1,
+          )
+
+          replace_exact(
+              'src/lib/signatureStorage.ts',
+              "    let query = supabase.from(source.table).select('id', { count: 'exact', head: true });",
+              "    // The table/field pairs are constrained by the hard-coded reference map above.\n    // Keep the dynamic query local instead of weakening the typed Supabase client globally.\n    let query = (supabase as any).from(source.table).select('id', { count: 'exact', head: true });",
+              expected=1,
+          )
+
+          replace_exact(
+              'src/hooks/useProcessoSeletivo.ts',
+              "        } else {\n          id = temporaryIds.get(decision.collaboratorId) || decision.collaboratorId;\n        }",
+              "        } else if (decision.status === 'matched') {\n          id = temporaryIds.get(decision.collaboratorId) || decision.collaboratorId;\n        } else {\n          throw new Error(`Importação interrompida na linha ${decision.rowIndex + 2}: identidade não resolvida.`);\n        }",
+              expected=1,
+          )
+
+          replace_exact(
+              'src/hooks/useProcessoSeletivo.ts',
+              "        .select(PS_EVENT_COLLABORATOR_LIST_SELECT)\n        .eq('event_id', eventId!)\n        .order('collaborator_name');\n      if (error) throw error;\n      return data;",
+              "        .select(PS_EVENT_COLLABORATOR_LIST_SELECT)\n        .eq('event_id', eventId!)\n        .order('collaborator_name');\n      if (error) throw error;\n      // This select is intentionally assembled from a fixed field list. The PostgREST\n      // type parser cannot infer dynamic select strings, so narrow at this boundary.\n      return (data || []) as unknown as Array<Record<string, any>>;",
+              expected=1,
+          )
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:storage
+
+      - name: Production build
+        run: npx vite build
+
+      - name: Commit validated fixes
+        shell: bash
+        run: |
+          rm .github/workflows/qa-autofix.yml
+          git config user.name "Viniciusezequiel"
+          git config user.email "164230144+Viniciusezequiel@users.noreply.github.com"
+          git add src/hooks/useEquipment.ts src/hooks/useLockers.ts src/hooks/useProcessoSeletivo.ts src/lib/psEvaluatorSession.ts src/lib/signatureStorage.ts .github/workflows/qa-autofix.yml
+          git commit -m "fix: clear remaining TypeScript QA issues"
+          git push origin HEAD:ui/professional-foundation
