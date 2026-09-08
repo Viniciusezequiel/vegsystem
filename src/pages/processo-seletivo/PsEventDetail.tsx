@@ -1067,7 +1067,7 @@ export default function PsEventDetail() {
               <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
               <TabsTrigger value="presenca">Presença</TabsTrigger>
               <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
-              <TabsTrigger value="auto">
+              <TabsTrigger value="auto" className="shrink-0">
                 Autoavaliações
                 {selfEvaluations.length > 0 && (
                   <Badge

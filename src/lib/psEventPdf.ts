@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
-import { preparePdfSignatureRows } from './signatureStorageCore.mjs';
-import { resolveSignatureDataUrl } from './signatureStorage';
+import { preparePdfSignatureRows } from '@/lib/signatureStorageCore.mjs';
+import { resolveSignatureDataUrl } from '@/lib/signatureStorage';
 
 export interface PsBadgeRow {
   collaborator_name: string;
@@ -221,8 +221,15 @@ function drawCandidateBadge(doc: jsPDF, event: PsEventInfo, row: PsCandidateBadg
   if (registration) infoLines.push(registration);
   if (cpf) infoLines.push(cpf);
 
+  const campusValue = String(row.campus || '').trim();
+  const campusLabel = campusValue
+    ? /^campus\b/i.test(campusValue)
+      ? campusValue
+      : `Campus ${campusValue}`
+    : null;
+
   const locationParts = [
-    row.campus ? `Campus ${row.campus}` : null,
+    campusLabel,
     row.room ? `Sala ${row.room}` : null,
     row.seat_number ? `Carteira ${row.seat_number}` : null,
   ].filter(Boolean);
