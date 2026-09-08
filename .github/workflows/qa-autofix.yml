@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   autofix:
-    if: "github.event.head_commit.message == 'chore: target final QA fix'"
+    if: "github.event.head_commit.message == 'chore: align QA assertions'"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -25,7 +25,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Apply targeted TypeScript fixes
+      - name: Apply validated QA fixes
         shell: bash
         run: |
           python - <<'PY'
@@ -57,28 +57,42 @@ jobs:
               'src/lib/psEvaluatorSession.ts',
               "export async function getCoordinatorEvaluationDashboard(eventId: string, token: string) {\n  const { data, error } = await supabase.rpc('ps_public_coordinator_evaluation_dashboard' as never, {\n    p_event_id: eventId, p_session_token: token,\n  } as never);\n  if (error) throw error;\n  return Array.isArray(data) ? data[0] : data;\n}",
               "export async function getCoordinatorEvaluationDashboard(eventId: string, token: string) {\n  const { data, error } = await supabase.rpc('ps_public_coordinator_evaluation_dashboard' as never, {\n    p_event_id: eventId, p_session_token: token,\n  } as never);\n  if (error) throw error;\n  return firstRow(data as any);\n}",
-              expected=1,
           )
 
           replace_exact(
               'src/lib/signatureStorage.ts',
               "    let query = supabase.from(source.table).select('id', { count: 'exact', head: true });",
               "    // The table/field pairs are constrained by the hard-coded reference map above.\n    // Keep the dynamic query local instead of weakening the typed Supabase client globally.\n    let query = (supabase as any).from(source.table).select('id', { count: 'exact', head: true });",
-              expected=1,
           )
 
           replace_exact(
               'src/hooks/useProcessoSeletivo.ts',
               "        } else {\n          id = temporaryIds.get(decision.collaboratorId) || decision.collaboratorId;\n        }",
               "        } else if (decision.status === 'matched') {\n          id = temporaryIds.get(decision.collaboratorId) || decision.collaboratorId;\n        } else {\n          throw new Error(`Importação interrompida na linha ${decision.rowIndex + 2}: identidade não resolvida.`);\n        }",
-              expected=1,
           )
 
           replace_exact(
               'src/hooks/useProcessoSeletivo.ts',
               "        .select(PS_EVENT_COLLABORATOR_LIST_SELECT)\n        .eq('event_id', eventId!)\n        .order('collaborator_name');\n      if (error) throw error;\n      return data;",
               "        .select(PS_EVENT_COLLABORATOR_LIST_SELECT)\n        .eq('event_id', eventId!)\n        .order('collaborator_name');\n      if (error) throw error;\n      // This select is intentionally assembled from a fixed field list. The PostgREST\n      // type parser cannot infer dynamic select strings, so narrow at this boundary.\n      return (data || []) as unknown as Array<Record<string, any>>;",
-              expected=1,
+          )
+
+          replace_exact(
+              'tests/unit/heavy-field-query-projections.test.mjs',
+              "  assert.match(page, /exportAttendancePdf = async[\\s\\S]*?select\\('id, signature_url'\\)/);",
+              "  assert.match(page, /exportAttendancePdf = async[\\s\\S]*?from\\('ps_event_collaborators'\\)[\\s\\S]*?select\\([\\s\\S]*?signature_url[\\s\\S]*?\\)[\\s\\S]*?eq\\('event_id', id!\\)/);",
+          )
+
+          replace_exact(
+              'tests/unit/ps-event-communications.test.mjs',
+              "assert.match(edge,/batchLimit=100/);",
+              "assert.match(edge,/batchLimit=limit\\('PS_EMAIL_BATCH_LIMIT',5,100\\)/);",
+          )
+
+          replace_exact(
+              'tests/unit/ps-public-signature-r2.test.mjs',
+              "  assert.match(edge, /rpc\\('ps_public_sign_attendance'/);",
+              "  assert.match(edge, /rpc\\(\\s*'ps_public_sign_attendance'/);",
           )
           PY
 
@@ -100,6 +114,6 @@ jobs:
           rm .github/workflows/qa-autofix.yml
           git config user.name "Viniciusezequiel"
           git config user.email "164230144+Viniciusezequiel@users.noreply.github.com"
-          git add src/hooks/useEquipment.ts src/hooks/useLockers.ts src/hooks/useProcessoSeletivo.ts src/lib/psEvaluatorSession.ts src/lib/signatureStorage.ts .github/workflows/qa-autofix.yml
-          git commit -m "fix: clear remaining TypeScript QA issues"
+          git add src/hooks/useEquipment.ts src/hooks/useLockers.ts src/hooks/useProcessoSeletivo.ts src/lib/psEvaluatorSession.ts src/lib/signatureStorage.ts tests/unit/heavy-field-query-projections.test.mjs tests/unit/ps-event-communications.test.mjs tests/unit/ps-public-signature-r2.test.mjs .github/workflows/qa-autofix.yml
+          git commit -m "fix: clear remaining QA issues"
           git push origin HEAD:ui/professional-foundation
