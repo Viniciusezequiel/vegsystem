@@ -85,6 +85,96 @@ function normalizeAiStorageCategory(value) {
   return null;
 }
 
+function normalizeAiItemType(value) {
+  const text = normalizeAiText(value);
+  if (!text) return null;
+  const normalized = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const matchable = normalized;
+
+  if (!matchable) return text;
+  if (/(suplement|vitamina|omega|capsula|gelatinosa|tablet|gummies)/i.test(matchable)) return 'suplemento alimentar';
+  if (/(perfume|parfum|cologne|eau|toilette|fragance|fragrance)/i.test(matchable)) return 'perfume';
+  if (/(fone|headphone|earpod|earbud|auricular|audio)/i.test(matchable)) return 'fone de ouvido';
+  if (/(chave|key)/i.test(matchable)) return 'chave';
+  if (/(oculos|glasses|sunglasses)/i.test(matchable)) return 'óculos';
+  if (/(caderno|notebook|agenda)/i.test(matchable)) return 'caderno';
+  if (/(cosmetico|cosmetic|creme|higiene|shampoo|sabonete|loção|cream)/i.test(matchable)) return 'cosmético';
+  if (/(medicamento|medicine|remedio|pílula|pill)/i.test(matchable)) return 'medicamento';
+  if (/(cartela|wallet|carteira|bolsa|bag|sacola)/i.test(matchable)) return 'sacola';
+  if (/(garrafa|bottle|frasco)/i.test(matchable)) return 'garrafa';
+  if (/(device|dispositivo|aparelho|object|objeto|container|recipiente)/i.test(matchable)) return 'objeto';
+  return text;
+}
+
+function normalizeAiProductFields(productName, modelVariant, brand) {
+  let safeProductName = normalizeAiText(redactSensitiveText(productName));
+  let safeModelVariant = normalizeAiText(redactSensitiveText(modelVariant));
+  const safeBrand = normalizeAiText(redactSensitiveText(brand));
+
+  const normalizeForMatch = (value) => String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  const isQuantityLike = (value) => /(?:capsula|capsulas|ml|mg|g|l\b|litro|volume|quantidade|pack|embalagem|caixa|frasco|unidades?)/i.test(normalizeForMatch(value));
+
+  if (safeProductName && safeBrand) {
+    const normalizedProduct = safeProductName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const normalizedBrand = safeBrand.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (normalizedProduct === normalizedBrand) {
+      safeProductName = safeBrand;
+      safeModelVariant = null;
+    } else if (normalizedProduct.startsWith(`${normalizedBrand} `)) {
+      const remainder = safeProductName.slice(safeBrand.length).trim();
+      if (remainder) {
+        const remainderNormalized = remainder.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+        if (!isQuantityLike(remainder) && (!safeModelVariant || normalizeAiText(safeModelVariant) === remainder)) {
+          safeModelVariant = remainder;
+          safeProductName = safeBrand;
+        }
+      }
+    }
+  }
+
+  if (safeProductName && safeModelVariant) {
+    const normalizedProduct = safeProductName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const normalizedVariant = safeModelVariant.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (normalizedProduct === normalizedVariant || normalizedProduct.includes(normalizedVariant) || normalizedVariant.includes(normalizedProduct) || isQuantityLike(safeModelVariant)) {
+      safeModelVariant = null;
+    }
+  }
+
+  return {
+    product_name: safeProductName,
+    model_variant: safeModelVariant,
+  };
+}
+
+function inferStorageCategory(itemType, productName, brand, features, visibleSpecs) {
+  const text = [itemType, productName, brand, ...(features || []), ...(visibleSpecs || [])].filter(Boolean).join(' ');
+  if (!text) return null;
+  const matchable = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (/(suplement|vitamina|omega|capsula|gelatinosa|medicamento|remedio|remedio|cosmetico|perfume|parfum|cologne|colonia|creme|higiene|sabonete|shampoo|condicionador)/i.test(matchable)) {
+    return 'variados';
+  }
+
+  if (/(chave|key|oculos|glasses|sunglasses|acessorio|bijuteria|relogio|pulseira|colar|brinco|pingente)/i.test(matchable)) {
+    return 'pequenos_pertences';
+  }
+
+  return null;
+}
+
 function redactSensitiveText(value) {
   if (value === null || value === undefined) return value;
   let text = String(value);
@@ -135,9 +225,9 @@ function sanitizeAiPayload(raw) {
   const confidence = Number(confidenceInput);
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) return null;
 
-  const itemType = normalizeAiText(redactSensitiveText(candidate.item_type));
-  const productName = normalizeAiText(redactSensitiveText(candidate.product_name));
-  const modelVariant = normalizeAiText(redactSensitiveText(candidate.model_variant));
+  const rawItemType = normalizeAiText(redactSensitiveText(candidate.item_type));
+  const rawProductName = normalizeAiText(redactSensitiveText(candidate.product_name));
+  const rawModelVariant = normalizeAiText(redactSensitiveText(candidate.model_variant));
   const description = normalizeAiText(redactSensitiveText(candidate.description_suggestion));
   const primaryColor = normalizeAiText(redactSensitiveText(candidate.primary_color));
   const secondaryColor = normalizeAiText(redactSensitiveText(candidate.secondary_color));
@@ -147,21 +237,26 @@ function sanitizeAiPayload(raw) {
   const visibleSpecs = normalizeAiStringArray(candidate.visible_specs).map(value => stripSensitiveVisibleText(value) ?? '').filter(Boolean);
   const distinguishingFeatures = normalizeAiStringArray(candidate.distinguishing_features).map(value => stripSensitiveVisibleText(value) ?? '').filter(Boolean);
   const condition = normalizeAiText(redactSensitiveText(candidate.condition));
-  const category = normalizeAiStorageCategory(candidate.storage_category);
+  const normalizedProductFields = normalizeAiProductFields(rawProductName, rawModelVariant, brand);
+  const semanticText = [rawItemType, rawProductName, rawModelVariant, description, brand].filter(Boolean).join(' ');
+  const itemType = normalizeAiItemType(semanticText || rawItemType || (rawProductName || description || brand));
+  const inferredCategory = inferStorageCategory(itemType, normalizedProductFields.product_name, brand, features, visibleSpecs);
+  const explicitCategory = normalizeAiStorageCategory(candidate.storage_category);
+  const category = inferredCategory || explicitCategory || null;
   const visibleText = normalizeAiStringArray(candidate.visible_text_safe)
     .map(value => stripSensitiveVisibleText(value))
     .filter(Boolean);
   const safeConfidence = Math.min(1, Math.max(0, confidence));
 
-  const sensitive = [itemType, productName, modelVariant, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
+  const sensitive = [itemType, normalizedProductFields.product_name, normalizedProductFields.model_variant, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
   const shouldStripVisibleText = category === 'documentos_valores' || sensitive || /documento|cartao|identidade|cpf|rg|cnh/i.test(String(itemType ?? ''));
 
   const sanitizedDescription = description ? redactSensitiveText(description).trim() || null : null;
 
   return {
     item_type: itemType,
-    product_name: productName,
-    model_variant: modelVariant,
+    product_name: normalizedProductFields.product_name,
+    model_variant: normalizedProductFields.model_variant,
     description_suggestion: sanitizedDescription,
     primary_color: primaryColor,
     secondary_color: secondaryColor,

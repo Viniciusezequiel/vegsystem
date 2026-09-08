@@ -424,10 +424,10 @@ test('AI lost-item sanitiza categoria e remove texto sensível', async () => {
   }
 });
 
-test('AI lost-item preserva product_name, model_variant e specs visuais úteis e sanitiza PII', async () => {
+test('AI lost-item normaliza item_type, product_name e categoria para suplemento', async () => {
   const { app, env } = setup({
     aiRun: async () => ({
-      item_type: 'suplemento',
+      item_type: 'bottle',
       description_suggestion: 'Suplemento Ômega 3 Neo Química em frasco azul, rótulo laranja, 60 cápsulas.',
       product_name: 'Ômega 3',
       model_variant: '60 cápsulas',
@@ -455,12 +455,128 @@ test('AI lost-item preserva product_name, model_variant e specs visuais úteis e
     }), env, {});
     assert.equal(response.status, 200);
     const payload = await response.json();
+    assert.equal(payload.item_type, 'suplemento alimentar');
     assert.equal(payload.product_name, 'Ômega 3');
-    assert.equal(payload.model_variant, '60 cápsulas');
+    assert.equal(payload.model_variant, null);
     assert.deepEqual(payload.visible_specs, ['60 cápsulas', 'frasco azul']);
     assert.deepEqual(payload.distinguishing_features, ['rótulo laranja', 'frasco retangular']);
+    assert.equal(payload.storage_category, 'variados');
     assert.match(payload.description_suggestion, /Ômega 3|Neo Química|azul|60 cápsulas/);
     assert.doesNotMatch(JSON.stringify(payload), /Vitamina para saúde|CPF|RG|123\.456\.789-00/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item normaliza item_type e storage para perfume', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'bottle',
+      description_suggestion: 'Perfume Club de Nuit Intense Man em frasco preto.',
+      product_name: 'Club de Nuit Intense Man',
+      model_variant: 'Intense Man',
+      primary_color: 'preto',
+      secondary_color: null,
+      brand: 'Club de Nuit',
+      material: 'vidro',
+      features: ['frasco preto'],
+      condition: 'bom',
+      storage_category: 'garrafas_copos',
+      visible_specs: ['Intense Man'],
+      distinguishing_features: ['frasco elegante'],
+      visible_text_safe: ['Club de Nuit', 'Intense Man'],
+      confidence: 0.9,
+    }),
+    authorize: async () => true,
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.item_type, 'perfume');
+    assert.equal(payload.storage_category, 'variados');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item restrição de chave e categoria pequena', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'key',
+      description_suggestion: 'Chave de metal com pingente pequeno.',
+      product_name: null,
+      model_variant: null,
+      primary_color: 'prata',
+      secondary_color: null,
+      brand: null,
+      material: 'metal',
+      features: ['pingente pequeno'],
+      condition: 'bom',
+      storage_category: 'pequenos_pertences',
+      visible_specs: [],
+      distinguishing_features: ['pingente pequeno'],
+      visible_text_safe: [],
+      confidence: 0.86,
+    }),
+    authorize: async () => true,
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.item_type, 'chave');
+    assert.equal(payload.storage_category, 'pequenos_pertences');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item usa variados para produto sem categoria física específica', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'bottle',
+      description_suggestion: 'Frasco de produto sem categoria definida.',
+      product_name: 'Produto genérico',
+      model_variant: null,
+      primary_color: 'transparente',
+      secondary_color: null,
+      brand: 'Marca Genérica',
+      material: 'vidro',
+      features: ['frasco transparente'],
+      condition: 'bom',
+      storage_category: 'variados',
+      visible_specs: [],
+      distinguishing_features: ['frasco transparente'],
+      visible_text_safe: [],
+      confidence: 0.77,
+    }),
+    authorize: async () => true,
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.item_type, 'garrafa');
+    assert.equal(payload.storage_category, 'variados');
   } finally {
     globalThis.fetch = originalFetch;
   }
