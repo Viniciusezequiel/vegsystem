@@ -34,6 +34,7 @@ import {
   uploadSignatureValue,
   cleanupUploadedSignatureIfUnreferenced,
 } from '@/lib/signatureStorage';
+import { buildManualEventCollaboratorRow } from '@/lib/psManualEventCollaboratorSnapshot.mjs';
 
 export default function PsEventDetail() {
   const { id } = useParams();
@@ -457,14 +458,13 @@ export default function PsEventDetail() {
     const roleObj: any = roles.find((r: any) => r.value === roleValue);
     const rows = selected.map((cid) => {
       const c: any = collaborators.find((x: any) => x.id === cid);
-      return {
-        event_id: id,
-        collaborator_id: cid,
-        collaborator_name: c?.full_name,
-        role_value: roleValue,
-        role_name: roleObj?.name,
-        pay_value: rolePay(roleValue),
-      };
+      return buildManualEventCollaboratorRow({
+        eventId: id,
+        collaborator: c,
+        roleValue,
+        roleName: roleObj?.name,
+        payValue: rolePay(roleValue),
+      });
     });
     await add.mutateAsync(rows);
     setAddOpen(false);
@@ -2173,17 +2173,27 @@ export default function PsEventDetail() {
             <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border p-2">
               {visibleCollaborators.length === 0 ? (
                 <p className="p-2 text-sm text-muted-foreground">Nenhum fiscal encontrado.</p>
-              ) : visibleCollaborators.map((c: any) => (
-                <Button
-                  key={c.id}
-                  type="button"
-                  variant={selected.includes(c.id) ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
-                >
-                  {c.full_name}
-                </Button>
-              ))}
+              ) : visibleCollaborators.map((c: any) => {
+                const summary = [c.email, c.matricula && `Matrícula ${c.matricula}`, c.institution, c.unit].filter(Boolean);
+                return (
+                  <Button
+                    key={c.id}
+                    type="button"
+                    variant={selected.includes(c.id) ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
+                  >
+                    <span className="flex flex-col items-start text-left">
+                      <span className="font-medium">{c.full_name}</span>
+                      {summary.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {summary.join(' · ')}
+                        </span>
+                      )}
+                    </span>
+                  </Button>
+                );
+              })}
             </div>
           </div>
           <DialogFooter>
