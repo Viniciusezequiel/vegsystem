@@ -84,7 +84,10 @@ export function useArchivedLostItems(campus?: 'Campus I' | 'Campus II' | 'Campus
       const { data, error } = await query;
       if (error) throw error;
       return {
-        items: (data || []) as ArchivedLostItem[],
+        // The select list is assembled at runtime, so PostgREST cannot infer
+        // its literal result shape. Validate errors first, then make that
+        // boundary explicit instead of pretending the generated parser did it.
+        items: (data || []) as unknown as ArchivedLostItem[],
         pageParam,
         hasMore: data ? data.length === PAGE_SIZE : false,
       };
@@ -109,7 +112,7 @@ export function useArchivedLostItem(id?: string) {
         .eq('id', id)
         .maybeSingle();
       if (error) throw error;
-      return data as Partial<ArchivedLostItem> | null;
+      return data as unknown as Partial<ArchivedLostItem> | null;
     },
     enabled: Boolean(id),
     staleTime: 5 * 60_000,
