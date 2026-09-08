@@ -544,13 +544,128 @@ test('AI lost-item usa visible_text_safe quando product_name equivale a marca', 
   }
 });
 
-test('AI lost-item preserva product_name já específico da marca', async () => {
+test('AI lost-item promove model_variant valido para product_name', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'suplemento alimentar',
+      description_suggestion: 'Suplemento Ômega 3 com 60 cápsulas.',
+      product_name: 'Vitaminas Neo Química',
+      model_variant: 'Omega 3',
+      primary_color: 'azul',
+      secondary_color: 'laranja',
+      brand: 'Neo Química',
+      material: 'plástico',
+      features: ['frasco azul'],
+      condition: 'bom',
+      storage_category: 'variados',
+      visible_specs: ['60 cápsulas'],
+      distinguishing_features: ['rótulo laranja'],
+      visible_text_safe: ['Neo Química', 'Omega 3', '60 cápsulas'],
+      confidence: 0.93,
+    }),
+    authorize: async () => true,
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.product_name, 'Omega 3');
+    assert.equal(payload.model_variant, null);
+    assert.equal(payload.brand, 'Neo Química');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item rejeita quantity em model_variant como product_name', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'suplemento alimentar',
+      description_suggestion: 'Suplemento com 60 cápsulas.',
+      product_name: null,
+      model_variant: '60 cápsulas',
+      primary_color: 'azul',
+      secondary_color: null,
+      brand: 'Neo Química',
+      material: 'plástico',
+      features: ['frasco azul'],
+      condition: 'bom',
+      storage_category: 'variados',
+      visible_specs: ['60 cápsulas'],
+      distinguishing_features: ['frasco azul'],
+      visible_text_safe: ['60 cápsulas'],
+      confidence: 0.88,
+    }),
+    authorize: async () => true,
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.product_name, null);
+    assert.equal(payload.model_variant, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item não promove brand como model_variant para product_name', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'eletronico',
+      description_suggestion: 'Fone Samsung.',
+      product_name: null,
+      model_variant: 'Samsung',
+      primary_color: 'preto',
+      secondary_color: null,
+      brand: 'Samsung',
+      material: 'plástico',
+      features: ['fone bluetooth'],
+      condition: 'bom',
+      storage_category: 'eletronicos',
+      visible_specs: ['Bluetooth'],
+      distinguishing_features: ['estuche'],
+      visible_text_safe: ['Samsung'],
+      confidence: 0.88,
+    }),
+    authorize: async () => true,
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.product_name, null);
+    assert.equal(payload.model_variant, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item preserva model_variant real quando product_name já existe', async () => {
   const { app, env } = setup({
     aiRun: async () => ({
       item_type: 'perfume',
       description_suggestion: 'Perfume Club de Nuit Intense Man.',
-      product_name: 'Club de Nuit Intense Man',
-      model_variant: null,
+      product_name: 'Club de Nuit',
+      model_variant: 'Intense Man',
       primary_color: 'preto',
       secondary_color: null,
       brand: 'Armaf',
@@ -560,7 +675,7 @@ test('AI lost-item preserva product_name já específico da marca', async () => 
       storage_category: 'variados',
       visible_specs: ['Intense Man'],
       distinguishing_features: ['frasco elegante'],
-      visible_text_safe: ['Club de Nuit Intense Man'],
+      visible_text_safe: ['Club de Nuit', 'Intense Man'],
       confidence: 0.9,
     }),
     authorize: async () => true,
@@ -575,8 +690,45 @@ test('AI lost-item preserva product_name já específico da marca', async () => 
     }), env, {});
     assert.equal(response.status, 200);
     const payload = await response.json();
-    assert.equal(payload.product_name, 'Club de Nuit Intense Man');
-    assert.equal(payload.brand, 'Armaf');
+    assert.equal(payload.product_name, 'Club de Nuit');
+    assert.equal(payload.model_variant, 'Intense Man');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item recupera product_name de visible_text_safe quando model_variant também é inválido', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'suplemento alimentar',
+      description_suggestion: 'Suplemento com nome principal visível.',
+      product_name: null,
+      model_variant: 'vitaminas',
+      primary_color: 'azul',
+      secondary_color: null,
+      brand: 'Neo Química',
+      material: 'plástico',
+      features: ['frasco azul'],
+      condition: 'bom',
+      storage_category: 'variados',
+      visible_specs: ['60 cápsulas'],
+      distinguishing_features: ['frasco azul'],
+      visible_text_safe: ['Omega 3'],
+      confidence: 0.88,
+    }),
+    authorize: async () => true,
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.product_name, 'Omega 3');
   } finally {
     globalThis.fetch = originalFetch;
   }

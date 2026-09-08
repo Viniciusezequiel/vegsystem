@@ -127,6 +127,12 @@ function normalizeAiProductFields(productName, modelVariant, brand) {
   const isQuantityLike = (value) => /(?:^|\s)\d+\s*(?:ml|mg|g|l)\b|\b\d+\s*(?:capsulas?|comprimidos?|tabletes?|unidades?)\b|\b(?:capsulas?|comprimidos?|tabletes?|unidades?|ml|mg|litro|volume|quantidade|pack|embalagem|caixa|frasco)\b/i.test(normalizeForMatch(value));
   const isBrandInstitutionalName = (value) => /(?:vitaminas?|suplementos?|cosmeticos?|perfumes?|saude|saúde|marca|linha|colecao|coleção|series?|range|collection|linea?|cartao|cartão)/i.test(normalizeForMatch(value));
   const isLikelyColorName = (value) => /^(?:azul|verde|vermelho|preto|branco|prata|laranja|roxo|amarelo|cinza|rosa|marrom|dourado|bege)$/i.test(normalizeForMatch(value));
+  const isSingleTokenBrandLike = (value) => {
+    const normalized = normalizeForMatch(value);
+    if (!normalized || normalized.includes(' ') || /\d/.test(normalized)) return false;
+    if (normalized.length <= 2) return true;
+    return /^([a-z]+)$/i.test(normalized) && !/^(?:omega|intense|club|galaxy|buds|pro|air|max|plus|lite|ultra)$/i.test(normalized);
+  };
 
   if (safeProductName && safeBrand) {
     const normalizedProduct = normalizeForMatch(safeProductName);
@@ -153,8 +159,12 @@ function normalizeAiProductFields(productName, modelVariant, brand) {
     }
   }
 
-  if (safeProductName && (isQuantityLike(safeProductName) || isBrandInstitutionalName(safeProductName) || hasSensitivePersonalDataValue(safeProductName))) {
+  if (safeProductName && (isQuantityLike(safeProductName) || isBrandInstitutionalName(safeProductName) || isSingleTokenBrandLike(safeProductName) || hasSensitivePersonalDataValue(safeProductName))) {
     safeProductName = null;
+  }
+
+  if (safeModelVariant && (isQuantityLike(safeModelVariant) || isBrandInstitutionalName(safeModelVariant) || isLikelyColorName(safeModelVariant) || hasSensitivePersonalDataValue(safeModelVariant))) {
+    safeModelVariant = null;
   }
 
   if (safeProductName && safeModelVariant) {
@@ -263,37 +273,57 @@ function sanitizeAiPayload(raw) {
     .map(value => stripSensitiveVisibleText(value))
     .filter(Boolean);
 
+  const brandCanonical = brand ? String(brand).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim() : null;
+  const isQuantityLikeText = (value) => {
+    const normalized = String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    return /(?:^|\s)\d+\s*(?:ml|mg|g|l)\b|\b\d+\s*(?:capsulas?|comprimidos?|tabletes?|unidades?)\b|\b(?:capsulas?|comprimidos?|tabletes?|unidades?|ml|mg|litro|volume|quantidade|pack|embalagem|caixa|frasco|garrafa)\b/i.test(normalized);
+  };
+  const isGenericProductText = (value) => {
+    const normalized = String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    return /(?:vitaminas?|suplementos?|cosmeticos?|perfumes?|saude|saúde|marca|linha|colecao|coleção|series?|range|collection|produto|modelo|cartao|cartão)/i.test(normalized);
+  };
+  const isSafeSpecificProductCandidate = (value) => {
+    const normalized = String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!normalized || normalized.length > 80) return false;
+    if (brandCanonical && normalized === brandCanonical) return false;
+    if (isQuantityLikeText(normalized)) return false;
+    if (!normalized.includes(' ') && !/\d/.test(normalized)) return false;
+    if (/^(?:azul|verde|vermelho|preto|branco|prata|laranja|roxo|amarelo|cinza|rosa|marrom|dourado|bege)$/i.test(normalized)) return false;
+    if (isGenericProductText(normalized)) return false;
+    if (hasSensitivePersonalDataValue(value)) return false;
+    return true;
+  };
+
   const safeProductName = normalizedProductFields.product_name;
-  const fallbackProductName = (() => {
-    if (safeProductName && !/^(?:vitaminas?|suplementos?|cosmeticos?|perfumes?|saude|saúde|marca|linha|colecao|coleção|series?|range|collection)$/i.test(String(safeProductName).trim())) {
-      return safeProductName;
+  const safeModelVariant = normalizedProductFields.model_variant && isSafeSpecificProductCandidate(normalizedProductFields.model_variant)
+    ? normalizedProductFields.model_variant
+    : null;
+  let finalProductName = null;
+  let finalModelVariant = safeModelVariant;
+
+  if (safeProductName && !isQuantityLikeText(safeProductName) && !isGenericProductText(safeProductName)) {
+    finalProductName = safeProductName;
+  } else if (safeModelVariant) {
+    finalProductName = safeModelVariant;
+    finalModelVariant = null;
+  } else {
+    const visibleName = visibleText.find(isSafeSpecificProductCandidate);
+    if (visibleName) {
+      finalProductName = visibleName;
     }
-
-    const recoverable = visibleText.filter(entry => {
-      const normalized = String(entry).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-      if (!normalized || normalized.length > 80) return false;
-      if (brand && normalized === String(brand).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()) return false;
-      if (/(?:\d+\s*(?:ml|mg|g|l)\b|capsulas?|ml|mg|litro|volume|quantidade|pack|embalagem|caixa|frasco|unidades?)/i.test(normalized)) return false;
-      if (/^(?:azul|verde|vermelho|preto|branco|prata|laranja|roxo|amarelo|cinza|rosa|marrom|dourado|bege)$/i.test(normalized)) return false;
-      if (/(?:vitaminas?|suplementos?|cosmeticos?|perfumes?|saude|saúde|marca|linha|colecao|coleção|series?|range|collection|cartao|cartão)/i.test(normalized)) return false;
-      if (hasSensitivePersonalDataValue(entry)) return false;
-      return true;
-    });
-
-    return recoverable[0] ?? null;
-  })();
+  }
 
   const safeConfidence = Math.min(1, Math.max(0, confidence));
 
-  const sensitive = [itemType, fallbackProductName || safeProductName, normalizedProductFields.model_variant, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
+  const sensitive = [itemType, finalProductName, finalModelVariant, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
   const shouldStripVisibleText = category === 'documentos_valores' || sensitive || /documento|cartao|identidade|cpf|rg|cnh/i.test(String(itemType ?? ''));
 
   const sanitizedDescription = description ? redactSensitiveText(description).trim() || null : null;
 
   return {
     item_type: itemType,
-    product_name: fallbackProductName || normalizedProductFields.product_name || null,
-    model_variant: normalizedProductFields.model_variant,
+    product_name: finalProductName,
+    model_variant: finalModelVariant,
     description_suggestion: sanitizedDescription,
     primary_color: primaryColor,
     secondary_color: secondaryColor,
