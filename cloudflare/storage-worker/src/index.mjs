@@ -136,12 +136,16 @@ function sanitizeAiPayload(raw) {
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) return null;
 
   const itemType = normalizeAiText(redactSensitiveText(candidate.item_type));
+  const productName = normalizeAiText(redactSensitiveText(candidate.product_name));
+  const modelVariant = normalizeAiText(redactSensitiveText(candidate.model_variant));
   const description = normalizeAiText(redactSensitiveText(candidate.description_suggestion));
   const primaryColor = normalizeAiText(redactSensitiveText(candidate.primary_color));
   const secondaryColor = normalizeAiText(redactSensitiveText(candidate.secondary_color));
   const brand = normalizeAiText(redactSensitiveText(candidate.brand));
   const material = normalizeAiText(redactSensitiveText(candidate.material));
   const features = normalizeAiStringArray(candidate.features).map(value => stripSensitiveVisibleText(value) ?? '').filter(Boolean);
+  const visibleSpecs = normalizeAiStringArray(candidate.visible_specs).map(value => stripSensitiveVisibleText(value) ?? '').filter(Boolean);
+  const distinguishingFeatures = normalizeAiStringArray(candidate.distinguishing_features).map(value => stripSensitiveVisibleText(value) ?? '').filter(Boolean);
   const condition = normalizeAiText(redactSensitiveText(candidate.condition));
   const category = normalizeAiStorageCategory(candidate.storage_category);
   const visibleText = normalizeAiStringArray(candidate.visible_text_safe)
@@ -149,19 +153,23 @@ function sanitizeAiPayload(raw) {
     .filter(Boolean);
   const safeConfidence = Math.min(1, Math.max(0, confidence));
 
-  const sensitive = [itemType, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
+  const sensitive = [itemType, productName, modelVariant, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
   const shouldStripVisibleText = category === 'documentos_valores' || sensitive || /documento|cartao|identidade|cpf|rg|cnh/i.test(String(itemType ?? ''));
 
   const sanitizedDescription = description ? redactSensitiveText(description).trim() || null : null;
 
   return {
     item_type: itemType,
+    product_name: productName,
+    model_variant: modelVariant,
     description_suggestion: sanitizedDescription,
     primary_color: primaryColor,
     secondary_color: secondaryColor,
     brand: brand,
     material: material,
     features,
+    visible_specs: visibleSpecs.slice(0, 4),
+    distinguishing_features: distinguishingFeatures.slice(0, 4),
     condition: condition,
     storage_category: category,
     visible_text_safe: shouldStripVisibleText ? [] : visibleText.slice(0, 4),
@@ -419,27 +427,31 @@ async function handleLostItemAi(request, env, deps) {
   try {
     const modelResponse = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
       image: toDataUrl(bytes, contentType),
-      prompt: 'Analise esta imagem de um item perdido ou achado. Seja conservador e responda somente em JSON estrito com as chaves: item_type, description_suggestion, primary_color, secondary_color, brand, material, features, condition, storage_category, visible_text_safe, confidence. Nao inclua nome de pessoa, campus, local, data, contato, codigo, caixa, estante ou prateleira. Proibido transcrever CPF, RG, CNH, telefone, endereco, data de nascimento, matrículas, QR codes, cartões ou contas. Se houver documento pessoal, remova visible_text_safe. Mantenha respostas curtas e em português do Brasil. Use null quando não tiver certeza. Classifique storage_category apenas em: documentos_valores, garrafas_copos, eletronicos, pequenos_pertences, roupas, material_academico, jalecos_pijamas, vasilhas, necessaire_lancheiras, sombrinhas, itens_laboratorio, variados. Use somente essas categorias. O JSON deve ser válido e nenhum campo extra pode aparecer.',
+      prompt: 'Analise esta imagem de um item perdido ou achado. Responda somente em JSON estrito com as chaves: item_type, product_name, model_variant, description_suggestion, primary_color, secondary_color, brand, material, features, visible_specs, distinguishing_features, condition, storage_category, visible_text_safe, confidence. Nao inclua nome de pessoa, campus, local, data, contato, codigo, caixa, estante ou prateleira. Proibido transcrever CPF, RG, CNH, telefone, endereco, data de nascimento, matrículas, QR codes, cartões ou contas. Se houver documento pessoal, remova visible_text_safe. Descreva apenas elementos visíveis e específicos: nome do produto, variante ou modelo, cor principal, marca, material, detalhes visíveis, e uma descrição curta em português do Brasil, sem genericidades vagas como "vitamina para saúde" ou "perfume masculino". Use null quando não tiver certeza. Classifique storage_category apenas em: documentos_valores, garrafas_copos, eletronicos, pequenos_pertences, roupas, material_academico, jalecos_pijamas, vasilhas, necessaire_lancheiras, sombrinhas, itens_laboratorio, variados. Use somente essas categorias. O JSON deve ser válido e nenhum campo extra pode aparecer.',
       temperature: 0.1,
-      max_tokens: 180,
+      max_tokens: 320,
       response_format: {
         type: 'json_schema',
         json_schema: {
           type: 'object',
           properties: {
             item_type: { type: ['string', 'null'] },
+            product_name: { type: ['string', 'null'] },
+            model_variant: { type: ['string', 'null'] },
             description_suggestion: { type: ['string', 'null'] },
             primary_color: { type: ['string', 'null'] },
             secondary_color: { type: ['string', 'null'] },
             brand: { type: ['string', 'null'] },
             material: { type: ['string', 'null'] },
             features: { type: 'array', items: { type: 'string' } },
+            visible_specs: { type: 'array', items: { type: 'string' } },
+            distinguishing_features: { type: 'array', items: { type: 'string' } },
             condition: { type: ['string', 'null'] },
             storage_category: { type: ['string', 'null'] },
             visible_text_safe: { type: 'array', items: { type: 'string' } },
             confidence: { type: 'number' },
           },
-          required: ['item_type', 'description_suggestion', 'primary_color', 'secondary_color', 'brand', 'material', 'features', 'condition', 'storage_category', 'visible_text_safe', 'confidence'],
+          required: ['item_type', 'product_name', 'model_variant', 'description_suggestion', 'primary_color', 'secondary_color', 'brand', 'material', 'features', 'visible_specs', 'distinguishing_features', 'condition', 'storage_category', 'visible_text_safe', 'confidence'],
           additionalProperties: false,
         },
       },

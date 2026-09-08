@@ -2,12 +2,16 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type LostItemAiSuggestion = {
   item_type: string | null;
+  product_name: string | null;
+  model_variant: string | null;
   description_suggestion: string | null;
   primary_color: string | null;
   secondary_color: string | null;
   brand: string | null;
   material: string | null;
   features: string[];
+  visible_specs: string[];
+  distinguishing_features: string[];
   condition: string | null;
   storage_category: string | null;
   visible_text_safe: string[];

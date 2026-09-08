@@ -424,6 +424,48 @@ test('AI lost-item sanitiza categoria e remove texto sensível', async () => {
   }
 });
 
+test('AI lost-item preserva product_name, model_variant e specs visuais úteis e sanitiza PII', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'suplemento',
+      description_suggestion: 'Suplemento Ômega 3 Neo Química em frasco azul, rótulo laranja, 60 cápsulas.',
+      product_name: 'Ômega 3',
+      model_variant: '60 cápsulas',
+      primary_color: 'azul',
+      secondary_color: 'laranja',
+      brand: 'Neo Química',
+      material: 'plástico',
+      features: ['frasco azul', 'rótulo laranja'],
+      condition: 'bom',
+      storage_category: 'garrafas_copos',
+      visible_specs: ['60 cápsulas', 'frasco azul'],
+      distinguishing_features: ['rótulo laranja', 'frasco retangular'],
+      visible_text_safe: ['Neo Química', 'Ômega 3', '60 cápsulas'],
+      confidence: 0.93,
+    }),
+    authorize: async () => true,
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.product_name, 'Ômega 3');
+    assert.equal(payload.model_variant, '60 cápsulas');
+    assert.deepEqual(payload.visible_specs, ['60 cápsulas', 'frasco azul']);
+    assert.deepEqual(payload.distinguishing_features, ['rótulo laranja', 'frasco retangular']);
+    assert.match(payload.description_suggestion, /Ômega 3|Neo Química|azul|60 cápsulas/);
+    assert.doesNotMatch(JSON.stringify(payload), /Vitamina para saúde|CPF|RG|123\.456\.789-00/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('origem não permitida não recebe CORS', async () => {
   const { app, env } = setup();
   const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin: 'https://evil.test' } }), env, {});

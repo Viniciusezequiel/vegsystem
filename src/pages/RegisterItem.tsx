@@ -66,9 +66,14 @@ const buildAutoDescription = (suggestion: Awaited<ReturnType<typeof analyzeLostI
     parts.push(cleaned);
   };
 
+  addUniquePart(suggestion.product_name);
+  addUniquePart(suggestion.model_variant);
   addUniquePart(suggestion.description_suggestion);
   addUniquePart(suggestion.brand);
   addUniquePart(suggestion.primary_color);
+  if (suggestion.visible_specs?.length) {
+    suggestion.visible_specs.forEach(spec => addUniquePart(spec));
+  }
   return parts.join(' ');
 };
 
@@ -148,8 +153,11 @@ export default function RegisterItem() {
       const result = await analyzeLostItemImage(imageFile);
       const defaultSelected = {
         item_type: !!result.item_type,
+        product_name: !!result.product_name,
+        model_variant: !!result.model_variant,
         primary_color: !!result.primary_color,
         brand: !!result.brand,
+        visible_specs: !!result.visible_specs?.length,
         visible_text_safe: !!result.visible_text_safe?.length,
       };
       setSelectedSuggestionFields(defaultSelected);
@@ -433,6 +441,8 @@ export default function RegisterItem() {
                       <div className="space-y-2">
                         {Object.entries({
                           item_type: aiSuggestion.item_type,
+                          product_name: aiSuggestion.product_name,
+                          model_variant: aiSuggestion.model_variant,
                           primary_color: aiSuggestion.primary_color,
                           secondary_color: aiSuggestion.secondary_color,
                           brand: aiSuggestion.brand,
@@ -447,7 +457,7 @@ export default function RegisterItem() {
                               onChange={() => handleSuggestionToggle(key)}
                               className="mt-0.5"
                             />
-                            <span className="text-xs">{key === 'storage_category' ? 'Categoria: ' : key === 'primary_color' ? 'Cor: ' : key === 'secondary_color' ? 'Cor secundária: ' : key === 'brand' ? 'Marca: ' : key === 'material' ? 'Material: ' : key === 'condition' ? 'Condição: ' : 'Tipo: '}{String(value)}</span>
+                            <span className="text-xs">{key === 'storage_category' ? 'Categoria: ' : key === 'primary_color' ? 'Cor: ' : key === 'secondary_color' ? 'Cor secundária: ' : key === 'brand' ? 'Marca: ' : key === 'material' ? 'Material: ' : key === 'condition' ? 'Condição: ' : key === 'product_name' ? 'Produto: ' : key === 'model_variant' ? 'Modelo/variante: ' : 'Tipo: '}{String(value)}</span>
                           </label>
                         ))}
                         {aiSuggestion.features?.length > 0 && (
@@ -459,6 +469,28 @@ export default function RegisterItem() {
                               className="mt-0.5"
                             />
                             <span className="text-xs">Características: {aiSuggestion.features.join(', ')}</span>
+                          </label>
+                        )}
+                        {aiSuggestion.visible_specs?.length > 0 && (
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedSuggestionFields.visible_specs}
+                              onChange={() => handleSuggestionToggle('visible_specs')}
+                              className="mt-0.5"
+                            />
+                            <span className="text-xs">Especificações visíveis: {aiSuggestion.visible_specs.join(', ')}</span>
+                          </label>
+                        )}
+                        {aiSuggestion.distinguishing_features?.length > 0 && (
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedSuggestionFields.distinguishing_features}
+                              onChange={() => handleSuggestionToggle('distinguishing_features')}
+                              className="mt-0.5"
+                            />
+                            <span className="text-xs">Detalhes distintivos: {aiSuggestion.distinguishing_features.join(', ')}</span>
                           </label>
                         )}
                         {aiSuggestion.visible_text_safe?.length > 0 && (
