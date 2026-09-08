@@ -406,6 +406,10 @@ async function handleLostItemAi(request, env, deps) {
     aiPayload = sanitizeAiPayload(raw);
   } catch (error) {
     const message = String(error?.message || error || '');
+    console.error('lost-item-ai-error', {
+      name: error?.name ?? null,
+      message: message.slice(0, 500),
+    });
     if (/429|daily|quota|limit/i.test(message)) return json({ error: 'ai_daily_limit', code: 'AI_DAILY_LIMIT' }, 429, corsHeaders(request, env));
     if (/timeout|unavailable|capacity|not ready|model/i.test(message)) return json({ error: 'ai_unavailable', code: 'AI_UNAVAILABLE' }, 503, corsHeaders(request, env));
     return json({ error: 'ai_invalid_response', code: 'AI_INVALID_RESPONSE' }, 422, corsHeaders(request, env));
