@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   autofix:
-    if: "github.event.head_commit.message == 'chore: fix QA autofix workflow'"
+    if: "github.event.head_commit.message == 'chore: retry QA autofix'"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -55,8 +55,8 @@ jobs:
 
           replace_exact(
               'src/lib/psEvaluatorSession.ts',
-              "  if (error) throw error;\n  return Array.isArray(data) ? data[0] : data;\n}",
-              "  if (error) throw error;\n  if (data == null) return null;\n  return Array.isArray(data) ? data[0] : data;\n}",
+              '  return Array.isArray(data) ? data[0] : data;',
+              '  return firstRow(data as any);',
               expected=1,
           )
 
