@@ -54,27 +54,78 @@ const normalizeComparableText = (value: string | null | undefined) => {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 };
 
+const isSemanticContainmentMatch = (candidate: string | null | undefined, container: string | null | undefined) => {
+  const normalizedCandidate = normalizeComparableText(candidate);
+  const normalizedContainer = normalizeComparableText(container);
+  if (!normalizedCandidate || !normalizedContainer) return false;
+  return normalizedContainer.includes(normalizedCandidate) || normalizedCandidate.includes(normalizedContainer);
+};
+
+const deduplicateNormalizedTerms = (values: Array<string | null | undefined>) => {
+  const unique: string[] = [];
+
+  for (const value of values) {
+    const cleaned = (value ?? '').trim();
+    if (!cleaned) continue;
+
+    const normalized = normalizeComparableText(cleaned);
+    if (!normalized) continue;
+
+    const isDuplicate = unique.some(existing => {
+      const existingNormalized = normalizeComparableText(existing);
+      if (!existingNormalized) return false;
+      return existingNormalized === normalized
+        || existingNormalized.includes(normalized)
+        || normalized.includes(existingNormalized);
+    });
+
+    if (isDuplicate) continue;
+    unique.push(cleaned);
+  }
+
+  return unique;
+};
+
 const buildAutoDescription = (suggestion: Awaited<ReturnType<typeof analyzeLostItemImage>> | null) => {
   if (!suggestion) return '';
+
+  const descriptionText = (suggestion.description_suggestion ?? '').trim();
   const parts: string[] = [];
+
   const addUniquePart = (input: string | null | undefined) => {
     const cleaned = (input ?? '').trim();
     if (!cleaned) return;
-    const candidate = normalizeComparableText(cleaned);
-    if (!candidate) return;
-    if (parts.some(part => normalizeComparableText(part) === candidate)) return;
+
+    const normalized = normalizeComparableText(cleaned);
+    if (!normalized) return;
+
+    if (descriptionText && isSemanticContainmentMatch(cleaned, descriptionText)) return;
+
+    const normalizedParts = parts.map(part => normalizeComparableText(part));
+    const duplicate = normalizedParts.some(part =>
+      part === normalized || part.includes(normalized) || normalized.includes(part)
+    );
+
+    if (duplicate) return;
     parts.push(cleaned);
   };
 
+  if (descriptionText) {
+    parts.push(descriptionText);
+  }
+
   addUniquePart(suggestion.product_name);
   addUniquePart(suggestion.model_variant);
-  addUniquePart(suggestion.description_suggestion);
   addUniquePart(suggestion.brand);
   addUniquePart(suggestion.primary_color);
   if (suggestion.visible_specs?.length) {
     suggestion.visible_specs.forEach(spec => addUniquePart(spec));
   }
-  return parts.join(' ');
+  if (suggestion.distinguishing_features?.length) {
+    suggestion.distinguishing_features.forEach(feature => addUniquePart(feature));
+  }
+
+  return parts.join(' ').trim();
 };
 
 // Generate a unique 6-digit code
@@ -210,25 +261,34 @@ export default function RegisterItem() {
   const buildSearchMetadataFromSuggestions = () => {
     if (!aiSuggestion) return (searchMetadata || '').trim();
 
-    const acceptedValues = Object.entries(selectedSuggestionFields)
-      .filter(([, selected]) => selected)
-      .map(([key]) => {
-        const suggestionValue: unknown = key === 'features'
-          ? aiSuggestion.features?.join(', ')
-          : key === 'visible_text_safe'
-            ? aiSuggestion.visible_text_safe?.join(', ')
-            : key === 'storage_category'
-              ? aiSuggestion.storage_category
-              : (aiSuggestion as Record<string, unknown>)[key];
+    const acceptedValues = deduplicateNormalizedTerms(
+      Object.entries(selectedSuggestionFields)
+        .filter(([, selected]) => selected)
+        .map(([key]) => {
+          const suggestionValue: unknown = key === 'features'
+            ? aiSuggestion.features?.join(', ')
+            : key === 'visible_text_safe'
+              ? aiSuggestion.visible_text_safe?.join(', ')
+              : key === 'storage_category'
+                ? aiSuggestion.storage_category
+                : key === 'visible_specs'
+                  ? aiSuggestion.visible_specs?.join(', ')
+                  : key === 'distinguishing_features'
+                    ? aiSuggestion.distinguishing_features?.join(', ')
+                    : (aiSuggestion as Record<string, unknown>)[key];
 
-        if (Array.isArray(suggestionValue)) return suggestionValue.join(', ');
-        if (typeof suggestionValue === 'string' || suggestionValue === null || suggestionValue === undefined) return suggestionValue ?? '';
-        return '';
-      })
-      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+          if (Array.isArray(suggestionValue)) return suggestionValue.join(', ');
+          if (typeof suggestionValue === 'string' || suggestionValue === null || suggestionValue === undefined) return suggestionValue ?? '';
+          return '';
+        })
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    );
 
     const manualTerms = (searchMetadata || '').trim();
-    const merged = [...new Set([...acceptedValues, ...(manualTerms ? [manualTerms] : [])])].join(' | ');
+    const merged = deduplicateNormalizedTerms([
+      ...acceptedValues,
+      ...(manualTerms ? [manualTerms] : []),
+    ]).join(' | ');
     return merged.trim();
   };
 
