@@ -24,6 +24,7 @@ export interface LostItem {
   box: string | null;
   box_number: string | null;
   seal_number: string | null;
+  search_metadata: string | null;
   delivered_by_name: string;
   delivered_by_contact: string | null;
   registered_by: string | null;
@@ -95,7 +96,8 @@ export function useLostItems(filters?: {
       list = list.filter(i =>
         i.code?.toLowerCase().includes(q) ||
         i.description?.toLowerCase().includes(q) ||
-        i.found_location?.toLowerCase().includes(q)
+        i.found_location?.toLowerCase().includes(q) ||
+        (i.search_metadata ?? '').toLowerCase().includes(q)
       );
     }
 
@@ -252,6 +254,7 @@ export function useCreateLostItem() {
       code: string;
       description: string;
       image_url?: string;
+      search_metadata?: string | null;
       campus: CampusEnum;
       found_location: string;
       found_date: string;
@@ -276,6 +279,7 @@ export function useCreateLostItem() {
         .insert({
           ...data,
           image_url: imagePath,
+          search_metadata: data.search_metadata ?? null,
           registered_by: user?.id,
         })
         .select()

@@ -22,5 +22,8 @@
       "binding": "LOST_ITEMS_BUCKET",
       "bucket_name": "REPLACE_WITH_LOST_ITEMS_BUCKET"
     }
-  ]
+  ],
+  "ai": {
+    "binding": "AI"
+  }
 }

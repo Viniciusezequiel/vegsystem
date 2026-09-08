@@ -21,12 +21,15 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Camera, CheckCircle, Loader2, Copy, Check, Image as ImageIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { useCreateLostItem, useLostItems } from '@/hooks/useLostItems';
 import { useStorageConfig } from '@/hooks/useStorageConfig';
 import type { Database } from '@/integrations/supabase/types';
 import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 import { deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
 import { persistNewImageSafely } from '@/lib/lostItemStorageCore.mjs';
+import { analyzeLostItemImage } from '@/lib/lostItemAi';
+import { getLostItemStorageSuggestion } from '@/lib/lostItemStorageSuggestion';
 import { LostFoundModuleNav } from '@/components/lost-found/LostFoundModuleNav';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
@@ -71,6 +74,11 @@ export default function RegisterItem() {
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [createdCode, setCreatedCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<Awaited<ReturnType<typeof analyzeLostItemImage>> | null>(null);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const [acceptedAiDescription, setAcceptedAiDescription] = useState(false);
+  const [searchMetadata, setSearchMetadata] = useState('');
   const isSubmittingRef = useRef(false);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,6 +90,10 @@ export default function RegisterItem() {
       if (imagePreview) URL.revokeObjectURL(imagePreview);
       setImageFile(optimized);
       setImagePreview(URL.createObjectURL(optimized));
+      setAiSuggestion(null);
+      setSuggestionError(null);
+      setAcceptedAiDescription(false);
+      setSearchMetadata('');
     } catch (error) {
       setImageFile(null);
       const { toast } = await import('sonner');
@@ -91,6 +103,39 @@ export default function RegisterItem() {
       e.target.value = '';
     }
   };
+
+  const handleAnalyzeImage = async () => {
+    if (!imageFile) return;
+    setIsAnalyzingImage(true);
+    setSuggestionError(null);
+    try {
+      const result = await analyzeLostItemImage(imageFile);
+      setAiSuggestion(result);
+      setSuggestionError(null);
+    } catch (error) {
+      setAiSuggestion(null);
+      const message = error instanceof Error ? error.message : 'Identificação inteligente indisponível no momento. Você pode continuar o cadastro normalmente.';
+      setSuggestionError(message);
+    } finally {
+      setIsAnalyzingImage(false);
+    }
+  };
+
+  const handleUseAiDescription = () => {
+    if (!aiSuggestion?.description_suggestion || acceptedAiDescription) return;
+    if (description.trim()) {
+      toast.message('Descrição existente preservada', { description: 'A descrição atual foi mantida. Você pode editá-la manualmente.' });
+      return;
+    }
+    setDescription(aiSuggestion.description_suggestion);
+    setAcceptedAiDescription(true);
+  };
+
+  const aiStorageSuggestion = aiSuggestion ? getLostItemStorageSuggestion({
+    storageConfig: storageConfig ?? null,
+    campus: campus || '',
+    storageCategory: aiSuggestion.storage_category,
+  }) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +250,7 @@ export default function RegisterItem() {
                   />
                   <button
                     type="button"
-                    onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setImageFile(null); }}
+                    onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setImageFile(null); setAiSuggestion(null); setSuggestionError(null); }}
                     className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1.5 hover:bg-destructive/90"
                   >
                     <span className="sr-only">Remover</span>
@@ -248,6 +293,75 @@ export default function RegisterItem() {
                     </label>
                   </div>
                   <span className="text-xs text-destructive font-medium">* Foto obrigatória</span>
+                </div>
+              )}
+              {imageFile && (
+                <div className="mt-4 space-y-3 rounded-lg border bg-muted/20 p-3">
+                  <div>
+                    <p className="text-sm font-medium">Identificação inteligente</p>
+                    <p className="text-xs text-muted-foreground">Use a foto para receber sugestões de descrição e categoria.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isAnalyzingImage}
+                    onClick={handleAnalyzeImage}
+                  >
+                    {isAnalyzingImage ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Analisando item...
+                      </>
+                    ) : (
+                      'Analisar foto'
+                    )}
+                  </Button>
+                  {suggestionError && (
+                    <p className="text-xs text-amber-700">{suggestionError}</p>
+                  )}
+                  {aiSuggestion && (
+                    <div className="rounded-md border bg-background p-3 text-sm">
+                      <p className="font-medium mb-2">Identificação inteligente</p>
+                      <p className="text-xs text-muted-foreground mb-2">Confira as sugestões antes de usar.</p>
+                      <div className="space-y-1">
+                        {Object.entries({
+                          item_type: aiSuggestion.item_type,
+                          primary_color: aiSuggestion.primary_color,
+                          brand: aiSuggestion.brand,
+                          material: aiSuggestion.material,
+                          condition: aiSuggestion.condition,
+                          storage_category: aiSuggestion.storage_category,
+                        }).filter(([, value]) => !!value).map(([key, value]) => (
+                          <div key={key} className="flex items-start gap-2">
+                            <Check className="w-3.5 h-3.5 text-primary mt-0.5" />
+                            <span className="text-xs">{key === 'storage_category' ? 'Categoria: ' : key === 'primary_color' ? 'Cor: ' : key === 'brand' ? 'Marca: ' : key === 'material' ? 'Material: ' : key === 'condition' ? 'Condição: ' : 'Tipo: '}{String(value)}</span>
+                          </div>
+                        ))}
+                        {aiSuggestion.features?.length > 0 && (
+                          <div className="flex items-start gap-2">
+                            <Check className="w-3.5 h-3.5 text-primary mt-0.5" />
+                            <span className="text-xs">Características: {aiSuggestion.features.join(', ')}</span>
+                          </div>
+                        )}
+                      </div>
+                      {aiSuggestion.description_suggestion && (
+                        <div className="mt-3 rounded-md border bg-muted/30 p-2">
+                          <p className="text-xs font-medium text-foreground">Descrição sugerida</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{aiSuggestion.description_suggestion}</p>
+                          <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={handleUseAiDescription} disabled={!!description.trim() || acceptedAiDescription}>
+                            Usar descrição
+                          </Button>
+                        </div>
+                      )}
+                      {aiStorageSuggestion && (
+                        <div className="mt-3 rounded-md border bg-muted/30 p-2">
+                          <p className="text-xs font-medium text-foreground">Sugestão de armazenamento</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{aiStorageSuggestion.shelfLabel} · Caixa {aiStorageSuggestion.box}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

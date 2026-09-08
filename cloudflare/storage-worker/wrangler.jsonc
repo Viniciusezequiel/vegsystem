@@ -17,5 +17,8 @@
       "binding": "LOST_ITEMS_BUCKET",
       "bucket_name": "vegsystem-lost-items-prod"
     }
-  ]
+  ],
+  "ai": {
+    "binding": "AI"
+  }
 }

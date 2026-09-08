@@ -903,6 +903,7 @@ export type Database = {
           received_date: string
           registered_by: string | null
           seal_number: string | null
+          search_metadata: string | null
           shelf: string | null
           status: string
           updated_at: string
@@ -929,6 +930,7 @@ export type Database = {
           received_date: string
           registered_by?: string | null
           seal_number?: string | null
+          search_metadata?: string | null
           shelf?: string | null
           status?: string
           updated_at?: string
@@ -955,6 +957,7 @@ export type Database = {
           received_date?: string
           registered_by?: string | null
           seal_number?: string | null
+          search_metadata?: string | null
           shelf?: string | null
           status?: string
           updated_at?: string

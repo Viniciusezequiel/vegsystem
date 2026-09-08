@@ -15,6 +15,7 @@ export const LOST_ITEMS_LIST_SELECT = [
   'box',
   'box_number',
   'seal_number',
+  'search_metadata',
 ].join(',');
 
 // Minimal select for counting (avoids loading any large data)

@@ -48,8 +48,25 @@ function setup(overrides = {}) {
     ENABLE_SIGNATURES: 'true',
     PS_SIGNATURE_INTERNAL_SECRET: 'unit-test-process-selection-secret-123456789',
     ALLOWED_ORIGINS: 'https://www.vegsystem.site',
+    SUPABASE_URL: 'https://project.supabase.co',
+    SUPABASE_PUBLISHABLE_KEY: 'public-key',
+    AI: {
+      run: overrides.aiRun ?? (async () => ({
+        item_type: 'garrafa',
+        description_suggestion: 'Garrafa térmica preta',
+        primary_color: 'preta',
+        secondary_color: null,
+        brand: 'Stanley',
+        material: 'metal',
+        features: ['tampa rosqueável'],
+        condition: 'bom',
+        storage_category: 'garrafas_copos',
+        visible_text_safe: ['STANLEY'],
+        confidence: 0.91,
+      })),
+    },
   };
-  return { app, env, bucket };
+  return { app, env, bucket, auth };
 }
 
 const webp = new Uint8Array([82,73,70,70,4,0,0,0,87,69,66,80,1,2,3,4]);
@@ -232,6 +249,72 @@ test('DELETE remove apenas a key exata sem referências', async () => {
   assert.equal(response.status, 200);
   assert.equal(await bucket.head('a.webp'), null);
   assert.ok(await bucket.head('b.webp'));
+});
+
+test('AI lost-item exige JWT e valida autorização', async () => {
+  const { app, env } = setup({
+    authorize: async (auth, _env, operation) => operation === 'lost-found-create',
+  });
+  const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+    method: 'POST',
+    headers: { 'content-type': 'image/png' },
+    body: png,
+  }), env, {});
+  assert.equal(response.status, 401);
+
+  const allowed = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+    method: 'POST',
+    headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+    body: png,
+  }), env, {});
+  assert.equal(allowed.status, 200);
+});
+
+test('AI lost-item rejeita binding ausente e JSON inválido', async () => {
+  const { app } = setup({ aiRun: undefined });
+  const abs = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+    method: 'POST',
+    headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+    body: png,
+  }), { ...setup().env, AI: undefined }, {});
+  assert.equal(abs.status, 503);
+
+  const invalid = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+    method: 'POST',
+    headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+    body: png,
+  }), { ...setup().env, AI: { run: async () => ({ item_type: 'ok', confidence: 'bad' }) } }, {});
+  assert.equal(invalid.status, 422);
+});
+
+test('AI lost-item sanitiza categoria e remove texto sensível', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      item_type: 'caderno',
+      description_suggestion: 'Caderno com CPF 123.456.789-00 e RG 12.345.678-9',
+      primary_color: 'azul',
+      secondary_color: 'preto',
+      brand: 'Campus',
+      material: 'papel',
+      features: ['com capa'],
+      condition: 'bom',
+      storage_category: 'categoria_invalida',
+      visible_text_safe: ['CPF 123.456.789-00'],
+      confidence: 0.88,
+    }),
+    authorize: async () => true,
+  });
+  const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+    method: 'POST',
+    headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+    body: png,
+  }), env, {});
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.storage_category, null);
+  assert.deepEqual(payload.visible_text_safe, []);
+  assert.match(payload.description_suggestion, /Caderno/);
+  assert.doesNotMatch(JSON.stringify(payload), /123\.456\.789-00|12\.345\.678-9|CPF|RG/);
 });
 
 test('origem não permitida não recebe CORS', async () => {
