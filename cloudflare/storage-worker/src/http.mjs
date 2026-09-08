@@ -8,8 +8,14 @@ export function json(body, status = 200, headers = {}) {
 export function allowedOrigin(request, env) {
   const origin = request.headers.get('origin');
   if (!origin) return null;
+
   const allowed = String(env.ALLOWED_ORIGINS ?? '').split(',').map(value => value.trim()).filter(Boolean);
-  return allowed.includes(origin) ? origin : null;
+  if (allowed.includes(origin)) return origin;
+
+  const previewPattern = /^https:\/\/vegsystem-vhwk-[a-z0-9-]+-viniciusezequiels-projects\.vercel\.app$/;
+  if (previewPattern.test(origin)) return origin;
+
+  return null;
 }
 
 export function corsHeaders(request, env) {

@@ -922,8 +922,73 @@ test('AI lost-item usa variados para produto sem categoria física específica',
   }
 });
 
+test('origem exata de ALLOWED_ORIGINS continua aceita', async () => {
+  const { app, env } = setup();
+  const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin: 'https://www.vegsystem.site' } }), env, {});
+  assert.equal(response.headers.get('access-control-allow-origin'), 'https://www.vegsystem.site');
+});
+
+test('preview do vegsystem-vhwk é aceito', async () => {
+  const { app, env } = setup();
+  const origin = 'https://vegsystem-vhwk-thd8pdpoc-viniciusezequiels-projects.vercel.app';
+  const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin } }), env, {});
+  assert.equal(response.headers.get('access-control-allow-origin'), origin);
+});
+
+test('alias git/branch do vegsystem-vhwk é aceito', async () => {
+  const { app, env } = setup();
+  const origin = 'https://vegsystem-vhwk-git-copilot-lo-3bd916-viniciusezequiels-projects.vercel.app';
+  const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin } }), env, {});
+  assert.equal(response.headers.get('access-control-allow-origin'), origin);
+});
+
+test('outro projeto no mesmo workspace é rejeitado', async () => {
+  const { app, env } = setup();
+  const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin: 'https://outro-projeto-abc-viniciusezequiels-projects.vercel.app' } }), env, {});
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
+});
+
+test('mesmo projeto em outro workspace é rejeitado', async () => {
+  const { app, env } = setup();
+  const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin: 'https://vegsystem-vhwk-abc-outro-workspace.vercel.app' } }), env, {});
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
+});
+
+test('HTTP do preview Vercel é rejeitado', async () => {
+  const { app, env } = setup();
+  const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin: 'http://vegsystem-vhwk-abc-viniciusezequiels-projects.vercel.app' } }), env, {});
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
+});
+
+test('domínio malicioso com sufixo adicional é rejeitado', async () => {
+  const { app, env } = setup();
+  const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin: 'https://vegsystem-vhwk-abc-viniciusezequiels-projects.vercel.app.evil.com' } }), env, {});
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
+});
+
 test('origem não permitida não recebe CORS', async () => {
   const { app, env } = setup();
   const response = await app.fetch(new Request('https://worker.test/not-found', { headers: { origin: 'https://evil.test' } }), env, {});
   assert.equal(response.headers.get('access-control-allow-origin'), null);
+});
+
+test('origem desconhecida continua retornando 403 no OPTIONS', async () => {
+  const { app, env } = setup();
+  const response = await app.fetch(new Request('https://worker.test/v1/files/resolve', {
+    method: 'OPTIONS',
+    headers: { origin: 'https://evil.test', 'access-control-request-method': 'POST' },
+  }), env, {});
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
+});
+
+test('origem válida continua retornando 204 no OPTIONS com allow-origin exata', async () => {
+  const { app, env } = setup();
+  const origin = 'https://www.vegsystem.site';
+  const response = await app.fetch(new Request('https://worker.test/v1/files/resolve', {
+    method: 'OPTIONS',
+    headers: { origin, 'access-control-request-method': 'POST' },
+  }), env, {});
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get('access-control-allow-origin'), origin);
 });
