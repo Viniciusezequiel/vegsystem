@@ -29,12 +29,12 @@ export function getLostItemStorageSuggestion(input: StorageSuggestionInput) {
   if (matches.length !== 1) return null;
 
   const shelf = matches[0];
-  if (!shelf.boxes || shelf.boxes.length !== 1) return null;
+  const boxNumber = shelf.boxes && shelf.boxes.length === 1 ? shelf.boxes[0].label : undefined;
 
   return {
     shelfCode: shelf.code,
     shelfLabel: shelf.label,
-    box: shelf.boxes[0].label,
-    boxNumber: shelf.boxes[0].label,
+    boxNumber,
+    box: boxNumber,
   };
 }

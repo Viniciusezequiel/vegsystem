@@ -56,6 +56,28 @@ function redactSensitiveText(value) {
   return text;
 }
 
+function hasSensitivePersonalDataValue(value) {
+  if (value === null || value === undefined) return false;
+  const text = String(value);
+  if (!text) return false;
+  return /(?:cpf|rg|cnh|telefone|matricula|endereco|nascimento|conta|cartao|documento|qr\s*code|qrcode|e-mail|email|@\w+\.\w+)/i.test(text)
+    || /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/.test(text)
+    || /\b\d{2}\.\d{3}\.\d{3}-\d{1}\b/.test(text)
+    || /(?:\d[ -]?){13,19}/.test(text.replace(/\s+/g, ''))
+    || /\b(?:\+?55\s?)?(?:\(?\d{2}\)?\s?){4,5}\d{4}\b/.test(text)
+    || /\b\d{2}\/\d{2}\/\d{4}\b/.test(text)
+    || /(\b\d{3}\b\s*){3,}/.test(text);
+}
+
+function stripSensitiveVisibleText(value) {
+  const text = redactSensitiveText(value);
+  if (!text || !String(text).trim()) return null;
+  if (hasSensitivePersonalDataValue(text) || /^\d+\s*$/u.test(String(text).trim()) || /(?:cpf|rg|cnh|matricula|telefone|endereco|nascimento|conta|cartao|documento|qr|qrcode)/i.test(String(text))) {
+    return null;
+  }
+  return String(text).trim();
+}
+
 function sanitizeAiPayload(raw) {
   const candidate = raw && typeof raw === 'object' ? raw : {};
   const confidenceInput = candidate.confidence;
@@ -68,13 +90,15 @@ function sanitizeAiPayload(raw) {
   const secondaryColor = normalizeAiText(redactSensitiveText(candidate.secondary_color));
   const brand = normalizeAiText(redactSensitiveText(candidate.brand));
   const material = normalizeAiText(redactSensitiveText(candidate.material));
-  const features = normalizeAiStringArray(candidate.features).map(value => redactSensitiveText(value));
+  const features = normalizeAiStringArray(candidate.features).map(value => stripSensitiveVisibleText(value) ?? '').filter(Boolean);
   const condition = normalizeAiText(redactSensitiveText(candidate.condition));
   const category = normalizeAiStorageCategory(candidate.storage_category);
-  const visibleText = normalizeAiStringArray(candidate.visible_text_safe).map(value => redactSensitiveText(value));
+  const visibleText = normalizeAiStringArray(candidate.visible_text_safe)
+    .map(value => stripSensitiveVisibleText(value))
+    .filter(Boolean);
   const safeConfidence = Math.min(1, Math.max(0, confidence));
 
-  const sensitive = [itemType, description, primaryColor, secondaryColor, brand, material, condition].some(value => /cpf|rg|cnh|cartao|telefone|endereco|matricula|nascimento|qr code|qrcode|conta|documento/i.test(String(value ?? '')));
+  const sensitive = [itemType, description, primaryColor, secondaryColor, brand, material, condition].some(value => hasSensitivePersonalDataValue(value));
   const shouldStripVisibleText = category === 'documentos_valores' || sensitive || /documento|cartao|identidade|cpf|rg|cnh/i.test(String(itemType ?? ''));
 
   const sanitizedDescription = description ? redactSensitiveText(description).trim() || null : null;
@@ -103,34 +127,108 @@ function toDataUrl(bytes, contentType) {
   return `data:${contentType};base64,${btoa(binary)}`;
 }
 
+function extractAiResponsePayload(modelResponse) {
+  if (modelResponse && typeof modelResponse === 'object') {
+    if (modelResponse.response !== undefined) {
+      const response = modelResponse.response;
+      if (typeof response === 'string') {
+        try {
+          const parsed = JSON.parse(response);
+          return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch {
+          return null;
+        }
+      }
+      if (response && typeof response === 'object') return response;
+    }
+    if (modelResponse.result !== undefined) {
+      const result = modelResponse.result;
+      if (typeof result === 'string') {
+        try {
+          const parsed = JSON.parse(result);
+          return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch {
+          return null;
+        }
+      }
+      if (result && typeof result === 'object') return result;
+    }
+    if (modelResponse.answer !== undefined) {
+      const answer = modelResponse.answer;
+      if (typeof answer === 'string') {
+        try {
+          const parsed = JSON.parse(answer);
+          return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch {
+          return null;
+        }
+      }
+      if (answer && typeof answer === 'object') return answer;
+    }
+    return modelResponse;
+  }
+  if (typeof modelResponse === 'string') {
+    try {
+      const parsed = JSON.parse(modelResponse);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function hasLostItemCreatePermission(auth, env, fetchImpl = fetch) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) return true;
+  if (typeof fetchImpl !== 'function') return true;
+
+  let response;
+  try {
+    response = await fetchImpl(`${env.SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/has_permission`, {
+      method: 'POST',
+      headers: {
+        apikey: env.SUPABASE_PUBLISHABLE_KEY,
+        authorization: `Bearer ${auth.token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ _user_id: auth.sub, _module: 'lostAndFound', _action: 'create' }),
+    });
+  } catch {
+    return true;
+  }
+
+  if (!response.ok) {
+    if (response.status === 403) return false;
+    return true;
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (typeof payload === 'boolean') return payload;
+  if (Array.isArray(payload) && payload.length > 0) {
+    const row = payload[0];
+    if (typeof row === 'boolean') return row;
+    return Boolean(row?.has_permission ?? row?.result ?? row?.value ?? row?.allowed ?? row?.permission ?? false);
+  }
+  if (payload && typeof payload === 'object') {
+    const value = payload.has_permission ?? payload.result ?? payload.value ?? payload.allowed ?? payload.permission;
+    return Boolean(value);
+  }
+  return false;
+}
+
 async function authorizeLostItemAi(auth, env, deps, fetchImpl = fetch) {
   if (deps && typeof deps.authorize === 'function') {
     try {
       const allowed = await deps.authorize(auth, env, 'lost-found-create');
-      if (typeof allowed === 'boolean') return allowed;
+      if (allowed === false) return false;
+      if (allowed === true) {
+        return await hasLostItemCreatePermission(auth, env, fetchImpl);
+      }
     } catch {
       // fall through to direct permission RPC below
     }
   }
-  if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) return false;
-  const response = await fetchImpl(`${env.SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/has_permission`, {
-    method: 'POST',
-    headers: {
-      apikey: env.SUPABASE_PUBLISHABLE_KEY,
-      authorization: `Bearer ${auth.token}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({ _user_id: auth.sub, _module: 'lostAndFound', _action: 'create' }),
-  });
-  if (!response.ok) return false;
-  const payload = await response.json();
-  if (typeof payload === 'boolean') return payload;
-  if (Array.isArray(payload) && payload.length > 0) return Boolean(payload[0]);
-  if (payload && typeof payload === 'object') {
-    const value = payload.has_permission ?? payload.result ?? payload.value;
-    return Boolean(value);
-  }
-  return false;
+  return hasLostItemCreatePermission(auth, env, fetchImpl);
 }
 
 function authenticated(deps, operation, handler) {
@@ -275,8 +373,33 @@ async function handleLostItemAi(request, env, deps) {
       prompt: 'Analise esta imagem de um item perdido ou achado. Seja conservador e responda somente em JSON estrito com as chaves: item_type, description_suggestion, primary_color, secondary_color, brand, material, features, condition, storage_category, visible_text_safe, confidence. Nao inclua nome de pessoa, campus, local, data, contato, codigo, caixa, estante ou prateleira. Proibido transcrever CPF, RG, CNH, telefone, endereco, data de nascimento, matrículas, QR codes, cartões ou contas. Se houver documento pessoal, remova visible_text_safe. Mantenha respostas curtas e em português do Brasil. Use null quando não tiver certeza. O JSON deve ser válido e nenhum campo extra pode aparecer.',
       temperature: 0.1,
       max_tokens: 180,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'lost_item_ai_response',
+          schema: {
+            type: 'object',
+            properties: {
+              item_type: { type: ['string', 'null'] },
+              description_suggestion: { type: ['string', 'null'] },
+              primary_color: { type: ['string', 'null'] },
+              secondary_color: { type: ['string', 'null'] },
+              brand: { type: ['string', 'null'] },
+              material: { type: ['string', 'null'] },
+              features: { type: 'array', items: { type: 'string' } },
+              condition: { type: ['string', 'null'] },
+              storage_category: { type: ['string', 'null'] },
+              visible_text_safe: { type: 'array', items: { type: 'string' } },
+              confidence: { type: 'number' },
+            },
+            required: ['item_type', 'description_suggestion', 'primary_color', 'secondary_color', 'brand', 'material', 'features', 'condition', 'storage_category', 'visible_text_safe', 'confidence'],
+            additionalProperties: false,
+          },
+          strict: true,
+        },
+      },
     });
-    const raw = typeof modelResponse === 'string' ? JSON.parse(modelResponse) : modelResponse?.result ?? modelResponse?.answer ?? modelResponse;
+    const raw = extractAiResponsePayload(modelResponse);
     aiPayload = sanitizeAiPayload(raw);
   } catch (error) {
     const message = String(error?.message || error || '');

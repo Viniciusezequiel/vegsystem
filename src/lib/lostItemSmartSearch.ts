@@ -102,7 +102,7 @@ function fuzzyWordMatch(
 export function matchesSmartLostItemOffline(
   item: Pick<
     LostItem,
-    'code' | 'description' | 'found_location'
+    'code' | 'description' | 'found_location' | 'search_metadata'
   >,
   search: string
 ) {
@@ -115,6 +115,7 @@ export function matchesSmartLostItemOffline(
       item.code,
       item.description,
       item.found_location,
+      item.search_metadata,
     ]
       .filter(Boolean)
       .join(' ')

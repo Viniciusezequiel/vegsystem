@@ -170,7 +170,7 @@ export function useLostItems(filters?: {
       }
 
       if (filters?.search) {
-        query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%`);
+        query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%,found_location.ilike.%${filters.search}%,search_metadata.ilike.%${filters.search}%`);
       }
 
       if (filters?.campus && filters.campus !== 'all') {

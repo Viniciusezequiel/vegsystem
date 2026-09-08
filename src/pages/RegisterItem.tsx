@@ -79,6 +79,7 @@ export default function RegisterItem() {
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [acceptedAiDescription, setAcceptedAiDescription] = useState(false);
   const [searchMetadata, setSearchMetadata] = useState('');
+  const [selectedSuggestionFields, setSelectedSuggestionFields] = useState<Record<string, boolean>>({});
   const isSubmittingRef = useRef(false);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,6 +95,8 @@ export default function RegisterItem() {
       setSuggestionError(null);
       setAcceptedAiDescription(false);
       setSearchMetadata('');
+      setSelectedSuggestionFields({});
+      setSelectedSuggestionFields({});
     } catch (error) {
       setImageFile(null);
       const { toast } = await import('sonner');
@@ -137,6 +140,48 @@ export default function RegisterItem() {
     storageCategory: aiSuggestion.storage_category,
   }) : null;
 
+  const buildSearchMetadataFromSuggestions = () => {
+    if (!aiSuggestion) return (searchMetadata || '').trim();
+
+    const acceptedValues = Object.entries(selectedSuggestionFields)
+      .filter(([, selected]) => selected)
+      .map(([key]) => {
+        const suggestionValue: unknown = key === 'features'
+          ? aiSuggestion.features?.join(', ')
+          : key === 'storage_category'
+            ? aiSuggestion.storage_category
+            : key === 'visible_text_safe'
+              ? aiSuggestion.visible_text_safe?.join(', ')
+              : (aiSuggestion as Record<string, unknown>)[key];
+
+        if (Array.isArray(suggestionValue)) return suggestionValue.join(', ');
+        if (typeof suggestionValue === 'string' || suggestionValue === null || suggestionValue === undefined) return suggestionValue ?? '';
+        return '';
+      })
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+    const merged = [...new Set([...acceptedValues, ...((searchMetadata || '').trim() ? [searchMetadata.trim()] : [])])].join(' | ');
+    return merged.trim();
+  };
+
+  const handleSuggestionToggle = (key: string) => {
+    setSelectedSuggestionFields(prev => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleUseStorageSuggestion = () => {
+    if (!aiStorageSuggestion) return;
+    if (!shelfCode) {
+      setShelfCode(aiStorageSuggestion.shelfCode);
+      setShelf(aiStorageSuggestion.shelfCode);
+    }
+    if (aiStorageSuggestion.boxNumber && !boxNumber) {
+      setBoxNumber(aiStorageSuggestion.boxNumber);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -176,6 +221,7 @@ export default function RegisterItem() {
             delivered_by_name: deliveredBy,
             delivered_by_contact: contact || undefined,
             image_url: imageUrl,
+            search_metadata: buildSearchMetadataFromSuggestions() || undefined,
           });
         },
         cleanupNew: deleteStorageObjectSafely,
@@ -250,7 +296,7 @@ export default function RegisterItem() {
                   />
                   <button
                     type="button"
-                    onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setImageFile(null); setAiSuggestion(null); setSuggestionError(null); }}
+                    onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setImageFile(null); setAiSuggestion(null); setSuggestionError(null); setAcceptedAiDescription(false); setSearchMetadata(''); setSelectedSuggestionFields({}); }}
                     className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1.5 hover:bg-destructive/90"
                   >
                     <span className="sr-only">Remover</span>
@@ -323,26 +369,48 @@ export default function RegisterItem() {
                   {aiSuggestion && (
                     <div className="rounded-md border bg-background p-3 text-sm">
                       <p className="font-medium mb-2">Identificação inteligente</p>
-                      <p className="text-xs text-muted-foreground mb-2">Confira as sugestões antes de usar.</p>
-                      <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground mb-2">Selecione os itens que devem ajudar na busca após o cadastro.</p>
+                      <div className="space-y-2">
                         {Object.entries({
                           item_type: aiSuggestion.item_type,
                           primary_color: aiSuggestion.primary_color,
+                          secondary_color: aiSuggestion.secondary_color,
                           brand: aiSuggestion.brand,
                           material: aiSuggestion.material,
                           condition: aiSuggestion.condition,
                           storage_category: aiSuggestion.storage_category,
                         }).filter(([, value]) => !!value).map(([key, value]) => (
-                          <div key={key} className="flex items-start gap-2">
-                            <Check className="w-3.5 h-3.5 text-primary mt-0.5" />
-                            <span className="text-xs">{key === 'storage_category' ? 'Categoria: ' : key === 'primary_color' ? 'Cor: ' : key === 'brand' ? 'Marca: ' : key === 'material' ? 'Material: ' : key === 'condition' ? 'Condição: ' : 'Tipo: '}{String(value)}</span>
-                          </div>
+                          <label key={key} className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedSuggestionFields[key]}
+                              onChange={() => handleSuggestionToggle(key)}
+                              className="mt-0.5"
+                            />
+                            <span className="text-xs">{key === 'storage_category' ? 'Categoria: ' : key === 'primary_color' ? 'Cor: ' : key === 'secondary_color' ? 'Cor secundária: ' : key === 'brand' ? 'Marca: ' : key === 'material' ? 'Material: ' : key === 'condition' ? 'Condição: ' : 'Tipo: '}{String(value)}</span>
+                          </label>
                         ))}
                         {aiSuggestion.features?.length > 0 && (
-                          <div className="flex items-start gap-2">
-                            <Check className="w-3.5 h-3.5 text-primary mt-0.5" />
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedSuggestionFields.features}
+                              onChange={() => handleSuggestionToggle('features')}
+                              className="mt-0.5"
+                            />
                             <span className="text-xs">Características: {aiSuggestion.features.join(', ')}</span>
-                          </div>
+                          </label>
+                        )}
+                        {aiSuggestion.visible_text_safe?.length > 0 && (
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedSuggestionFields.visible_text_safe}
+                              onChange={() => handleSuggestionToggle('visible_text_safe')}
+                              className="mt-0.5"
+                            />
+                            <span className="text-xs">Texto visível: {aiSuggestion.visible_text_safe.join(', ')}</span>
+                          </label>
                         )}
                       </div>
                       {aiSuggestion.description_suggestion && (
@@ -357,9 +425,26 @@ export default function RegisterItem() {
                       {aiStorageSuggestion && (
                         <div className="mt-3 rounded-md border bg-muted/30 p-2">
                           <p className="text-xs font-medium text-foreground">Sugestão de armazenamento</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{aiStorageSuggestion.shelfLabel} · Caixa {aiStorageSuggestion.box}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {aiStorageSuggestion.boxNumber
+                              ? `Prateleira sugerida: ${aiStorageSuggestion.shelfCode} — ${aiStorageSuggestion.shelfLabel} · Caixa ${aiStorageSuggestion.boxNumber}`
+                              : `Prateleira sugerida: ${aiStorageSuggestion.shelfCode} — ${aiStorageSuggestion.shelfLabel}`}
+                          </p>
+                          <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={handleUseStorageSuggestion} disabled={!!shelfCode && !!boxNumber}>
+                            Usar sugestão
+                          </Button>
                         </div>
                       )}
+                      <div className="mt-3 rounded-md border bg-muted/30 p-2">
+                        <label className="block text-xs font-medium text-foreground">Termos adicionais para busca</label>
+                        <textarea
+                          value={searchMetadata}
+                          onChange={(event) => setSearchMetadata(event.target.value)}
+                          rows={2}
+                          className="mt-1.5 w-full rounded-md border bg-background px-2.5 py-2 text-xs"
+                          placeholder="Esses termos ajudam a localizar o item depois."
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
