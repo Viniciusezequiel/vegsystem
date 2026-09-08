@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -30,6 +30,7 @@ import { deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemSt
 import { persistNewImageSafely } from '@/lib/lostItemStorageCore.mjs';
 import { analyzeLostItemImage } from '@/lib/lostItemAi';
 import { getLostItemStorageSuggestion } from '@/lib/lostItemStorageSuggestion';
+import { useLostItemStorageOccupancy } from '@/hooks/useLostItemStorageOccupancy';
 import { LostFoundModuleNav } from '@/components/lost-found/LostFoundModuleNav';
 
 type CampusEnum = Database['public']['Enums']['campus_enum'];
@@ -40,6 +41,36 @@ const campusOptions: CampusEnum[] = [
   'Campus IV',
   'Campus HUCM Adm',
 ];
+
+const formatLocalDate = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeComparableText = (value: string | null | undefined) => {
+  if (!value) return '';
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+};
+
+const buildAutoDescription = (suggestion: Awaited<ReturnType<typeof analyzeLostItemImage>> | null) => {
+  if (!suggestion) return '';
+  const parts: string[] = [];
+  const addUniquePart = (input: string | null | undefined) => {
+    const cleaned = (input ?? '').trim();
+    if (!cleaned) return;
+    const candidate = normalizeComparableText(cleaned);
+    if (!candidate) return;
+    if (parts.some(part => normalizeComparableText(part) === candidate)) return;
+    parts.push(cleaned);
+  };
+
+  addUniquePart(suggestion.description_suggestion);
+  addUniquePart(suggestion.brand);
+  addUniquePart(suggestion.primary_color);
+  return parts.join(' ');
+};
 
 // Generate a unique 6-digit code
 const generateUniqueCode = (existingCodes: string[]): string => {
@@ -62,8 +93,8 @@ export default function RegisterItem() {
   const [campus, setCampus] = useState<CampusEnum | ''>('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [foundDate, setFoundDate] = useState('');
-  const [receivedDate, setReceivedDate] = useState('');
+  const [foundDate, setFoundDate] = useState(() => formatLocalDate());
+  const [receivedDate, setReceivedDate] = useState(() => formatLocalDate());
   const [shelf, setShelf] = useState('');
   const [shelfCode, setShelfCode] = useState('');
   const [box, setBox] = useState('');
@@ -80,7 +111,9 @@ export default function RegisterItem() {
   const [acceptedAiDescription, setAcceptedAiDescription] = useState(false);
   const [searchMetadata, setSearchMetadata] = useState('');
   const [selectedSuggestionFields, setSelectedSuggestionFields] = useState<Record<string, boolean>>({});
+  const [storageManualOverride, setStorageManualOverride] = useState(false);
   const isSubmittingRef = useRef(false);
+  const { data: storageOccupancy = [] } = useLostItemStorageOccupancy();
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,6 +129,7 @@ export default function RegisterItem() {
       setAcceptedAiDescription(false);
       setSearchMetadata('');
       setSelectedSuggestionFields({});
+      setStorageManualOverride(false);
     } catch (error) {
       setImageFile(null);
       const { toast } = await import('sonner');
@@ -112,9 +146,22 @@ export default function RegisterItem() {
     setSuggestionError(null);
     try {
       const result = await analyzeLostItemImage(imageFile);
-      setSelectedSuggestionFields({});
+      const defaultSelected = {
+        item_type: !!result.item_type,
+        primary_color: !!result.primary_color,
+        brand: !!result.brand,
+        visible_text_safe: !!result.visible_text_safe?.length,
+      };
+      setSelectedSuggestionFields(defaultSelected);
       setAiSuggestion(result);
       setSuggestionError(null);
+      if (!description.trim()) {
+        const autoDescription = buildAutoDescription(result);
+        if (autoDescription) {
+          setDescription(autoDescription);
+          setAcceptedAiDescription(true);
+        }
+      }
     } catch (error) {
       setAiSuggestion(null);
       const message = error instanceof Error ? error.message : 'Identificação inteligente indisponível no momento. Você pode continuar o cadastro normalmente.';
@@ -138,7 +185,19 @@ export default function RegisterItem() {
     storageConfig: storageConfig ?? null,
     campus: campus || '',
     storageCategory: aiSuggestion.storage_category,
+    occupancy: storageOccupancy,
   }) : null;
+
+  useEffect(() => {
+    if (!campus || !aiStorageSuggestion || storageManualOverride) return;
+    if (!shelfCode && aiStorageSuggestion.shelfCode) {
+      setShelfCode(aiStorageSuggestion.shelfCode);
+      setShelf(aiStorageSuggestion.shelfCode);
+    }
+    if (aiStorageSuggestion.boxNumber && !boxNumber) {
+      setBoxNumber(aiStorageSuggestion.boxNumber);
+    }
+  }, [campus, aiStorageSuggestion, storageManualOverride, shelfCode, boxNumber]);
 
   const buildSearchMetadataFromSuggestions = () => {
     if (!aiSuggestion) return (searchMetadata || '').trim();
@@ -148,10 +207,10 @@ export default function RegisterItem() {
       .map(([key]) => {
         const suggestionValue: unknown = key === 'features'
           ? aiSuggestion.features?.join(', ')
-          : key === 'storage_category'
-            ? aiSuggestion.storage_category
-            : key === 'visible_text_safe'
-              ? aiSuggestion.visible_text_safe?.join(', ')
+          : key === 'visible_text_safe'
+            ? aiSuggestion.visible_text_safe?.join(', ')
+            : key === 'storage_category'
+              ? aiSuggestion.storage_category
               : (aiSuggestion as Record<string, unknown>)[key];
 
         if (Array.isArray(suggestionValue)) return suggestionValue.join(', ');
@@ -160,7 +219,8 @@ export default function RegisterItem() {
       })
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
 
-    const merged = [...new Set([...acceptedValues, ...((searchMetadata || '').trim() ? [searchMetadata.trim()] : [])])].join(' | ');
+    const manualTerms = (searchMetadata || '').trim();
+    const merged = [...new Set([...acceptedValues, ...(manualTerms ? [manualTerms] : [])])].join(' | ');
     return merged.trim();
   };
 
@@ -173,11 +233,10 @@ export default function RegisterItem() {
 
   const handleUseStorageSuggestion = () => {
     if (!aiStorageSuggestion) return;
-    if (!shelfCode) {
-      setShelfCode(aiStorageSuggestion.shelfCode);
-      setShelf(aiStorageSuggestion.shelfCode);
-    }
-    if (aiStorageSuggestion.boxNumber && !boxNumber) {
+    setStorageManualOverride(true);
+    setShelfCode(aiStorageSuggestion.shelfCode);
+    setShelf(aiStorageSuggestion.shelfCode);
+    if (aiStorageSuggestion.boxNumber) {
       setBoxNumber(aiStorageSuggestion.boxNumber);
     }
   };
@@ -236,12 +295,13 @@ export default function RegisterItem() {
         setCampus('');
         setDescription('');
         setLocation('');
-        setFoundDate('');
-        setReceivedDate('');
+        setFoundDate(formatLocalDate());
+        setReceivedDate(formatLocalDate());
         setShelf('');
         setShelfCode('');
         setBox('');
         setBoxNumber('');
+        setStorageManualOverride(false);
         setSealNumber('');
         setDeliveredBy('');
         setContact('');
@@ -503,11 +563,7 @@ export default function RegisterItem() {
                       type="date"
                       className="mt-1.5"
                       value={foundDate}
-                      onChange={(e) => {
-                        // Ensure we store the date as-is without timezone conversion
-                        const dateValue = e.target.value;
-                        setFoundDate(dateValue);
-                      }}
+                      onChange={(e) => setFoundDate(e.target.value)}
                       required
                     />
                   </div>
@@ -518,13 +574,13 @@ export default function RegisterItem() {
                       type="date"
                       className="mt-1.5"
                       value={receivedDate}
-                      onChange={(e) => {
-                        // Ensure we store the date as-is without timezone conversion
-                        const dateValue = e.target.value;
-                        setReceivedDate(dateValue);
-                      }}
+                      readOnly
+                      aria-readonly="true"
+                      title="Preenchida automaticamente"
+                      onChange={(e) => setReceivedDate(e.target.value)}
                       required
                     />
+                    <p className="mt-1 text-[10px] text-muted-foreground">Preenchida automaticamente</p>
                   </div>
                 </div>
               </div>
@@ -557,7 +613,7 @@ export default function RegisterItem() {
                           setShelfCode(v);
                           setShelf(v);
                           setBoxNumber('');
-                          // Auto-set estante
+                          setStorageManualOverride(true);
                         }}
                         disabled={!campus || shelves.length === 0}
                       >
@@ -577,7 +633,10 @@ export default function RegisterItem() {
                       <Label>Nº da Caixa</Label>
                       <Select
                         value={boxNumber}
-                        onValueChange={setBoxNumber}
+                        onValueChange={(value) => {
+                          setBoxNumber(value);
+                          setStorageManualOverride(true);
+                        }}
                         disabled={!selectedShelf || selectedShelf.boxes.length === 0}
                       >
                         <SelectTrigger className="mt-1.5">

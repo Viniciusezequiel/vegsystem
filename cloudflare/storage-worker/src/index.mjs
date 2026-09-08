@@ -9,16 +9,55 @@ const defaults = { verifyJwt: verifySupabaseJwt, authorize: authorizeUser, hasRe
 const AI_ALLOWED_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const AI_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const AI_ALLOWED_STORAGE_CATEGORIES = new Set([
-  'garrafas_copos',
-  'material_academico',
-  'pequenos_pertences_eletronicos',
-  'roupas',
-  'necessaire_lancheiras',
-  'vasilhas_jalecos_pijamas',
-  'sombrinhas',
   'documentos_valores',
+  'garrafas_copos',
+  'eletronicos',
+  'pequenos_pertences',
+  'roupas',
+  'material_academico',
+  'jalecos_pijamas',
+  'vasilhas',
+  'necessaire_lancheiras',
+  'sombrinhas',
+  'itens_laboratorio',
   'variados',
 ]);
+
+const STORAGE_CATEGORY_ALIASES = {
+  'documentos_pessoais': 'documentos_valores',
+  'documentos_pessoais_e_pertences_de_valor': 'documentos_valores',
+  'documentos_e_pertences_de_valor': 'documentos_valores',
+  'garrafas': 'garrafas_copos',
+  'copos': 'garrafas_copos',
+  'squeezes': 'garrafas_copos',
+  'eletronicos_e_pequenos_pertences': 'eletronicos',
+  'pequenos_pertences_eletronicos': 'eletronicos',
+  'pequenos_pertences': 'pequenos_pertences',
+  'acessorios': 'pequenos_pertences',
+  'roupa': 'roupas',
+  'materiais_academicos': 'material_academico',
+  'material_escolar': 'material_academico',
+  'jalecos': 'jalecos_pijamas',
+  'pijamas': 'jalecos_pijamas',
+  'jalecos_e_pijamas': 'jalecos_pijamas',
+  'vasilhas_jalecos_pijamas': 'vasilhas',
+  'vasilhas_e_jalecos_pijamas': 'vasilhas',
+  'necessaire': 'necessaire_lancheiras',
+  'lancheiras': 'necessaire_lancheiras',
+  'necessaires': 'necessaire_lancheiras',
+  'necessaire_lancheiras': 'necessaire_lancheiras',
+  'sombrinha': 'sombrinhas',
+  'guarda_chuvas': 'sombrinhas',
+  'itens_de_laboratorio': 'itens_laboratorio',
+  'material_de_laboratorio': 'itens_laboratorio',
+  'diversos': 'variados',
+  'variados': 'variados',
+  'objetos_variados': 'variados',
+  'pequenos_pertences_eletronicos': 'pequenos_pertences',
+  'vasilhas_jalecos_pijamas': 'vasilhas',
+  'itens_laboratorio': 'itens_laboratorio',
+  'pequenos_pertences_e_eletronicos': 'pequenos_pertences',
+};
 
 function normalizeAiText(value) {
   if (value === null || value === undefined) return null;
@@ -40,7 +79,10 @@ function normalizeAiStorageCategory(value) {
   const text = normalizeAiText(value);
   if (!text) return null;
   const normalized = text.toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-  return AI_ALLOWED_STORAGE_CATEGORIES.has(normalized) ? normalized : null;
+  if (AI_ALLOWED_STORAGE_CATEGORIES.has(normalized)) return normalized;
+  const alias = STORAGE_CATEGORY_ALIASES[normalized];
+  if (alias && AI_ALLOWED_STORAGE_CATEGORIES.has(alias)) return alias;
+  return null;
 }
 
 function redactSensitiveText(value) {
@@ -377,7 +419,7 @@ async function handleLostItemAi(request, env, deps) {
   try {
     const modelResponse = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
       image: toDataUrl(bytes, contentType),
-      prompt: 'Analise esta imagem de um item perdido ou achado. Seja conservador e responda somente em JSON estrito com as chaves: item_type, description_suggestion, primary_color, secondary_color, brand, material, features, condition, storage_category, visible_text_safe, confidence. Nao inclua nome de pessoa, campus, local, data, contato, codigo, caixa, estante ou prateleira. Proibido transcrever CPF, RG, CNH, telefone, endereco, data de nascimento, matrículas, QR codes, cartões ou contas. Se houver documento pessoal, remova visible_text_safe. Mantenha respostas curtas e em português do Brasil. Use null quando não tiver certeza. O JSON deve ser válido e nenhum campo extra pode aparecer.',
+      prompt: 'Analise esta imagem de um item perdido ou achado. Seja conservador e responda somente em JSON estrito com as chaves: item_type, description_suggestion, primary_color, secondary_color, brand, material, features, condition, storage_category, visible_text_safe, confidence. Nao inclua nome de pessoa, campus, local, data, contato, codigo, caixa, estante ou prateleira. Proibido transcrever CPF, RG, CNH, telefone, endereco, data de nascimento, matrículas, QR codes, cartões ou contas. Se houver documento pessoal, remova visible_text_safe. Mantenha respostas curtas e em português do Brasil. Use null quando não tiver certeza. Classifique storage_category apenas em: documentos_valores, garrafas_copos, eletronicos, pequenos_pertences, roupas, material_academico, jalecos_pijamas, vasilhas, necessaire_lancheiras, sombrinhas, itens_laboratorio, variados. Use somente essas categorias. O JSON deve ser válido e nenhum campo extra pode aparecer.',
       temperature: 0.1,
       max_tokens: 180,
       response_format: {
@@ -406,10 +448,6 @@ async function handleLostItemAi(request, env, deps) {
     aiPayload = sanitizeAiPayload(raw);
   } catch (error) {
     const message = String(error?.message || error || '');
-    console.error('lost-item-ai-error', {
-      name: error?.name ?? null,
-      message: message.slice(0, 500),
-    });
     if (/429|daily|quota|limit/i.test(message)) return json({ error: 'ai_daily_limit', code: 'AI_DAILY_LIMIT' }, 429, corsHeaders(request, env));
     if (/timeout|unavailable|capacity|not ready|model/i.test(message)) return json({ error: 'ai_unavailable', code: 'AI_UNAVAILABLE' }, 503, corsHeaders(request, env));
     return json({ error: 'ai_invalid_response', code: 'AI_INVALID_RESPONSE' }, 422, corsHeaders(request, env));
