@@ -1058,27 +1058,29 @@ export default function PsEventDetail() {
         </div>
 
         <Tabs defaultValue="visao-geral">
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
-            <TabsTrigger value="fiscais">Equipe</TabsTrigger>
-            <TabsTrigger value="confirmacoes">Confirmações</TabsTrigger>
-            <TabsTrigger value="comunicacao">Comunicação</TabsTrigger>
-            <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
-            <TabsTrigger value="presenca">Presença</TabsTrigger>
-            <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
-            <TabsTrigger value="auto">
-              Autoavaliações
-              {selfEvaluations.length > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="ml-2 px-1.5 py-0 text-[10px]"
-                >
-                  {selfEvaluations.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto overflow-y-hidden scrollbar-none">
+            <TabsList className="w-max min-w-full flex-nowrap">
+              <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
+              <TabsTrigger value="fiscais">Equipe</TabsTrigger>
+              <TabsTrigger value="confirmacoes">Confirmações</TabsTrigger>
+              <TabsTrigger value="comunicacao">Comunicação</TabsTrigger>
+              <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
+              <TabsTrigger value="presenca">Presença</TabsTrigger>
+              <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
+              <TabsTrigger value="auto">
+                Autoavaliações
+                {selfEvaluations.length > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-2 px-1.5 py-0 text-[10px]"
+                  >
+                    {selfEvaluations.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="visao-geral" className="space-y-4 pt-4">
             <Card className="rounded-2xl">

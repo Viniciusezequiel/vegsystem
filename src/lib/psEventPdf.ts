@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
-import { preparePdfSignatureRows } from '@/lib/signatureStorageCore.mjs';
-import { resolveSignatureDataUrl } from '@/lib/signatureStorage';
+import { preparePdfSignatureRows } from './signatureStorageCore.mjs';
+import { resolveSignatureDataUrl } from './signatureStorage';
 
 export interface PsBadgeRow {
   collaborator_name: string;
@@ -28,6 +28,20 @@ export interface PsEventInfo {
   date?: string | null;
   location?: string | null;
 }
+
+export const PS_CANDIDATE_LABEL_SHEET = {
+  pageWidth: 215.9,
+  pageHeight: 279.4,
+  labelWidth: 101.6,
+  labelHeight: 33.9,
+  columns: 2,
+  rows: 7,
+  perPage: 14,
+  leftMargin: 4,
+  topMargin: 21.05,
+  horizontalGap: 4.7,
+  verticalGap: 0,
+} as const;
 
 const BRAND = 'RD Avaliações';
 
@@ -70,19 +84,28 @@ export function generatePsBadgesPdf(event: PsEventInfo, rows: PsBadgeRow[]): jsP
 }
 
 export function generatePsCandidateBadgesPdf(event: PsEventInfo, rows: PsCandidateBadgeRow[]): jsPDF {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const sheet = PS_CANDIDATE_LABEL_SHEET;
+  const doc = new jsPDF({ unit: 'mm', format: [sheet.pageWidth, sheet.pageHeight], orientation: 'portrait' });
+  const pages = Math.max(1, Math.ceil(rows.length / sheet.perPage));
 
-  const ML = 18, MT = 11, W = 85.5, H = 58.7, HG = 3.2, VG = 4.6;
-  const COLS = 2, ROWS = 4, PER_PAGE = COLS * ROWS;
-  const pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+  const ensurePhysicalSize = () => {
+    const width = doc.internal.pageSize.getWidth();
+    const height = doc.internal.pageSize.getHeight();
+    if (Math.abs(width - sheet.pageWidth) > 0.1 || Math.abs(height - sheet.pageHeight) > 0.1) {
+      throw new Error(`CC182 requires a physical page of ${sheet.pageWidth}x${sheet.pageHeight} mm.`);
+    }
+  };
 
   for (let p = 0; p < pages; p++) {
-    if (p > 0) doc.addPage('a4', 'portrait');
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const idx = p * PER_PAGE + r * COLS + c;
+    if (p > 0) doc.addPage([sheet.pageWidth, sheet.pageHeight], 'portrait');
+    ensurePhysicalSize();
+    for (let r = 0; r < sheet.rows; r++) {
+      for (let c = 0; c < sheet.columns; c++) {
+        const idx = p * sheet.perPage + r * sheet.columns + c;
         if (idx >= rows.length) break;
-        drawCandidateBadge(doc, event, rows[idx], ML + c * (W + HG), MT + r * (H + VG), W, H);
+        const x = sheet.leftMargin + c * (sheet.labelWidth + sheet.horizontalGap);
+        const y = sheet.topMargin + r * sheet.labelHeight;
+        drawCandidateBadge(doc, event, rows[idx], x, y, sheet.labelWidth, sheet.labelHeight);
       }
     }
   }
@@ -159,59 +182,78 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
 }
 
 function drawCandidateBadge(doc: jsPDF, event: PsEventInfo, row: PsCandidateBadgeRow, x: number, y: number, w: number, h: number) {
-  doc.setDrawColor(210, 214, 220);
-  doc.setLineWidth(0.3);
+  const paddingX = 3.5;
+  const paddingY = 2.5;
+  const maxTextWidth = w - (paddingX * 2);
+  const eventName = truncate(doc, event.name || '', maxTextWidth - 10);
+
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(x, y, w, h, 2.5, 2.5, 'FD');
-
-  doc.setFillColor(244, 246, 248);
-  doc.roundedRect(x, y, w, 9, 2.5, 2.5, 'F');
-  doc.rect(x, y + 6.5, w, 2.5, 'F');
-  doc.setDrawColor(226, 229, 234);
-  doc.line(x, y + 9, x + w, y + 9);
-
-  doc.setFillColor(34, 139, 84);
-  doc.roundedRect(x + 4, y + 2.6, 3.8, 3.8, 1, 1, 'F');
+  doc.setDrawColor(255, 255, 255);
+  doc.rect(x, y, w, h, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(45, 52, 60);
-  doc.text(truncate(doc, event.name || '', w - 14), x + 10, y + 5.6);
+  doc.setFontSize(6.2);
+  doc.setTextColor(70, 77, 86);
+  doc.text(eventName, x + paddingX, y + paddingY + 4.5);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(130, 137, 146);
-  doc.text('CANDIDATO', x + w / 2, y + 18, { align: 'center' });
+  const pcdType = (row.pcd_type || '').trim();
+  const shouldDisplayPcd = !!pcdType && pcdType !== 'NORMAL' && pcdType !== 'normal';
+  if (shouldDisplayPcd) {
+    const label = pcdType.length > 12 ? 'PCD' : pcdType;
+    const width = doc.getTextWidth(label) + 2;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.5);
+    doc.setTextColor(118, 58, 22);
+    doc.text(label, x + w - paddingX - width, y + paddingY + 4.8);
+  }
 
-  const name = row.full_name || '';
+  const name = row.full_name || 'Sem nome';
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(20, 24, 30);
-  const size = fit(doc, name, w - 10, 14, 7);
-  doc.setFontSize(size);
-  doc.text(name, x + w / 2, y + 25.5, { align: 'center' });
+  doc.setFontSize(10.5);
+  doc.setTextColor(18, 24, 35);
+  const nameSize = fit(doc, name, maxTextWidth, 10.5, 7.2);
+  doc.setFontSize(nameSize);
+  doc.text(truncate(doc, name, maxTextWidth), x + w / 2, y + 12.8, { align: 'center' });
 
-  const details: string[] = [];
-  if (row.cpf) details.push(`CPF ${row.cpf}`);
-  if (row.registration_number) details.push(`Inscrição ${row.registration_number}`);
-  const location = [row.campus, row.room && `Sala ${row.room}`, row.seat_number && `Carteira ${row.seat_number}`].filter(Boolean).join(' · ');
-  if (location) details.push(location);
-  if (row.pcd_type && row.pcd_type !== 'NORMAL') details.push(row.pcd_type);
+  const infoLines: string[] = [];
+  const registration = row.registration_number ? `Inscrição: ${row.registration_number}` : null;
+  const cpf = row.cpf ? `CPF: ${row.cpf}` : null;
+  if (registration) infoLines.push(registration);
+  if (cpf) infoLines.push(cpf);
+
+  const locationParts = [
+    row.campus ? `Campus ${row.campus}` : null,
+    row.room ? `Sala ${row.room}` : null,
+    row.seat_number ? `Carteira ${row.seat_number}` : null,
+  ].filter(Boolean);
+  if (locationParts.length) {
+    infoLines.push(locationParts.join(' · '));
+  }
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(85, 90, 98);
-  const textY = y + 35.5;
-  details.forEach((line, idx) => {
-    const label = truncate(doc, line, w - 12);
-    doc.text(label, x + 5, textY + idx * 6);
+  doc.setFontSize(7.2);
+  doc.setTextColor(50, 58, 66);
+
+  const firstLineY = y + 18.5;
+  const lineGap = 4.2;
+  infoLines.slice(0, 2).forEach((line, index) => {
+    const rendered = truncate(doc, line, maxTextWidth);
+    doc.text(rendered, x + paddingX, firstLineY + index * lineGap);
   });
 
-  doc.setDrawColor(226, 229, 234);
-  doc.line(x, y + h - 8, x + w, y + h - 8);
-  doc.setFontSize(6.5);
-  doc.setTextColor(140, 146, 155);
-  doc.text(BRAND, x + 4, y + h - 3.2);
-  if (row.campus) doc.text(truncate(doc, row.campus, w / 2 - 6), x + w - 4, y + h - 3.2, { align: 'right' });
+  if (infoLines[2]) {
+    const rendered = truncate(doc, infoLines[2], maxTextWidth);
+    doc.text(rendered, x + paddingX, firstLineY + 8.4);
+  }
+
+  doc.setDrawColor(230, 233, 237);
+  doc.setLineWidth(0.25);
+  doc.line(x + paddingX, y + h - 4.8, x + w - paddingX, y + h - 4.8);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.8);
+  doc.setTextColor(128, 136, 146);
+  doc.text(BRAND, x + paddingX, y + h - 1.7);
 }
 
 export interface PsAttendanceRow extends PsBadgeRow {
