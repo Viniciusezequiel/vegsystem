@@ -303,10 +303,10 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
         
         // Save to cache (only full list without filter)
         if (!status && data) {
-          saveLoansToCache(data as EquipmentLoan[]);
+          saveLoansToCache(data as unknown as EquipmentLoan[]);
         }
         
-        return data as EquipmentLoan[];
+        return data as unknown as EquipmentLoan[];
       } catch (e) {
         // Fallback to cache on error
         const cached = loadLoansFromCache();
@@ -347,7 +347,7 @@ export function useOverdueLoans() {
         .eq('status', 'active')
         .lt('expected_return_date', today);
       if (error) throw error;
-      return data as EquipmentLoan[];
+      return data as unknown as EquipmentLoan[];
     },
   });
 }

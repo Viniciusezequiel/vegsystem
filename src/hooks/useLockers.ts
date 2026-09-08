@@ -170,7 +170,7 @@ export function useLockerLoans(status?: 'active' | 'returned' | 'overdue') {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as LockerLoan[];
+      return data as unknown as LockerLoan[];
     },
   });
 }
@@ -203,7 +203,7 @@ export function useOverdueLockerLoans() {
         .eq('status', 'active')
         .lt('expected_return_date', today);
       if (error) throw error;
-      return data as LockerLoan[];
+      return data as unknown as LockerLoan[];
     },
   });
 }

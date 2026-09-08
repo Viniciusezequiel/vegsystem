@@ -27,7 +27,7 @@ test('process selection list excludes signature URL and PDF loads it on demand',
   const projection = constantBody(hook, 'PS_EVENT_COLLABORATOR_LIST_SELECT');
   assert.ok(projection);
   assert.doesNotMatch(projection, /signature_url|['"]\*['"]/);
-  assert.match(page, /exportAttendancePdf = async[\s\S]*?select\('id, signature_url'\)/);
+  assert.match(page, /exportAttendancePdf = async[\s\S]*?from\('ps_event_collaborators'\)[\s\S]*?select\([\s\S]*?signature_url[\s\S]*?\)[\s\S]*?eq\('event_id', id!\)/);
 });
 
 test('lost-item non-detail reads do not select owner signature', () => {

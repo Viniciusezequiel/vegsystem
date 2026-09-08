@@ -512,7 +512,9 @@ export function usePsEventCollaborators(eventId?: string) {
         .eq('event_id', eventId!)
         .order('collaborator_name');
       if (error) throw error;
-      return data;
+      // This select is intentionally assembled from a fixed field list. The PostgREST
+      // type parser cannot infer dynamic select strings, so narrow at this boundary.
+      return (data || []) as unknown as Array<Record<string, any>>;
     },
   });
   useEffect(() => {
@@ -720,8 +722,10 @@ export function usePsImportEventTeam() {
           id = data.id;
           created += 1;
           temporaryIds.set(decision.temporaryId!, id);
-        } else {
+        } else if (decision.status === 'matched') {
           id = temporaryIds.get(decision.collaboratorId) || decision.collaboratorId;
+        } else {
+          throw new Error(`Importação interrompida na linha ${decision.rowIndex + 2}: identidade não resolvida.`);
         }
         resolved.push({ row, collaboratorId: id });
       }

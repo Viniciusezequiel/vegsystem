@@ -92,7 +92,9 @@ export async function countSignatureReferences(module: string, locator: string) 
   if (!sources || getSignatureSource(locator).provider !== 'r2') throw new Error('invalid_signature_reference_check');
   let total = 0;
   for (const source of sources) {
-    let query = supabase.from(source.table).select('id', { count: 'exact', head: true });
+    // The table/field pairs are constrained by the hard-coded reference map above.
+    // Keep the dynamic query local instead of weakening the typed Supabase client globally.
+    let query = (supabase as any).from(source.table).select('id', { count: 'exact', head: true });
     query = source.fields.length === 1
       ? query.eq(source.fields[0], locator)
       : query.or(source.fields.map(field => `${field}.eq.${locator}`).join(','));

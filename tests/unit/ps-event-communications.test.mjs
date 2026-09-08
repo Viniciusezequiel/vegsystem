@@ -106,7 +106,7 @@ test('duplo clique/job repetido não reprocessa sent e retry é sempre explícit
 });
 
 test('backend exige autenticação/permissão, limita lote e não aceita provider key do frontend',()=>{
-  assert.match(edge,/getClaims/); assert.match(edge,/is_internal_user/); assert.match(edge,/batchLimit=100/);assert.match(edge,/jobs\.slice\(0,batchLimit\)/);
+  assert.match(edge,/getClaims/); assert.match(edge,/is_internal_user/); assert.match(edge,/batchLimit=limit\('PS_EMAIL_BATCH_LIMIT',5,100\)/);assert.match(edge,/jobs\.slice\(0,batchLimit\)/);
   assert.match(edge,/PS_EMAIL_TEST_MODE/); assert.match(edge,/PS_EMAIL_TEST_RECIPIENT/); assert.match(edge,/PS_EMAIL_TEST_BATCH_LIMIT/); assert.match(edge,/production_email_disabled/);
   assert.match(edge,/dailyLimit=limit\('PS_EMAIL_DAILY_LIMIT',providerName==='brevo'\?300:100/);
   assert.doesNotMatch(`${ui}\n${edge}`,/VITE_.*(RESEND|EMAIL.*KEY|SMTP|SENDGRID|BREVO)/i);

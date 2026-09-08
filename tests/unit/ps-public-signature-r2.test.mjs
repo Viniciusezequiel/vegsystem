@@ -24,7 +24,7 @@ test('Edge Function valida participante, confirma banco e limpa somente sem refe
   assert.match(edge, /\.in\('participation_status'/);
   assert.match(edge, /bytes\.length > 512 \* 1024/);
   assert.match(edge, /pngMagic\.every/);
-  assert.match(edge, /rpc\('ps_public_sign_attendance'/);
+  assert.match(edge, /rpc\(\s*'ps_public_sign_attendance'/);
   assert.match(edge, /\.eq\('signature_url', locator\)/);
   assert.match(edge, /if \(\(count \?\? 0\) === 0\)/);
   assert.doesNotMatch(edge, /capability|service_role\s*[:=]/i);

@@ -200,5 +200,5 @@ export async function getCoordinatorEvaluationDashboard(eventId: string, token: 
     p_event_id: eventId, p_session_token: token,
   } as never);
   if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  return firstRow(data as any);
 }
