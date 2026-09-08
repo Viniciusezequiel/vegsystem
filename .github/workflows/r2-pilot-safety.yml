@@ -1,0 +1,182 @@
+name: R2 Pilot Safety
+
+on:
+  push:
+    branches:
+      - ui/professional-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    if: "github.event.head_commit.message == 'chore: stage R2 pilot safety'"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ui/professional-foundation
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Add bounded migration execution
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new, expected=1):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'{path}: expected {expected} occurrence(s), found {count}')
+              p.write_text(text.replace(old, new))
+
+          old_parse = '''export function parseArgs(argv) {
+            const args = new Set(argv);
+            const moduleIndex = argv.indexOf('--module');
+            const module = moduleIndex >= 0 ? argv[moduleIndex + 1] : null;
+            const dryRun = args.has('--dry-run');
+            const resume = args.has('--resume');
+            const execute = args.has('--execute') || resume;
+            if (!MODULES[module]) throw new Error('unsupported_module');
+            if (dryRun === execute) throw new Error('choose_exactly_one_of_dry_run_or_execute');
+            const known = new Set(['--module', 'equipment', 'lockers', 'lost-items', 'process-selection', '--dry-run', '--execute', '--resume']);
+            if (argv.some(arg => !known.has(arg))) throw new Error('unknown_argument');
+            return { module, dryRun, execute, resume };
+          }'''.replace('            ', '')
+
+          new_parse = '''export function parseArgs(argv) {
+            const args = new Set(argv);
+            const moduleIndex = argv.indexOf('--module');
+            const module = moduleIndex >= 0 ? argv[moduleIndex + 1] : null;
+            const dryRun = args.has('--dry-run');
+            const resume = args.has('--resume');
+            const execute = args.has('--execute') || resume;
+            const limitIndexes = argv.reduce((indexes, arg, index) => {
+              if (arg === '--limit') indexes.push(index);
+              return indexes;
+            }, []);
+            if (limitIndexes.length > 1) throw new Error('duplicate_execution_limit');
+            let limit = null;
+            if (limitIndexes.length === 1) {
+              const rawLimit = argv[limitIndexes[0] + 1];
+              if (!/^\\d+$/.test(String(rawLimit ?? ''))) throw new Error('invalid_execution_limit');
+              limit = Number(rawLimit);
+              if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('invalid_execution_limit');
+            }
+            if (!MODULES[module]) throw new Error('unsupported_module');
+            if (dryRun === execute) throw new Error('choose_exactly_one_of_dry_run_or_execute');
+            if (limit !== null && !execute) throw new Error('limit_requires_execute');
+            const flags = new Set(['--dry-run', '--execute', '--resume']);
+            for (let index = 0; index < argv.length; index += 1) {
+              const arg = argv[index];
+              if (arg === '--module' || arg === '--limit') { index += 1; continue; }
+              if (flags.has(arg)) continue;
+              throw new Error('unknown_argument');
+            }
+            const result = { module, dryRun, execute, resume };
+            return limit === null ? result : { ...result, limit };
+          }'''.replace('            ', '')
+          replace_exact('scripts/migrate-signatures-to-r2.mjs', old_parse, new_parse)
+
+          old_execute = '''async function execute(config, token, resume) {
+            const manifest = loadManifest(config.module.manifestPath);
+            if (!manifest || manifest.module !== config.module.name || !Array.isArray(manifest.entries)) throw new Error('valid_dry_run_manifest_required');
+            if (!resume && manifest.entries.some(entry => entry.status !== 'dry_run_valid' && !entry.status.startsWith('invalid_'))) {
+              throw new Error('manifest_has_progress_use_resume');
+            }
+            manifest.mode = 'execute';
+            manifest.execution_started_at ??= new Date().toISOString();
+            atomicWriteJson(config.module.manifestPath, manifest);
+            for (const entry of manifest.entries) {
+              if (entry.status === 'migrated' || entry.status.startsWith('invalid_')) continue;
+              if (resume && entry.status !== 'dry_run_valid' && entry.status !== 'not_updated_cleaned' && entry.status !== 'failed_before_update_cleaned') continue;
+              await executeEntry(config, token, manifest, entry);
+            }
+          }'''.replace('            ', '')
+
+          new_execute = '''async function execute(config, token, resume, limit = null) {
+            const manifest = loadManifest(config.module.manifestPath);
+            if (!manifest || manifest.module !== config.module.name || !Array.isArray(manifest.entries)) throw new Error('valid_dry_run_manifest_required');
+            if (!resume && manifest.entries.some(entry => entry.status !== 'dry_run_valid' && !entry.status.startsWith('invalid_'))) {
+              throw new Error('manifest_has_progress_use_resume');
+            }
+            manifest.mode = 'execute';
+            manifest.execution_started_at ??= new Date().toISOString();
+            atomicWriteJson(config.module.manifestPath, manifest);
+            let attempted = 0;
+            for (const entry of manifest.entries) {
+              if (entry.status === 'migrated' || entry.status.startsWith('invalid_')) continue;
+              if (resume && entry.status !== 'dry_run_valid' && entry.status !== 'not_updated_cleaned' && entry.status !== 'failed_before_update_cleaned') continue;
+              if (limit !== null && attempted >= limit) break;
+              attempted += 1;
+              await executeEntry(config, token, manifest, entry);
+            }
+            return { attempted, limit, manifest: config.module.manifestPath };
+          }'''.replace('            ', '')
+          replace_exact('scripts/migrate-signatures-to-r2.mjs', old_execute, new_execute)
+
+          replace_exact(
+              'scripts/migrate-signatures-to-r2.mjs',
+              '  await execute(config, token, args.resume);',
+              "  const result = await execute(config, token, args.resume, args.limit ?? null);\n  process.stdout.write(`${JSON.stringify(result)}\\n`);",
+          )
+
+          test_path = Path('tests/unit/signature-migration-executor.test.mjs')
+          test_text = test_path.read_text()
+          marker = "test('aceita somente Base64 PNG canônico com magic bytes', () => {"
+          addition = '''test('CLI permite piloto limitado somente em execução e restringe lote a 100', () => {
+            assert.deepEqual(parseArgs(['--module', 'process-selection', '--execute', '--limit', '10']), {
+              module: 'process-selection', dryRun: false, execute: true, resume: false, limit: 10,
+            });
+            assert.deepEqual(parseArgs(['--module', 'equipment', '--resume', '--limit', '5']), {
+              module: 'equipment', dryRun: false, execute: true, resume: true, limit: 5,
+            });
+            assert.throws(() => parseArgs(['--module', 'equipment', '--dry-run', '--limit', '5']), /limit_requires_execute/);
+            assert.throws(() => parseArgs(['--module', 'equipment', '--execute', '--limit', '0']), /invalid_execution_limit/);
+            assert.throws(() => parseArgs(['--module', 'equipment', '--execute', '--limit', '101']), /invalid_execution_limit/);
+            assert.throws(() => parseArgs(['--module', 'equipment', '--execute', '--limit', 'abc']), /invalid_execution_limit/);
+            assert.throws(() => parseArgs(['--module', 'equipment', '--execute', '--limit', '5', '--limit', '6']), /duplicate_execution_limit/);
+          });
+
+          '''.replace('            ', '')
+          if test_text.count(marker) != 1:
+              raise SystemExit('test insertion marker mismatch')
+          test_text = test_text.replace(marker, addition + marker)
+          test_text = test_text.replace(
+              "  assert.match(source, /for \\(const entry of manifest\\.entries\\)/);",
+              "  assert.match(source, /for \\(const entry of manifest\\.entries\\)/);\n  assert.match(source, /if \\(limit !== null && attempted >= limit\\) break/);\n  assert.match(source, /attempted \\+= 1/);",
+              1,
+          )
+          test_path.write_text(test_text)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:storage
+
+      - name: Production build
+        run: npx vite build
+
+      - name: Commit validated pilot safety
+        shell: bash
+        run: |
+          rm .github/workflows/r2-pilot-safety.yml
+          git config user.name "Viniciusezequiel"
+          git config user.email "164230144+Viniciusezequiel@users.noreply.github.com"
+          git add scripts/migrate-signatures-to-r2.mjs tests/unit/signature-migration-executor.test.mjs .github/workflows/r2-pilot-safety.yml
+          git commit -m "feat: bound R2 signature migration batches"
+          git push origin HEAD:ui/professional-foundation
