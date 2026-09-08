@@ -28,6 +28,20 @@ test('CLI exige equipment e um único modo; resume retoma execução', () => {
   assert.throws(() => parseArgs(['--module', 'unknown', '--dry-run']), /unsupported_module/);
 });
 
+test('CLI permite piloto limitado somente em execução e restringe lote a 100', () => {
+  assert.deepEqual(parseArgs(['--module', 'process-selection', '--execute', '--limit', '10']), {
+    module: 'process-selection', dryRun: false, execute: true, resume: false, limit: 10,
+  });
+  assert.deepEqual(parseArgs(['--module', 'equipment', '--resume', '--limit', '5']), {
+    module: 'equipment', dryRun: false, execute: true, resume: true, limit: 5,
+  });
+  assert.throws(() => parseArgs(['--module', 'equipment', '--dry-run', '--limit', '5']), /limit_requires_execute/);
+  assert.throws(() => parseArgs(['--module', 'equipment', '--execute', '--limit', '0']), /invalid_execution_limit/);
+  assert.throws(() => parseArgs(['--module', 'equipment', '--execute', '--limit', '101']), /invalid_execution_limit/);
+  assert.throws(() => parseArgs(['--module', 'equipment', '--execute', '--limit', 'abc']), /invalid_execution_limit/);
+  assert.throws(() => parseArgs(['--module', 'equipment', '--execute', '--limit', '5', '--limit', '6']), /duplicate_execution_limit/);
+});
+
 test('aceita somente Base64 PNG canônico com magic bytes', () => {
   assert.equal(decodePngDataUrl(dataUrl).valid, true);
   assert.equal(decodePngDataUrl('data:image/jpeg;base64,/9j/').status, 'invalid_data_url');
@@ -66,6 +80,8 @@ test('inventário de lost-items preserva origem sem persistir Base64', () => {
 test('executor contém guardas de sequência, update condicionado e cleanup exato', () => {
   const source = fs.readFileSync(new URL('../../scripts/migrate-signatures-to-r2.mjs', import.meta.url), 'utf8');
   assert.match(source, /for \(const entry of manifest\.entries\)/);
+  assert.match(source, /if \(limit !== null && attempted >= limit\) break/);
+  assert.match(source, /attempted \+= 1/);
   assert.match(source, /rpc\/\$\{config\.module\.rpc\}/);
   assert.match(source, /p_expected_value: original/);
   assert.doesNotMatch(source, /\$\{entry\.field\}=eq\.\$\{encodeURIComponent\(original\)\}/);

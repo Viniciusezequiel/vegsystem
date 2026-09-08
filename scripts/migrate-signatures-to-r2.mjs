@@ -42,11 +42,30 @@ export function parseArgs(argv) {
   const dryRun = args.has('--dry-run');
   const resume = args.has('--resume');
   const execute = args.has('--execute') || resume;
+  const limitIndexes = argv.reduce((indexes, arg, index) => {
+    if (arg === '--limit') indexes.push(index);
+    return indexes;
+  }, []);
+  if (limitIndexes.length > 1) throw new Error('duplicate_execution_limit');
+  let limit = null;
+  if (limitIndexes.length === 1) {
+    const rawLimit = argv[limitIndexes[0] + 1];
+    if (!/^\d+$/.test(String(rawLimit ?? ''))) throw new Error('invalid_execution_limit');
+    limit = Number(rawLimit);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('invalid_execution_limit');
+  }
   if (!MODULES[module]) throw new Error('unsupported_module');
   if (dryRun === execute) throw new Error('choose_exactly_one_of_dry_run_or_execute');
-  const known = new Set(['--module', 'equipment', 'lockers', 'lost-items', 'process-selection', '--dry-run', '--execute', '--resume']);
-  if (argv.some(arg => !known.has(arg))) throw new Error('unknown_argument');
-  return { module, dryRun, execute, resume };
+  if (limit !== null && !execute) throw new Error('limit_requires_execute');
+  const flags = new Set(['--dry-run', '--execute', '--resume']);
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--module' || arg === '--limit') { index += 1; continue; }
+    if (flags.has(arg)) continue;
+    throw new Error('unknown_argument');
+  }
+  const result = { module, dryRun, execute, resume };
+  return limit === null ? result : { ...result, limit };
 }
 
 export function decodePngDataUrl(value) {
@@ -368,7 +387,7 @@ async function dryRun(config, token, permissions) {
   return { ...summary, mib: summary.bytes / 1024 / 1024, manifest: config.module.manifestPath, manifest_sha256: sha256(manifestBytes), uploads: 0, updates: 0, deletes: 0 };
 }
 
-async function execute(config, token, resume) {
+async function execute(config, token, resume, limit = null) {
   const manifest = loadManifest(config.module.manifestPath);
   if (!manifest || manifest.module !== config.module.name || !Array.isArray(manifest.entries)) throw new Error('valid_dry_run_manifest_required');
   if (!resume && manifest.entries.some(entry => entry.status !== 'dry_run_valid' && !entry.status.startsWith('invalid_'))) {
@@ -377,11 +396,15 @@ async function execute(config, token, resume) {
   manifest.mode = 'execute';
   manifest.execution_started_at ??= new Date().toISOString();
   atomicWriteJson(config.module.manifestPath, manifest);
+  let attempted = 0;
   for (const entry of manifest.entries) {
     if (entry.status === 'migrated' || entry.status.startsWith('invalid_')) continue;
     if (resume && entry.status !== 'dry_run_valid' && entry.status !== 'not_updated_cleaned' && entry.status !== 'failed_before_update_cleaned') continue;
+    if (limit !== null && attempted >= limit) break;
+    attempted += 1;
     await executeEntry(config, token, manifest, entry);
   }
+  return { attempted, limit, manifest: config.module.manifestPath };
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -404,7 +427,8 @@ export async function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${JSON.stringify(result)}\n`);
     return;
   }
-  await execute(config, token, args.resume);
+  const result = await execute(config, token, args.resume, args.limit ?? null);
+  process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
