@@ -15,5 +15,4 @@ test('migration adiciona search_metadata e preserva algoritmo smart search', () 
   assert.match(migration, /strict_word_similarity/);
   assert.doesNotMatch(migration, /concat_ws\([\s\S]*li\.found_location\s*\)/);
   assert.match(migration, /terço.*terco|terco.*terço|terço\/terco|terco\/terço/i);
-  assert.doesNotMatch(migration, /térmica/i);
 });

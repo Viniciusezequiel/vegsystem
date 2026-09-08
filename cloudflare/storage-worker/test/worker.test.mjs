@@ -251,40 +251,141 @@ test('DELETE remove apenas a key exata sem referências', async () => {
   assert.ok(await bucket.head('b.webp'));
 });
 
-test('AI lost-item exige JWT e valida autorização', async () => {
-  const { app, env } = setup({
-    authorize: async (auth, _env, operation) => operation === 'lost-found-create',
-  });
-  const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
-    method: 'POST',
-    headers: { 'content-type': 'image/png' },
-    body: png,
-  }), env, {});
-  assert.equal(response.status, 401);
+test('AI lost-item usa has_permission e falha fechado', async () => {
+  const { app, env } = setup({ authorize: async () => false });
+  const originalFetch = globalThis.fetch;
 
-  const allowed = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
-    method: 'POST',
-    headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
-    body: png,
-  }), env, {});
-  assert.equal(allowed.status, 200);
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const allowed = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(allowed.status, 200);
+
+    globalThis.fetch = async () => ({ ok: true, json: async () => false, status: 200 });
+    const denied = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(denied.status, 403);
+
+    globalThis.fetch = async () => ({ ok: false, status: 500 });
+    const rpcError = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(rpcError.status, 503);
+
+    globalThis.fetch = async () => { throw new Error('network down'); };
+    const networkError = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(networkError.status, 503);
+
+    const missingEnv = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), { ...env, SUPABASE_URL: '', SUPABASE_PUBLISHABLE_KEY: '' }, {});
+    assert.equal(missingEnv.status, 503);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item ignora autorizador storage e respeita response envelope', async () => {
+  const captured = {};
+  const { app, env } = setup({
+    authorize: async () => false,
+    aiRun: async (_model, params) => {
+      captured.responseFormat = params.response_format;
+      return { response: { item_type: 'garrafa', description_suggestion: 'Garrafa azul', primary_color: 'azul', secondary_color: null, brand: 'Campus', material: 'metal', features: ['tampa'], condition: 'bom', storage_category: 'garrafas_copos', visible_text_safe: ['Campus'], confidence: 0.91 } };
+    },
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    assert.equal(captured.responseFormat.type, 'json_schema');
+    assert.equal(captured.responseFormat.json_schema.type, 'object');
+    assert.equal(captured.responseFormat.json_schema.schema, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('AI lost-item aceita response JSON string e remove PII sem rótulo', async () => {
+  const { app, env } = setup({
+    aiRun: async () => ({
+      response: JSON.stringify({
+        item_type: 'caderno',
+        description_suggestion: 'Caderno 123.456.789-00',
+        primary_color: 'azul',
+        secondary_color: 'preto',
+        brand: 'Campus',
+        material: 'papel',
+        features: ['com capa'],
+        condition: 'bom',
+        storage_category: 'documentos_valores',
+        visible_text_safe: ['Cartão 5555444433332222'],
+        confidence: 0.88,
+      }),
+    }),
+    authorize: async () => true,
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.storage_category, 'documentos_valores');
+    assert.deepEqual(payload.visible_text_safe, []);
+    assert.match(payload.description_suggestion, /Caderno/);
+    assert.doesNotMatch(JSON.stringify(payload), /123\.456\.789-00|5555\s*4444\s*3333\s*2222|cartao|Cartao|cartão|cartão/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('AI lost-item rejeita binding ausente e JSON inválido', async () => {
-  const { app } = setup({ aiRun: undefined });
-  const abs = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
-    method: 'POST',
-    headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
-    body: png,
-  }), { ...setup().env, AI: undefined }, {});
-  assert.equal(abs.status, 503);
+  const { app, env } = setup({ aiRun: undefined });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const abs = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), { ...env, AI: undefined }, {});
+    assert.equal(abs.status, 503);
 
-  const invalid = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
-    method: 'POST',
-    headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
-    body: png,
-  }), { ...setup().env, AI: { run: async () => ({ item_type: 'ok', confidence: 'bad' }) } }, {});
-  assert.equal(invalid.status, 422);
+    const invalid = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), { ...env, AI: { run: async () => ({ item_type: 'ok', confidence: 'bad' }) } }, {});
+    assert.equal(invalid.status, 422);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('AI lost-item sanitiza categoria e remove texto sensível', async () => {
@@ -304,17 +405,23 @@ test('AI lost-item sanitiza categoria e remove texto sensível', async () => {
     }),
     authorize: async () => true,
   });
-  const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
-    method: 'POST',
-    headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
-    body: png,
-  }), env, {});
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.equal(payload.storage_category, null);
-  assert.deepEqual(payload.visible_text_safe, []);
-  assert.match(payload.description_suggestion, /Caderno/);
-  assert.doesNotMatch(JSON.stringify(payload), /123\.456\.789-00|12\.345\.678-9|CPF|RG/);
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => true, status: 200 });
+  try {
+    const response = await app.fetch(new Request('https://worker.test/v1/ai/lost-item', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test', 'content-type': 'image/png' },
+      body: png,
+    }), env, {});
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.storage_category, null);
+    assert.deepEqual(payload.visible_text_safe, []);
+    assert.match(payload.description_suggestion, /Caderno/);
+    assert.doesNotMatch(JSON.stringify(payload), /123\.456\.789-00|12\.345\.678-9|CPF|RG/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('origem não permitida não recebe CORS', async () => {

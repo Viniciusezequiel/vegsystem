@@ -44,15 +44,23 @@ function normalizeAiStorageCategory(value) {
 }
 
 function redactSensitiveText(value) {
-  if (!value) return value;
-  const text = String(value);
-  if (/cpf|rg|cnh|cartao|telefone|endereco|matricula|nascimento|qr code|qrcode|conta|documento/i.test(text)) {
-    return text
-      .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '***')
-      .replace(/\b\d{2}\.\d{3}\.\d{3}-\d{1}\b/g, '***')
-      .replace(/\b\d{11,}\b/g, '***')
-      .replace(/\b(?:cpf|rg|cnh|telefone|endereco|matricula|nascimento|cartao|conta)\b[^\n.]*[:\-]?\s*[^\n,.]+/gi, 'Documento pessoal');
+  if (value === null || value === undefined) return value;
+  let text = String(value);
+
+  const patterns = [
+    /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g,
+    /\b\d{2}\.\d{3}\.\d{3}-\d{1}\b/g,
+    /\b(?:\+?55\s?)?(?:\(?\d{2}\)?[\s.-]?){4,5}\d{4}\b/g,
+    /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+    /(?<!\d)(?:\d[ -]?){13,19}(?!\d)/g,
+    /\b(?:\d{4}[\s-]?){3}\d{1,4}\b/g,
+    /\b(?:cpf|rg|cnh|telefone|endereco|matricula|nascimento|cartao|conta|documento|qr\s*code|qrcode|e-mail|email)\b[^\n.]*[:\-]?\s*[^\n,.]+/gi,
+  ];
+
+  for (const pattern of patterns) {
+    text = text.replace(pattern, '***');
   }
+
   return text;
 }
 
@@ -63,7 +71,7 @@ function hasSensitivePersonalDataValue(value) {
   return /(?:cpf|rg|cnh|telefone|matricula|endereco|nascimento|conta|cartao|documento|qr\s*code|qrcode|e-mail|email|@\w+\.\w+)/i.test(text)
     || /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/.test(text)
     || /\b\d{2}\.\d{3}\.\d{3}-\d{1}\b/.test(text)
-    || /(?:\d[ -]?){13,19}/.test(text.replace(/\s+/g, ''))
+    || /(?<!\d)(?:\d[ -]?){13,19}(?!\d)/.test(text.replace(/\s+/g, ''))
     || /\b(?:\+?55\s?)?(?:\(?\d{2}\)?\s?){4,5}\d{4}\b/.test(text)
     || /\b\d{2}\/\d{2}\/\d{4}\b/.test(text)
     || /(\b\d{3}\b\s*){3,}/.test(text);
@@ -71,11 +79,12 @@ function hasSensitivePersonalDataValue(value) {
 
 function stripSensitiveVisibleText(value) {
   const text = redactSensitiveText(value);
-  if (!text || !String(text).trim()) return null;
-  if (hasSensitivePersonalDataValue(text) || /^\d+\s*$/u.test(String(text).trim()) || /(?:cpf|rg|cnh|matricula|telefone|endereco|nascimento|conta|cartao|documento|qr|qrcode)/i.test(String(text))) {
+  const normalized = String(text ?? '').trim();
+  if (!normalized || normalized === '***' || normalized.replace(/\*/g, '').trim() === '') return null;
+  if (hasSensitivePersonalDataValue(normalized) || /^\d+\s*$/u.test(normalized) || /(?:cpf|rg|cnh|matricula|telefone|endereco|nascimento|conta|cartao|documento|qr|qrcode)/i.test(normalized)) {
     return null;
   }
-  return String(text).trim();
+  return normalized;
 }
 
 function sanitizeAiPayload(raw) {
@@ -179,8 +188,9 @@ function extractAiResponsePayload(modelResponse) {
 }
 
 async function hasLostItemCreatePermission(auth, env, fetchImpl = fetch) {
-  if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) return true;
-  if (typeof fetchImpl !== 'function') return true;
+  if (!env.SUPABASE_URL) throw new Error('missing_supabase_url');
+  if (!env.SUPABASE_PUBLISHABLE_KEY) throw new Error('missing_supabase_publishable_key');
+  if (typeof fetchImpl !== 'function') throw new Error('permission_fetch_unavailable');
 
   let response;
   try {
@@ -194,41 +204,35 @@ async function hasLostItemCreatePermission(auth, env, fetchImpl = fetch) {
       body: JSON.stringify({ _user_id: auth.sub, _module: 'lostAndFound', _action: 'create' }),
     });
   } catch {
-    return true;
+    throw new Error('permission_check_failed');
   }
 
   if (!response.ok) {
-    if (response.status === 403) return false;
-    return true;
+    throw new Error(`permission_check_http_${response.status}`);
   }
 
-  const payload = await response.json().catch(() => null);
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error('permission_check_invalid_json');
+  }
+
   if (typeof payload === 'boolean') return payload;
   if (Array.isArray(payload) && payload.length > 0) {
     const row = payload[0];
     if (typeof row === 'boolean') return row;
-    return Boolean(row?.has_permission ?? row?.result ?? row?.value ?? row?.allowed ?? row?.permission ?? false);
+    const value = row?.has_permission ?? row?.result ?? row?.value ?? row?.allowed ?? row?.permission;
+    if (typeof value === 'boolean') return value;
+    throw new Error('permission_check_invalid_json');
   }
   if (payload && typeof payload === 'object') {
     const value = payload.has_permission ?? payload.result ?? payload.value ?? payload.allowed ?? payload.permission;
-    return Boolean(value);
+    if (typeof value === 'boolean') return value;
+    throw new Error('permission_check_invalid_json');
   }
-  return false;
-}
 
-async function authorizeLostItemAi(auth, env, deps, fetchImpl = fetch) {
-  if (deps && typeof deps.authorize === 'function') {
-    try {
-      const allowed = await deps.authorize(auth, env, 'lost-found-create');
-      if (allowed === false) return false;
-      if (allowed === true) {
-        return await hasLostItemCreatePermission(auth, env, fetchImpl);
-      }
-    } catch {
-      // fall through to direct permission RPC below
-    }
-  }
-  return hasLostItemCreatePermission(auth, env, fetchImpl);
+  throw new Error('permission_check_invalid_json');
 }
 
 function authenticated(deps, operation, handler) {
@@ -353,12 +357,15 @@ async function handleLostItemAi(request, env, deps) {
   let auth;
   try { auth = await deps.verifyJwt(request, env); }
   catch { return json({ error: 'unauthorized' }, 401, corsHeaders(request, env)); }
+
+  let allowed;
   try {
-    const allowed = await authorizeLostItemAi(auth, env, deps);
-    if (!allowed) return json({ error: 'forbidden' }, 403, corsHeaders(request, env));
+    allowed = await hasLostItemCreatePermission(auth, env, fetch);
   } catch {
     return json({ error: 'authorization_unavailable' }, 503, corsHeaders(request, env));
   }
+
+  if (!allowed) return json({ error: 'forbidden' }, 403, corsHeaders(request, env));
 
   const contentType = (request.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
   if (!AI_ALLOWED_CONTENT_TYPES.has(contentType)) return json({ error: 'unsupported_media_type' }, 415, corsHeaders(request, env));
@@ -376,26 +383,22 @@ async function handleLostItemAi(request, env, deps) {
       response_format: {
         type: 'json_schema',
         json_schema: {
-          name: 'lost_item_ai_response',
-          schema: {
-            type: 'object',
-            properties: {
-              item_type: { type: ['string', 'null'] },
-              description_suggestion: { type: ['string', 'null'] },
-              primary_color: { type: ['string', 'null'] },
-              secondary_color: { type: ['string', 'null'] },
-              brand: { type: ['string', 'null'] },
-              material: { type: ['string', 'null'] },
-              features: { type: 'array', items: { type: 'string' } },
-              condition: { type: ['string', 'null'] },
-              storage_category: { type: ['string', 'null'] },
-              visible_text_safe: { type: 'array', items: { type: 'string' } },
-              confidence: { type: 'number' },
-            },
-            required: ['item_type', 'description_suggestion', 'primary_color', 'secondary_color', 'brand', 'material', 'features', 'condition', 'storage_category', 'visible_text_safe', 'confidence'],
-            additionalProperties: false,
+          type: 'object',
+          properties: {
+            item_type: { type: ['string', 'null'] },
+            description_suggestion: { type: ['string', 'null'] },
+            primary_color: { type: ['string', 'null'] },
+            secondary_color: { type: ['string', 'null'] },
+            brand: { type: ['string', 'null'] },
+            material: { type: ['string', 'null'] },
+            features: { type: 'array', items: { type: 'string' } },
+            condition: { type: ['string', 'null'] },
+            storage_category: { type: ['string', 'null'] },
+            visible_text_safe: { type: 'array', items: { type: 'string' } },
+            confidence: { type: 'number' },
           },
-          strict: true,
+          required: ['item_type', 'description_suggestion', 'primary_color', 'secondary_color', 'brand', 'material', 'features', 'condition', 'storage_category', 'visible_text_safe', 'confidence'],
+          additionalProperties: false,
         },
       },
     });

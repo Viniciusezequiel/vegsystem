@@ -96,7 +96,6 @@ export default function RegisterItem() {
       setAcceptedAiDescription(false);
       setSearchMetadata('');
       setSelectedSuggestionFields({});
-      setSelectedSuggestionFields({});
     } catch (error) {
       setImageFile(null);
       const { toast } = await import('sonner');
@@ -113,6 +112,7 @@ export default function RegisterItem() {
     setSuggestionError(null);
     try {
       const result = await analyzeLostItemImage(imageFile);
+      setSelectedSuggestionFields({});
       setAiSuggestion(result);
       setSuggestionError(null);
     } catch (error) {
