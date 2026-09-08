@@ -25,6 +25,7 @@ test('manual fiscal link hidrata snapshot do banco do fiscal sem depender de nom
     roleValue: 'coordinator',
     roleName: 'Coordenador',
     payValue: 150,
+    campus: ' Campus I ',
   });
 
   assert.equal(row.event_id, 'evt-1');
@@ -33,7 +34,8 @@ test('manual fiscal link hidrata snapshot do banco do fiscal sem depender de nom
   assert.equal(row.email, 'joao@empresa.com');
   assert.equal(row.phone, '11999999999');
   assert.equal(row.mobile, '11988888888');
-  assert.equal(row.unit, 'Campus Central');
+  assert.equal(row.campus, 'Campus I');
+  assert.equal(row.unit, undefined);
   assert.equal(row.sector, 'Recursos Didáticos');
   assert.equal(row.institution, 'FELUMA');
   assert.equal(row.cpf, '123.456.789-00');
@@ -51,22 +53,27 @@ test('migration de backfill usa collaborator_id e apenas preenche campos nulos d
   assert.match(migrationSql, /COALESCE\(e\.email, c\.email\)/i);
   assert.match(migrationSql, /COALESCE\(e\.phone, c\.phone\)/i);
   assert.match(migrationSql, /COALESCE\(e\.mobile, c\.mobile\)/i);
-  assert.match(migrationSql, /COALESCE\(e\.unit, c\.unit\)/i);
   assert.match(migrationSql, /COALESCE\(e\.sector, c\.sector\)/i);
   assert.match(migrationSql, /COALESCE\(e\.institution, c\.institution\)/i);
   assert.match(migrationSql, /COALESCE\(e\.cpf, c\.cpf\)/i);
   assert.match(migrationSql, /COALESCE\(e\.identity_doc, c\.identity_doc\)/i);
   assert.match(migrationSql, /COALESCE\(e\.pix, c\.pix\)/i);
+  assert.doesNotMatch(migrationSql, /COALESCE\(e\.unit, c\.unit\)/i);
+  assert.doesNotMatch(migrationSql, /e\.unit IS NULL/i);
+  assert.doesNotMatch(migrationSql, /campus/i);
   assert.doesNotMatch(migrationSql, /WITH candidate_links AS/i);
   assert.doesNotMatch(migrationSql, /COMMENT ON TABLE public\.ps_event_collaborators/i);
   assert.doesNotMatch(migrationSql, /UPDATE public\.ps_event_collaborators[\s\S]*role_name/i);
   assert.doesNotMatch(migrationSql, /UPDATE public\.ps_event_collaborators[\s\S]*collaborator_name/i);
 });
 
-test('modal manual do fiscal usa classes responsivas multilinha em vez de nowrap simples', () => {
+test('modal manual do fiscal usa campus obrigatório e mantém responsividade multilinha', () => {
   const source = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
+  assert.match(source, /campusValue/i);
+  assert.match(source, /Campus do evento/i);
   assert.match(source, /whitespace-normal/i);
   assert.match(source, /overflow-hidden/i);
   assert.match(source, /min-w-0/i);
+  assert.doesNotMatch(source, /editLink\.unit/i);
   assert.doesNotMatch(source, /className="w-full justify-start"/i);
 });

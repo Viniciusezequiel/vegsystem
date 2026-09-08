@@ -61,6 +61,7 @@ export default function PsEventDetail() {
   const [searchFiscal, setSearchFiscal] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [roleValue, setRoleValue] = useState('');
+  const [campusValue, setCampusValue] = useState('');
   const [evalTarget, setEvalTarget] = useState<any>(null);
   const [criteria, setCriteria] = useState(emptyCriteria());
   const [comments, setComments] = useState('');
@@ -454,7 +455,7 @@ export default function PsEventDetail() {
   }, [collaborators, links, searchFiscal]);
 
   const linkFiscals = async () => {
-    if (!selected.length || !roleValue) return;
+    if (!selected.length || !roleValue || !campusValue.trim()) return;
     const roleObj: any = roles.find((r: any) => r.value === roleValue);
     const rows = selected.map((cid) => {
       const c: any = collaborators.find((x: any) => x.id === cid);
@@ -465,12 +466,14 @@ export default function PsEventDetail() {
         roleValue,
         roleName: roleObj?.name,
         payValue: rolePay(roleValue),
+        campus: campusValue.trim(),
       });
     });
     await add.mutateAsync(rows);
     setAddOpen(false);
     setSelected([]);
     setRoleValue('');
+    setCampusValue('');
   };
 
   const submitEvaluation = async () => {
@@ -2151,7 +2154,18 @@ export default function PsEventDetail() {
       </Dialog>
 
       {/* Vincular fiscais */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) {
+            setSelected([]);
+            setRoleValue('');
+            setCampusValue('');
+            setSearchFiscal('');
+          }
+        }}
+      >
         <DialogContent className="max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader><DialogTitle>Vincular fiscais</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -2163,6 +2177,14 @@ export default function PsEventDetail() {
                   {roles.map((r: any) => <SelectItem key={r.id} value={r.value}>{r.name} — R$ {Number(r.pay_value).toFixed(2)}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Campus do evento *</Label>
+              <Input
+                value={campusValue}
+                onChange={(e) => setCampusValue(e.target.value)}
+                placeholder="Campus Fumec"
+              />
             </div>
             <div className="space-y-2">
               <Input
@@ -2203,7 +2225,7 @@ export default function PsEventDetail() {
                         <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
                           {institutionText}
                           {(institutionText && unitText) && <span> · </span>}
-                          {unitText}
+                          {unitText && <span>Unidade de trabalho: {unitText}</span>}
                         </span>
                       )}
                     </span>
@@ -2213,8 +2235,13 @@ export default function PsEventDetail() {
             </div>
           </div>
           <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancelar</Button>
-            <Button onClick={linkFiscals} disabled={!selected.length || !roleValue}>Vincular {selected.length || ''}</Button>
+            <Button variant="outline" onClick={() => {
+              setAddOpen(false);
+              setSelected([]);
+              setRoleValue('');
+              setCampusValue('');
+            }}>Cancelar</Button>
+            <Button onClick={linkFiscals} disabled={!selected.length || !roleValue || !campusValue.trim()}>Vincular {selected.length || ''}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2397,7 +2424,7 @@ export default function PsEventDetail() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Setor</Label><Input value={editLink.sector || ''} onChange={(e) => setEditLink({ ...editLink, sector: e.target.value })} /></div>
-                <div><Label>Unidade</Label><Input value={editLink.unit || ''} onChange={(e) => setEditLink({ ...editLink, unit: e.target.value })} /></div>
+                <div><Label>Campus do evento</Label><Input value={editLink.campus || ''} onChange={(e) => setEditLink({ ...editLink, campus: e.target.value })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>E-mail</Label><Input value={editLink.email || ''} onChange={(e) => setEditLink({ ...editLink, email: e.target.value })} /></div>
@@ -2421,8 +2448,8 @@ export default function PsEventDetail() {
                   building: editLink.building || null,
                   floor: editLink.floor || null,
                   room: editLink.room || null,
+                  campus: editLink.campus || null,
                   sector: editLink.sector || null,
-                  unit: editLink.unit || null,
                   email: editLink.email || null,
                   phone: editLink.phone || null,
                   pix: editLink.pix || null,

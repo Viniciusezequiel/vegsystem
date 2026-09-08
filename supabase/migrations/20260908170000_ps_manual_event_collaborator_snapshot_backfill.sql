@@ -3,7 +3,6 @@ SET
   email = COALESCE(e.email, c.email),
   phone = COALESCE(e.phone, c.phone),
   mobile = COALESCE(e.mobile, c.mobile),
-  unit = COALESCE(e.unit, c.unit),
   sector = COALESCE(e.sector, c.sector),
   institution = COALESCE(e.institution, c.institution),
   cpf = COALESCE(e.cpf, c.cpf),
@@ -13,6 +12,6 @@ FROM public.ps_collaborators c
 WHERE e.collaborator_id = c.id
   AND e.collaborator_id IS NOT NULL
   AND (
-    e.email IS NULL OR e.phone IS NULL OR e.mobile IS NULL OR e.unit IS NULL OR
+    e.email IS NULL OR e.phone IS NULL OR e.mobile IS NULL OR
     e.sector IS NULL OR e.institution IS NULL OR e.cpf IS NULL OR e.identity_doc IS NULL OR e.pix IS NULL
   );
