@@ -12,10 +12,12 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 type PublicSchema = Database['public'];
+type CollaboratorsTable = PublicSchema['Tables']['ps_collaborators'];
 type EventCollaboratorsTable = PublicSchema['Tables']['ps_event_collaborators'];
 type EventsTable = PublicSchema['Tables']['ps_events'];
 type EvaluationsTable = PublicSchema['Tables']['ps_evaluations'];
 type SelfEvaluationsTable = PublicSchema['Tables']['ps_self_evaluations'];
+type Loose<T> = T & { [key: string]: unknown };
 
 type Table<Row extends Record<string, unknown>> = {
   Row: Row;
@@ -185,12 +187,22 @@ type DatabaseCompat = Omit<Database, 'public'> & {
   public: Omit<PublicSchema, 'Tables' | 'Functions'> & {
     Tables: Omit<
       PublicSchema['Tables'],
-      'ps_event_collaborators' | 'ps_events' | 'ps_evaluations' | 'ps_self_evaluations'
+      'ps_collaborators' | 'ps_event_collaborators' | 'ps_events' | 'ps_evaluations' | 'ps_self_evaluations'
     > & {
+      ps_collaborators: {
+        Row: CollaboratorsTable['Row'] & {
+          email_normalized: string | null;
+          matricula_normalized: string | null;
+          institution_normalized: string | null;
+        };
+        Insert: CollaboratorsTable['Insert'];
+        Update: Loose<CollaboratorsTable['Update']>;
+        Relationships: CollaboratorsTable['Relationships'];
+      };
       ps_event_collaborators: {
         Row: EventCollaboratorsTable['Row'] & EventCollaboratorExtra;
         Insert: EventCollaboratorsTable['Insert'] & Partial<EventCollaboratorExtra>;
-        Update: EventCollaboratorsTable['Update'] & Partial<EventCollaboratorExtra>;
+        Update: Loose<EventCollaboratorsTable['Update'] & Partial<EventCollaboratorExtra>>;
         Relationships: EventCollaboratorsTable['Relationships'];
       };
       ps_events: {
