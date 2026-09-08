@@ -460,6 +460,7 @@ export default function PsEventDetail() {
       const c: any = collaborators.find((x: any) => x.id === cid);
       return buildManualEventCollaboratorRow({
         eventId: id,
+        collaboratorId: cid,
         collaborator: c,
         roleValue,
         roleName: roleObj?.name,
@@ -2151,7 +2152,7 @@ export default function PsEventDetail() {
 
       {/* Vincular fiscais */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader><DialogTitle>Vincular fiscais</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
@@ -2170,24 +2171,39 @@ export default function PsEventDetail() {
                 placeholder="Buscar fiscal..."
               />
             </div>
-            <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border p-2">
+            <div className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden rounded-lg border p-2">
               {visibleCollaborators.length === 0 ? (
                 <p className="p-2 text-sm text-muted-foreground">Nenhum fiscal encontrado.</p>
               ) : visibleCollaborators.map((c: any) => {
-                const summary = [c.email, c.matricula && `Matrícula ${c.matricula}`, c.institution, c.unit].filter(Boolean);
+                const emailText = c.email ? String(c.email).trim() : '';
+                const matriculaText = c.matricula ? `Matrícula ${String(c.matricula).trim()}` : '';
+                const institutionText = c.institution ? String(c.institution).trim() : '';
+                const unitText = c.unit ? String(c.unit).trim() : '';
+
                 return (
                   <Button
                     key={c.id}
                     type="button"
                     variant={selected.includes(c.id) ? 'default' : 'ghost'}
-                    className="w-full justify-start"
+                    className="w-full h-auto min-h-0 justify-start whitespace-normal overflow-hidden px-3 py-2"
                     onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
                   >
-                    <span className="flex flex-col items-start text-left">
-                      <span className="font-medium">{c.full_name}</span>
-                      {summary.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {summary.join(' · ')}
+                    <span className="w-full min-w-0 flex flex-col items-start text-left">
+                      <span className="max-w-full font-medium break-words whitespace-normal text-left">{c.full_name || 'Sem nome'}</span>
+
+                      {(emailText || matriculaText) && (
+                        <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
+                          {emailText && <span className="break-all">{emailText}</span>}
+                          {(emailText && matriculaText) && <span> · </span>}
+                          {matriculaText && <span>{matriculaText}</span>}
+                        </span>
+                      )}
+
+                      {(institutionText || unitText) && (
+                        <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
+                          {institutionText}
+                          {(institutionText && unitText) && <span> · </span>}
+                          {unitText}
                         </span>
                       )}
                     </span>
@@ -2196,7 +2212,7 @@ export default function PsEventDetail() {
               })}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancelar</Button>
             <Button onClick={linkFiscals} disabled={!selected.length || !roleValue}>Vincular {selected.length || ''}</Button>
           </DialogFooter>

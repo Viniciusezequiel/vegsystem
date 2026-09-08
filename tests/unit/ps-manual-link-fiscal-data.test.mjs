@@ -8,6 +8,7 @@ const migrationSql = fs.readFileSync(new URL('../../supabase/migrations/20260908
 test('manual fiscal link hidrata snapshot do banco do fiscal sem depender de nome', () => {
   const row = buildManualEventCollaboratorRow({
     eventId: 'evt-1',
+    collaboratorId: 'collab-999',
     collaborator: {
       id: 'collab-1',
       full_name: '  João da Silva  ',
@@ -27,7 +28,7 @@ test('manual fiscal link hidrata snapshot do banco do fiscal sem depender de nom
   });
 
   assert.equal(row.event_id, 'evt-1');
-  assert.equal(row.collaborator_id, 'collab-1');
+  assert.equal(row.collaborator_id, 'collab-999');
   assert.equal(row.collaborator_name, 'João da Silva');
   assert.equal(row.email, 'joao@empresa.com');
   assert.equal(row.phone, '11999999999');
@@ -56,6 +57,16 @@ test('migration de backfill usa collaborator_id e apenas preenche campos nulos d
   assert.match(migrationSql, /COALESCE\(e\.cpf, c\.cpf\)/i);
   assert.match(migrationSql, /COALESCE\(e\.identity_doc, c\.identity_doc\)/i);
   assert.match(migrationSql, /COALESCE\(e\.pix, c\.pix\)/i);
+  assert.doesNotMatch(migrationSql, /WITH candidate_links AS/i);
+  assert.doesNotMatch(migrationSql, /COMMENT ON TABLE public\.ps_event_collaborators/i);
   assert.doesNotMatch(migrationSql, /UPDATE public\.ps_event_collaborators[\s\S]*role_name/i);
   assert.doesNotMatch(migrationSql, /UPDATE public\.ps_event_collaborators[\s\S]*collaborator_name/i);
+});
+
+test('modal manual do fiscal usa classes responsivas multilinha em vez de nowrap simples', () => {
+  const source = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
+  assert.match(source, /whitespace-normal/i);
+  assert.match(source, /overflow-hidden/i);
+  assert.match(source, /min-w-0/i);
+  assert.doesNotMatch(source, /className="w-full justify-start"/i);
 });
