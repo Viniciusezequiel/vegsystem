@@ -8,9 +8,6 @@ export type StorageSuggestionInput = {
 const normalizeLabel = (value: string | null | undefined) =>
   (value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-const normalizeCategoryKey = (value: string | null | undefined) =>
-  (value ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-
 const categoryMap: Record<string, string> = {
   documentos_valores: 'Documentos Pessoais',
   garrafas_copos: 'Garrafas e Copos',
@@ -26,191 +23,82 @@ const categoryMap: Record<string, string> = {
   variados: 'Variados',
 };
 
-const aliasMap: Record<string, string> = {
-  documentos_pessoais: 'documentos_valores',
-  documentos_e_pertences_de_valor: 'documentos_valores',
-  documentos_pertences_de_valor: 'documentos_valores',
-  garrafas: 'garrafas_copos',
-  garrafas_e_copos: 'garrafas_copos',
-  copos_e_garrafas: 'garrafas_copos',
-  copos: 'garrafas_copos',
-  pequenos_pertences_e_eletronicos: 'pequenos_pertences',
-  pequenos_pertences_eletronicos: 'pequenos_pertences',
-  pequenos_pertences: 'pequenos_pertences',
-  eletronicos: 'eletronicos',
-  eletrônicos: 'eletronicos',
-  eletronicos_e_pequenos_pertences: 'eletronicos',
-  roupa: 'roupas',
-  roupas: 'roupas',
-  material_escolar: 'material_academico',
-  material_academico: 'material_academico',
-  jalecos: 'jalecos_pijamas',
-  pijamas: 'jalecos_pijamas',
-  jalecos_e_pijamas: 'jalecos_pijamas',
-  vasilhas: 'vasilhas',
-  necessaire: 'necessaire_lancheiras',
-  lancheiras: 'necessaire_lancheiras',
-  necessaires_e_lancheiras: 'necessaire_lancheiras',
-  necessaires: 'necessaire_lancheiras',
-  proteger: 'necessaire_lancheiras',
-  guarda_chuvas: 'sombrinhas',
-  guarda_chuva: 'sombrinhas',
-  sombrinhas: 'sombrinhas',
-  itens_de_laboratorio: 'itens_laboratorio',
-  material_de_laboratorio: 'itens_laboratorio',
-  diversos: 'variados',
-  variados: 'variados',
-  objetos_variados: 'variados',
-  varios: 'variados',
-  varios_objetos: 'variados',
+
+const aliases: Record<string, string[]> = {
+  documentos_valores: ['documentos pessoais', 'documentos e pertences de valor'],
+  garrafas_copos: ['garrafas e copos', 'copos e garrafas', 'garrafas', 'copos'],
+  eletronicos: ['eletronicos'],
+  pequenos_pertences: ['pequenos pertences'],
+  roupas: ['roupas', 'roupa'],
+  material_academico: ['material academico', 'material escolar'],
+  jalecos_pijamas: ['jalecos e pijamas', 'jalecos', 'pijamas'],
+  vasilhas: ['vasilhas'],
+  necessaire_lancheiras: ['necessaires e lancheiras', 'necessaires', 'necessaire', 'lancheiras'],
+  sombrinhas: ['sombrinhas', 'guarda chuva', 'guarda chuvas'],
+  itens_laboratorio: ['itens de laboratorio', 'material de laboratorio'],
+  variados: ['diversos', 'variados', 'objetos variados', 'varios objetos'],
 };
 
-const categoryPriority = Object.keys(categoryMap);
-
-function resolveCategoryKey(raw: string | null) {
-  const key = normalizeCategoryKey(raw);
-  if (!key) return null;
-  if (Object.prototype.hasOwnProperty.call(categoryMap, key)) return key;
-  if (Object.prototype.hasOwnProperty.call(aliasMap, key)) return aliasMap[key];
-
-  const normalizedParts = key.split('_').filter(Boolean);
-  const matches = categoryPriority.filter(category => {
-    const categoryParts = category.split('_');
-    return categoryParts.every(part => normalizedParts.includes(part)) || normalizedParts.every(part => categoryParts.includes(part));
-  });
-
-  if (matches.length === 1) return matches[0];
-  if (matches.length > 1) return matches.sort((a, b) => a.length - b.length)[0];
-  return aliasMap[key] ?? null;
+// Match explicit normalized phrases; composed labels may resolve to several categories.
+export function resolveCategoryKeys(raw: string | null | undefined): string[] {
+  const text = ' ' + normalizeLabel(raw) + ' ';
+  return Object.keys(categoryMap).filter(key =>
+    [normalizeLabel(key), normalizeLabel(categoryMap[key]), ...(aliases[key] || [])]
+      .some(label => text.includes(' ' + label + ' '))
+  );
 }
 
-function resolveCategoryKeys(raw: string | null | undefined) {
-  const text = (raw ?? '').trim();
-  if (!text) return [];
-
-  const normalized = normalizeCategoryKey(text);
-  if (!normalized) return [];
-
-  const separatorTokens = [' e ', ' e\n', ' e\r', ' e\t', ' e\f'];
-  const combined = separatorTokens.some(token => normalized.includes(token))
-    ? normalized
-    : normalized;
-
-  const exactMatches = [normalized];
-  const subMatches = normalized.split(/(?:\s+e\s+|,|\/|;|\|)/).map(part => part.trim()).filter(Boolean);
-  const resolved = Array.from(new Set([
-    ...exactMatches,
-    ...subMatches,
-  ].map(part => resolveCategoryKey(part)).filter(Boolean)));
-
-  return resolved;
+export function inferLostItemStorageCategoryFromDescription(description?: string | null) {
+  const text = normalizeLabel(description);
+  if (!text) return null;
+  const hints: Array<[string, string]> = [
+    ['jalecos_pijamas', 'jalecos?|pijamas?'],
+    ['itens_laboratorio', 'pipetas?|buretas?|material de laboratorio'],
+    ['documentos_valores', 'rg|cnh|documento pessoal|documentos pessoais|identidade|passaporte'],
+    ['garrafas_copos', 'garrafas?|squeezes?|copos?|canecas?'],
+    ['eletronicos', 'celular|carregadores?|carregador|fones?|headphones?|mouse|teclado|power bank|cabo eletronico|notebook|tablet'],
+    ['pequenos_pertences', 'chaves?|oculos|relogios?|bijuterias?|anel|pulseira|colar'],
+    ['roupas', 'camisas?|camisetas?|blusas?|casacos?|calcas?|bermudas?|vestidos?'],
+    ['material_academico', 'cadernos?|livros?|apostilas?|agendas?|canetas?'],
+    ['vasilhas', 'vasilhas?|potes?|marmitas?'],
+    ['necessaire_lancheiras', 'necessaires?|lancheiras?'],
+    ['sombrinhas', 'sombrinhas?|guarda chuva'],
+  ];
+  return hints.find(([, pattern]) => new RegExp('(?:^| )(?:' + pattern + ')(?: |$)').test(text))?.[0] ?? 'variados';
 }
 
-function countAvailableBySlot(occupancy: StorageSuggestionInput['occupancy'], campus: string, shelfCode: string | null, boxLabel: string | null) {
-  if (!occupancy) return 0;
-  return occupancy.filter(item =>
-    item.campus === campus &&
-    item.status === 'available' &&
-    item.shelf === shelfCode &&
-    (boxLabel ? item.box === boxLabel || item.box_number === boxLabel : true)
-  ).length;
+export function inferLostItemStorageCategory(category: string | null | undefined, description?: string | null) {
+  return inferLostItemStorageCategoryFromDescription(description) || resolveCategoryKeys(category)[0] || null;
 }
 
-export function inferLostItemStorageCategory(storageCategory: string | null | undefined, description?: string | null) {
-  const descriptionText = (description ?? '').trim();
-  const normalizedDescription = normalizeLabel(descriptionText);
-
-  if (normalizedDescription) {
-    const descriptionHints: Array<[string, string]> = [
-      ['documentos_valores', 'documento|cartao|identidade|cpf|rg|cnh|carteira|passaporte|boleto|certidao'],
-      ['garrafas_copos', 'garrafa|copo|frasco|botelha|caneca|taça'],
-      ['eletronicos', 'celular|telefone|carregador|fones|headphone|earbud|monitor|notebook|tablet|eletronico|teclado|mouse'],
-      ['pequenos_pertences', 'chave|relogio|pulseira|colar|anel|oculos|joia|bijuteria|acessorio|mini bolsa|wallet'],
-      ['roupas', 'roupa|camiseta|jaqueta|mochila|casaco|calca|sapato|vestimenta|toalha|pijama'],
-      ['material_academico', 'caderno|material|livro|apostila|agenda|caneta|lapis|estojo|notebook|manual'],
-      ['jalecos_pijamas', 'jaleco|pijama|roupa de dormir|roupa de banho'],
-      ['vasilhas', 'vasilha|cesta|bag|sacola|estojo|necessaire|lunch'],
-      ['necessaire_lancheiras', 'necessaire|lancheira|almofada|saquinho|bag'],
-      ['sombrinhas', 'guarda chuva|sombrinha|guarda-chuva|umbrella'],
-      ['itens_laboratorio', 'pipeta|bureta|microscopio|microscópio|vidro|tubo|kit|laboratorio'],
-    ];
-
-    const match = descriptionHints.find(([, pattern]) => new RegExp(pattern, 'i').test(normalizedDescription));
-    if (match) return match[0];
-    return 'variados';
-  }
-
-  const categoryKeys = resolveCategoryKeys(storageCategory);
-  if (categoryKeys.length) return categoryKeys[0];
-
-  const inferredFromCategory = resolveCategoryKey(storageCategory);
-  if (inferredFromCategory) return inferredFromCategory;
-
-  return null;
+function countSlot(occupancy: StorageSuggestionInput['occupancy'], campus: string, shelf: string, box: string) {
+  return (occupancy || []).filter(item => item.status === 'available' && item.campus === campus &&
+    item.shelf === shelf && (item.box === box || item.box_number === box)).length;
 }
 
-function matchesCategoryLabel(label: string | null | undefined, categoryKey: string) {
-  const normalizedLabel = normalizeLabel(label);
-  const normalizedCategory = normalizeLabel(categoryMap[categoryKey]);
-  if (!normalizedLabel || !normalizedCategory) return false;
-
-  if (normalizedLabel === normalizedCategory) return true;
-  if (normalizedLabel.includes(normalizedCategory) || normalizedCategory.includes(normalizedLabel)) return true;
-
-  const explicitKey = resolveCategoryKey(label);
-  return explicitKey === categoryKey;
-}
-
-export function getLostItemStorageSuggestion(input: StorageSuggestionInput) {
-  const { storageConfig, campus, storageCategory, occupancy } = input;
-  const key = inferLostItemStorageCategory(storageCategory);
+export function getLostItemStorageSuggestion({ storageConfig, campus, storageCategory, occupancy }: StorageSuggestionInput) {
+  const key = resolveCategoryKeys(storageCategory)[0];
   if (!key || !campus) return null;
+  const shelves = storageConfig?.campuses?.find(entry => entry.campus === campus)?.shelves || [];
+  const candidates = shelves.map(shelf => {
+    const shelfKeys = resolveCategoryKeys(shelf.label);
+    const boxes = (shelf.boxes || []).filter(box => {
+      const boxKeys = resolveCategoryKeys(box.label);
+      if (boxKeys.length) return boxKeys.includes(key);
+      // Numeric boxes inherit only an unambiguous shelf category.
+      return /^\d+$/.test(box.label.trim()) && shelfKeys.length === 1 && shelfKeys[0] === key;
+    });
+    return { shelf, boxes, occupancy: boxes.reduce((sum, box) => sum + countSlot(occupancy, campus, shelf.code, box.label), 0) };
+  }).filter(candidate => candidate.boxes.length > 0);
+  candidates.sort((a, b) => a.occupancy - b.occupancy || a.shelf.code.localeCompare(b.shelf.code, 'pt-BR'));
+  const chosen = candidates[0];
+  if (!chosen) return null;
+  const box = [...chosen.boxes].sort((a, b) => countSlot(occupancy, campus, chosen.shelf.code, a.label) -
+    countSlot(occupancy, campus, chosen.shelf.code, b.label) || a.label.localeCompare(b.label, 'pt-BR'))[0];
+  return { shelfCode: chosen.shelf.code, shelfLabel: chosen.shelf.label, boxNumber: box.label, box: box.label };
+}
 
-  const campusConfig = storageConfig?.campuses?.find(item => item.campus === campus);
-  if (!campusConfig?.shelves) return null;
-
-  const categoryLabel = categoryMap[key];
-  if (!categoryLabel) return null;
-
-  const compatibleShelves = campusConfig.shelves.filter(shelf => {
-    const shelfKey = resolveCategoryKey(shelf.label) ?? resolveCategoryKey(shelf.code) ?? resolveCategoryKey(categoryLabel) ?? null;
-    if (shelfKey === key) return true;
-    return matchesCategoryLabel(shelf.label, key) || matchesCategoryLabel(shelf.code, key);
-  });
-
-  const candidateShelves = [...compatibleShelves].sort((a, b) => {
-    const totalA = (a.boxes ?? []).reduce((sum, box) => sum + countAvailableBySlot(occupancy, campus, a.code, box.label), 0);
-    const totalB = (b.boxes ?? []).reduce((sum, box) => sum + countAvailableBySlot(occupancy, campus, b.code, box.label), 0);
-    return totalA - totalB || a.code.localeCompare(b.code, 'pt-BR');
-  });
-
-  const bestShelf = candidateShelves[0];
-  if (!bestShelf) return null;
-
-  const boxes = bestShelf.boxes ?? [];
-  const compatibleBoxes = boxes.filter(box => {
-    const boxLabel = box.label ?? '';
-    const explicit = resolveCategoryKey(boxLabel);
-    if (explicit && explicit !== key) return false;
-    if (explicit === key) return true;
-    if (boxes.every(item => !item.label || !resolveCategoryKey(item.label))) {
-      return true;
-    }
-    return matchesCategoryLabel(boxLabel, key) || matchesCategoryLabel(bestShelf.label, key);
-  });
-
-  const finalBoxes = compatibleBoxes.length ? compatibleBoxes : boxes;
-
-  const chosenBox = [...finalBoxes].sort((a, b) => {
-    const aCount = countAvailableBySlot(occupancy, campus, bestShelf.code, a.label);
-    const bCount = countAvailableBySlot(occupancy, campus, bestShelf.code, b.label);
-    return aCount - bCount || a.label.localeCompare(b.label, 'pt-BR');
-  })[0];
-
-  return {
-    shelfCode: bestShelf.code,
-    shelfLabel: bestShelf.label,
-    boxNumber: chosenBox?.label,
-    box: chosenBox?.label,
-  };
+export function automaticStorageFields(manualOverride: boolean, suggestion: ReturnType<typeof getLostItemStorageSuggestion>) {
+  if (manualOverride) return null;
+  return { shelfCode: suggestion?.shelfCode || '', shelf: suggestion?.shelfCode || '', boxNumber: suggestion?.boxNumber || '', box: suggestion?.box || '' };
 }

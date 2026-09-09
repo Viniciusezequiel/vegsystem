@@ -1,3 +1,4 @@
+import { normalizeLoanItem, loanStockNeeded, shouldRestoreLoanStock } from '@/lib/equipmentLoanItems';
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -60,7 +61,7 @@ export type EquipmentLoan = {
 };
 
 const EQUIPMENT_LOAN_LIST_SELECT = [
-  'id', 'equipment_id', 'quantity_borrowed', 'borrower_name', 'borrower_sector',
+  'id', 'equipment_id', 'manual_item_name', 'quantity_borrowed', 'borrower_name', 'borrower_sector',
   'borrower_phone', 'borrower_type', 'purpose', 'authorizer_name', 'authorizer_contact',
   'collaborator_name', 'expected_return_date', 'actual_return_date',
   'return_collaborator_name', 'returner_name', 'returner_phone', 'item_condition',
@@ -447,15 +448,12 @@ export function useCreateBatchLoans() {
       };
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      const { items, common } = params;
+      const { common } = params;
+      const items = params.items.map(normalizeLoanItem);
+      if (!items.length) throw new Error('Selecione pelo menos um item');
 
       // 1. Aggregate quantities per equipment for stock validation
-      const stockNeeded = new Map<string, number>();
-      for (const item of items) {
-        if (item.equipment_id && !item.skip_stock_deduction) {
-          stockNeeded.set(item.equipment_id, (stockNeeded.get(item.equipment_id) || 0) + item.quantity_borrowed);
-        }
-      }
+      const stockNeeded = loanStockNeeded(items);
 
       // 2. Validate stock for all equipment at once
       // Considera "disponibilidade projetada": pré-reservas futuras (que retiram DEPOIS
@@ -576,7 +574,7 @@ export function useDeleteEquipmentLoan() {
       // Restore stock for active loans
       const stockRestore = new Map<string, number>();
       for (const loan of loans || []) {
-        if (loan.status === 'active') {
+        if (shouldRestoreLoanStock(loan) && loan.equipment_id) {
           stockRestore.set(loan.equipment_id, (stockRestore.get(loan.equipment_id) || 0) + loan.quantity_borrowed);
         }
       }
@@ -665,7 +663,7 @@ export function useReturnEquipment() {
         // Get loan details
         const { data: loan, error: loanError } = await supabase
           .from('equipment_loans')
-          .select('id, equipment_id, manual_item_name, quantity_borrowed, notes, equipment(id,available_quantity)')
+          .select('id, equipment_id, manual_item_name, quantity_borrowed, status, notes, equipment(id,available_quantity)')
           .eq('id', loanId)
           .single();
         
@@ -693,7 +691,7 @@ export function useReturnEquipment() {
         // Update equipment available quantity for inventory-backed items only
         const equip = loan.equipment as Equipment | null;
         const loanEquipmentId = loan.equipment_id ?? null;
-        if (loanEquipmentId && equip) {
+        if (shouldRestoreLoanStock(loan) && loanEquipmentId && equip) {
           await supabase
             .from('equipment')
             .update({ 

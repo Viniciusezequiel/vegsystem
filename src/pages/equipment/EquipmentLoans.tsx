@@ -1,3 +1,4 @@
+import { loanItemName } from '@/lib/equipmentLoanItems';
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -116,7 +117,7 @@ export default function EquipmentLoans() {
       loan.borrower_name.toLowerCase().includes(q) ||
       loan.borrower_phone.includes(q) ||
       loan.borrower_sector.toLowerCase().includes(q) ||
-      loan.equipment?.name?.toLowerCase().includes(q) ||
+      loanItemName(loan).toLowerCase().includes(q) ||
       loan.equipment?.patrimony_code?.toLowerCase().includes(q) ||
       loan.equipment?.old_patrimony_code?.toLowerCase().includes(q) ||
       loan.collaborator_name?.toLowerCase().includes(q) ||
@@ -258,7 +259,7 @@ export default function EquipmentLoans() {
                     <Package className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="font-medium text-sm truncate">
                       {group.loans.length === 1
-                        ? (group.loans[0].equipment?.name || 'N/A')
+                        ? (loanItemName(group.loans[0]))
                         : `${group.loans.length} equipamentos`
                       }
                     </span>
@@ -323,9 +324,9 @@ export default function EquipmentLoans() {
                       <div key={loan.id} className="flex items-center gap-3 text-sm bg-secondary/30 rounded-md px-3 py-2">
                         <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <span className="font-medium block truncate">{loan.equipment?.name || 'N/A'}</span>
+                          <span className="font-medium block truncate">{loanItemName(loan)}</span>
                           <span className="text-xs text-muted-foreground">
-                            Novo: {loan.equipment?.patrimony_code}
+                            {loan.equipment_id ? 'Novo: ' + (loan.equipment?.patrimony_code || '') : 'Item avulso'}
                             {loan.equipment?.old_patrimony_code ? ` | Antigo: ${loan.equipment.old_patrimony_code}` : ''}
                           </span>
                         </div>
@@ -393,8 +394,8 @@ export default function EquipmentLoans() {
                 title="Relatório de Empréstimos de Equipamentos"
                 filename="emprestimos_equipamentos"
                 columns={[
-                  { header: 'Equipamento', accessor: (row) => row.equipment?.name || 'N/A' },
-                  { header: 'Patrimônio', accessor: (row) => row.equipment?.patrimony_code || 'N/A' },
+                  { header: 'Equipamento', accessor: (row) => loanItemName(row) },
+                  { header: 'Patrimônio', accessor: (row) => row.equipment?.patrimony_code || 'Item avulso' },
                   { header: 'Qtd.', accessor: (row) => String(row.quantity_borrowed) },
                   { header: 'Tipo', accessor: (row) => borrowerTypeLabels[row.borrower_type || 'aluno'] || row.borrower_type || '' },
                   { header: 'Solicitante', accessor: 'borrower_name' },
@@ -526,11 +527,11 @@ export default function EquipmentLoans() {
           onConfirm={handleReturn}
           itemName={selectedGroup.loans.length > 1 
             ? `${selectedGroup.loans.length} equipamentos` 
-            : (selectedGroup.loans[0]?.equipment?.name || 'Item')
+            : (loanItemName(selectedGroup.loans[0]))
           }
           itemNames={selectedGroup.loans.map(l => ({
-            name: l.equipment?.name || 'N/A',
-            patrimony: l.equipment?.patrimony_code || '',
+            name: loanItemName(l),
+            patrimony: l.equipment?.patrimony_code || 'Item avulso',
             quantity: l.quantity_borrowed,
             loanId: l.id,
           }))}

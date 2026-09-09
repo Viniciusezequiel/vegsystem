@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
+import { selectedLoanPayload, type SelectedLoanItem } from '@/lib/equipmentLoanItems';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -68,10 +69,7 @@ type ReservationState = {
   notes: string | null;
 };
 
-interface SelectedEquipment {
-  equipment: Equipment;
-  quantity: number;
-}
+
 
 const loanSchema = z.object({
   borrower_name: z.string().min(1, 'Nome é obrigatório'),
@@ -94,7 +92,11 @@ export default function EquipmentLoanForm() {
   const { profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  const [selectedItems, setSelectedItems] = useState<SelectedEquipment[]>([]);
+  const [selectedItems, setSelectedItems] = useState<SelectedLoanItem[]>([]);
+  const manualKey = useRef(0);
+  const [manualName, setManualName] = useState('');
+  const [manualQuantity, setManualQuantity] = useState(1);
+  const [manualOpen, setManualOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -108,11 +110,11 @@ export default function EquipmentLoanForm() {
   // Pre-fill form from reservation data
   useEffect(() => {
     if (reservationData && equipment && selectedItems.length === 0) {
-      const items: SelectedEquipment[] = [];
+      const items: SelectedLoanItem[] = [];
       for (const resItem of reservationData.items) {
         const equip = equipment.find(e => e.id === resItem.equipmentId);
         if (equip) {
-          items.push({ equipment: equip, quantity: resItem.quantity });
+          items.push({ kind: 'inventory', equipment: equip, quantity: resItem.quantity });
         }
       }
       if (items.length > 0) {
@@ -126,7 +128,7 @@ export default function EquipmentLoanForm() {
   }, [equipment]);
 
   const filteredEquipment = useMemo(() => {
-    const selectedIds = selectedItems.map(s => s.equipment.id);
+    const selectedIds = selectedItems.flatMap(s => s.kind === 'inventory' ? [s.equipment.id] : []);
     const notSelected = availableEquipment.filter(e => !selectedIds.includes(e.id));
     
     if (!searchValue) return notSelected;
@@ -155,23 +157,27 @@ export default function EquipmentLoanForm() {
   const borrowerType = form.watch('borrower_type');
 
   const handleAddEquipment = (equip: Equipment) => {
-    setSelectedItems(prev => [...prev, { equipment: equip, quantity: 1 }]);
+    setSelectedItems(prev => [...prev, { kind: 'inventory', equipment: equip, quantity: 1 }]);
     setOpen(false);
     setSearchValue('');
   };
 
-  const handleRemoveEquipment = (equipmentId: string) => {
-    setSelectedItems(prev => prev.filter(item => item.equipment.id !== equipmentId));
+  const itemKey = (item: SelectedLoanItem) => item.kind === 'inventory' ? item.equipment.id : 'manual-' + item.key;
+  const handleRemoveEquipment = (key: string) => setSelectedItems(prev => prev.filter(item => itemKey(item) !== key));
+  const handleQuantityChange = (key: string, quantity: number) => {
+    setSelectedItems(prev => prev.map(item => itemKey(item) === key
+      ? { ...item, quantity: Math.max(1, item.kind === 'inventory' ? Math.min(quantity, item.equipment.available_quantity) : quantity) } : item));
   };
-
-  const handleQuantityChange = (equipmentId: string, quantity: number) => {
-    setSelectedItems(prev => 
-      prev.map(item => 
-        item.equipment.id === equipmentId 
-          ? { ...item, quantity: Math.min(quantity, item.equipment.available_quantity) }
-          : item
-      )
-    );
+  const addManualItem = () => {
+    if (!manualName.trim() || !Number.isInteger(manualQuantity) || manualQuantity < 1) {
+      toast({ title: 'Informe nome e quantidade válida', variant: 'destructive' });
+      return;
+    }
+    const key = ++manualKey.current;
+    setSelectedItems(prev => [...prev, { kind: 'manual', key, name: manualName.trim(), quantity: manualQuantity }]);
+    setManualName('');
+    setManualQuantity(1);
+    setManualOpen(false);
   };
 
   const totalItems = selectedItems.length;
@@ -203,11 +209,7 @@ export default function EquipmentLoanForm() {
       const groupId = selectedItems.length > 1 ? crypto.randomUUID() : undefined;
 
       await createBatchLoans.mutateAsync({
-        items: selectedItems.map(item => ({
-          equipment_id: item.equipment.id,
-          quantity_borrowed: item.quantity,
-          skip_stock_deduction: Boolean(reservationData) && reservedEquipmentIds.has(item.equipment.id),
-        })),
+        items: selectedItems.map(item => selectedLoanPayload(item, reservedEquipmentIds)),
         common: {
           borrower_name: data.borrower_name,
           borrower_sector: data.borrower_sector,
@@ -269,28 +271,28 @@ export default function EquipmentLoanForm() {
             {selectedItems.length > 0 && (
               <div className="space-y-3 mb-4">
                 {selectedItems.map((item) => (
-                  <div key={item.equipment.id} className="flex items-center gap-4 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div key={itemKey(item)} className="flex items-center gap-4 rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="flex-1">
-                      <p className="font-medium">{item.equipment.name}</p>
-                      <p className="text-xs text-muted-foreground">Patrimônio: {item.equipment.patrimony_code}</p>
+                      <p className="font-medium">{item.kind === 'inventory' ? item.equipment.name : item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.kind === 'inventory' ? 'Patrimônio: ' + item.equipment.patrimony_code : 'Item avulso'}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {item.equipment.quantity > 1 ? (
+                      {item.kind === 'manual' || item.equipment.quantity > 1 ? (
                         <>
                           <Input
                             type="number"
                             min={1}
-                            max={item.equipment.available_quantity}
+                            max={item.kind === 'inventory' ? item.equipment.available_quantity : undefined}
                             value={item.quantity}
-                            onChange={(e) => handleQuantityChange(item.equipment.id, parseInt(e.target.value) || 1)}
+                            onChange={(e) => handleQuantityChange(itemKey(item), parseInt(e.target.value) || 1)}
                             className="w-20 h-8"
                           />
-                          <span className="text-xs text-muted-foreground">/ {item.equipment.available_quantity}</span>
+                          <span className="text-xs text-muted-foreground">{item.kind === 'inventory' ? '/ ' + item.equipment.available_quantity : 'unidades'}</span>
                         </>
                       ) : (
                         <Badge variant="secondary" className="text-xs">Patrimônio único</Badge>
                       )}
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemoveEquipment(item.equipment.id)}>
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemoveEquipment(itemKey(item))}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -299,6 +301,16 @@ export default function EquipmentLoanForm() {
               </div>
             )}
 
+            {!reservationData && (
+              <div className="space-y-3">
+                <Button type="button" variant="outline" onClick={() => setManualOpen(value => !value)}>Adicionar item avulso</Button>
+                {manualOpen && <div className="grid gap-3 sm:grid-cols-[1fr_100px_auto] items-end">
+                  <div><Label htmlFor="manual-item-name">Nome do item *</Label><Input id="manual-item-name" value={manualName} onChange={event => setManualName(event.target.value)} placeholder="Chave sala 601" /></div>
+                  <div><Label htmlFor="manual-item-quantity">Quantidade</Label><Input id="manual-item-quantity" type="number" min={1} step={1} value={manualQuantity} onChange={event => setManualQuantity(Number(event.target.value))} /></div>
+                  <Button type="button" onClick={addManualItem}>Adicionar</Button>
+                </div>}
+              </div>
+            )}
             {/* Equipment Search */}
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>

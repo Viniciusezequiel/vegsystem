@@ -1,3 +1,4 @@
+import { loanItemName } from '@/lib/equipmentLoanItems';
 import {
   Dialog,
   DialogContent,
@@ -84,8 +85,8 @@ export function EquipmentLoanDetailsDialog({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Equipamento {isGrouped ? `${idx + 1}` : ''}</p>
-                  <p className="text-xl font-bold">{l.equipment?.name || 'N/A'}</p>
-                  <p className="text-sm text-muted-foreground">Novo: {l.equipment?.patrimony_code}</p>
+                  <p className="text-xl font-bold">{loanItemName(l)}</p>
+                  {l.equipment_id ? <p className="text-sm text-muted-foreground">Novo: {l.equipment?.patrimony_code}</p> : <Badge variant="secondary">Item avulso</Badge>}
                   {l.equipment?.old_patrimony_code && (
                     <p className="text-sm text-muted-foreground">Antigo: {l.equipment.old_patrimony_code}</p>
                   )}
@@ -97,14 +98,14 @@ export function EquipmentLoanDetailsDialog({
                 )}
               </div>
               <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
+                {l.equipment_id && <><div className="flex items-center gap-1.5 text-muted-foreground">
                   <Building2 className="w-4 h-4" />
                   {l.equipment?.campus}
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <MapPin className="w-4 h-4" />
                   {l.equipment?.location}
-                </div>
+                </div></>}
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Package className="w-4 h-4" />
                   Qtd: {l.quantity_borrowed}

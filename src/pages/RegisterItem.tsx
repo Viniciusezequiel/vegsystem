@@ -29,7 +29,7 @@ import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 import { deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
 import { persistNewImageSafely } from '@/lib/lostItemStorageCore.mjs';
 import { analyzeLostItemImage } from '@/lib/lostItemAi';
-import { getLostItemStorageSuggestion, inferLostItemStorageCategory } from '@/lib/lostItemStorageSuggestion';
+import { getLostItemStorageSuggestion, inferLostItemStorageCategoryFromDescription, automaticStorageFields } from '@/lib/lostItemStorageSuggestion';
 import { useLostItemStorageOccupancy } from '@/hooks/useLostItemStorageOccupancy';
 import { LostFoundModuleNav } from '@/components/lost-found/LostFoundModuleNav';
 
@@ -185,7 +185,6 @@ export default function RegisterItem() {
       setAcceptedAiDescription(false);
       setSearchMetadata('');
       setSelectedSuggestionFields({});
-      setStorageManualOverride(false);
     } catch (error) {
       setImageFile(null);
       const { toast } = await import('sonner');
@@ -240,7 +239,8 @@ export default function RegisterItem() {
     setAcceptedAiDescription(true);
   };
 
-  const effectiveStorageCategory = inferLostItemStorageCategory(aiSuggestion?.storage_category ?? null, description);
+  const descriptionCategory = inferLostItemStorageCategoryFromDescription(description);
+  const effectiveStorageCategory = descriptionCategory || aiSuggestion?.storage_category || (description.trim() ? 'variados' : null);
 
   const aiStorageSuggestion = getLostItemStorageSuggestion({
     storageConfig: storageConfig ?? null,
@@ -250,15 +250,13 @@ export default function RegisterItem() {
   });
 
   useEffect(() => {
-    if (!campus || !aiStorageSuggestion || storageManualOverride) return;
-    if (!shelfCode && aiStorageSuggestion.shelfCode) {
-      setShelfCode(aiStorageSuggestion.shelfCode);
-      setShelf(aiStorageSuggestion.shelfCode);
-    }
-    if (aiStorageSuggestion.boxNumber && !boxNumber) {
-      setBoxNumber(aiStorageSuggestion.boxNumber);
-    }
-  }, [campus, aiStorageSuggestion, storageManualOverride, shelfCode, boxNumber]);
+    const fields = automaticStorageFields(storageManualOverride, aiStorageSuggestion);
+    if (!fields) return;
+    setShelfCode(fields.shelfCode);
+    setShelf(fields.shelf);
+    setBoxNumber(fields.boxNumber);
+    setBox(fields.box);
+  }, [storageManualOverride, aiStorageSuggestion?.shelfCode, aiStorageSuggestion?.boxNumber, aiStorageSuggestion?.box]);
 
   const buildSearchMetadataFromSuggestions = () => {
     if (!aiSuggestion) return (searchMetadata || '').trim();
@@ -308,6 +306,7 @@ export default function RegisterItem() {
     setShelf(aiStorageSuggestion.shelfCode);
     if (aiStorageSuggestion.boxNumber) {
       setBoxNumber(aiStorageSuggestion.boxNumber);
+      setBox(aiStorageSuggestion.boxNumber);
     }
   };
 
@@ -625,7 +624,7 @@ export default function RegisterItem() {
                 </div>
                 <div>
                   <Label htmlFor="campus">Campus *</Label>
-                  <Select value={campus} onValueChange={(v) => { setCampus(v as CampusEnum); setShelfCode(''); setShelf(''); setBoxNumber(''); }} required>
+                  <Select value={campus} onValueChange={(v) => { setCampus(v as CampusEnum); }} required>
                     <SelectTrigger className="mt-1.5">
                       <SelectValue placeholder="Selecione o campus" />
                     </SelectTrigger>
@@ -682,6 +681,7 @@ export default function RegisterItem() {
 
             <div className="form-section animate-fade-in" style={{ animationDelay: '150ms' }}>
               <h3 className="font-medium text-foreground mb-4">Armazenamento</h3>
+              {!storageManualOverride && aiStorageSuggestion && <p className="text-xs text-muted-foreground mb-3">Armazenamento preenchido automaticamente</p>}
               {(() => {
                 const campusConfig = storageConfig?.campuses.find(c => c.campus === campus);
                 const shelves = campusConfig?.shelves || [];
@@ -707,6 +707,7 @@ export default function RegisterItem() {
                           setShelfCode(v);
                           setShelf(v);
                           setBoxNumber('');
+                          setBox('');
                           setStorageManualOverride(true);
                         }}
                         disabled={!campus || shelves.length === 0}
@@ -729,6 +730,7 @@ export default function RegisterItem() {
                         value={boxNumber}
                         onValueChange={(value) => {
                           setBoxNumber(value);
+                          setBox(value);
                           setStorageManualOverride(true);
                         }}
                         disabled={!selectedShelf || selectedShelf.boxes.length === 0}

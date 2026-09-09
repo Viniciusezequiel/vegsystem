@@ -1,3 +1,4 @@
+import { normalizePix, preparePixPlan, persistPixPlan } from '@/lib/psPixPlan';
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -462,42 +463,31 @@ export default function PsEventDetail() {
       .map((cid) => collaborators.find((x: any) => x.id === cid))
       .filter(Boolean) as any[];
 
-    const missingPix = selectedCollaborators.filter((c) => {
-      const pixValue = (pixOverrideById[c.id] ?? c.pix ?? '').trim();
-      return !pixValue;
-    });
-
-    if (missingPix.length) {
-      toast.error(`Informe o PIX de ${missingPix[0].full_name || 'o fiscal selecionado'} antes de vincular.`);
+    if (selectedCollaborators.length !== selected.length) {
+      toast.error('Seleção de fiscais desatualizada. Selecione novamente.');
       return;
     }
-
-    const roleObj: any = roles.find((r: any) => r.value === roleValue);
-    const effectivePixById = Object.fromEntries(
-      selectedCollaborators.map((c) => {
-        const effectivePix = (pixOverrideById[c.id] ?? c.pix ?? '').trim();
-        return [c.id, effectivePix];
-      })
-    );
-
-    for (const c of selectedCollaborators) {
-      const effectivePix = effectivePixById[c.id];
-      if (!effectivePix) continue;
-      const currentPix = typeof c.pix === 'string' ? c.pix.trim() : '';
-      if (currentPix === effectivePix) continue;
-      const { error } = await supabase.from('ps_collaborators').update({ pix: effectivePix }).eq('id', c.id);
-      if (error) {
-        toast.error(`Não foi possível salvar o PIX de ${c.full_name || 'o fiscal selecionado'}: ${error.message}`);
-        throw new Error(error.message);
-      }
+    let pixPlan;
+    try {
+      pixPlan = preparePixPlan(selectedCollaborators, pixOverrideById);
+      await persistPixPlan(pixPlan, async (collaboratorId, pix) => {
+        const { data, error } = await supabase.from('ps_collaborators').update({ pix }).eq('id', collaboratorId).select('id').single();
+        if (error || !data) throw new Error(error?.message || 'Não foi possível salvar o PIX.');
+        void queryClient.invalidateQueries({ queryKey: ['ps_collaborators'] });
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o PIX.');
+      return;
     }
+    const roleObj: any = roles.find((r: any) => r.value === roleValue);
+    const effectivePixById = Object.fromEntries(pixPlan.map(item => [item.collaborator.id, item.pix]));
 
     const rows = selectedCollaborators.map((c) => {
-      const effectivePix = effectivePixById[c.id] || 'Sem PIX';
+      const effectivePix = effectivePixById[c.id];
       return buildManualEventCollaboratorRow({
         eventId: id,
         collaboratorId: c.id,
-        collaborator: { ...c, pix: effectivePix || 'Sem PIX' },
+        collaborator: { ...c, pix: effectivePix },
         roleValue,
         roleName: roleObj?.name,
         payValue: rolePay(roleValue),
@@ -2512,21 +2502,24 @@ export default function PsEventDetail() {
                 if (!editLink) return;
 
                 const currentLink = editLink as Record<string, any>;
-                const nextPix = String(currentLink['pix'] ?? '').trim();
+                const nextPix = normalizePix(currentLink['pix']);
                 const collaboratorId = currentLink['collaborator_id'];
+                if (!nextPix) { toast.error('Informe um PIX válido antes de salvar.'); return; }
 
                 if (collaboratorId && nextPix) {
                   const collaboratorRecord = (collaborators as any[]).find((c: any) => c && c.id === collaboratorId) as Record<string, any> | undefined;
                   const currentPix = typeof collaboratorRecord?.['pix'] === 'string' ? String(collaboratorRecord['pix']).trim() : '';
                   if (currentPix !== nextPix) {
-                    const { error } = await supabase.from('ps_collaborators').update({ pix: nextPix }).eq('id', collaboratorId);
+                    const { error } = await supabase.from('ps_collaborators').update({ pix: nextPix }).eq('id', collaboratorId).select('id').single();
                     if (error) {
                       toast.error(`Não foi possível sincronizar o PIX do fiscal: ${error.message}`);
                       return;
                     }
+                    void queryClient.invalidateQueries({ queryKey: ['ps_collaborators'] });
                   }
                 }
-                update.mutate({
+                try {
+                await update.mutateAsync({
                   id: currentLink['id'],
                   collaborator_name: currentLink['collaborator_name'],
                   role_name: currentLink['role_name'],
@@ -2538,10 +2531,11 @@ export default function PsEventDetail() {
                   sector: currentLink['sector'] || null,
                   email: currentLink['email'] || null,
                   phone: currentLink['phone'] || null,
-                  pix: currentLink['pix'] || null,
+                  pix: nextPix,
                   deposit_info: currentLink['deposit_info'] || null,
                 });
                 setEditLink(null);
+                } catch { /* mutation reports the error; keep the dialog open */ }
               }}
             >
               Salvar

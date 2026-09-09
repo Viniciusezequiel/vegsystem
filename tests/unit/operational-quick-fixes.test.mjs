@@ -15,7 +15,8 @@ test('badge de observação aparece na lista de fiscais quando há notas', () =>
 
 test('vinculação manual exige PIX preenchido antes de salvar', () => {
   assert.match(eventDetailSource, /if \(!selected\.length \|\| !roleValue \|\| !campusValue\.trim\(\)\)/);
-  assert.match(eventDetailSource, /pix\s*\|\|\s*'Sem PIX'/i);
+  assert.doesNotMatch(eventDetailSource, /pix\s*\|\|\s*'Sem PIX'/i);
+  assert.match(eventDetailSource, /preparePixPlan/);
   assert.match(eventDetailSource, /buildManualEventCollaboratorRow\([\s\S]*pix/i);
 });
 
@@ -28,6 +29,6 @@ test('fallback de categoria de armazenamento usa descrição quando a IA não ap
 test('empréstimo manual sem equipamento é suportado em lote e devolução', () => {
   assert.match(equipmentSource, /manual_item_name/i);
   assert.match(equipmentSource, /equipment_id:\s*string\s*\|\s*null/i);
-  assert.match(equipmentSource, /if \(item\.equipment_id\s*&&\s*!item\.skip_stock_deduction\)/i);
+  assert.match(equipmentSource, /loanStockNeeded\(items\)/);
   assert.match(equipmentSource, /loan\.equipment_id\s*\?\?/i);
 });
