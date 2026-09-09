@@ -369,6 +369,9 @@ export default function PsCollaborators() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="truncate text-sm font-semibold">{c.full_name}</p>
+                          {String(c.notes || '').trim() !== '' && (
+                            <Badge variant="outline" className="text-[10px]">Observação</Badge>
+                          )}
                           <Badge variant={c.active ? 'default' : 'secondary'} className="text-[10px]">{c.active ? 'Ativo' : 'Inativo'}</Badge>
                         </div>
                         <p className="mt-1 truncate text-xs text-muted-foreground">
