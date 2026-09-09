@@ -62,6 +62,7 @@ export default function PsEventDetail() {
   const [selected, setSelected] = useState<string[]>([]);
   const [roleValue, setRoleValue] = useState('');
   const [campusValue, setCampusValue] = useState('');
+  const [pixOverrideById, setPixOverrideById] = useState<Record<string, string>>({});
   const [evalTarget, setEvalTarget] = useState<any>(null);
   const [criteria, setCriteria] = useState(emptyCriteria());
   const [comments, setComments] = useState('');
@@ -456,13 +457,28 @@ export default function PsEventDetail() {
 
   const linkFiscals = async () => {
     if (!selected.length || !roleValue || !campusValue.trim()) return;
+
+    const selectedCollaborators = selected
+      .map((cid) => collaborators.find((x: any) => x.id === cid))
+      .filter(Boolean) as any[];
+
+    const missingPix = selectedCollaborators.filter((c) => {
+      const pixValue = (pixOverrideById[c.id] ?? c.pix ?? '').trim();
+      return !pixValue;
+    });
+
+    if (missingPix.length) {
+      toast.error(`Informe o PIX de ${missingPix[0].full_name || 'o fiscal selecionado'} antes de vincular.`);
+      return;
+    }
+
     const roleObj: any = roles.find((r: any) => r.value === roleValue);
-    const rows = selected.map((cid) => {
-      const c: any = collaborators.find((x: any) => x.id === cid);
+    const rows = selectedCollaborators.map((c) => {
+      const pixValue = (pixOverrideById[c.id] ?? c.pix ?? '').trim();
       return buildManualEventCollaboratorRow({
         eventId: id,
-        collaboratorId: cid,
-        collaborator: c,
+        collaboratorId: c.id,
+        collaborator: { ...c, pix: pixValue || null },
         roleValue,
         roleName: roleObj?.name,
         payValue: rolePay(roleValue),
@@ -474,6 +490,7 @@ export default function PsEventDetail() {
     setSelected([]);
     setRoleValue('');
     setCampusValue('');
+    setPixOverrideById({});
   };
 
   const submitEvaluation = async () => {
@@ -2164,6 +2181,7 @@ export default function PsEventDetail() {
             setSelected([]);
             setRoleValue('');
             setCampusValue('');
+            setPixOverrideById({});
             setSearchFiscal('');
           }
         }}
@@ -2203,35 +2221,55 @@ export default function PsEventDetail() {
                 const matriculaText = c.matricula ? `Matrícula ${String(c.matricula).trim()}` : '';
                 const institutionText = c.institution ? String(c.institution).trim() : '';
                 const unitText = c.unit ? String(c.unit).trim() : '';
+                const collaboratorPix = typeof c?.pix === 'string' ? c.pix : '';
+                const resolvedPix = (pixOverrideById[c.id] ?? collaboratorPix ?? '').trim();
 
                 return (
-                  <Button
-                    key={c.id}
-                    type="button"
-                    variant={selected.includes(c.id) ? 'default' : 'ghost'}
-                    className="w-full h-auto min-h-0 justify-start whitespace-normal overflow-hidden px-3 py-2"
-                    onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
-                  >
-                    <span className="w-full min-w-0 flex flex-col items-start text-left">
-                      <span className="max-w-full font-medium break-words whitespace-normal text-left">{c.full_name || 'Sem nome'}</span>
+                  <div key={c.id} className="space-y-2 rounded-lg border bg-muted/10 p-2">
+                    <Button
+                      type="button"
+                      variant={selected.includes(c.id) ? 'default' : 'ghost'}
+                      className="w-full h-auto min-h-0 justify-start whitespace-normal overflow-hidden px-3 py-2"
+                      onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
+                    >
+                      <span className="w-full min-w-0 flex flex-col items-start text-left">
+                        <span className="max-w-full font-medium break-words whitespace-normal text-left">{c.full_name || 'Sem nome'}</span>
 
-                      {(emailText || matriculaText) && (
-                        <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
-                          {emailText && <span className="break-all">{emailText}</span>}
-                          {(emailText && matriculaText) && <span> · </span>}
-                          {matriculaText && <span>{matriculaText}</span>}
-                        </span>
-                      )}
+                        {(emailText || matriculaText) && (
+                          <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
+                            {emailText && <span className="break-all">{emailText}</span>}
+                            {(emailText && matriculaText) && <span> · </span>}
+                            {matriculaText && <span>{matriculaText}</span>}
+                          </span>
+                        )}
 
-                      {(institutionText || unitText) && (
-                        <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
-                          {institutionText}
-                          {(institutionText && unitText) && <span> · </span>}
-                          {unitText && <span>Unidade de trabalho: {unitText}</span>}
-                        </span>
-                      )}
-                    </span>
-                  </Button>
+                        {(institutionText || unitText) && (
+                          <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
+                            {institutionText}
+                            {(institutionText && unitText) && <span> · </span>}
+                            {unitText && <span>Unidade de trabalho: {unitText}</span>}
+                          </span>
+                        )}
+                      </span>
+                    </Button>
+
+                    {selected.includes(c.id) && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">PIX</Label>
+                          <Badge variant={resolvedPix ? 'default' : 'secondary'} className="text-[10px]">
+                            {resolvedPix ? 'PIX cadastrado' : 'Sem PIX'}
+                          </Badge>
+                        </div>
+                        <Input
+                          value={resolvedPix}
+                          onChange={(event) => setPixOverrideById((prev) => ({ ...prev, [c.id]: event.target.value }))}
+                          placeholder={collaboratorPix ? 'PIX do fiscal' : 'Informe PIX para vincular'}
+                          className={resolvedPix ? '' : 'border-destructive/60'}
+                        />
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -2242,8 +2280,18 @@ export default function PsEventDetail() {
               setSelected([]);
               setRoleValue('');
               setCampusValue('');
+              setPixOverrideById({});
             }}>Cancelar</Button>
-            <Button onClick={linkFiscals} disabled={!selected.length || !roleValue || !campusValue.trim()}>Vincular {selected.length || ''}</Button>
+            <Button
+              onClick={linkFiscals}
+              disabled={!selected.length || !roleValue || !campusValue.trim() || selected.some((cid) => {
+                const selectedCollaborator = collaborators.find((c: any) => c.id === cid) as any;
+                const collaboratorPix = typeof selectedCollaborator?.pix === 'string' ? selectedCollaborator.pix : '';
+                return !(pixOverrideById[cid] ?? collaboratorPix).trim();
+              })}
+            >
+              Vincular {selected.length || ''}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
