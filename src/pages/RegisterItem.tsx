@@ -29,7 +29,7 @@ import { optimizeImage, optimizedImageExtension } from '@/lib/optimizeImage';
 import { deleteStorageObjectSafely, uploadLostItemImage } from '@/lib/lostItemStorage';
 import { persistNewImageSafely } from '@/lib/lostItemStorageCore.mjs';
 import { analyzeLostItemImage } from '@/lib/lostItemAi';
-import { getLostItemStorageSuggestion } from '@/lib/lostItemStorageSuggestion';
+import { getLostItemStorageSuggestion, inferLostItemStorageCategory } from '@/lib/lostItemStorageSuggestion';
 import { useLostItemStorageOccupancy } from '@/hooks/useLostItemStorageOccupancy';
 import { LostFoundModuleNav } from '@/components/lost-found/LostFoundModuleNav';
 
@@ -240,12 +240,14 @@ export default function RegisterItem() {
     setAcceptedAiDescription(true);
   };
 
-  const aiStorageSuggestion = aiSuggestion ? getLostItemStorageSuggestion({
+  const effectiveStorageCategory = inferLostItemStorageCategory(aiSuggestion?.storage_category ?? null, description);
+
+  const aiStorageSuggestion = getLostItemStorageSuggestion({
     storageConfig: storageConfig ?? null,
     campus: campus || '',
-    storageCategory: aiSuggestion.storage_category,
+    storageCategory: effectiveStorageCategory,
     occupancy: storageOccupancy,
-  }) : null;
+  });
 
   useEffect(() => {
     if (!campus || !aiStorageSuggestion || storageManualOverride) return;

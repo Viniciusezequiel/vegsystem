@@ -68,9 +68,37 @@ function countAvailableBySlot(occupancy: StorageSuggestionInput['occupancy'], ca
   ).length;
 }
 
+export function inferLostItemStorageCategory(storageCategory: string | null | undefined, description?: string | null) {
+  const inferredFromCategory = resolveCategoryKey(storageCategory);
+  if (inferredFromCategory) return inferredFromCategory;
+
+  const descriptionText = (description ?? '').trim();
+  if (!descriptionText) return null;
+
+  const normalized = normalizeLabel(descriptionText);
+  if (!normalized) return null;
+
+  const categoryHints: Array<[string, string]> = [
+    ['documentos_valores', 'documento|cartao|identidade|cpf|rg|cnh|carteira|passaporte|bolsa|documento'],
+    ['garrafas_copos', 'garrafa|copo|frasco|botelha|caneca|copo'],
+    ['eletronicos', 'celular|telefone|carregador|fones|headphone|earbud|monitor|notebook|tablet|eletronico'],
+    ['pequenos_pertences', 'chave|relogio|pulseira|colar|anel|oculos|joia|bijuteria|acessorio'],
+    ['roupas', 'roupa|camiseta|jaqueta|mochila|casaco|calca|sapato|vestimenta'],
+    ['material_academico', 'caderno|material|livro|apostila|agenda|caneta|lapis|estojo'],
+    ['jalecos_pijamas', 'jaleco|pijama|roupa de dormir|toalha|roupa de banho'],
+    ['vasilhas', 'vasilha|cesta|bag|sacola|estojo|necessaire|lunch'],
+    ['necessaire_lancheiras', 'necessaire|lancheira|almofada|saquinho|bag'],
+    ['sombrinhas', 'guarda chuva|sombrinha|guarda-chuva|umbrella'],
+    ['itens_laboratorio', 'pipeta|bureta|microscopio|microscópio|vidro|tubo|kit|laboratorio'],
+  ];
+
+  const match = categoryHints.find(([, pattern]) => new RegExp(pattern, 'i').test(normalized));
+  return match ? match[0] : 'variados';
+}
+
 export function getLostItemStorageSuggestion(input: StorageSuggestionInput) {
   const { storageConfig, campus, storageCategory, occupancy } = input;
-  const key = resolveCategoryKey(storageCategory);
+  const key = storageCategory ? inferLostItemStorageCategory(storageCategory) : null;
   if (!key || !campus) return null;
 
   const campusConfig = storageConfig?.campuses?.find(item => item.campus === campus);
