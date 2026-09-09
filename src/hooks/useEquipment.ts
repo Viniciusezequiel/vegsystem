@@ -27,7 +27,8 @@ export type Equipment = {
 
 export type EquipmentLoan = {
   id: string;
-  equipment_id: string;
+  equipment_id: string | null;
+  manual_item_name: string | null;
   quantity_borrowed: number;
   borrower_name: string;
   borrower_sector: string;
@@ -425,7 +426,8 @@ export function useCreateBatchLoans() {
   return useMutation({
     mutationFn: async (params: {
       items: Array<{
-        equipment_id: string;
+        equipment_id: string | null;
+        manual_item_name?: string | null;
         quantity_borrowed: number;
         skip_stock_deduction?: boolean;
       }>;
@@ -450,7 +452,7 @@ export function useCreateBatchLoans() {
       // 1. Aggregate quantities per equipment for stock validation
       const stockNeeded = new Map<string, number>();
       for (const item of items) {
-        if (!item.skip_stock_deduction) {
+        if (item.equipment_id && !item.skip_stock_deduction) {
           stockNeeded.set(item.equipment_id, (stockNeeded.get(item.equipment_id) || 0) + item.quantity_borrowed);
         }
       }
@@ -498,7 +500,8 @@ export function useCreateBatchLoans() {
       const signatureWasUploaded = getSignatureSource(common.borrower_signature).provider === 'inline';
       const borrowerSignature = await uploadSignatureValue('equipment', common.borrower_signature);
       const loanRecords = items.map(item => ({
-        equipment_id: item.equipment_id,
+        equipment_id: item.equipment_id ?? null,
+        manual_item_name: item.manual_item_name?.trim() || null,
         quantity_borrowed: item.quantity_borrowed,
         borrower_name: common.borrower_name,
         borrower_sector: common.borrower_sector,
@@ -662,7 +665,7 @@ export function useReturnEquipment() {
         // Get loan details
         const { data: loan, error: loanError } = await supabase
           .from('equipment_loans')
-          .select('id, equipment_id, quantity_borrowed, notes, equipment(id,available_quantity)')
+          .select('id, equipment_id, manual_item_name, quantity_borrowed, notes, equipment(id,available_quantity)')
           .eq('id', loanId)
           .single();
         
@@ -687,15 +690,17 @@ export function useReturnEquipment() {
           .eq('id', loanId);
         if (error) throw error;
 
-        // Update equipment available quantity
-        const equip = loan.equipment as Equipment;
-        await supabase
-          .from('equipment')
-          .update({ 
-            available_quantity: equip.available_quantity + loan.quantity_borrowed,
-            status: 'available'
-          })
-          .eq('id', loan.equipment_id);
+        // Update equipment available quantity for inventory-backed items only
+        const equip = loan.equipment as Equipment | null;
+        if (loan.equipment_id && equip) {
+          await supabase
+            .from('equipment')
+            .update({ 
+              available_quantity: equip.available_quantity + loan.quantity_borrowed,
+              status: 'available'
+            })
+            .eq('id', loan.equipment_id);
+        }
         }
       } catch (error) {
         if (signatureWasUploaded && returnSignature) await cleanupUploadedSignatureIfUnreferenced('equipment', returnSignature);

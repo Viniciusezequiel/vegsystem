@@ -386,12 +386,13 @@ export type Database = {
           borrower_type: string | null
           collaborator_name: string | null
           created_at: string
-          equipment_id: string
+          equipment_id: string | null
           expected_return_date: string
           id: string
           item_condition: string | null
           loan_group_id: string | null
           loaned_by: string | null
+          manual_item_name: string | null
           notes: string | null
           pending_items_description: string | null
           purpose: string | null
@@ -416,12 +417,13 @@ export type Database = {
           borrower_type?: string | null
           collaborator_name?: string | null
           created_at?: string
-          equipment_id: string
+          equipment_id?: string | null
           expected_return_date: string
           id?: string
           item_condition?: string | null
           loan_group_id?: string | null
           loaned_by?: string | null
+          manual_item_name?: string | null
           notes?: string | null
           pending_items_description?: string | null
           purpose?: string | null
@@ -446,12 +448,13 @@ export type Database = {
           borrower_type?: string | null
           collaborator_name?: string | null
           created_at?: string
-          equipment_id?: string
+          equipment_id?: string | null
           expected_return_date?: string
           id?: string
           item_condition?: string | null
           loan_group_id?: string | null
           loaned_by?: string | null
+          manual_item_name?: string | null
           notes?: string | null
           pending_items_description?: string | null
           purpose?: string | null
