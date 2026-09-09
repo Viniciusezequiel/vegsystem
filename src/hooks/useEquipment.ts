@@ -692,14 +692,15 @@ export function useReturnEquipment() {
 
         // Update equipment available quantity for inventory-backed items only
         const equip = loan.equipment as Equipment | null;
-        if (loan.equipment_id && equip) {
+        const loanEquipmentId = loan.equipment_id ?? null;
+        if (loanEquipmentId && equip) {
           await supabase
             .from('equipment')
             .update({ 
               available_quantity: equip.available_quantity + loan.quantity_borrowed,
               status: 'available'
             })
-            .eq('id', loan.equipment_id);
+            .eq('id', loanEquipmentId);
         }
         }
       } catch (error) {

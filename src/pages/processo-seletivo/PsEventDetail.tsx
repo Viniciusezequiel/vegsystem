@@ -473,12 +473,31 @@ export default function PsEventDetail() {
     }
 
     const roleObj: any = roles.find((r: any) => r.value === roleValue);
+    const effectivePixById = Object.fromEntries(
+      selectedCollaborators.map((c) => {
+        const effectivePix = (pixOverrideById[c.id] ?? c.pix ?? '').trim();
+        return [c.id, effectivePix];
+      })
+    );
+
+    for (const c of selectedCollaborators) {
+      const effectivePix = effectivePixById[c.id];
+      if (!effectivePix) continue;
+      const currentPix = typeof c.pix === 'string' ? c.pix.trim() : '';
+      if (currentPix === effectivePix) continue;
+      const { error } = await supabase.from('ps_collaborators').update({ pix: effectivePix }).eq('id', c.id);
+      if (error) {
+        toast.error(`Não foi possível salvar o PIX de ${c.full_name || 'o fiscal selecionado'}: ${error.message}`);
+        throw new Error(error.message);
+      }
+    }
+
     const rows = selectedCollaborators.map((c) => {
-      const pixValue = (pixOverrideById[c.id] ?? c.pix ?? '').trim();
+      const effectivePix = effectivePixById[c.id] || 'Sem PIX';
       return buildManualEventCollaboratorRow({
         eventId: id,
         collaboratorId: c.id,
-        collaborator: { ...c, pix: pixValue || null },
+        collaborator: { ...c, pix: effectivePix || 'Sem PIX' },
         roleValue,
         roleName: roleObj?.name,
         payValue: rolePay(roleValue),
@@ -2489,21 +2508,38 @@ export default function PsEventDetail() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditLink(null)}>Cancelar</Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
+                if (!editLink) return;
+
+                const currentLink = editLink as Record<string, any>;
+                const nextPix = String(currentLink['pix'] ?? '').trim();
+                const collaboratorId = currentLink['collaborator_id'];
+
+                if (collaboratorId && nextPix) {
+                  const collaboratorRecord = (collaborators as any[]).find((c: any) => c && c.id === collaboratorId) as Record<string, any> | undefined;
+                  const currentPix = typeof collaboratorRecord?.['pix'] === 'string' ? String(collaboratorRecord['pix']).trim() : '';
+                  if (currentPix !== nextPix) {
+                    const { error } = await supabase.from('ps_collaborators').update({ pix: nextPix }).eq('id', collaboratorId);
+                    if (error) {
+                      toast.error(`Não foi possível sincronizar o PIX do fiscal: ${error.message}`);
+                      return;
+                    }
+                  }
+                }
                 update.mutate({
-                  id: editLink.id,
-                  collaborator_name: editLink.collaborator_name,
-                  role_name: editLink.role_name,
-                  pay_value: Number(editLink.pay_value) || 0,
-                  building: editLink.building || null,
-                  floor: editLink.floor || null,
-                  room: editLink.room || null,
-                  campus: editLink.campus || null,
-                  sector: editLink.sector || null,
-                  email: editLink.email || null,
-                  phone: editLink.phone || null,
-                  pix: editLink.pix || null,
-                  deposit_info: editLink.deposit_info || null,
+                  id: currentLink['id'],
+                  collaborator_name: currentLink['collaborator_name'],
+                  role_name: currentLink['role_name'],
+                  pay_value: Number(currentLink['pay_value']) || 0,
+                  building: currentLink['building'] || null,
+                  floor: currentLink['floor'] || null,
+                  room: currentLink['room'] || null,
+                  campus: currentLink['campus'] || null,
+                  sector: currentLink['sector'] || null,
+                  email: currentLink['email'] || null,
+                  phone: currentLink['phone'] || null,
+                  pix: currentLink['pix'] || null,
+                  deposit_info: currentLink['deposit_info'] || null,
                 });
                 setEditLink(null);
               }}
