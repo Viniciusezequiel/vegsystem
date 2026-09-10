@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -20,6 +21,7 @@ import { PenLine, Search, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
+  getPublicProcessSelectionAttendanceDetails,
   submitPublicProcessSelectionSignature,
   submitPublicProcessSelectionAbsence,
 } from '@/lib/signatureStorage';
@@ -64,6 +66,8 @@ export default function PsPublicAttendance() {
   const [showAbsent, setShowAbsent] = useState(false);
 
   const [attendanceCpf, setAttendanceCpf] = useState('');
+  const [detailsAccepted, setDetailsAccepted] = useState(false);
+  const [correctionMode, setCorrectionMode] = useState(false);
   const [absenceTarget, setAbsenceTarget] = useState<any>(null);
   const [absenceResponsibleId, setAbsenceResponsibleId] = useState('');
   const [absenceResponsibleCpf, setAbsenceResponsibleCpf] = useState('');
@@ -201,31 +205,17 @@ export default function PsPublicAttendance() {
     error: attendanceDetailsError,
     refetch: refetchAttendanceDetails,
   } = useQuery({
-    queryKey: [
-      'ps_public_attendance_details',
-      currentSelectedId,
-      attendanceCpfDigits,
-    ],
-    enabled:
-      !!currentSelectedId &&
-      attendanceCpfDigits.length === 11,
+    queryKey: ['ps_public_attendance_details', currentSelectedId],
+    enabled: !!currentSelectedId,
     retry: false,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc(
-        'ps_public_get_attendance_details',
-        {
-          p_link_id: currentSelectedId,
-          p_cpf: attendanceCpfDigits,
-        }
-      );
-
-      if (error) throw error;
-      return data?.[0] ?? null;
-    },
+    queryFn: async () =>
+      getPublicProcessSelectionAttendanceDetails(currentSelectedId),
   });
 
   useEffect(() => {
     setAttendanceCpf('');
+    setDetailsAccepted(false);
+    setCorrectionMode(false);
     setRoleChanged(false);
     setPixChanged(false);
     setNewPix('');
@@ -336,6 +326,9 @@ export default function PsPublicAttendance() {
       setPixChanged(false);
       setNewPix('');
       setAdjustmentReason('');
+      setCorrectionMode(false);
+      setDetailsAccepted(true);
+      setAttendanceCpf('');
 
       await refetchAttendanceDetails();
 
@@ -374,8 +367,8 @@ export default function PsPublicAttendance() {
       toast.error('Selecione seu nome na lista antes de confirmar.');
       return;
     }
-    if (!attendanceDetails?.details_confirmed) {
-      toast.error('Confirme o cargo e o PIX antes de assinar.');
+    if (!detailsAccepted && !attendanceDetails?.details_confirmed) {
+      toast.error('Confirme que o cargo e o PIX estão corretos antes de assinar.');
       return;
     }
 
@@ -394,7 +387,6 @@ export default function PsPublicAttendance() {
     const savePromise =
       submitPublicProcessSelectionSignature(
         selected.id,
-        attendanceCpfDigits,
         signature
       );
 
@@ -599,44 +591,17 @@ export default function PsPublicAttendance() {
                 <div>
                   <p className="font-semibold">Confira seus dados</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Confirme o cargo e o PIX antes de registrar a presença.
+                    Confira o cargo e a chave PIX antes de registrar a presença.
                   </p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Confirme seu CPF *</Label>
-                  <Input
-                    type="password"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    value={attendanceCpf}
-                    onChange={(event) =>
-                      setAttendanceCpf(
-                        event.target.value
-                          .replace(/\D/g, '')
-                          .slice(0, 11)
-                      )
-                    }
-                    placeholder="Digite os 11 dígitos do CPF"
-                    maxLength={11}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    O CPF é usado somente para confirmar que a presença
-                    pertence ao fiscal selecionado.
-                  </p>
-                </div>
-
-                {attendanceCpfDigits.length === 11 &&
-                  attendanceDetailsError && (
-                    <p className="text-sm font-medium text-destructive">
-                      CPF não confere ou a verificação foi temporariamente
-                      bloqueada por excesso de tentativas.
-                    </p>
-                  )}
 
                 {attendanceDetailsLoading && (
-                  <p className="text-sm text-muted-foreground">
-                    Carregando dados...
+                  <p className="text-sm text-muted-foreground">Carregando dados...</p>
+                )}
+
+                {attendanceDetailsError && (
+                  <p className="text-sm font-medium text-destructive">
+                    Não foi possível carregar os dados deste fiscal. Volte para a lista e tente novamente.
                   </p>
                 )}
 
@@ -644,66 +609,69 @@ export default function PsPublicAttendance() {
                   <>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-xl border bg-background p-3">
-                        <p className="text-xs uppercase text-muted-foreground">
-                          Cargo / função
-                        </p>
-                        <p className="mt-1 font-semibold">
-                          {attendanceDetails.role_name || 'Não informado'}
-                        </p>
+                        <p className="text-xs uppercase text-muted-foreground">Cargo / função</p>
+                        <p className="mt-1 font-semibold">{attendanceDetails.role_name || 'Não informado'}</p>
                       </div>
-
                       <div className="rounded-xl border bg-background p-3">
-                        <p className="text-xs uppercase text-muted-foreground">
-                          PIX cadastrado
-                        </p>
-                        <p className="mt-1 font-semibold">
-                          {attendanceDetails.pix_masked || 'Não informado'}
-                        </p>
+                        <p className="text-xs uppercase text-muted-foreground">Chave PIX cadastrada</p>
+                        <p className="mt-1 break-all font-semibold">{attendanceDetails.pix || 'Não informado'}</p>
                       </div>
                     </div>
 
-                    {!attendanceDetails.details_confirmed ? (
-                      <div className="space-y-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={roleChanged ? 'default' : 'outline'}
-                            onClick={() => setRoleChanged((value) => !value)}
-                          >
-                            {roleChanged ? 'Cargo será corrigido' : 'Corrigir cargo'}
-                          </Button>
+                    {!correctionMode ? (
+                      <div className="space-y-3">
+                        {!attendanceDetails.pix_configured && (
+                          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                            Não há uma chave PIX cadastrada. Use a opção abaixo para corrigir antes de assinar.
+                          </div>
+                        )}
 
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={pixChanged ? 'default' : 'outline'}
-                            onClick={() => setPixChanged((value) => !value)}
-                          >
-                            {pixChanged ? 'PIX será corrigido' : 'Corrigir PIX'}
-                          </Button>
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-background p-4">
+                          <Checkbox
+                            checked={detailsAccepted || !!attendanceDetails.details_confirmed}
+                            disabled={!!attendanceDetails.details_confirmed || !attendanceDetails.pix_configured}
+                            onCheckedChange={(checked) => setDetailsAccepted(checked === true)}
+                            className="mt-0.5"
+                          />
+                          <span className="text-sm leading-relaxed">
+                            <strong>Confirmo que meu cargo e minha chave PIX estão corretos.</strong>
+                            <span className="mt-1 block text-xs text-muted-foreground">Ao confirmar, a assinatura será vinculada a essas informações.</span>
+                          </span>
+                        </label>
+
+                        {attendanceDetails.details_confirmed && (
+                          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                            Dados já conferidos. A assinatura está liberada.
+                          </div>
+                        )}
+
+                        <Button type="button" variant="ghost" className="w-full text-muted-foreground" onClick={() => { setCorrectionMode(true); setDetailsAccepted(false); }}>
+                          Cargo ou PIX estão incorretos
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                        <div>
+                          <p className="text-sm font-semibold">Corrigir meus dados</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Para alterar cargo ou PIX, confirme seu CPF. O CPF é exigido somente nesta correção.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Confirme seu CPF *</Label>
+                          <Input type="password" inputMode="numeric" autoComplete="off" value={attendanceCpf} onChange={(event) => setAttendanceCpf(event.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="Digite os 11 dígitos do CPF" maxLength={11} />
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" size="sm" variant={roleChanged ? 'default' : 'outline'} onClick={() => setRoleChanged((value) => !value)}>{roleChanged ? 'Cargo será corrigido' : 'Corrigir cargo'}</Button>
+                          <Button type="button" size="sm" variant={pixChanged ? 'default' : 'outline'} onClick={() => setPixChanged((value) => !value)}>{pixChanged ? 'PIX será corrigido' : 'Corrigir PIX'}</Button>
                         </div>
 
                         {roleChanged && (
                           <div className="space-y-2">
                             <Label>Novo cargo</Label>
-                            <Select
-                              value={selectedRole}
-                              onValueChange={setSelectedRole}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione o cargo correto" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {roles.map((role: any) => (
-                                  <SelectItem
-                                    key={role.id}
-                                    value={role.value}
-                                  >
-                                    {role.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
+                            <Select value={selectedRole} onValueChange={setSelectedRole}>
+                              <SelectTrigger><SelectValue placeholder="Selecione o cargo correto" /></SelectTrigger>
+                              <SelectContent>{roles.map((role: any) => <SelectItem key={role.id} value={role.value}>{role.name}</SelectItem>)}</SelectContent>
                             </Select>
                           </div>
                         )}
@@ -711,53 +679,28 @@ export default function PsPublicAttendance() {
                         {pixChanged && (
                           <div className="space-y-2">
                             <Label>Novo PIX</Label>
-                            <Input
-                              value={newPix}
-                              onChange={(event) =>
-                                setNewPix(event.target.value)
-                              }
-                              placeholder="Informe o PIX correto"
-                              autoComplete="off"
-                            />
+                            <Input value={newPix} onChange={(event) => setNewPix(event.target.value)} placeholder="Informe o PIX correto" autoComplete="off" />
                           </div>
                         )}
 
                         {(roleChanged || pixChanged) && (
                           <div className="space-y-2">
                             <Label>Motivo da alteração</Label>
-                            <Textarea
-                              value={adjustmentReason}
-                              onChange={(event) =>
-                                setAdjustmentReason(event.target.value)
-                              }
-                              placeholder="Ex.: cargo alterado pela coordenação / PIX desatualizado"
-                              rows={2}
-                            />
+                            <Textarea value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} placeholder="Ex.: cargo alterado pela coordenação / PIX desatualizado" rows={2} />
                           </div>
                         )}
 
-                        <Button
-                          type="button"
-                          className="w-full"
-                          size="lg"
-                          onClick={confirmAttendanceDetails}
-                          disabled={confirmingDetails}
-                        >
-                          {confirmingDetails
-                            ? 'Confirmando dados...'
-                            : 'ESTÁ CORRETO / DE ACORDO'}
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                        Dados conferidos. A assinatura está liberada.
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button type="button" variant="outline" className="flex-1" onClick={() => { setCorrectionMode(false); setAttendanceCpf(''); setRoleChanged(false); setPixChanged(false); setNewPix(''); setAdjustmentReason(''); }}>Cancelar correção</Button>
+                          <Button type="button" className="flex-1" onClick={confirmAttendanceDetails} disabled={confirmingDetails || attendanceCpfDigits.length !== 11 || (!roleChanged && !pixChanged)}>{confirmingDetails ? 'Salvando correção...' : 'Salvar correção'}</Button>
+                        </div>
                       </div>
                     )}
                   </>
                 )}
               </div>
 
-              {attendanceDetails?.details_confirmed && (
+              {(detailsAccepted || attendanceDetails?.details_confirmed) && (
                 <>
                   <SignaturePad
                     onSignatureChange={setSignature}

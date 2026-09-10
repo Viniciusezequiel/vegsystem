@@ -119,18 +119,46 @@ export async function cleanupUploadedSignatureIfUnreferenced(module: string, loc
   return true;
 }
 
+export type PublicProcessSelectionAttendanceDetails = {
+  event_collaborator_id: string;
+  role_value: string | null;
+  role_name: string;
+  pix: string | null;
+  pix_configured: boolean;
+  details_confirmed: boolean;
+};
+
+export async function getPublicProcessSelectionAttendanceDetails(
+  linkId: string
+): Promise<PublicProcessSelectionAttendanceDetails> {
+  if (!/^[0-9a-f-]{36}$/i.test(linkId))
+    throw new Error('invalid_process_selection_participant');
+
+  const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/+$/, '');
+  const publishableKey = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '');
+  if (!supabaseUrl || !publishableKey) throw new Error('signature_service_unavailable');
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/ps-public-signature`, {
+    method: 'POST',
+    headers: {
+      apikey: publishableKey,
+      'x-ps-link-id': linkId,
+      'x-ps-action': 'details',
+    },
+  });
+  const payload = await response.json().catch(() => null);
+  if (response.status !== 200 || !payload?.event_collaborator_id) {
+    throw new Error(payload?.error ?? `public_attendance_details_failed_${response.status}`);
+  }
+  return payload as PublicProcessSelectionAttendanceDetails;
+}
+
 export async function submitPublicProcessSelectionSignature(
   linkId: string,
-  cpf: string,
   value: string
 ) {
   if (!/^[0-9a-f-]{36}$/i.test(linkId))
     throw new Error('invalid_process_selection_participant');
-
-  const cpfDigits = cpf.replace(/\D/g, '');
-
-  if (cpfDigits.length !== 11)
-    throw new Error('invalid_attendance_identity');
 
   const png = signatureDataUrlToPngBlob(value);
   if (png.size > 512 * 1024) throw new Error('signature_file_too_large');
@@ -143,7 +171,7 @@ export async function submitPublicProcessSelectionSignature(
       apikey: publishableKey,
       'content-type': 'image/png',
       'x-ps-link-id': linkId,
-      'x-ps-cpf': cpfDigits,
+      'x-ps-details-confirmed': 'true',
     },
     body: png,
   });

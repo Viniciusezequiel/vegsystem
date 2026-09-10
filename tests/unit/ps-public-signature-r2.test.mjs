@@ -7,7 +7,7 @@ test('formulário público envia PNG ao backend intermediário e nunca chama RPC
   const helper = fs.readFileSync(new URL('../../src/lib/signatureStorage.ts', import.meta.url), 'utf8');
   assert.match(
     page,
-    /submitPublicProcessSelectionSignature\(\s*selected\.id,\s*attendanceCpfDigits,\s*signature\s*\)/
+    /submitPublicProcessSelectionSignature\(\s*selected\.id,\s*signature\s*\)/
   );
   assert.doesNotMatch(page, /rpc\('ps_public_sign_attendance'/);
   assert.match(helper, /functions\/v1\/ps-public-signature/);
@@ -21,6 +21,8 @@ test('Edge Function valida participante, confirma banco e limpa somente sem refe
   assert.match(edge, /\.is\('signed_at', null\)/);
   assert.match(edge, /attendance_pix_confirmed_at/);
   assert.match(edge, /attendance_details_not_confirmed/);
+  assert.match(edge, /x-ps-details-confirmed/);
+  assert.match(edge, /action === 'details'/);
   assert.match(edge, /\.in\('participation_status'/);
   assert.match(edge, /bytes\.length > 512 \* 1024/);
   assert.match(edge, /pngMagic\.every/);
