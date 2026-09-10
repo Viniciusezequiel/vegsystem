@@ -16,6 +16,20 @@ jobs:
         with:
           ref: fix/presenca-confirmacao-pix
           fetch-depth: 0
+      - name: Prepare patch script
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('.github/apply_attendance_patch.py')
+          s = p.read_text()
+          s = s.replace('re.subn(', 'safe_subn(')
+          s = s.replace(
+              'import re\n\n',
+              "import re\n\ndef safe_subn(pattern, repl, string, count=0):\n    return re.subn(pattern, lambda _match: repl, string, count=count)\n\n",
+              1,
+          )
+          p.write_text(s)
+          PY
       - name: Apply focused patch
         run: python3 .github/apply_attendance_patch.py
       - name: Validate patch shape
