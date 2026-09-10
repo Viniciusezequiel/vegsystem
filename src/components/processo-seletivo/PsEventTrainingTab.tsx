@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, Loader2, Plus, Trash2, Users } from 'lucide-react';
+import { CalendarClock, FileDown, Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { generatePsTrainingAttendancePdf } from '@/lib/psTrainingAttendancePdf';
 
 type Props = { eventId: string; roles: any[] };
 type GroupForm = { name: string; description: string; required: boolean; roleValues: string[] };
@@ -34,19 +35,29 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
       if (groupsRes.error) throw groupsRes.error;
       const groups = groupsRes.data || [];
       const ids = groups.map((g: any) => g.id);
-      const [roleRes, sessionRes, choiceRes, linkRes] = await Promise.all([
+      const [roleRes, sessionRes, choiceRes, linkRes, assignmentRes, eventRes] = await Promise.all([
         ids.length ? (supabase as any).from('ps_event_training_group_roles').select('*').in('training_group_id', ids) : Promise.resolve({ data: [], error: null }),
         (supabase as any).from('ps_event_training_sessions').select('*').eq('event_id', eventId).order('starts_at'),
         (supabase as any).from('ps_event_training_choices').select('*').eq('event_id', eventId),
-        (supabase as any).from('ps_event_collaborators').select('id,collaborator_name').eq('event_id', eventId),
+        (supabase as any).from('ps_event_collaborators').select('id,collaborator_name,role_name,assigned_role').eq('event_id', eventId),
+        (supabase as any).from('ps_event_collaborator_assignments').select('event_collaborator_id,role_value,role_name,is_primary').eq('event_id', eventId),
+        (supabase as any).from('ps_events').select('id,name,date,location').eq('id', eventId).maybeSingle(),
       ]);
-      const error = roleRes.error || sessionRes.error || choiceRes.error || linkRes.error;
+      const error = roleRes.error || sessionRes.error || choiceRes.error || linkRes.error || assignmentRes.error || eventRes.error;
       if (error) throw error;
-      return { groups, groupRoles: roleRes.data || [], sessions: sessionRes.data || [], choices: choiceRes.data || [], links: linkRes.data || [] };
+      return {
+        groups,
+        groupRoles: roleRes.data || [],
+        sessions: sessionRes.data || [],
+        choices: choiceRes.data || [],
+        links: linkRes.data || [],
+        assignments: assignmentRes.data || [],
+        event: eventRes.data || null,
+      };
     },
   });
 
-  const data = query.data || { groups: [], groupRoles: [], sessions: [], choices: [], links: [] };
+  const data = query.data || { groups: [], groupRoles: [], sessions: [], choices: [], links: [], assignments: [], event: null };
   const roleMap = useMemo(
     () => new Map<string, string>(roles.map((r: any) => [String(r.value), String(r.name)] as [string, string])),
     [roles]
@@ -55,6 +66,21 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     () => new Map<string, string>(data.links.map((l: any) => [String(l.id), String(l.collaborator_name || '')] as [string, string])),
     [data.links]
   );
+  const linkById = useMemo(
+    () => new Map<string, any>(data.links.map((l: any) => [String(l.id), l] as [string, any])),
+    [data.links]
+  );
+  const assignmentsByLink = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const assignment of data.assignments) {
+      const id = String((assignment as any).event_collaborator_id || '');
+      if (!id) continue;
+      const current = map.get(id) || [];
+      current.push(assignment);
+      map.set(id, current);
+    }
+    return map;
+  }, [data.assignments]);
   const refresh = () => qc.invalidateQueries({ queryKey: ['ps_event_trainings', eventId] });
 
   const toggleRole = (value: string) => setGroupForm(f => ({ ...f, roleValues: f.roleValues.includes(value) ? f.roleValues.filter(v => v !== value) : [...f.roleValues, value] }));
@@ -113,6 +139,49 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     const res = await (supabase as any).from('ps_event_training_sessions').delete().eq('id', session.id).eq('event_id', eventId);
     if (res.error) return toast.error(res.error.message);
     await refresh();
+  };
+
+  const exportSessionAttendance = (group: any, session: any, choices: any[]) => {
+    if (!choices.length) return toast.error('Nenhuma pessoa escolheu esta data de treinamento.');
+
+    const groupRoleValues = new Set(
+      data.groupRoles
+        .filter((item: any) => item.training_group_id === group.id)
+        .map((item: any) => String(item.role_value))
+    );
+
+    const rows = choices.map((choice: any) => {
+      const linkId = String(choice.event_collaborator_id);
+      const link = linkById.get(linkId);
+      const assignments = (assignmentsByLink.get(linkId) || []).filter((assignment: any) =>
+        !groupRoleValues.size || groupRoleValues.has(String(assignment.role_value))
+      );
+      const assignmentRoles = assignments.map((assignment: any) =>
+        String(assignment.role_name || roleMap.get(String(assignment.role_value)) || assignment.role_value || '').trim()
+      ).filter(Boolean);
+      const fallbackRole = String(link?.role_name || link?.assigned_role || '').trim();
+      const roleNames = [...new Set(assignmentRoles.length ? assignmentRoles : fallbackRole ? [fallbackRole] : [])];
+
+      return {
+        collaborator_name: String(link?.collaborator_name || linkMap.get(linkId) || 'Colaborador'),
+        roles: roleNames,
+      };
+    });
+
+    const eventInfo = {
+      name: String((data.event as any)?.name || 'Processo Seletivo'),
+      date: (data.event as any)?.date || null,
+      location: (data.event as any)?.location || null,
+    };
+    const pdf = generatePsTrainingAttendancePdf(eventInfo, { name: String(group.name || 'Treinamento') }, session, rows);
+    const slug = String(group.name || 'treinamento')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    const dateSlug = session.starts_at ? new Date(session.starts_at).toISOString().slice(0, 10) : 'data';
+    pdf.save(`lista-presenca-${slug || 'treinamento'}-${dateSlug}.pdf`);
   };
 
   if (query.isLoading) return <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando treinamentos...</div>;
@@ -178,7 +247,15 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                               <p className="text-sm font-semibold">{fmt(session.starts_at)}</p>
                               <p className="mt-1 text-xs text-muted-foreground">{[session.campus, session.location, session.room && `Sala ${session.room}`].filter(Boolean).join(' · ')}</p>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex flex-wrap items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!choices.length}
+                                onClick={() => exportSessionAttendance(group, session, choices)}
+                              >
+                                <FileDown className="mr-1.5 h-3.5 w-3.5" />Lista PDF
+                              </Button>
                               <Switch checked={!!session.active} onCheckedChange={active => void toggleSession(session, active)} />
                               <Button size="icon" variant="ghost" onClick={() => void removeSession(session)}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
