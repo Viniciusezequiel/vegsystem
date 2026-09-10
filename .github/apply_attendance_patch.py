@@ -1,0 +1,442 @@
+from pathlib import Path
+import re
+
+
+def replace_once(text, old, new, label):
+    if old not in text:
+        raise SystemExit(f'pattern not found: {label}')
+    return text.replace(old, new, 1)
+
+
+# signatureStorage.ts
+path = Path('src/lib/signatureStorage.ts')
+text = path.read_text()
+start = text.index('export async function submitPublicProcessSelectionSignature(')
+end = text.index('function encodePublicSignatureHeader', start)
+replacement = '''export type PublicProcessSelectionAttendanceDetails = {
+  event_collaborator_id: string;
+  role_value: string | null;
+  role_name: string;
+  pix: string | null;
+  pix_configured: boolean;
+  details_confirmed: boolean;
+};
+
+export async function getPublicProcessSelectionAttendanceDetails(
+  linkId: string
+): Promise<PublicProcessSelectionAttendanceDetails> {
+  if (!/^[0-9a-f-]{36}$/i.test(linkId))
+    throw new Error('invalid_process_selection_participant');
+
+  const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\\/+$/, '');
+  const publishableKey = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '');
+  if (!supabaseUrl || !publishableKey) throw new Error('signature_service_unavailable');
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/ps-public-signature`, {
+    method: 'POST',
+    headers: {
+      apikey: publishableKey,
+      'x-ps-link-id': linkId,
+      'x-ps-action': 'details',
+    },
+  });
+  const payload = await response.json().catch(() => null);
+  if (response.status !== 200 || !payload?.event_collaborator_id) {
+    throw new Error(payload?.error ?? `public_attendance_details_failed_${response.status}`);
+  }
+  return payload as PublicProcessSelectionAttendanceDetails;
+}
+
+export async function submitPublicProcessSelectionSignature(
+  linkId: string,
+  value: string
+) {
+  if (!/^[0-9a-f-]{36}$/i.test(linkId))
+    throw new Error('invalid_process_selection_participant');
+
+  const png = signatureDataUrlToPngBlob(value);
+  if (png.size > 512 * 1024) throw new Error('signature_file_too_large');
+  const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\\/+$/, '');
+  const publishableKey = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '');
+  if (!supabaseUrl || !publishableKey) throw new Error('signature_service_unavailable');
+  const response = await fetch(`${supabaseUrl}/functions/v1/ps-public-signature`, {
+    method: 'POST',
+    headers: {
+      apikey: publishableKey,
+      'content-type': 'image/png',
+      'x-ps-link-id': linkId,
+      'x-ps-details-confirmed': 'true',
+    },
+    body: png,
+  });
+  const payload = await response.json().catch(() => null);
+  const source = getSignatureSource(payload?.locator);
+  if (response.status !== 201 || source.provider !== 'r2' || source.module !== 'process-selection') {
+    throw new Error(payload?.error ?? `public_signature_failed_${response.status}`);
+  }
+  return source.value;
+}
+
+'''
+text = text[:start] + replacement + text[end:]
+path.write_text(text)
+
+# Edge Function
+path = Path('supabase/functions/ps-public-signature/index.ts')
+edge = path.read_text()
+edge = replace_once(
+    edge,
+    "    'apikey, content-type, x-client-info, x-ps-link-id, x-ps-action, x-ps-responsible-id, x-ps-reason-b64, x-ps-cpf, x-ps-responsible-cpf',",
+    "    'apikey, content-type, x-client-info, x-ps-link-id, x-ps-action, x-ps-details-confirmed, x-ps-responsible-id, x-ps-reason-b64, x-ps-responsible-cpf',",
+    'cors headers',
+)
+
+old_env = """  const url = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const workerUrl =
+    Deno.env.get('STORAGE_WORKER_URL')?.replace(/\\/+$/, '') ?? '';
+  const secret = Deno.env.get('PS_SIGNATURE_INTERNAL_SECRET') ?? '';
+
+  if (!url || !serviceKey || !workerUrl || secret.length < 32)
+    return json({ error: 'configuration_unavailable' }, 503);
+
+  const admin = createClient(url, serviceKey, {
+    auth: { persistSession: false },
+  });
+
+"""
+edge = replace_once(edge, old_env, '', 'existing env block')
+
+marker = """  if (!['attendance', 'absence'].includes(action))
+    return json({ error: 'invalid_action' }, 400);
+
+  const contentType =
+"""
+inserted = """  if (!['attendance', 'absence', 'details'].includes(action))
+    return json({ error: 'invalid_action' }, 400);
+
+  const url = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const workerUrl =
+    Deno.env.get('STORAGE_WORKER_URL')?.replace(/\\/+$/, '') ?? '';
+  const secret = Deno.env.get('PS_SIGNATURE_INTERNAL_SECRET') ?? '';
+
+  if (!url || !serviceKey || !workerUrl || secret.length < 32)
+    return json({ error: 'configuration_unavailable' }, 503);
+
+  const admin = createClient(url, serviceKey, {
+    auth: { persistSession: false },
+  });
+
+  if (action === 'details') {
+    const { data: participant, error: participantError } = await admin
+      .from('ps_event_collaborators')
+      .select('id,role_value,role_name,assigned_role,pix,attendance_role_snapshot,attendance_pix_snapshot,attendance_pix_confirmed_at,ps_events!inner(hidden_from_evaluation)')
+      .eq('id', linkId)
+      .in('participation_status', ['pending_confirmation', 'confirmed'])
+      .is('signed_at', null)
+      .eq('ps_events.hidden_from_evaluation', false)
+      .maybeSingle();
+
+    if (participantError || !participant)
+      return json({ error: 'participant_unavailable' }, 403);
+
+    const roleValue =
+      participant.attendance_role_snapshot ??
+      participant.role_value ??
+      participant.assigned_role ??
+      null;
+
+    let roleName =
+      participant.role_name ??
+      participant.assigned_role ??
+      roleValue ??
+      'Cargo não informado';
+
+    if (roleValue) {
+      const { data: role } = await admin
+        .from('ps_roles')
+        .select('name')
+        .eq('value', roleValue)
+        .maybeSingle();
+      if (role?.name) roleName = role.name;
+    }
+
+    const pix = participant.attendance_pix_snapshot ?? participant.pix ?? null;
+
+    return json({
+      event_collaborator_id: participant.id,
+      role_value: roleValue,
+      role_name: roleName,
+      pix,
+      pix_configured: Boolean(String(pix ?? '').trim()),
+      details_confirmed: Boolean(participant.attendance_pix_confirmed_at),
+    }, 200);
+  }
+
+  const contentType =
+"""
+edge = replace_once(edge, marker, inserted, 'action/env/details block')
+
+identity_pattern = re.compile(r"  // O UUID identifica o vínculo, mas não comprova a identidade\.[\s\S]*?\n  const upload = await fetch\(")
+identity_replacement = """  // A presença normal usa o aceite explícito de cargo + PIX.
+  // O CPF permanece obrigatório somente para alteração de dados e registro de ausência.
+  if (action === 'absence') {
+    const identityLinkId = request.headers.get('x-ps-responsible-id') ?? '';
+    const identityCpf = request.headers.get('x-ps-responsible-cpf') ?? '';
+
+    if (!/^[0-9a-f-]{36}$/i.test(identityLinkId))
+      return json({ error: 'invalid_identity_subject' }, 400);
+
+    const { data: identityVerified, error: identityError } = await admin.rpc(
+      'ps_public_verify_attendance_identity',
+      { p_link_id: identityLinkId, p_cpf: identityCpf }
+    );
+
+    if (identityError) {
+      if (String(identityError.message || '').includes('identity_rate_limited'))
+        return json({ error: 'identity_rate_limited' }, 429);
+      return json({ error: 'identity_verification_failed' }, 403);
+    }
+
+    if (!identityVerified)
+      return json({ error: 'identity_not_verified' }, 403);
+  }
+
+  const upload = await fetch("""
+edge, count = identity_pattern.subn(identity_replacement, edge, count=1)
+if count != 1:
+    raise SystemExit('identity block replacement failed')
+
+edge = replace_once(
+    edge,
+    "'id,event_id,signed_at,attendance_pix_confirmed_at,ps_events!inner(hidden_from_evaluation)'",
+    "'id,event_id,signed_at,attendance_pix_confirmed_at,attendance_role_snapshot,attendance_pix_snapshot,role_value,role_name,assigned_role,pix,ps_events!inner(hidden_from_evaluation)'",
+    'attendance participant projection',
+)
+
+old_confirm = """  if (!participant.attendance_pix_confirmed_at) {
+    await cleanup();
+    return json(
+      { error: 'attendance_details_not_confirmed' },
+      409
+    );
+  }
+"""
+new_confirm = """  if (!participant.attendance_pix_confirmed_at) {
+    if (request.headers.get('x-ps-details-confirmed') !== 'true') {
+      await cleanup();
+      return json({ error: 'attendance_details_not_confirmed' }, 409);
+    }
+
+    const currentPix = String(
+      participant.attendance_pix_snapshot ?? participant.pix ?? ''
+    ).trim();
+
+    if (!currentPix) {
+      await cleanup();
+      return json({ error: 'attendance_pix_not_configured' }, 409);
+    }
+
+    const roleSnapshot =
+      participant.attendance_role_snapshot ??
+      participant.role_value ??
+      participant.assigned_role ??
+      participant.role_name ??
+      null;
+
+    const { error: detailsError } = await admin
+      .from('ps_event_collaborators')
+      .update({
+        attendance_role_snapshot: roleSnapshot,
+        attendance_pix_snapshot: currentPix,
+        attendance_pix_confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', participant.id)
+      .is('signed_at', null);
+
+    if (detailsError) {
+      await cleanup();
+      return json({ error: 'attendance_details_not_confirmed' }, 409);
+    }
+  }
+"""
+edge = replace_once(edge, old_confirm, new_confirm, 'attendance acknowledgement')
+path.write_text(edge)
+
+# Public attendance page
+path = Path('src/pages/processo-seletivo/public/PsPublicAttendance.tsx')
+page = path.read_text()
+page = replace_once(page, "import { Button } from '@/components/ui/button';", "import { Button } from '@/components/ui/button';\nimport { Checkbox } from '@/components/ui/checkbox';", 'checkbox import')
+page = replace_once(page, "  submitPublicProcessSelectionSignature,\n  submitPublicProcessSelectionAbsence,", "  getPublicProcessSelectionAttendanceDetails,\n  submitPublicProcessSelectionSignature,\n  submitPublicProcessSelectionAbsence,", 'details helper import')
+page = replace_once(page, "  const [attendanceCpf, setAttendanceCpf] = useState('');", "  const [attendanceCpf, setAttendanceCpf] = useState('');\n  const [detailsAccepted, setDetailsAccepted] = useState(false);\n  const [correctionMode, setCorrectionMode] = useState(false);", 'confirmation state')
+
+query_start = page.index("  const {\n    data: attendanceDetails,")
+query_end = page.index("  useEffect(() => {\n    setAttendanceCpf('');", query_start)
+query_replacement = """  const {
+    data: attendanceDetails,
+    isLoading: attendanceDetailsLoading,
+    error: attendanceDetailsError,
+    refetch: refetchAttendanceDetails,
+  } = useQuery({
+    queryKey: ['ps_public_attendance_details', currentSelectedId],
+    enabled: !!currentSelectedId,
+    retry: false,
+    queryFn: async () =>
+      getPublicProcessSelectionAttendanceDetails(currentSelectedId),
+  });
+
+"""
+page = page[:query_start] + query_replacement + page[query_end:]
+page = replace_once(page, "    setAttendanceCpf('');\n    setRoleChanged(false);", "    setAttendanceCpf('');\n    setDetailsAccepted(false);\n    setCorrectionMode(false);\n    setRoleChanged(false);", 'reset selected confirmation')
+page = replace_once(page, "      setRoleChanged(false);\n      setPixChanged(false);\n      setNewPix('');\n      setAdjustmentReason('');\n\n      await refetchAttendanceDetails();", "      setRoleChanged(false);\n      setPixChanged(false);\n      setNewPix('');\n      setAdjustmentReason('');\n      setCorrectionMode(false);\n      setDetailsAccepted(true);\n      setAttendanceCpf('');\n\n      await refetchAttendanceDetails();", 'after correction success')
+page = replace_once(page, "    if (!attendanceDetails?.details_confirmed) {\n      toast.error('Confirme o cargo e o PIX antes de assinar.');\n      return;\n    }", "    if (!detailsAccepted && !attendanceDetails?.details_confirmed) {\n      toast.error('Confirme que o cargo e o PIX estão corretos antes de assinar.');\n      return;\n    }", 'submit guard')
+page = replace_once(page, "      submitPublicProcessSelectionSignature(\n        selected.id,\n        attendanceCpfDigits,\n        signature\n      );", "      submitPublicProcessSelectionSignature(\n        selected.id,\n        signature\n      );", 'signature call')
+
+ui_start = page.index('              <div className="space-y-4 rounded-2xl border bg-muted/10 p-4">')
+ui_end = page.index('              {attendanceDetails?.details_confirmed && (', ui_start)
+ui = '''              <div className="space-y-4 rounded-2xl border bg-muted/10 p-4">
+                <div>
+                  <p className="font-semibold">Confira seus dados</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Confira o cargo e a chave PIX antes de registrar a presença.
+                  </p>
+                </div>
+
+                {attendanceDetailsLoading && (
+                  <p className="text-sm text-muted-foreground">Carregando dados...</p>
+                )}
+
+                {attendanceDetailsError && (
+                  <p className="text-sm font-medium text-destructive">
+                    Não foi possível carregar os dados deste fiscal. Volte para a lista e tente novamente.
+                  </p>
+                )}
+
+                {!attendanceDetailsLoading && attendanceDetails && (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border bg-background p-3">
+                        <p className="text-xs uppercase text-muted-foreground">Cargo / função</p>
+                        <p className="mt-1 font-semibold">{attendanceDetails.role_name || 'Não informado'}</p>
+                      </div>
+                      <div className="rounded-xl border bg-background p-3">
+                        <p className="text-xs uppercase text-muted-foreground">Chave PIX cadastrada</p>
+                        <p className="mt-1 break-all font-semibold">{attendanceDetails.pix || 'Não informado'}</p>
+                      </div>
+                    </div>
+
+                    {!correctionMode ? (
+                      <div className="space-y-3">
+                        {!attendanceDetails.pix_configured && (
+                          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                            Não há uma chave PIX cadastrada. Use a opção abaixo para corrigir antes de assinar.
+                          </div>
+                        )}
+
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-background p-4">
+                          <Checkbox
+                            checked={detailsAccepted || !!attendanceDetails.details_confirmed}
+                            disabled={!!attendanceDetails.details_confirmed || !attendanceDetails.pix_configured}
+                            onCheckedChange={(checked) => setDetailsAccepted(checked === true)}
+                            className="mt-0.5"
+                          />
+                          <span className="text-sm leading-relaxed">
+                            <strong>Confirmo que meu cargo e minha chave PIX estão corretos.</strong>
+                            <span className="mt-1 block text-xs text-muted-foreground">Ao confirmar, a assinatura será vinculada a essas informações.</span>
+                          </span>
+                        </label>
+
+                        {attendanceDetails.details_confirmed && (
+                          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                            Dados já conferidos. A assinatura está liberada.
+                          </div>
+                        )}
+
+                        <Button type="button" variant="ghost" className="w-full text-muted-foreground" onClick={() => { setCorrectionMode(true); setDetailsAccepted(false); }}>
+                          Cargo ou PIX estão incorretos
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                        <div>
+                          <p className="text-sm font-semibold">Corrigir meus dados</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Para alterar cargo ou PIX, confirme seu CPF. O CPF é exigido somente nesta correção.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Confirme seu CPF *</Label>
+                          <Input type="password" inputMode="numeric" autoComplete="off" value={attendanceCpf} onChange={(event) => setAttendanceCpf(event.target.value.replace(/\\D/g, '').slice(0, 11))} placeholder="Digite os 11 dígitos do CPF" maxLength={11} />
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" size="sm" variant={roleChanged ? 'default' : 'outline'} onClick={() => setRoleChanged((value) => !value)}>{roleChanged ? 'Cargo será corrigido' : 'Corrigir cargo'}</Button>
+                          <Button type="button" size="sm" variant={pixChanged ? 'default' : 'outline'} onClick={() => setPixChanged((value) => !value)}>{pixChanged ? 'PIX será corrigido' : 'Corrigir PIX'}</Button>
+                        </div>
+
+                        {roleChanged && (
+                          <div className="space-y-2">
+                            <Label>Novo cargo</Label>
+                            <Select value={selectedRole} onValueChange={setSelectedRole}>
+                              <SelectTrigger><SelectValue placeholder="Selecione o cargo correto" /></SelectTrigger>
+                              <SelectContent>{roles.map((role: any) => <SelectItem key={role.id} value={role.value}>{role.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {pixChanged && (
+                          <div className="space-y-2">
+                            <Label>Novo PIX</Label>
+                            <Input value={newPix} onChange={(event) => setNewPix(event.target.value)} placeholder="Informe o PIX correto" autoComplete="off" />
+                          </div>
+                        )}
+
+                        {(roleChanged || pixChanged) && (
+                          <div className="space-y-2">
+                            <Label>Motivo da alteração</Label>
+                            <Textarea value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} placeholder="Ex.: cargo alterado pela coordenação / PIX desatualizado" rows={2} />
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button type="button" variant="outline" className="flex-1" onClick={() => { setCorrectionMode(false); setAttendanceCpf(''); setRoleChanged(false); setPixChanged(false); setNewPix(''); setAdjustmentReason(''); }}>Cancelar correção</Button>
+                          <Button type="button" className="flex-1" onClick={confirmAttendanceDetails} disabled={confirmingDetails || attendanceCpfDigits.length !== 11 || (!roleChanged && !pixChanged)}>{confirmingDetails ? 'Salvando correção...' : 'Salvar correção'}</Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+'''
+page = page[:ui_start] + ui + page[ui_end:]
+page = replace_once(page, '              {attendanceDetails?.details_confirmed && (', '              {(detailsAccepted || attendanceDetails?.details_confirmed) && (', 'signature visibility')
+path.write_text(page)
+
+# Security test
+path = Path('tests/unit/security-public-attendance-identity.test.mjs')
+test = path.read_text()
+test, count = re.subn(r"test\('assinatura normal envia CPF para verificação server-side',[\s\S]*?\n\}\);", """test('assinatura normal usa aceite explícito sem exigir CPF', () => {
+  assert.match(edge, /x-ps-details-confirmed/);
+  assert.match(storage, /x-ps-details-confirmed/);
+  assert.match(edge, /action === 'details'/);
+  assert.match(page, /Confirmo que meu cargo e minha chave PIX estão corretos/);
+});""", test, count=1)
+if count != 1:
+    raise SystemExit('security signature test replacement failed')
+test, count = re.subn(r"test\('interface solicita CPF antes de liberar presença',[\s\S]*?\n\}\);", """test('interface exige CPF somente quando o fiscal pede correção', () => {
+  assert.match(page, /Cargo ou PIX estão incorretos/);
+  assert.match(page, /O CPF é exigido somente nesta correção/);
+  assert.match(page, /p_cpf:\\s*attendanceCpfDigits/);
+  assert.match(page, /CPF do responsável/);
+});""", test, count=1)
+if count != 1:
+    raise SystemExit('security UI test replacement failed')
+path.write_text(test)
+
+# R2 test
+path = Path('tests/unit/ps-public-signature-r2.test.mjs')
+test = path.read_text()
+test = replace_once(test, r"/submitPublicProcessSelectionSignature\(\s*selected\.id,\s*attendanceCpfDigits,\s*signature\s*\)/", r"/submitPublicProcessSelectionSignature\(\s*selected\.id,\s*signature\s*\)/", 'R2 signature assertion')
+test = replace_once(test, "  assert.match(edge, /attendance_details_not_confirmed/);", "  assert.match(edge, /attendance_details_not_confirmed/);\n  assert.match(edge, /x-ps-details-confirmed/);\n  assert.match(edge, /action === 'details'/);", 'R2 ack assertions')
+path.write_text(test)
