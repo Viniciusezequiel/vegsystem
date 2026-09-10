@@ -129,13 +129,6 @@ export default function PsHome() {
         <StatCard title="Pendências" value={pendingEvaluations.length} icon={<AlertTriangle className="h-5 w-5" />} iconClassName="bg-warning/10 text-warning" />
       </div>
 
-      <div className="mt-5 rounded-2xl border border-primary/15 bg-gradient-to-r from-primary/[0.08] via-card/55 to-card/55 p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Operação centralizada</p><h2 className="mt-1 text-lg font-semibold">Tudo do processo, sem sobrecarregar o menu lateral.</h2><p className="mt-1 max-w-2xl text-sm text-muted-foreground">O sidebar continua sendo do VEGSYSTEM. As etapas específicas do Processo Seletivo ficam organizadas nesta central.</p></div>
-          <GraduationCap className="hidden h-10 w-10 text-primary/50 sm:block" />
-        </div>
-      </div>
-
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_300px]">
         <div className="space-y-5">
           <section>

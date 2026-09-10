@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
 import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventTeamImportDialog';
 import { PsEventCommunicationTab } from '@/components/processo-seletivo/PsEventCommunicationTab';
+import { PsEventCollaboratorEditDialog } from '@/components/processo-seletivo/PsEventCollaboratorEditDialog';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
@@ -2465,84 +2466,13 @@ export default function PsEventDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Editar item importado */}
-      <Dialog open={!!editLink} onOpenChange={(o) => !o && setEditLink(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader><DialogTitle>Editar dados no evento</DialogTitle></DialogHeader>
-          {editLink && (
-            <div className="space-y-3">
-              <div><Label>Nome</Label><Input value={editLink.collaborator_name || ''} onChange={(e) => setEditLink({ ...editLink, collaborator_name: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Função</Label><Input value={editLink.role_name || ''} onChange={(e) => setEditLink({ ...editLink, role_name: e.target.value })} /></div>
-                <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={editLink.pay_value ?? 0} onChange={(e) => setEditLink({ ...editLink, pay_value: e.target.value })} /></div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label>Prédio</Label><Input value={editLink.building || ''} onChange={(e) => setEditLink({ ...editLink, building: e.target.value })} /></div>
-                <div><Label>Andar</Label><Input value={editLink.floor || ''} onChange={(e) => setEditLink({ ...editLink, floor: e.target.value })} /></div>
-                <div><Label>Sala</Label><Input value={editLink.room || ''} onChange={(e) => setEditLink({ ...editLink, room: e.target.value })} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Setor</Label><Input value={editLink.sector || ''} onChange={(e) => setEditLink({ ...editLink, sector: e.target.value })} /></div>
-                <div><Label>Campus do evento</Label><Input value={editLink.campus || ''} onChange={(e) => setEditLink({ ...editLink, campus: e.target.value })} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>E-mail</Label><Input value={editLink.email || ''} onChange={(e) => setEditLink({ ...editLink, email: e.target.value })} /></div>
-                <div><Label>Telefone</Label><Input value={editLink.phone || ''} onChange={(e) => setEditLink({ ...editLink, phone: e.target.value })} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>PIX</Label><Input value={editLink.pix || ''} onChange={(e) => setEditLink({ ...editLink, pix: e.target.value })} /></div>
-                <div><Label>Depósito</Label><Input value={editLink.deposit_info || ''} onChange={(e) => setEditLink({ ...editLink, deposit_info: e.target.value })} /></div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditLink(null)}>Cancelar</Button>
-            <Button
-              onClick={async () => {
-                if (!editLink) return;
-
-                const currentLink = editLink as Record<string, any>;
-                const nextPix = normalizePix(currentLink['pix']);
-                const collaboratorId = currentLink['collaborator_id'];
-                if (!nextPix) { toast.error('Informe um PIX válido antes de salvar.'); return; }
-
-                if (collaboratorId && nextPix) {
-                  const collaboratorRecord = (collaborators as any[]).find((c: any) => c && c.id === collaboratorId) as Record<string, any> | undefined;
-                  const currentPix = typeof collaboratorRecord?.['pix'] === 'string' ? String(collaboratorRecord['pix']).trim() : '';
-                  if (currentPix !== nextPix) {
-                    const { error } = await supabase.from('ps_collaborators').update({ pix: nextPix }).eq('id', collaboratorId).select('id').single();
-                    if (error) {
-                      toast.error(`Não foi possível sincronizar o PIX do fiscal: ${error.message}`);
-                      return;
-                    }
-                    void queryClient.invalidateQueries({ queryKey: ['ps_collaborators'] });
-                  }
-                }
-                try {
-                await update.mutateAsync({
-                  id: currentLink['id'],
-                  collaborator_name: currentLink['collaborator_name'],
-                  role_name: currentLink['role_name'],
-                  pay_value: Number(currentLink['pay_value']) || 0,
-                  building: currentLink['building'] || null,
-                  floor: currentLink['floor'] || null,
-                  room: currentLink['room'] || null,
-                  campus: currentLink['campus'] || null,
-                  sector: currentLink['sector'] || null,
-                  email: currentLink['email'] || null,
-                  phone: currentLink['phone'] || null,
-                  pix: nextPix,
-                  deposit_info: currentLink['deposit_info'] || null,
-                });
-                setEditLink(null);
-                } catch { /* mutation reports the error; keep the dialog open */ }
-              }}
-            >
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PsEventCollaboratorEditDialog
+        eventId={id!}
+        link={editLink}
+        roles={roles as any[]}
+        open={!!editLink}
+        onOpenChange={(open) => !open && setEditLink(null)}
+      />
     </MainLayout>
   );
 }
