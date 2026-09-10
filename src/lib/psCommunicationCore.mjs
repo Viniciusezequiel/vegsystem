@@ -43,6 +43,8 @@ Para confirmar sua participação, utilize o botão abaixo.
 
 {{link_confirmacao}}
 
+Caso o seu cargo possua treinamento obrigatório, no mesmo link você deverá escolher uma das datas e locais disponibilizados pela organização antes de concluir a confirmação.
+
 A confirmação é individual e vinculada à sua escala neste evento.
 
 Caso identifique alguma divergência nas informações acima, entre em contato com a equipe responsável antes de confirmar.
@@ -56,12 +58,10 @@ export function renderPsCommunicationTemplate(template, values = {}) {
   return VARIABLES.reduce((text, key) => text.replaceAll(`{{${key}}}`, String(values[key] ?? '')), String(template ?? ''));
 }
 
-// Mirrors the Edge Function's formatDateBR: 'YYYY-MM-DD' -> 'DD/MM/YYYY', pt-BR.
 export function formatPsEventDateBR(value) {
   const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
 }
-
 
 export function filterPsCommunicationRecipients(rows, filters = {}) {
   const search = String(filters.search || '').trim().toLowerCase();
