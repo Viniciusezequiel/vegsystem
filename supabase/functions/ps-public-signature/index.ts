@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const cors = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers':
-    'apikey, content-type, x-client-info, x-ps-link-id, x-ps-action, x-ps-responsible-id, x-ps-reason-b64, x-ps-cpf, x-ps-responsible-cpf',
+    'apikey, content-type, x-client-info, x-ps-link-id, x-ps-action, x-ps-details-confirmed, x-ps-responsible-id, x-ps-reason-b64, x-ps-cpf, x-ps-responsible-cpf',
   'access-control-allow-methods': 'POST, OPTIONS',
   'cache-control': 'no-store',
 };
@@ -41,8 +41,67 @@ Deno.serve(async request => {
   if (!/^[0-9a-f-]{36}$/i.test(linkId))
     return json({ error: 'invalid_participant' }, 400);
 
-  if (!['attendance', 'absence'].includes(action))
+  if (!['attendance', 'absence', 'details'].includes(action))
     return json({ error: 'invalid_action' }, 400);
+
+  const url = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const workerUrl =
+    Deno.env.get('STORAGE_WORKER_URL')?.replace(/\/+$/, '') ?? '';
+  const secret = Deno.env.get('PS_SIGNATURE_INTERNAL_SECRET') ?? '';
+
+  if (!url || !serviceKey || !workerUrl || secret.length < 32)
+    return json({ error: 'configuration_unavailable' }, 503);
+
+  const admin = createClient(url, serviceKey, {
+    auth: { persistSession: false },
+  });
+
+  if (action === 'details') {
+    const { data: participant, error: participantError } = await admin
+      .from('ps_event_collaborators')
+      .select('id,role_value,role_name,assigned_role,pix,attendance_role_snapshot,attendance_pix_snapshot,attendance_pix_confirmed_at,ps_events!inner(hidden_from_evaluation)')
+      .eq('id', linkId)
+      .in('participation_status', ['pending_confirmation', 'confirmed'])
+      .is('signed_at', null)
+      .eq('ps_events.hidden_from_evaluation', false)
+      .maybeSingle();
+
+    if (participantError || !participant)
+      return json({ error: 'participant_unavailable' }, 403);
+
+    const roleValue =
+      participant.attendance_role_snapshot ??
+      participant.role_value ??
+      participant.assigned_role ??
+      null;
+
+    let roleName =
+      participant.role_name ??
+      participant.assigned_role ??
+      roleValue ??
+      'Cargo não informado';
+
+    if (roleValue) {
+      const { data: role } = await admin
+        .from('ps_roles')
+        .select('name')
+        .eq('value', roleValue)
+        .maybeSingle();
+      if (role?.name) roleName = role.name;
+    }
+
+    const pix = participant.attendance_pix_snapshot ?? participant.pix ?? null;
+
+    return json({
+      event_collaborator_id: participant.id,
+      role_value: roleValue,
+      role_name: roleName,
+      pix,
+      pix_configured: Boolean(String(pix ?? '').trim()),
+      details_confirmed: Boolean(participant.attendance_pix_confirmed_at),
+    }, 200);
+  }
 
   const contentType =
     (request.headers.get('content-type') ?? '')
@@ -67,72 +126,28 @@ Deno.serve(async request => {
     return json({ error: 'invalid_png' }, 415);
   }
 
-  const url = Deno.env.get('SUPABASE_URL')!;
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const workerUrl =
-    Deno.env.get('STORAGE_WORKER_URL')?.replace(/\/+$/, '') ?? '';
-  const secret = Deno.env.get('PS_SIGNATURE_INTERNAL_SECRET') ?? '';
+  // A presença normal usa o aceite explícito de cargo + PIX.
+  // O CPF permanece obrigatório somente para alteração de dados e registro de ausência.
+  if (action === 'absence') {
+    const identityLinkId = request.headers.get('x-ps-responsible-id') ?? '';
+    const identityCpf = request.headers.get('x-ps-responsible-cpf') ?? '';
 
-  if (!url || !serviceKey || !workerUrl || secret.length < 32)
-    return json({ error: 'configuration_unavailable' }, 503);
+    if (!/^[0-9a-f-]{36}$/i.test(identityLinkId))
+      return json({ error: 'invalid_identity_subject' }, 400);
 
-  const admin = createClient(url, serviceKey, {
-    auth: { persistSession: false },
-  });
+    const { data: identityVerified, error: identityError } = await admin.rpc(
+      'ps_public_verify_attendance_identity',
+      { p_link_id: identityLinkId, p_cpf: identityCpf }
+    );
 
-  // O UUID identifica o vínculo, mas não comprova a identidade.
-  // Presença exige CPF do fiscal.
-  // Ausência exige CPF do coordenador/subcoordenador responsável.
-  const responsibleIdHeader =
-    request.headers.get('x-ps-responsible-id') ?? '';
-
-  const identityLinkId =
-    action === 'absence'
-      ? responsibleIdHeader
-      : linkId;
-
-  const identityCpf =
-    action === 'absence'
-      ? request.headers.get('x-ps-responsible-cpf') ?? ''
-      : request.headers.get('x-ps-cpf') ?? '';
-
-  if (!/^[0-9a-f-]{36}$/i.test(identityLinkId)) {
-    return json({ error: 'invalid_identity_subject' }, 400);
-  }
-
-  const {
-    data: identityVerified,
-    error: identityError,
-  } = await admin.rpc(
-    'ps_public_verify_attendance_identity',
-    {
-      p_link_id: identityLinkId,
-      p_cpf: identityCpf,
-    }
-  );
-
-  if (identityError) {
-    if (
-      String(identityError.message || '')
-        .includes('identity_rate_limited')
-    ) {
-      return json(
-        { error: 'identity_rate_limited' },
-        429
-      );
+    if (identityError) {
+      if (String(identityError.message || '').includes('identity_rate_limited'))
+        return json({ error: 'identity_rate_limited' }, 429);
+      return json({ error: 'identity_verification_failed' }, 403);
     }
 
-    return json(
-      { error: 'identity_verification_failed' },
-      403
-    );
-  }
-
-  if (!identityVerified) {
-    return json(
-      { error: 'identity_not_verified' },
-      403
-    );
+    if (!identityVerified)
+      return json({ error: 'identity_not_verified' }, 403);
   }
 
   const upload = await fetch(
@@ -307,7 +322,7 @@ Deno.serve(async request => {
     await admin
       .from('ps_event_collaborators')
       .select(
-        'id,event_id,signed_at,attendance_pix_confirmed_at,ps_events!inner(hidden_from_evaluation)'
+        'id,event_id,signed_at,attendance_pix_confirmed_at,attendance_role_snapshot,attendance_pix_snapshot,role_value,role_name,assigned_role,pix,ps_events!inner(hidden_from_evaluation)'
       )
       .eq('id', linkId)
       .in('participation_status', [
@@ -324,11 +339,41 @@ Deno.serve(async request => {
   }
 
   if (!participant.attendance_pix_confirmed_at) {
-    await cleanup();
-    return json(
-      { error: 'attendance_details_not_confirmed' },
-      409
-    );
+    if (request.headers.get('x-ps-details-confirmed') !== 'true') {
+      await cleanup();
+      return json({ error: 'attendance_details_not_confirmed' }, 409);
+    }
+
+    const currentPix = String(
+      participant.attendance_pix_snapshot ?? participant.pix ?? ''
+    ).trim();
+
+    if (!currentPix) {
+      await cleanup();
+      return json({ error: 'attendance_pix_not_configured' }, 409);
+    }
+
+    const roleSnapshot =
+      participant.attendance_role_snapshot ??
+      participant.role_value ??
+      participant.assigned_role ??
+      participant.role_name ??
+      null;
+
+    const { error: detailsError } = await admin
+      .from('ps_event_collaborators')
+      .update({
+        attendance_role_snapshot: roleSnapshot,
+        attendance_pix_snapshot: currentPix,
+        attendance_pix_confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', participant.id)
+      .is('signed_at', null);
+
+    if (detailsError) {
+      await cleanup();
+      return json({ error: 'attendance_details_not_confirmed' }, 409);
+    }
   }
 
   const { error: persistError } = await admin.rpc(

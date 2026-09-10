@@ -67,9 +67,11 @@ test('tentativas incorretas possuem rate limit persistente', () => {
   );
 });
 
-test('assinatura normal envia CPF para verificação server-side', () => {
-  assert.match(edge, /x-ps-cpf/);
-  assert.match(storage, /x-ps-cpf/);
+test('assinatura normal usa aceite explícito sem exigir CPF', () => {
+  assert.match(edge, /x-ps-details-confirmed/);
+  assert.match(storage, /x-ps-details-confirmed/);
+  assert.match(edge, /action === 'details'/);
+  assert.match(page, /Confirmo que meu cargo e minha chave PIX estão corretos/);
 });
 
 test('ausência exige CPF do coordenador responsável', () => {
@@ -77,8 +79,9 @@ test('ausência exige CPF do coordenador responsável', () => {
   assert.match(storage, /x-ps-responsible-cpf/);
 });
 
-test('interface solicita CPF antes de liberar presença', () => {
-  assert.match(page, /Confirme seu CPF/);
+test('interface exige CPF somente quando o fiscal pede correção', () => {
+  assert.match(page, /Cargo ou PIX estão incorretos/);
+  assert.match(page, /O CPF é exigido somente nesta correção/);
   assert.match(page, /p_cpf:\s*attendanceCpfDigits/);
   assert.match(page, /CPF do responsável/);
 });
