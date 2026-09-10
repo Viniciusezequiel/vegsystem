@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const cors = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers':
-    'apikey, content-type, x-client-info, x-ps-link-id, x-ps-action, x-ps-details-confirmed, x-ps-responsible-id, x-ps-reason-b64, x-ps-responsible-cpf',
+    'apikey, content-type, x-client-info, x-ps-link-id, x-ps-action, x-ps-details-confirmed, x-ps-responsible-id, x-ps-reason-b64, x-ps-cpf, x-ps-responsible-cpf',
   'access-control-allow-methods': 'POST, OPTIONS',
   'cache-control': 'no-store',
 };
