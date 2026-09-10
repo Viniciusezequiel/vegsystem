@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CircleDollarSign, Download, Loader2, Pencil, Users } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePsEventCollaborators, usePsRoles } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { psAssignmentsTotal, buildLegacyAssignment } from '@/lib/psEventAssignments.mjs';
-import { generatePsPaymentsPdf } from '@/lib/psPaymentPdf';
+import { generatePsPaymentsPdfAsync } from '@/lib/psPaymentPdf';
 import { PsEventCollaboratorEditDialog } from './PsEventCollaboratorEditDialog';
 
 type Props = {
@@ -23,6 +24,7 @@ export function PsEventPaymentsPanel({ event }: Props) {
   const { data: links = [], isLoading: linksLoading } = usePsEventCollaborators(eventId);
   const { data: roles = [] } = usePsRoles();
   const [editLink, setEditLink] = useState<any>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const assignmentsQuery = useQuery({
     queryKey: ['ps_event_assignments', eventId],
@@ -60,27 +62,53 @@ export function PsEventPaymentsPanel({ event }: Props) {
   const forecastTotal = activeRows.reduce((sum, row) => sum + row.total, 0);
   const grandTotal = payableRows.reduce((sum, row) => sum + row.total, 0);
 
-  const exportPdf = () => {
-    const pdfRows = payableRows.map(row => ({
-      collaborator_name: row.link.collaborator_name,
-      unit: row.link.unit,
-      institution: row.link.institution,
-      campus: row.link.campus,
-      pix: row.link.pix,
-      assignments: row.assignments.map((item: any) => ({
-        role_name: item.role_name,
-        journey_key: item.journey_key,
-        work_schedule: item.work_schedule,
-        pay_value: Number(item.pay_value || 0),
-      })),
-    }));
-    const eventInfo = {
-      name: event.name || '',
-      date: event.date ? new Date(`${event.date}T00:00:00`).toLocaleDateString('pt-BR') : null,
-      location: event.location || null,
-    };
-    const slug = String(event.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    generatePsPaymentsPdf(eventInfo, pdfRows).save(`pagamentos-${slug || 'evento'}.pdf`);
+  const exportPdf = async () => {
+    if (!payableRows.length || exportingPdf) return;
+    setExportingPdf(true);
+
+    try {
+      const ids = payableRows.map(row => row.link.id);
+      const { data: signatureRows, error: signatureError } = await (supabase as any)
+        .from('ps_event_collaborators')
+        .select('id,signature_url')
+        .in('id', ids);
+      if (signatureError) throw signatureError;
+
+      const signatureMap = new Map<string, string | null>(
+        (signatureRows || []).map((item: any) => [item.id, item.signature_url || null]),
+      );
+
+      const pdfRows = payableRows.map(row => ({
+        collaborator_name: row.link.collaborator_name,
+        unit: row.link.unit,
+        institution: row.link.institution,
+        campus: row.link.campus,
+        floor: row.link.floor,
+        room: row.link.room,
+        pix: row.link.pix,
+        notes: row.link.notes,
+        signature_url: signatureMap.get(row.link.id) || null,
+        assignments: row.assignments.map((item: any) => ({
+          role_name: item.role_name,
+          journey_key: item.journey_key,
+          work_schedule: item.work_schedule,
+          pay_value: Number(item.pay_value || 0),
+        })),
+      }));
+
+      const eventInfo = {
+        name: event.name || '',
+        date: event.date ? new Date(`${event.date}T00:00:00`).toLocaleDateString('pt-BR') : null,
+        location: event.location || null,
+      };
+      const slug = String(event.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const pdf = await generatePsPaymentsPdfAsync(eventInfo, pdfRows);
+      pdf.save(`pagamentos-${slug || 'evento'}.pdf`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível gerar o PDF de pagamentos.');
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   if (linksLoading || assignmentsQuery.isLoading) {
@@ -99,9 +127,12 @@ export function PsEventPaymentsPanel({ event }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Pagamentos por colaborador</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Cada pessoa aparece uma única vez; os cargos e valores são discriminados individualmente.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Cada pessoa aparece uma única vez; os cargos, valores e assinatura de presença são levados para o PDF.</p>
         </div>
-        <Button onClick={exportPdf} disabled={!payableRows.length}><Download className="mr-2 h-4 w-4" />Gerar PDF de pagamentos</Button>
+        <Button onClick={() => void exportPdf()} disabled={!payableRows.length || exportingPdf}>
+          {exportingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+          {exportingPdf ? 'Gerando PDF...' : 'Gerar PDF de pagamentos'}
+        </Button>
       </div>
 
       <Card className="rounded-2xl">
