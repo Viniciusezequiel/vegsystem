@@ -67,11 +67,12 @@ test('tentativas incorretas possuem rate limit persistente', () => {
   );
 });
 
-test('assinatura normal usa aceite explícito sem exigir CPF', () => {
+test('assinatura normal mostra CPF para conferência sem exigir digitação', () => {
   assert.match(edge, /x-ps-details-confirmed/);
   assert.match(storage, /x-ps-details-confirmed/);
   assert.match(edge, /action === 'details'/);
-  assert.match(page, /Confirmo que meu cargo e minha chave PIX estão corretos/);
+  assert.match(page, /attendanceDetails\.cpf_masked/);
+  assert.match(page, /Confirmo que meu CPF, meu cargo e minha chave PIX correspondem ao meu cadastro/);
 });
 
 test('ausência exige CPF do coordenador responsável', () => {
