@@ -209,6 +209,7 @@ const moduleGroups: NavGroup[] = [
 const managementNav: NavItem[] = [
   { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
   { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
+  { name: 'Processo Seletivo 2', href: '/admin-module/processo-seletivo-v2', icon: GraduationCap, adminOnly: true },
   { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
   { name: 'Aprovações', href: '/external-users-approval', icon: Users, adminOnly: true },
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },

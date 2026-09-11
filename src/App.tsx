@@ -110,6 +110,9 @@ import PsPublicFiscalBank from "./pages/processo-seletivo/public/PsPublicFiscalB
 import PsPublicConfirmation from "./pages/processo-seletivo/public/PsPublicConfirmation";
 import PsEvaluatorPortal from "./pages/processo-seletivo/evaluator/PsEvaluatorPortal";
 
+// Processo Seletivo 2 (desenvolvimento paralelo)
+import PsV2Home from "./pages/processo-seletivo-v2/PsV2Home";
+import PsV2Locations from "./pages/processo-seletivo-v2/PsV2Locations";
 
 // PWA
 import Install from "./pages/Install";
@@ -438,6 +441,9 @@ const App = () => (
               <Route path="/admin-module/migracao" element={<ProtectedRoute requireAdmin><MigracaoBackend /></ProtectedRoute>} />
               <Route path="/admin-module/system-health" element={<ProtectedRoute requireAdmin><SystemHealth /></ProtectedRoute>} />
 
+              {/* Processo Seletivo 2 - desenvolvimento paralelo */}
+              <Route path="/admin-module/processo-seletivo-v2" element={<ProtectedRoute requireAdmin><PsV2Home /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo-v2/locais" element={<ProtectedRoute requireAdmin><PsV2Locations /></ProtectedRoute>} />
 
               {/* Processo Seletivo */}
               <Route path="/admin-module/processo-seletivo" element={<ProtectedRoute requireAdmin><PsHome /></ProtectedRoute>} />
