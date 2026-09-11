@@ -110,7 +110,7 @@ export default function PsCollaborators() {
 
   const filtered = ranked.filter((c: any) => {
     const matchesStatus = activeFilter === 'all' || (activeFilter === 'active' ? c.active : !c.active);
-    return matchesStatus && [c.full_name, c.matricula, c.email, c.institution, c.sector]
+    return matchesStatus && [c.full_name, c.cpf, c.matricula, c.email, c.institution, c.sector]
       .filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase());
   });
 
@@ -360,7 +360,7 @@ export default function PsCollaborators() {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-9"
-                  placeholder="Buscar por nome, e-mail, matrícula ou instituição..."
+                  placeholder="Buscar por nome, CPF, e-mail, matrícula ou instituição..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -404,6 +404,7 @@ export default function PsCollaborators() {
                         </div>
                         <p className="mt-1 truncate text-xs text-muted-foreground">
                           {[
+                            c.cpf ? `CPF ${formatFiscalCpf(c.cpf)}` : 'CPF não informado',
                             `${c.participation_count} atuações`,
                             `${c.evaluations_count} avaliações`,
                             c.sector,
@@ -580,11 +581,11 @@ export default function PsCollaborators() {
 
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Amostra da importação</p>
-                        <div className="max-h-56 divide-y divide-border/50 overflow-y-auto rounded-xl border border-border/60">
+                  <div className="max-h-56 divide-y divide-border/50 overflow-y-auto rounded-xl border border-border/60">
                     {(fiscalImportPreview.rowsPreview || []).map((row: any, idx: number) => (
                       <div key={`${row.full_name}-${idx}`} className="p-3 text-sm">
                         <p className="font-medium">{row.full_name}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{row.email || 'sem e-mail'} · {row.institution || 'sem instituição'} · {row.role || 'sem cargo'}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{row.cpf ? `CPF ${formatFiscalCpf(row.cpf)} · ` : 'sem CPF · '}{row.email || 'sem e-mail'} · {row.institution || 'sem instituição'} · {row.role || 'sem cargo'}</p>
                         {row.notes && <p className="mt-1 text-xs text-warning">Nota: {row.notes}</p>}
                       </div>
                     ))}
