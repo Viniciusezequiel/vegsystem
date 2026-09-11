@@ -7,7 +7,22 @@ export function normalizeCollaboratorSnapshotValue(value) {
   return value ?? null;
 }
 
-export function buildManualEventCollaboratorRow({ eventId, collaboratorId, collaborator, roleValue, roleName, payValue, campus }) {
+export function buildManualEventCollaboratorRow({
+  eventId,
+  collaboratorId,
+  collaborator,
+  roleValue,
+  roleName,
+  payValue,
+  campus,
+  locationAddress,
+  building,
+  floor,
+  room,
+  locationId,
+  buildingId,
+  roomId,
+}) {
   const source = collaborator || {};
 
   return {
@@ -18,6 +33,13 @@ export function buildManualEventCollaboratorRow({ eventId, collaboratorId, colla
     role_name: roleName ?? null,
     pay_value: payValue ?? 0,
     campus: normalizeCollaboratorSnapshotValue(campus),
+    location_address: normalizeCollaboratorSnapshotValue(locationAddress),
+    building: normalizeCollaboratorSnapshotValue(building),
+    floor: normalizeCollaboratorSnapshotValue(floor),
+    room: normalizeCollaboratorSnapshotValue(room),
+    location_id: locationId ?? null,
+    building_id: buildingId ?? null,
+    room_id: roomId ?? null,
     sector: normalizeCollaboratorSnapshotValue(source.sector),
     institution: normalizeCollaboratorSnapshotValue(source.institution),
     cpf: normalizeCollaboratorSnapshotValue(source.cpf),
