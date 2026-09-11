@@ -60,7 +60,7 @@ Deno.serve(async request => {
   if (action === 'details') {
     const { data: participant, error: participantError } = await admin
       .from('ps_event_collaborators')
-      .select('id,role_value,role_name,assigned_role,pix,attendance_role_snapshot,attendance_pix_snapshot,attendance_pix_confirmed_at,ps_events!inner(hidden_from_evaluation)')
+      .select('id,collaborator_id,cpf,role_value,role_name,assigned_role,pix,attendance_role_snapshot,attendance_pix_snapshot,attendance_pix_confirmed_at,ps_events!inner(hidden_from_evaluation)')
       .eq('id', linkId)
       .in('participation_status', ['pending_confirmation', 'confirmed'])
       .is('signed_at', null)
@@ -91,12 +91,28 @@ Deno.serve(async request => {
       if (role?.name) roleName = role.name;
     }
 
+    let canonicalCpf = participant.cpf ?? null;
+    if (participant.collaborator_id) {
+      const { data: collaborator } = await admin
+        .from('ps_collaborators')
+        .select('cpf')
+        .eq('id', participant.collaborator_id)
+        .maybeSingle();
+      canonicalCpf = collaborator?.cpf ?? canonicalCpf;
+    }
+
+    const cpfDigits = String(canonicalCpf ?? '').replace(/\D/g, '');
+    const cpfMasked = cpfDigits.length === 11
+      ? `***.***.${cpfDigits.slice(6, 9)}-${cpfDigits.slice(9)}`
+      : null;
+
     const pix = participant.attendance_pix_snapshot ?? participant.pix ?? null;
 
     return json({
       event_collaborator_id: participant.id,
       role_value: roleValue,
       role_name: roleName,
+      cpf_masked: cpfMasked,
       pix,
       pix_configured: Boolean(String(pix ?? '').trim()),
       details_confirmed: Boolean(participant.attendance_pix_confirmed_at),

@@ -123,6 +123,7 @@ export type PublicProcessSelectionAttendanceDetails = {
   event_collaborator_id: string;
   role_value: string | null;
   role_name: string;
+  cpf_masked: string | null;
   pix: string | null;
   pix_configured: boolean;
   details_confirmed: boolean;
