@@ -7,7 +7,7 @@ import { selectJobsForProcessing } from '../_shared/testModeBatch.ts';
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info','Content-Type':'application/json'};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const allowedTypes=new Set(['confirmation_request','event_message']);
-const PS_VARIABLE_KEYS=['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'];
+const PS_VARIABLE_KEYS=['nome','evento','cargo','unidade','campus','endereco','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'];
 const render=(template:string,values:Record<string,string>)=>PS_VARIABLE_KEYS.reduce((text,key)=>text.replaceAll(`{{${key}}}`,values[key]||''),template);
 const formatDateBR=(value?:string|null)=>{const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return match?`${match[3]}/${match[2]}/${match[1]}`:'';};
 const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -92,7 +92,7 @@ serve(async req=>{
     const eligibleJobs:{job:any;link:any;logical:string}[]=[];
     for(const job of processingJobs){
       if(!['pending','waiting_provider_quota','failed','failed_missing_recipient'].includes(job.status)){result.details.push({id:job.id,status:job.status});continue;}
-      const {data:link}=await admin.from('ps_event_collaborators').select('id,event_id,collaborator_name,email,role_name,assigned_role,unit,campus,institution,sector,building,floor,room,work_schedule,participation_status').eq('id',job.event_collaborator_id).eq('event_id',eventId).maybeSingle();
+      const {data:link}=await admin.from('ps_event_collaborators').select('id,event_id,collaborator_name,email,role_name,assigned_role,unit,campus,location_address,institution,sector,building,floor,room,work_schedule,participation_status').eq('id',job.event_collaborator_id).eq('event_id',eventId).maybeSingle();
       if(!link){result.failed++;result.details.push({id:job.id,status:'failed'});continue;}
 
       if(
@@ -167,10 +167,10 @@ serve(async req=>{
           version=prepared[0].token_version; confirmationUrl=`https://www.vegsystem.site/ps/confirmacao/${eventId}/${prepared[0].token}`;
           const {error:updateVersionError}=await admin.from('ps_event_communications').update({confirmation_token_version:version}).eq('id',job.id); if(updateVersionError) throw updateVersionError;
         }
-        const values={nome:link.collaborator_name,evento:event.name,cargo:link.role_name||link.assigned_role||'',unidade:link.unit||'',campus:link.campus||'',instituicao:link.institution||'',setor:link.sector||'',predio:link.building||'',andar:link.floor||'',sala:link.room||'',horario:link.work_schedule||'',data_evento:formatDateBR(event.date),local_evento:event.location||'',descricao_evento:event.description||'',coordenador_evento:event.coordinator_name||'',link_confirmacao:confirmationUrl};
+        const values={nome:link.collaborator_name,evento:event.name,cargo:link.role_name||link.assigned_role||'',unidade:link.unit||'',campus:link.campus||'',endereco:link.location_address||'',instituicao:link.institution||'',setor:link.sector||'',predio:link.building||'',andar:link.floor||'',sala:link.room||'',horario:link.work_schedule||'',data_evento:formatDateBR(event.date),local_evento:event.location||'',descricao_evento:event.description||'',coordenador_evento:event.coordinator_name||'',link_confirmacao:confirmationUrl};
         const text=render(job.body_template,values);
         const renderedSubject=render(job.subject,values);
-        const infoFields={evento:values.evento,data_evento:values.data_evento,cargo:values.cargo,campus:values.campus,unidade:values.unidade,predio:values.predio,andar:values.andar,sala:values.sala,horario:values.horario};
+        const infoFields={evento:values.evento,data_evento:values.data_evento,cargo:values.cargo,campus:values.campus,endereco:values.endereco,unidade:values.unidade,predio:values.predio,andar:values.andar,sala:values.sala,horario:values.horario};
         const html=job.communication_type==='confirmation_request'
           ? renderConfirmationEmailHtml(text,infoFields,confirmationUrl)
           : renderEventMessageEmailHtml(text,infoFields);
