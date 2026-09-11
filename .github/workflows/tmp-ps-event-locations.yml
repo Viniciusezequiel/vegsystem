@@ -28,6 +28,50 @@ jobs:
           sed -i 's/text.slice(b));/text.slice(b + end.length));/' scripts/patch-ps-event-locations.mjs
       - name: Apply integration patch
         run: node scripts/patch-ps-event-locations.mjs
+      - name: Align regression tests with structured location flow
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          function edit(path, from, to) {
+            let text = fs.readFileSync(path, 'utf8');
+            if (!text.includes(from)) throw new Error(`Pattern not found: ${path}`);
+            fs.writeFileSync(path, text.replace(from, to));
+          }
+
+          edit(
+            'tests/unit/operational-quick-fixes.test.mjs',
+            "const eventDetailSource = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');",
+            "const eventDetailSource = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');\nconst manualFiscalLinkSource = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsManualFiscalLinkDialog.tsx', import.meta.url), 'utf8');"
+          );
+          edit(
+            'tests/unit/operational-quick-fixes.test.mjs',
+            `test('vinculação manual exige PIX preenchido antes de salvar', () => {\n  assert.match(eventDetailSource, /if \\(!selected\\.length \\|\\| !roleValue \\|\\| !campusValue\\.trim\\(\\)\\)/);\n  assert.doesNotMatch(eventDetailSource, /pix\\s*\\|\\|\\s*'Sem PIX'/i);\n  assert.match(eventDetailSource, /preparePixPlan/);\n  assert.match(eventDetailSource, /buildManualEventCollaboratorRow\\([\\s\\S]*pix/i);\n});`,
+            `test('vinculação manual exige localização estruturada e PIX preenchido antes de salvar', () => {\n  assert.match(manualFiscalLinkSource, /if \\(!selected\\.length \\|\\| !roleValue \\|\\| !location \\|\\| !building \\|\\| !room\\) return;/);\n  assert.match(manualFiscalLinkSource, /missingPix/);\n  assert.match(manualFiscalLinkSource, /preparePixPlan/);\n  assert.match(manualFiscalLinkSource, /persistPixPlan/);\n  assert.match(manualFiscalLinkSource, /buildManualEventCollaboratorRow\\([\\s\\S]*locationId[\\s\\S]*roomId/);\n});`
+          );
+
+          edit(
+            'tests/unit/ps-manual-link-fiscal-data.test.mjs',
+            `test('modal manual do fiscal usa campus obrigatório e mantém responsividade multilinha', () => {\n  const source = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');\n  assert.match(source, /campusValue/i);\n  assert.match(source, /Campus do evento/i);\n  assert.match(source, /whitespace-normal/i);\n  assert.match(source, /overflow-hidden/i);\n  assert.match(source, /min-w-0/i);\n  assert.doesNotMatch(source, /editLink\\.unit/i);\n  assert.doesNotMatch(source, /className=\"w-full justify-start\"/i);\n});`,
+            `test('modal manual do fiscal usa localização estruturada obrigatória e mantém responsividade multilinha', () => {\n  const source = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsManualFiscalLinkDialog.tsx', import.meta.url), 'utf8');\n  assert.match(source, /Local \\/ Campus/);\n  assert.match(source, /Prédio/);\n  assert.match(source, /Andar/);\n  assert.match(source, /Sala \\/ ambiente/);\n  assert.match(source, /whitespace-normal/i);\n  assert.match(source, /min-w-0/i);\n  assert.match(source, /sm:grid-cols-2/i);\n  assert.match(source, /locationId/);\n  assert.match(source, /buildingId/);\n  assert.match(source, /roomId/);\n});`
+          );
+
+          edit(
+            'tests/unit/ps-event-communications.test.mjs',
+            "test('edge function busca os novos campos de ps_events/ps_event_collaborators e expõe as 16 variáveis novas',()=>{\n  assert.match(edge,/PS_VARIABLE_KEYS=\\['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'\\]/);\n  assert.match(edge,/from\\('ps_events'\\)\\.select\\('id,name,date,location,description,coordinator_name'\\)/);\n  assert.match(edge,/select\\('id,event_id,collaborator_name,email,role_name,assigned_role,unit,campus,institution,sector,building,floor,room,work_schedule,participation_status'\\)/);",
+            "test('edge function busca os campos de localização e expõe endereço entre as 17 variáveis',()=>{\n  assert.match(edge,/PS_VARIABLE_KEYS=\\['nome','evento','cargo','unidade','campus','endereco','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'\\]/);\n  assert.match(edge,/from\\('ps_events'\\)\\.select\\('id,name,date,location,description,coordinator_name'\\)/);\n  assert.match(edge,/select\\('id,event_id,collaborator_name,email,role_name,assigned_role,unit,campus,location_address,institution,sector,building,floor,room,work_schedule,participation_status'\\)/);"
+          );
+
+          edit(
+            'tests/unit/ps-event-locations.test.mjs',
+            "const locationsTab = read('src/components/processo-seletivo/PsEventLocationsTab.tsx');",
+            "const locationsTab = read('src/components/processo-seletivo/PsEventLocationsTab.tsx');\nconst locationHook = read('src/hooks/usePsEventLocations.ts');"
+          );
+          edit(
+            'tests/unit/ps-event-locations.test.mjs',
+            "  assert.match(locationsTab, /ps_admin_import_event_locations/);",
+            "  assert.match(locationHook, /ps_admin_import_event_locations/);"
+          );
+          NODE
       - name: TypeScript
         run: npm run typecheck
       - name: Unit tests
