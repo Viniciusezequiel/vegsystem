@@ -25,6 +25,9 @@ export function buildManualEventCollaboratorRow({
   roomId,
 }) {
   const source = collaborator || {};
+  const normalizedCapacity = roomCapacity === null || roomCapacity === undefined || roomCapacity === ''
+    ? null
+    : Number(roomCapacity);
 
   return {
     event_id: eventId,
@@ -38,7 +41,7 @@ export function buildManualEventCollaboratorRow({
     building: normalizeCollaboratorSnapshotValue(building),
     floor: normalizeCollaboratorSnapshotValue(floor),
     room: normalizeCollaboratorSnapshotValue(room),
-    room_capacity: Number.isFinite(Number(roomCapacity)) ? Number(roomCapacity) : null,
+    room_capacity: Number.isFinite(normalizedCapacity) ? normalizedCapacity : null,
     location_id: locationId ?? null,
     building_id: buildingId ?? null,
     room_id: roomId ?? null,
