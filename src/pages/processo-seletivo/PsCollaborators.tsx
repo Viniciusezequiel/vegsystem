@@ -55,6 +55,12 @@ const empty = {
   preferred_role: '', notes: '', active: true,
 };
 
+function formatFiscalCpf(value: string | null | undefined) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (digits.length !== 11) return 'Não informado';
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
 export default function PsCollaborators() {
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: roles = [] } = usePsRoles();
@@ -645,6 +651,7 @@ export default function PsCollaborators() {
                   <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Cadastro</p>
                   <p className="mt-2 text-base font-semibold">{profileFiscal.full_name}</p>
                   <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                    <span><strong className="font-medium text-foreground">CPF:</strong> {formatFiscalCpf(profileFiscal.cpf)}</span>
                     <span>{profileFiscal.email || 'Sem e-mail'}</span>
                     <span>{profileFiscal.institution || 'Sem instituição'}</span>
                     <span>{profileFiscal.sector || 'Sem setor'}</span>
