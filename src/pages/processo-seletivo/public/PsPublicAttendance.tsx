@@ -368,7 +368,7 @@ export default function PsPublicAttendance() {
       return;
     }
     if (!detailsAccepted && !attendanceDetails?.details_confirmed) {
-      toast.error('Confirme que o cargo e o PIX estão corretos antes de assinar.');
+      toast.error('Confirme que o CPF, o cargo e o PIX estão corretos antes de assinar.');
       return;
     }
 
@@ -591,7 +591,7 @@ export default function PsPublicAttendance() {
                 <div>
                   <p className="font-semibold">Confira seus dados</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Confira o cargo e a chave PIX antes de registrar a presença.
+                    Confira o CPF, o cargo e a chave PIX antes de registrar a presença.
                   </p>
                 </div>
 
@@ -607,7 +607,11 @@ export default function PsPublicAttendance() {
 
                 {!attendanceDetailsLoading && attendanceDetails && (
                   <>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border bg-background p-3">
+                        <p className="text-xs uppercase text-muted-foreground">CPF</p>
+                        <p className="mt-1 font-semibold tabular-nums">{attendanceDetails.cpf_masked || 'Não informado'}</p>
+                      </div>
                       <div className="rounded-xl border bg-background p-3">
                         <p className="text-xs uppercase text-muted-foreground">Cargo / função</p>
                         <p className="mt-1 font-semibold">{attendanceDetails.role_name || 'Não informado'}</p>
@@ -634,7 +638,7 @@ export default function PsPublicAttendance() {
                             className="mt-0.5"
                           />
                           <span className="text-sm leading-relaxed">
-                            <strong>Confirmo que meu cargo e minha chave PIX estão corretos.</strong>
+                            <strong>Confirmo que meu CPF, meu cargo e minha chave PIX correspondem ao meu cadastro.</strong>
                             <span className="mt-1 block text-xs text-muted-foreground">Ao confirmar, a assinatura será vinculada a essas informações.</span>
                           </span>
                         </label>
