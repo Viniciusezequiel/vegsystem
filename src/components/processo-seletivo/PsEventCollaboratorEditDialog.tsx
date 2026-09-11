@@ -14,6 +14,7 @@ import { normalizePix } from '@/lib/psPixPlan';
 import {
   PS_JOURNEY_OPTIONS,
   buildLegacyAssignment,
+  hydratePsAssignmentSnapshot,
   psAssignmentsTotal,
   resolvePsRoleRate,
 } from '@/lib/psEventAssignments.mjs';
@@ -70,7 +71,9 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
   useEffect(() => {
     if (!open || !link || assignmentQuery.isLoading) return;
     if (assignmentQuery.data?.length) {
-      setAssignments(assignmentQuery.data.map((item: any) => ({ ...item, pay_value: Number(item.pay_value || 0) })));
+      setAssignments(
+        assignmentQuery.data.map((item: any) => hydratePsAssignmentSnapshot(item, link, roles))
+      );
       return;
     }
     const legacy = buildLegacyAssignment(link, roles);
@@ -79,6 +82,7 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
 
   const activeRoles = useMemo(() => roles.filter((role: any) => role.active !== false), [roles]);
   const total = psAssignmentsTotal(assignments);
+  const hasMultipleAssignments = assignments.length > 1;
 
   const patchAssignment = (index: number, patch: Partial<AssignmentDraft>) => {
     setAssignments(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
@@ -151,7 +155,7 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
         work_schedule: item.work_schedule || null,
         pay_value: Number(item.pay_value || 0),
         is_primary: index === 0,
-        source: item.source === 'import' ? 'import' : 'manual',
+        source: ['import', 'legacy', 'attendance_adjustment'].includes(item.source || '') ? item.source : 'manual',
         notes: item.notes || null,
       }));
 
@@ -218,9 +222,13 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
                 <div>
                   <div className="flex items-center gap-2">
                     <CircleDollarSign className="h-4 w-4 text-primary" />
-                    <h3 className="font-semibold">Cargos e pagamentos neste evento</h3>
+                    <h3 className="font-semibold">Cargo e pagamento neste evento</h3>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">O primeiro cargo é considerado principal para compatibilidade com os fluxos atuais.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {hasMultipleAssignments
+                      ? 'O primeiro cargo é considerado principal. Os demais são funções adicionais exercidas no mesmo evento.'
+                      : 'Os dados abaixo refletem o cargo e a jornada vinculados ao fiscal neste evento.'}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total a receber</p>
@@ -231,17 +239,17 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
               <div className="mt-4 space-y-3">
                 {assignments.map((assignment, index) => (
                   <div key={assignment.id || `new-${index}`} className="rounded-xl border border-border/60 bg-background/50 p-3">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">Cargo {index + 1}</p>
-                        {index === 0 && <Badge variant="secondary">Principal</Badge>}
-                      </div>
-                      {assignments.length > 1 && (
+                    {hasMultipleAssignments && (
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">Cargo {index + 1}</p>
+                          {index === 0 && <Badge variant="secondary">Principal</Badge>}
+                        </div>
                         <Button type="button" size="icon" variant="ghost" onClick={() => removeAssignment(index)} aria-label="Remover cargo">
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     <div className="grid gap-3 md:grid-cols-[1.45fr_.65fr_.75fr]">
                       <div className="space-y-1.5">

@@ -10,9 +10,41 @@ export const PS_JOURNEY_OPTIONS = Object.freeze([
 export function normalizePsJourneyKey(value) {
   const raw = String(value ?? '').trim().toLowerCase();
   if (!raw) return null;
-  if (['integral', 'horario integral', 'horário integral', 'dia inteiro'].includes(raw)) return 'integral';
-  const match = raw.match(/\b(4|6|7|8|9)\s*h(?:oras?)?\b/);
+  if (/\b(?:horario|horário)?\s*integral\b/.test(raw)) return 'integral';
+  const match = raw.match(/\b0?(4|6|7|8|9)\s*h(?:oras?)?\b/);
   return match ? `${match[1]}h` : null;
+}
+
+export function stripPsJourneyFromRoleLabel(value) {
+  return String(value ?? '')
+    .replace(/\s*[\[(]\s*0?(4|6|7|8|9)\s*h(?:oras?)?\s*[\])]\s*$/i, '')
+    .replace(/\s*[-–—]\s*0?(4|6|7|8|9)\s*h(?:oras?)?\s*$/i, '')
+    .replace(/\s+0?(4|6|7|8|9)\s*h(?:oras?)?\s*$/i, '')
+    .replace(/\s*[-–—]?\s*(?:horário|horario)?\s*integral\s*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeRoleLookup(value) {
+  return stripPsJourneyFromRoleLabel(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function findRoleForSnapshot(snapshot, roles = []) {
+  if (!snapshot) return null;
+  const byValue = roles.find(item => item.value === snapshot.role_value);
+  if (byValue) return byValue;
+
+  const candidates = [snapshot.role_name, snapshot.assigned_role, snapshot.role]
+    .map(normalizeRoleLookup)
+    .filter(Boolean);
+
+  return roles.find(item => candidates.includes(normalizeRoleLookup(item.name))) || null;
 }
 
 export function resolvePsRoleRate(role, journeyKey, special = false) {
@@ -29,10 +61,11 @@ export function inferPsJourneyFromPay(role, payValue) {
   const pay = Number(payValue);
   if (!role || !Number.isFinite(pay)) return null;
   const matches = PS_JOURNEY_OPTIONS.filter(option => {
-    const rate = resolvePsRoleRate(role, option.key);
-    return rate !== null && Math.abs(rate - pay) < 0.005;
+    const standardRate = resolvePsRoleRate(role, option.key);
+    const specialRate = resolvePsRoleRate(role, option.key, true);
+    return (standardRate !== null && Math.abs(standardRate - pay) < 0.005)
+      || (specialRate !== null && Math.abs(specialRate - pay) < 0.005);
   });
-  // Prefer 8h when legacy pay_value equals the default and more than one band shares a value.
   if (matches.some(option => option.key === '8h')) return '8h';
   return matches[0]?.key ?? null;
 }
@@ -58,16 +91,49 @@ export function psAssignmentDisplayLine(assignment) {
 
 export function buildLegacyAssignment(link, roles = []) {
   if (!link) return null;
-  const role = roles.find(item => item.value === link.role_value)
-    || roles.find(item => String(item.name || '').trim().toLocaleLowerCase('pt-BR') === String(link.role_name || link.assigned_role || '').trim().toLocaleLowerCase('pt-BR'));
-  const payValue = Number(link.pay_value || 0);
+  const role = findRoleForSnapshot(link, roles);
+  const payValue = Number(link.pay_value ?? 0);
+  const rawRoleLabel = link.role_name || link.assigned_role || link.role || '';
+  const roleName = role?.name || stripPsJourneyFromRoleLabel(rawRoleLabel) || 'Função não informada';
+  const journey = normalizePsJourneyKey(link.journey_key)
+    || normalizePsJourneyKey(rawRoleLabel)
+    || normalizePsJourneyKey(link.assigned_role)
+    || inferPsJourneyFromPay(role, payValue);
+
   return {
-    role_value: link.role_value || role?.value || null,
-    role_name: link.role_name || link.assigned_role || role?.name || 'Função não informada',
-    journey_key: inferPsJourneyFromPay(role, payValue),
+    role_value: role?.value || link.role_value || null,
+    role_name: roleName,
+    journey_key: journey,
     work_schedule: link.work_schedule || null,
     pay_value: payValue,
-    is_primary: true,
-    source: 'legacy',
+    is_primary: link.is_primary ?? true,
+    source: link.source || 'legacy',
+  };
+}
+
+export function hydratePsAssignmentSnapshot(assignment, link, roles = []) {
+  const merged = {
+    ...(link || {}),
+    ...(assignment || {}),
+    role_value: assignment?.role_value || link?.role_value || null,
+    role_name: assignment?.role_name || link?.role_name || null,
+    assigned_role: assignment?.assigned_role || link?.assigned_role || null,
+    journey_key: assignment?.journey_key || null,
+    work_schedule: assignment?.work_schedule ?? link?.work_schedule ?? null,
+    pay_value: assignment?.pay_value ?? link?.pay_value ?? 0,
+    is_primary: assignment?.is_primary ?? true,
+    source: assignment?.source || link?.source || 'legacy',
+  };
+  const compatible = buildLegacyAssignment(merged, roles);
+
+  return {
+    ...(assignment || {}),
+    role_value: compatible?.role_value || merged.role_value || null,
+    role_name: compatible?.role_name || merged.role_name || merged.assigned_role || 'Função não informada',
+    journey_key: normalizePsJourneyKey(assignment?.journey_key) || compatible?.journey_key || null,
+    work_schedule: merged.work_schedule,
+    pay_value: Number(merged.pay_value ?? 0),
+    is_primary: merged.is_primary,
+    source: merged.source,
   };
 }
