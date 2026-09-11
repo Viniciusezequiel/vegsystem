@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CalendarDays, MapPin, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, CalendarDays, MapPin, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 
 import { ContentState } from '@/components/layout/ContentState';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -42,6 +42,27 @@ export default function PsEvents() {
       .includes(search.toLowerCase())
   );
 
+  const openCreate = () => {
+    setForm(emptyForm);
+    setOpen(true);
+  };
+
+  const openEdit = (event: any) => {
+    setForm({
+      id: event.id,
+      name: event.name || '',
+      date: event.date || '',
+      location: event.location || '',
+      description: event.description || '',
+      status: event.status || 'planejamento',
+      coordinator_name: event.coordinator_name || '',
+      notes: event.notes || '',
+      self_evaluation_enabled: !!event.self_evaluation_enabled,
+      hidden_from_evaluation: !!event.hidden_from_evaluation,
+    });
+    setOpen(true);
+  };
+
   const submit = async () => {
     if (!form.name || !form.date) return;
     await save.mutateAsync(form);
@@ -55,7 +76,7 @@ export default function PsEvents() {
         title="Eventos"
         description="Cadastre e acompanhe os processos seletivos, datas, locais e responsáveis."
         actions={
-          <Button size="sm" onClick={() => setOpen(true)}>
+          <Button size="sm" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Novo evento
           </Button>
@@ -85,7 +106,7 @@ export default function PsEvents() {
           icon={CalendarDays}
           title="Nenhum evento encontrado"
           description={search ? 'Tente ajustar a busca para encontrar outros eventos.' : 'Crie o primeiro evento para começar a organizar o processo seletivo.'}
-          action={!search ? <Button size="sm" onClick={() => setOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo evento</Button> : undefined}
+          action={!search ? <Button size="sm" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Novo evento</Button> : undefined}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -125,6 +146,15 @@ export default function PsEvents() {
                   <Button
                     size="icon"
                     variant="outline"
+                    className="h-9 w-9"
+                    onClick={() => openEdit(event)}
+                    aria-label={`Editar ${event.name}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
                     className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => {
                       if (confirm('Excluir evento?')) remove.mutate(event.id);
@@ -142,7 +172,7 @@ export default function PsEvents() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg" onInteractOutside={event => event.preventDefault()}>
-          <DialogHeader><DialogTitle>Novo evento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{form.id ? 'Editar evento' : 'Novo evento'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Nome *</Label>
@@ -181,7 +211,7 @@ export default function PsEvents() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button onClick={() => void submit()} disabled={save.isPending || !form.name || !form.date}>
-              {save.isPending ? 'Salvando...' : 'Salvar evento'}
+              {save.isPending ? 'Salvando...' : form.id ? 'Salvar alterações' : 'Salvar evento'}
             </Button>
           </DialogFooter>
         </DialogContent>
