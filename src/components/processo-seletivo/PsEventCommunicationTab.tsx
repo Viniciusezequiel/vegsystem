@@ -17,7 +17,7 @@ import {
 const statusLabel:Record<string,string>={pending:'Pendente',waiting_provider_quota:'Aguardando cota diária',processing:'Processando',sent:'Enviado',failed:'Falhou',failed_missing_recipient:'Sem e-mail',cancelled:'Cancelado'};
 const VARIABLE_CHIPS:{label:string;token:string;confirmationOnly?:boolean}[]=[
   {label:'Nome',token:'nome'},{label:'Evento',token:'evento'},{label:'Data',token:'data_evento'},{label:'Cargo',token:'cargo'},
-  {label:'Campus',token:'campus'},{label:'Unidade',token:'unidade'},{label:'Prédio',token:'predio'},{label:'Andar',token:'andar'},
+  {label:'Campus',token:'campus'},{label:'Endereço',token:'endereco'},{label:'Unidade',token:'unidade'},{label:'Prédio',token:'predio'},{label:'Andar',token:'andar'},
   {label:'Sala',token:'sala'},{label:'Horário',token:'horario'},{label:'Link de confirmação',token:'link_confirmacao',confirmationOnly:true},
 ];
 
@@ -37,7 +37,7 @@ export function PsEventCommunicationTab({ event, links }: { event:any; links:any
   const previewLink=links.find(link=>selected.includes(link.id));
   const previewValues={
     nome:previewLink?.collaborator_name,evento:event?.name,cargo:previewLink?.role_name||previewLink?.assigned_role,
-    campus:previewLink?.campus,unidade:previewLink?.unit,instituicao:previewLink?.institution,setor:previewLink?.sector,
+    campus:previewLink?.campus,endereco:previewLink?.location_address,unidade:previewLink?.unit,instituicao:previewLink?.institution,setor:previewLink?.sector,
     predio:previewLink?.building,andar:previewLink?.floor,sala:previewLink?.room,horario:previewLink?.work_schedule,
     data_evento:formatPsEventDateBR(event?.date),local_evento:event?.location,descricao_evento:event?.description,
     coordenador_evento:event?.coordinator_name,link_confirmacao:'https://www.vegsystem.site/ps/confirmacao/…',

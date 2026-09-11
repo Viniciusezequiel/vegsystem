@@ -1,4 +1,3 @@
-import { normalizePix, preparePixPlan, persistPixPlan } from '@/lib/psPixPlan';
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +16,9 @@ import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/
 import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventTeamImportDialog';
 import { PsEventCommunicationTab } from '@/components/processo-seletivo/PsEventCommunicationTab';
 import { PsEventCollaboratorEditDialog } from '@/components/processo-seletivo/PsEventCollaboratorEditDialog';
+import { PsEventLocationsTab } from '@/components/processo-seletivo/PsEventLocationsTab';
+import { PsManualFiscalLinkDialog } from '@/components/processo-seletivo/PsManualFiscalLinkDialog';
+import { PsEventEditDialog } from '@/components/processo-seletivo/PsEventEditDialog';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
@@ -36,7 +38,6 @@ import {
   uploadSignatureValue,
   cleanupUploadedSignatureIfUnreferenced,
 } from '@/lib/signatureStorage';
-import { buildManualEventCollaboratorRow } from '@/lib/psManualEventCollaboratorSnapshot.mjs';
 
 export default function PsEventDetail() {
   const { id } = useParams();
@@ -44,7 +45,7 @@ export default function PsEventDetail() {
   const { data: event } = usePsEvent(id);
   const { finalize, save } = usePsEventMutations();
   const { data: links = [] } = usePsEventCollaborators(id);
-  const { add, update, updateState, remove } = usePsEventCollaboratorMutations(id);
+  const { update, updateState, remove } = usePsEventCollaboratorMutations(id);
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: roles = [] } = usePsRoles();
   const { data: evaluations = [] } = usePsEvaluations(id);
@@ -60,11 +61,7 @@ export default function PsEventDetail() {
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editLink, setEditLink] = useState<any>(null);
-  const [searchFiscal, setSearchFiscal] = useState('');
-  const [selected, setSelected] = useState<string[]>([]);
-  const [roleValue, setRoleValue] = useState('');
-  const [campusValue, setCampusValue] = useState('');
-  const [pixOverrideById, setPixOverrideById] = useState<Record<string, string>>({});
+  const [editEventOpen, setEditEventOpen] = useState(false);
   const [evalTarget, setEvalTarget] = useState<any>(null);
   const [criteria, setCriteria] = useState(emptyCriteria());
   const [comments, setComments] = useState('');
@@ -450,59 +447,6 @@ export default function PsEventDetail() {
   };
 
   const totalCost = links.filter((l: any) => !l.absent).reduce((acc: number, l: any) => acc + rolePay(l.role_value), 0);
-  const visibleCollaborators = useMemo(() => {
-    const q = searchFiscal.trim().toLowerCase();
-    return collaborators
-      .filter((c: any) => c.active && !links.some((l: any) => l.collaborator_id === c.id))
-      .filter((c: any) => !q || [c.full_name, c.email, c.matricula, c.institution, c.unit, c.role].filter(Boolean).join(' ').toLowerCase().includes(q));
-  }, [collaborators, links, searchFiscal]);
-
-  const linkFiscals = async () => {
-    if (!selected.length || !roleValue || !campusValue.trim()) return;
-
-    const selectedCollaborators = selected
-      .map((cid) => collaborators.find((x: any) => x.id === cid))
-      .filter(Boolean) as any[];
-
-    if (selectedCollaborators.length !== selected.length) {
-      toast.error('Seleção de fiscais desatualizada. Selecione novamente.');
-      return;
-    }
-    let pixPlan;
-    try {
-      pixPlan = preparePixPlan(selectedCollaborators, pixOverrideById);
-      await persistPixPlan(pixPlan, async (collaboratorId, pix) => {
-        const { data, error } = await supabase.from('ps_collaborators').update({ pix }).eq('id', collaboratorId).select('id').single();
-        if (error || !data) throw new Error(error?.message || 'Não foi possível salvar o PIX.');
-        void queryClient.invalidateQueries({ queryKey: ['ps_collaborators'] });
-      });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o PIX.');
-      return;
-    }
-    const roleObj: any = roles.find((r: any) => r.value === roleValue);
-    const effectivePixById = Object.fromEntries(pixPlan.map(item => [item.collaborator.id, item.pix]));
-
-    const rows = selectedCollaborators.map((c) => {
-      const effectivePix = effectivePixById[c.id];
-      return buildManualEventCollaboratorRow({
-        eventId: id,
-        collaboratorId: c.id,
-        collaborator: { ...c, pix: effectivePix },
-        roleValue,
-        roleName: roleObj?.name,
-        payValue: rolePay(roleValue),
-        campus: campusValue.trim(),
-      });
-    });
-    await add.mutateAsync(rows);
-    setAddOpen(false);
-    setSelected([]);
-    setRoleValue('');
-    setCampusValue('');
-    setPixOverrideById({});
-  };
-
   const submitEvaluation = async () => {
     await saveEval.mutateAsync({
       event_id: id,
@@ -1064,6 +1008,7 @@ export default function PsEventDetail() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setEditEventOpen(true)}><Pencil className="mr-2 h-4 w-4" />Editar evento</Button>
               <Button variant="outline" onClick={exportBadges}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
               <Button asChild variant="outline"><Link to={`/admin-module/processo-seletivo/eventos/${id}/avaliadores`}><ShieldCheck className="mr-2 h-4 w-4" />Equipe de avaliação</Link></Button>
               <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
@@ -1088,6 +1033,7 @@ export default function PsEventDetail() {
           <div className="w-full overflow-x-auto overflow-y-hidden scrollbar-none">
             <TabsList className="w-max min-w-full flex-nowrap">
               <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
+              <TabsTrigger value="locais">Locais</TabsTrigger>
               <TabsTrigger value="fiscais">Equipe</TabsTrigger>
               <TabsTrigger value="confirmacoes">Confirmações</TabsTrigger>
               <TabsTrigger value="comunicacao">Comunicação</TabsTrigger>
@@ -1124,6 +1070,10 @@ export default function PsEventDetail() {
                 ))}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="locais" className="space-y-4 pt-4">
+            <PsEventLocationsTab eventId={event.id} />
           </TabsContent>
 
           <TabsContent value="configuracoes" className="space-y-4 pt-4">
@@ -2183,128 +2133,15 @@ export default function PsEventDetail() {
       </Dialog>
 
       {/* Vincular fiscais */}
-      <Dialog
+      <PsManualFiscalLinkDialog
+        eventId={id!}
         open={addOpen}
-        onOpenChange={(open) => {
-          setAddOpen(open);
-          if (!open) {
-            setSelected([]);
-            setRoleValue('');
-            setCampusValue('');
-            setPixOverrideById({});
-            setSearchFiscal('');
-          }
-        }}
-      >
-        <DialogContent className="max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader><DialogTitle>Vincular fiscais</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Função *</Label>
-              <Select value={roleValue} onValueChange={setRoleValue}>
-                <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
-                <SelectContent>
-                  {roles.map((r: any) => <SelectItem key={r.id} value={r.value}>{r.name} — R$ {Number(r.pay_value).toFixed(2)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Campus do evento *</Label>
-              <Input
-                value={campusValue}
-                onChange={(e) => setCampusValue(e.target.value)}
-                placeholder="Campus Fumec"
-              />
-            </div>
-            <div className="space-y-2">
-              <Input
-                value={searchFiscal}
-                onChange={(e) => setSearchFiscal(e.target.value)}
-                placeholder="Buscar fiscal..."
-              />
-            </div>
-            <div className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden rounded-lg border p-2">
-              {visibleCollaborators.length === 0 ? (
-                <p className="p-2 text-sm text-muted-foreground">Nenhum fiscal encontrado.</p>
-              ) : visibleCollaborators.map((c: any) => {
-                const emailText = c.email ? String(c.email).trim() : '';
-                const matriculaText = c.matricula ? `Matrícula ${String(c.matricula).trim()}` : '';
-                const institutionText = c.institution ? String(c.institution).trim() : '';
-                const unitText = c.unit ? String(c.unit).trim() : '';
-                const collaboratorPix = typeof c?.pix === 'string' ? c.pix : '';
-                const resolvedPix = (pixOverrideById[c.id] ?? collaboratorPix ?? '').trim();
-
-                return (
-                  <div key={c.id} className="space-y-2 rounded-lg border bg-muted/10 p-2">
-                    <Button
-                      type="button"
-                      variant={selected.includes(c.id) ? 'default' : 'ghost'}
-                      className="w-full h-auto min-h-0 justify-start whitespace-normal overflow-hidden px-3 py-2"
-                      onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
-                    >
-                      <span className="w-full min-w-0 flex flex-col items-start text-left">
-                        <span className="max-w-full font-medium break-words whitespace-normal text-left">{c.full_name || 'Sem nome'}</span>
-
-                        {(emailText || matriculaText) && (
-                          <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
-                            {emailText && <span className="break-all">{emailText}</span>}
-                            {(emailText && matriculaText) && <span> · </span>}
-                            {matriculaText && <span>{matriculaText}</span>}
-                          </span>
-                        )}
-
-                        {(institutionText || unitText) && (
-                          <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
-                            {institutionText}
-                            {(institutionText && unitText) && <span> · </span>}
-                            {unitText && <span>Unidade de trabalho: {unitText}</span>}
-                          </span>
-                        )}
-                      </span>
-                    </Button>
-
-                    {selected.includes(c.id) && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">PIX</Label>
-                          <Badge variant={resolvedPix ? 'default' : 'secondary'} className="text-[10px]">
-                            {resolvedPix ? 'PIX cadastrado' : 'Sem PIX'}
-                          </Badge>
-                        </div>
-                        <Input
-                          value={resolvedPix}
-                          onChange={(event) => setPixOverrideById((prev) => ({ ...prev, [c.id]: event.target.value }))}
-                          placeholder={collaboratorPix ? 'PIX do fiscal' : 'Informe PIX para vincular'}
-                          className={resolvedPix ? '' : 'border-destructive/60'}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => {
-              setAddOpen(false);
-              setSelected([]);
-              setRoleValue('');
-              setCampusValue('');
-              setPixOverrideById({});
-            }}>Cancelar</Button>
-            <Button
-              onClick={linkFiscals}
-              disabled={!selected.length || !roleValue || !campusValue.trim() || selected.some((cid) => {
-                const selectedCollaborator = collaborators.find((c: any) => c.id === cid) as any;
-                const collaboratorPix = typeof selectedCollaborator?.pix === 'string' ? selectedCollaborator.pix : '';
-                return !(pixOverrideById[cid] ?? collaboratorPix).trim();
-              })}
-            >
-              Vincular {selected.length || ''}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setAddOpen}
+        collaborators={collaborators as any[]}
+        links={links as any[]}
+        roles={roles as any[]}
+        rolePay={rolePay}
+      />
 
       {/* Avaliar */}
 
@@ -2465,6 +2302,8 @@ export default function PsEventDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PsEventEditDialog event={event} open={editEventOpen} onOpenChange={setEditEventOpen} />
 
       <PsEventCollaboratorEditDialog
         eventId={id!}

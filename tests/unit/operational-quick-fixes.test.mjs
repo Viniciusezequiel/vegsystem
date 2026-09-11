@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const collaboratorsSource = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsCollaborators.tsx', import.meta.url), 'utf8');
 const eventDetailSource = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
+const manualFiscalLinkSource = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsManualFiscalLinkDialog.tsx', import.meta.url), 'utf8');
 const storageSuggestionSource = fs.readFileSync(new URL('../../src/lib/lostItemStorageSuggestion.ts', import.meta.url), 'utf8');
 const registerItemSource = fs.readFileSync(new URL('../../src/pages/RegisterItem.tsx', import.meta.url), 'utf8');
 const equipmentSource = fs.readFileSync(new URL('../../src/hooks/useEquipment.ts', import.meta.url), 'utf8');
@@ -13,11 +14,12 @@ test('badge de observação aparece na lista de fiscais quando há notas', () =>
   assert.match(collaboratorsSource, /Badge[^\n]*Observa[cçã]/i);
 });
 
-test('vinculação manual exige PIX preenchido antes de salvar', () => {
-  assert.match(eventDetailSource, /if \(!selected\.length \|\| !roleValue \|\| !campusValue\.trim\(\)\)/);
-  assert.doesNotMatch(eventDetailSource, /pix\s*\|\|\s*'Sem PIX'/i);
-  assert.match(eventDetailSource, /preparePixPlan/);
-  assert.match(eventDetailSource, /buildManualEventCollaboratorRow\([\s\S]*pix/i);
+test('vinculação manual exige localização estruturada e PIX preenchido antes de salvar', () => {
+  assert.match(manualFiscalLinkSource, /if \(!selected\.length \|\| !roleValue \|\| !location \|\| !building \|\| !room\) return;/);
+  assert.match(manualFiscalLinkSource, /missingPix/);
+  assert.match(manualFiscalLinkSource, /preparePixPlan/);
+  assert.match(manualFiscalLinkSource, /persistPixPlan/);
+  assert.match(manualFiscalLinkSource, /buildManualEventCollaboratorRow\([\s\S]*locationId[\s\S]*roomId/);
 });
 
 test('fallback de categoria de armazenamento usa descrição quando a IA não aporta dado', () => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CalendarDays, MapPin, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, CalendarDays, MapPin, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 
 import { ContentState } from '@/components/layout/ContentState';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { usePsEventMutations, usePsEvents } from '@/hooks/useProcessoSeletivo';
 import { PS_EVENT_STATUS } from '@/lib/psConstants';
+import { PsEventEditDialog } from '@/components/processo-seletivo/PsEventEditDialog';
 
 const emptyForm = {
   name: '',
@@ -33,6 +34,7 @@ export default function PsEvents() {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(emptyForm);
+  const [editEvent, setEditEvent] = useState<any>(null);
 
   const filtered = events.filter((event: any) =>
     [event.name, event.location, event.coordinator_name]
@@ -122,6 +124,9 @@ export default function PsEvents() {
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
+                  <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => setEditEvent(event)} aria-label={`Editar ${event.name}`}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                   <Button
                     size="icon"
                     variant="outline"
@@ -163,16 +168,11 @@ export default function PsEvents() {
                 </Select>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Local</Label>
-                <Input value={form.location} onChange={event => setForm({ ...form, location: event.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Coordenador</Label>
-                <Input value={form.coordinator_name} onChange={event => setForm({ ...form, coordinator_name: event.target.value })} />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Coordenador</Label>
+              <Input value={form.coordinator_name} onChange={event => setForm({ ...form, coordinator_name: event.target.value })} />
             </div>
+            <div className="rounded-xl border bg-muted/20 p-3 text-xs text-muted-foreground">Após criar o evento, cadastre ou importe Local, Endereço, Prédio, Andar, Sala e Capacidade na aba <strong>Locais</strong>.</div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Descrição</Label>
               <Textarea rows={3} value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} />
@@ -186,6 +186,8 @@ export default function PsEvents() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PsEventEditDialog event={editEvent} open={!!editEvent} onOpenChange={(value) => !value && setEditEvent(null)} />
     </MainLayout>
   );
 }

@@ -9,7 +9,7 @@ import { normalizeFiscalEmail, normalizeFiscalInstitution, normalizeFiscalMatric
 const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'id', 'event_id', 'collaborator_id', 'collaborator_name', 'role_value', 'role_name',
   'assigned_role', 'sector', 'unit', 'institution', 'building', 'floor', 'room', 'work_schedule',
-  'campus', 'cpf', 'identity_doc', 'email', 'phone', 'mobile', 'pay_value',
+  'campus', 'location_id', 'building_id', 'room_id', 'location_address', 'cpf', 'identity_doc', 'email', 'phone', 'mobile', 'pay_value',
   'deposit_info', 'pix', 'import_tag', 'present', 'absent', 'evaluated', 'signed_at',
   'departed_at', 'signature_ip', 'notes', 'created_at', 'updated_at',
   'participation_status', 'confirmation_requested_at', 'confirmed_at', 'declined_at',

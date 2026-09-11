@@ -56,7 +56,7 @@ function renderEmailShell(innerHtml: string): string {
 }
 
 export type PsEmailInfoFields = {
-  evento?: string | null; data_evento?: string | null; cargo?: string | null; campus?: string | null;
+  evento?: string | null; data_evento?: string | null; cargo?: string | null; campus?: string | null; endereco?: string | null;
   unidade?: string | null; predio?: string | null; andar?: string | null; sala?: string | null; horario?: string | null;
 };
 
@@ -69,6 +69,7 @@ function buildInfoCardHtml(fields: PsEmailInfoFields): string {
     ['Data', String(fields.data_evento ?? '').trim()],
     ['Cargo', String(fields.cargo ?? '').trim()],
     ['Campus/Unidade', campusUnidade],
+    ['Endereço', String(fields.endereco ?? '').trim()],
     ['Prédio', String(fields.predio ?? '').trim()],
     ['Andar', String(fields.andar ?? '').trim()],
     ['Sala', String(fields.sala ?? '').trim()],

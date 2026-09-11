@@ -67,13 +67,16 @@ test('migration de backfill usa collaborator_id e apenas preenche campos nulos d
   assert.doesNotMatch(migrationSql, /UPDATE public\.ps_event_collaborators[\s\S]*collaborator_name/i);
 });
 
-test('modal manual do fiscal usa campus obrigatório e mantém responsividade multilinha', () => {
-  const source = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
-  assert.match(source, /campusValue/i);
-  assert.match(source, /Campus do evento/i);
+test('modal manual do fiscal usa localização estruturada obrigatória e mantém responsividade multilinha', () => {
+  const source = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsManualFiscalLinkDialog.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Local \/ Campus/);
+  assert.match(source, /Prédio/);
+  assert.match(source, /Andar/);
+  assert.match(source, /Sala \/ ambiente/);
   assert.match(source, /whitespace-normal/i);
-  assert.match(source, /overflow-hidden/i);
   assert.match(source, /min-w-0/i);
-  assert.doesNotMatch(source, /editLink\.unit/i);
-  assert.doesNotMatch(source, /className="w-full justify-start"/i);
+  assert.match(source, /sm:grid-cols-2/i);
+  assert.match(source, /locationId/);
+  assert.match(source, /buildingId/);
+  assert.match(source, /roomId/);
 });

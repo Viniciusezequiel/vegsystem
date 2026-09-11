@@ -191,10 +191,10 @@ test('edge function gera HTML dedicado por tipo, renderiza o assunto e mantém t
   assert.doesNotMatch(edge,/white-space:pre-wrap;font-family:Arial,sans-serif/);
 });
 
-test('edge function busca os novos campos de ps_events/ps_event_collaborators e expõe as 16 variáveis novas',()=>{
-  assert.match(edge,/PS_VARIABLE_KEYS=\['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'\]/);
+test('edge function busca os campos de localização e expõe endereço entre as 17 variáveis',()=>{
+  assert.match(edge,/PS_VARIABLE_KEYS=\['nome','evento','cargo','unidade','campus','endereco','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'\]/);
   assert.match(edge,/from\('ps_events'\)\.select\('id,name,date,location,description,coordinator_name'\)/);
-  assert.match(edge,/select\('id,event_id,collaborator_name,email,role_name,assigned_role,unit,campus,institution,sector,building,floor,room,work_schedule,participation_status'\)/);
+  assert.match(edge,/select\('id,event_id,collaborator_name,email,role_name,assigned_role,unit,campus,location_address,institution,sector,building,floor,room,work_schedule,participation_status'\)/);
   assert.match(edge,/formatDateBR=\(value\?:string\|null\)=>\{const match=String\(value\|\|''\)\.match/);
   assert.doesNotMatch(edge,/\bcpf\b|identity_doc|\bpix\b|deposit_info|pay_value|phone\b/);
 });

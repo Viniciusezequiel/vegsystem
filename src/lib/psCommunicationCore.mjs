@@ -12,6 +12,7 @@ Cargo/Função: {{cargo}}
 Data: {{data_evento}}
 Horário: {{horario}}
 Campus/Unidade: {{campus}} / {{unidade}}
+Endereço: {{endereco}}
 Prédio: {{predio}}
 Andar: {{andar}}
 Sala: {{sala}}
@@ -53,7 +54,7 @@ Atenciosamente,
 Equipe de Processo Seletivo
 VEG System`;
 
-const VARIABLES = ['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'];
+const VARIABLES = ['nome','evento','cargo','unidade','campus','endereco','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'];
 export function renderPsCommunicationTemplate(template, values = {}) {
   return VARIABLES.reduce((text, key) => text.replaceAll(`{{${key}}}`, String(values[key] ?? '')), String(template ?? ''));
 }

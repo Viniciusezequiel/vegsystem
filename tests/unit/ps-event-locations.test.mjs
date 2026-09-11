@@ -6,6 +6,7 @@ const read = path => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 
 const migration = read('supabase/migrations/20260911183000_ps_event_locations.sql');
 const detail = read('src/pages/processo-seletivo/PsEventDetail.tsx');
 const locationsTab = read('src/components/processo-seletivo/PsEventLocationsTab.tsx');
+const locationHook = read('src/hooks/usePsEventLocations.ts');
 const manualDialog = read('src/components/processo-seletivo/PsManualFiscalLinkDialog.tsx');
 const snapshot = read('src/lib/psManualEventCollaboratorSnapshot.mjs');
 const communications = read('supabase/functions/ps-event-communications/index.ts');
@@ -21,7 +22,7 @@ test('estrutura física não possui nível de bloco', () => {
 test('importador oficial usa Local, Endereço, Prédio, Andar, Sala e Capacidade', () => {
   for (const header of ['Local', 'Endereço', 'Prédio', 'Andar', 'Sala', 'Capacidade']) assert.match(locationsTab, new RegExp(header));
   assert.match(locationsTab, /modelo-locais-processo-seletivo\.xlsx/);
-  assert.match(locationsTab, /ps_admin_import_event_locations/);
+  assert.match(locationHook, /ps_admin_import_event_locations/);
 });
 
 test('evento possui aba de locais e opção de edição', () => {
