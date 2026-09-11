@@ -1,10 +1,10 @@
 export const PS_JOURNEY_OPTIONS = Object.freeze([
-  { key: '4h', label: '4h', rateField: 'pay_value_4h' },
-  { key: '6h', label: '6h', rateField: 'pay_value_6h' },
-  { key: '7h', label: '7h', rateField: 'pay_value_7h' },
-  { key: '8h', label: '8h', rateField: 'pay_value_8h' },
-  { key: '9h', label: '9h', rateField: 'pay_value_9h' },
-  { key: 'integral', label: 'Integral', rateField: 'pay_value_integral' },
+  { key: '4h', label: '4h', rateField: 'pay_value_4h', specialRateField: 'pay_value_special_4h' },
+  { key: '6h', label: '6h', rateField: 'pay_value_6h', specialRateField: 'pay_value_special_6h' },
+  { key: '7h', label: '7h', rateField: 'pay_value_7h', specialRateField: 'pay_value_special_7h' },
+  { key: '8h', label: '8h', rateField: 'pay_value_8h', specialRateField: 'pay_value_special_8h' },
+  { key: '9h', label: '9h', rateField: 'pay_value_9h', specialRateField: 'pay_value_special_9h' },
+  { key: 'integral', label: 'Integral', rateField: 'pay_value_integral', specialRateField: 'pay_value_special_integral' },
 ]);
 
 export function normalizePsJourneyKey(value) {
@@ -15,10 +15,11 @@ export function normalizePsJourneyKey(value) {
   return match ? `${match[1]}h` : null;
 }
 
-export function resolvePsRoleRate(role, journeyKey) {
+export function resolvePsRoleRate(role, journeyKey, special = false) {
   const option = PS_JOURNEY_OPTIONS.find(item => item.key === journeyKey);
   if (!option || !role) return null;
-  const value = role[option.rateField];
+  const field = special ? option.specialRateField : option.rateField;
+  const value = role[field];
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
