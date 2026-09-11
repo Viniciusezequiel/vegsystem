@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 const db = supabase as any;
 const missingV2 = (error: any) => error?.code === '42P01' || String(error?.message || '').includes('ps_v2_');
+const missingPublishRpc = (error: any) => error?.code === 'PGRST202' || String(error?.message || '').includes('ps_v2_publish_allocation_run');
 const check = (error: any) => { if (error) throw error; };
 
 export type PsV2ReviewItemPatch = {
@@ -14,6 +15,16 @@ export type PsV2ReviewItemPatch = {
   status?: 'suggested' | 'accepted' | 'rejected';
   locked?: boolean;
   notes?: string | null;
+};
+
+export type PsV2PublishResult = {
+  allocation_run_id: string;
+  target_event_id: string;
+  inserted_count: number;
+  existing_count: number;
+  accepted_count: number;
+  already_published: boolean;
+  published_at: string | null;
 };
 
 export function usePsV2AllocationReview(eventId?: string) {
@@ -129,6 +140,58 @@ export function usePsV2AllocationReviewMutations(eventId?: string) {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const publishRun = useMutation({
+    mutationFn: async ({ runId }: { runId: string }): Promise<PsV2PublishResult> => {
+      if (!eventId) throw new Error('Evento não informado.');
+      if (!runId) throw new Error('Proposta de alocação não informada.');
+
+      const result = await db.rpc('ps_v2_publish_allocation_run', {
+        p_event_id: eventId,
+        p_run_id: runId,
+      });
+
+      if (result.error && missingPublishRpc(result.error)) {
+        throw new Error('A publicação da equipe V2 ainda não foi ativada no banco.');
+      }
+      check(result.error);
+
+      const published = result.data?.[0] as PsV2PublishResult | undefined;
+      if (!published) throw new Error('A publicação não retornou confirmação do banco.');
+      return published;
+    },
+    onSuccess: (result) => {
+      refresh();
+      qc.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
+      qc.invalidateQueries({ queryKey: ['ps_event_collaboration_status', eventId] });
+      qc.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
+
+      if (result.already_published) {
+        toast.success('Esta proposta já estava publicada. Nenhum vínculo foi duplicado.');
+        return;
+      }
+
+      const preserved = result.existing_count > 0
+        ? ` ${result.existing_count} vínculo(s) já existente(s) foram preservados.`
+        : '';
+      toast.success(`${result.inserted_count} integrante(s) publicado(s) na equipe oficial.${preserved}`);
+    },
+    onError: (error: Error) => {
+      const messages: Record<string, string> = {
+        ps_v2_publish_admin_required: 'Somente administradores podem publicar a equipe.',
+        ps_v2_allocation_run_not_found: 'A proposta de alocação não foi encontrada.',
+        ps_v2_allocation_run_event_mismatch: 'A proposta não pertence a este evento.',
+        ps_v2_allocation_run_not_in_review: 'Somente propostas em revisão podem ser publicadas.',
+        ps_v2_allocation_review_incomplete: 'Revise todas as sugestões antes de publicar a equipe.',
+        ps_v2_accepted_item_without_collaborator: 'Existe uma vaga aceita sem colaborador definido.',
+        ps_v2_no_accepted_allocations: 'Aceite pelo menos uma alocação antes de publicar.',
+        ps_v2_duplicate_collaborator_in_accepted_allocations: 'A mesma pessoa está aceita em mais de uma vaga. Ajuste a proposta antes de publicar.',
+        ps_v2_requirement_event_mismatch: 'A proposta contém uma necessidade vinculada a outro evento.',
+      };
+      const key = Object.keys(messages).find((candidate) => error.message.includes(candidate));
+      toast.error(key ? messages[key] : error.message);
+    },
+  });
+
   const cancelRun = useMutation({
     mutationFn: async (runId: string) => {
       const result = await db.from('ps_v2_allocation_runs').update({ status: 'cancelled' }).eq('id', runId);
@@ -138,5 +201,5 @@ export function usePsV2AllocationReviewMutations(eventId?: string) {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  return { savePlan, updateItem, acceptAllFilled, cancelRun };
+  return { savePlan, updateItem, acceptAllFilled, publishRun, cancelRun };
 }
