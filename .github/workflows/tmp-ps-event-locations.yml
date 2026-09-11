@@ -22,8 +22,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Fix literal template expression in temporary patcher
-        run: sed -i 's/${event.name}/\\${event.name}/g' scripts/patch-ps-event-locations.mjs
+      - name: Fix temporary patcher literals
+        run: |
+          sed -i 's/${event.name}/\\${event.name}/g' scripts/patch-ps-event-locations.mjs
+          sed -i 's/text.slice(b));/text.slice(b + end.length));/' scripts/patch-ps-event-locations.mjs
       - name: Apply integration patch
         run: node scripts/patch-ps-event-locations.mjs
       - name: TypeScript
