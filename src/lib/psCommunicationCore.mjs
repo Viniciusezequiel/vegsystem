@@ -11,7 +11,7 @@ Confira abaixo as informações da sua atuação:
 Cargo/Função: {{cargo}}
 Data: {{data_evento}}
 Horário: {{horario}}
-Campus/Unidade: {{campus}} / {{unidade}}
+Local: {{campus}}
 Endereço: {{endereco}}
 Prédio: {{predio}}
 Andar: {{andar}}
@@ -35,7 +35,8 @@ Confira os dados da sua atuação:
 Cargo/Função: {{cargo}}
 Data: {{data_evento}}
 Horário: {{horario}}
-Campus/Unidade: {{campus}} / {{unidade}}
+Local: {{campus}}
+Endereço: {{endereco}}
 Prédio: {{predio}}
 Andar: {{andar}}
 Sala: {{sala}}
