@@ -1,0 +1,19 @@
+name: Event Locations Build
+on:
+  push:
+    branches: [event-locations]
+permissions:
+  contents: write
+jobs:
+  build:
+    if: "!contains(github.event.head_commit.message, '[event-locations-built]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: event-locations
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: echo ready
