@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { usePsRoleMutations, usePsRoles } from '@/hooks/useProcessoSeletivo';
 import { supabase } from '@/integrations/supabase/client';
 import { PS_DEFAULT_ROLES } from '@/lib/psConstants';
+import { parsePsRoleSpreadsheetRows } from '@/lib/psRoleSpreadsheet.mjs';
 
 type RoleRateKey =
   | 'pay_value_4h'
@@ -26,15 +27,26 @@ type RoleRateKey =
   | 'pay_value_9h'
   | 'pay_value_integral';
 
+type SpecialRoleRateKey =
+  | 'pay_value_special_4h'
+  | 'pay_value_special_6h'
+  | 'pay_value_special_7h'
+  | 'pay_value_special_8h'
+  | 'pay_value_special_9h'
+  | 'pay_value_special_integral';
+
 type ImportedRole = {
   name: string;
   value: string;
   active: boolean;
   order: number;
   pay_value: number;
-} & Record<RoleRateKey, number | null>;
+  combined_roles: string[];
+} & Record<RoleRateKey | SpecialRoleRateKey, number | null>;
 
-const ROLE_RATE_FIELDS: Array<{ key: RoleRateKey; label: string }> = [
+type RateField = { key: RoleRateKey | SpecialRoleRateKey; label: string };
+
+const ROLE_RATE_FIELDS: RateField[] = [
   { key: 'pay_value_4h', label: '4h' },
   { key: 'pay_value_6h', label: '6h' },
   { key: 'pay_value_7h', label: '7h' },
@@ -43,72 +55,17 @@ const ROLE_RATE_FIELDS: Array<{ key: RoleRateKey; label: string }> = [
   { key: 'pay_value_integral', label: 'Integral' },
 ];
 
-const IMPORT_GROUPS: Array<{ functionCol: number; valueCol: number; key: RoleRateKey }> = [
-  { functionCol: 0, valueCol: 1, key: 'pay_value_4h' },
-  { functionCol: 3, valueCol: 4, key: 'pay_value_6h' },
-  { functionCol: 6, valueCol: 7, key: 'pay_value_7h' },
-  { functionCol: 9, valueCol: 10, key: 'pay_value_8h' },
-  { functionCol: 12, valueCol: 13, key: 'pay_value_9h' },
-  { functionCol: 15, valueCol: 16, key: 'pay_value_integral' },
+const SPECIAL_ROLE_RATE_FIELDS: RateField[] = [
+  { key: 'pay_value_special_4h', label: '4h' },
+  { key: 'pay_value_special_6h', label: '6h' },
+  { key: 'pay_value_special_7h', label: '7h' },
+  { key: 'pay_value_special_8h', label: '8h' },
+  { key: 'pay_value_special_9h', label: '9h' },
+  { key: 'pay_value_special_integral', label: 'Integral' },
 ];
 
 const slugify = (value: string) =>
   value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-
-const normalizeKey = (value: unknown) =>
-  String(value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-
-const titleCaseRole = (value: string) => {
-  const smallWords = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
-  return value
-    .trim()
-    .toLocaleLowerCase('pt-BR')
-    .split(/\s+/)
-    .map((word, index) => {
-      if (index > 0 && smallWords.has(word)) return word;
-      return word ? `${word.charAt(0).toLocaleUpperCase('pt-BR')}${word.slice(1)}` : word;
-    })
-    .join(' ');
-};
-
-const normalizeImportedRole = (rawValue: unknown) => {
-  const raw = String(rawValue ?? '').replace(/\s+/g, ' ').trim();
-  const key = normalizeKey(raw);
-
-  if (key === 'EQUIPE DE APOIO' || key === 'APOIO') return { name: 'Equipe de Apoio', value: 'apoio' };
-  if (key === 'FISCAL DE SALA') return { name: 'Fiscal de Sala', value: 'fiscal_sala' };
-  if (key === 'SUCOORDENADOR A' || key === 'SUBCOORDENADOR A' || key === 'SUBCOORDENADOR') {
-    return { name: 'Subcoordenador', value: 'subcoordenador' };
-  }
-  if (key === 'ADVOGADO A') return { name: 'Advogado(a)', value: 'advogado' };
-  if (key === 'COORDENADOR A') return { name: 'Coordenador(a)', value: 'coordenador' };
-  if (key === 'ENFERMEIRO A') return { name: 'Enfermeiro(a)', value: 'enfermeiro' };
-  if (key === 'MEDICO A') return { name: 'Médico(a)', value: 'medico' };
-  if (key === 'OPERADOR DE SCANER' || key === 'OPERADOR DE SCANNER') {
-    return { name: 'Operador de Scanner', value: 'operador_de_scaner' };
-  }
-
-  const name = titleCaseRole(raw);
-  return { name, value: slugify(raw.replace(/\(A\)/gi, '')) };
-};
-
-const parseMoney = (value: unknown): number | null => {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-
-  const text = String(value ?? '').trim();
-  if (!text || ['NA', 'N A', 'N/A', '-'].includes(normalizeKey(text))) return null;
-
-  const sanitized = text.replace(/[^\d,.-]/g, '');
-  const decimal = sanitized.includes(',') ? sanitized.replace(/\./g, '').replace(',', '.') : sanitized;
-  const parsed = Number(decimal);
-  return Number.isFinite(parsed) ? parsed : null;
-};
 
 const formatCurrency = (value: unknown) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
@@ -116,48 +73,9 @@ const formatCurrency = (value: unknown) =>
 const parseRoleSpreadsheet = async (file: File): Promise<ImportedRole[]> => {
   const workbook = XLSX.read(await file.arrayBuffer());
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  if (!worksheet) throw new Error('A planilha não possui uma aba válida.');
   const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1, defval: '' });
-
-  const headerIndex = rows.findIndex((row) =>
-    normalizeKey(row?.[0]) === 'FUNCAO' && normalizeKey(row?.[1]).includes('VALOR PAGO')
-  );
-
-  if (headerIndex < 0) {
-    throw new Error('Não encontrei a linha com as colunas Função e Valor pago. Use a tabela de valores praticados.');
-  }
-
-  const imported: ImportedRole[] = [];
-
-  for (const row of rows.slice(headerIndex + 1)) {
-    const rawRole = IMPORT_GROUPS.map((group) => row?.[group.functionCol]).find((value) => String(value ?? '').trim());
-    if (!rawRole) continue;
-
-    const identity = normalizeImportedRole(rawRole);
-    const rates = {} as Record<RoleRateKey, number | null>;
-
-    for (const group of IMPORT_GROUPS) {
-      rates[group.key] = parseMoney(row?.[group.valueCol]);
-    }
-
-    const defaultValue =
-      rates.pay_value_8h ??
-      rates.pay_value_9h ??
-      rates.pay_value_7h ??
-      rates.pay_value_6h ??
-      rates.pay_value_4h ??
-      rates.pay_value_integral ??
-      0;
-
-    imported.push({
-      ...identity,
-      active: true,
-      order: imported.length,
-      pay_value: defaultValue,
-      ...rates,
-    });
-  }
-
-  return imported;
+  return parsePsRoleSpreadsheetRows(rows) as ImportedRole[];
 };
 
 export default function PsRoles() {
@@ -174,6 +92,8 @@ export default function PsRoles() {
       name: '', value: '', active: true, order: roles.length, pay_value: 0, combined_roles: [],
       pay_value_4h: null, pay_value_6h: null, pay_value_7h: null,
       pay_value_8h: 0, pay_value_9h: null, pay_value_integral: null,
+      pay_value_special_4h: null, pay_value_special_6h: null, pay_value_special_7h: null,
+      pay_value_special_8h: null, pay_value_special_9h: null, pay_value_special_integral: null,
     });
     setOpen(true);
   };
@@ -181,6 +101,7 @@ export default function PsRoles() {
   const openEdit = (role: any) => {
     setForm({
       ...role,
+      combined_roles: role.combined_roles || [],
       pay_value_8h: role.pay_value_8h ?? role.pay_value ?? 0,
     });
     setOpen(true);
@@ -210,18 +131,35 @@ export default function PsRoles() {
       if (!imported.length) throw new Error('Nenhum cargo válido foi encontrado na planilha.');
 
       const confirmed = window.confirm(
-        `Foram encontrados ${imported.length} cargos. Deseja importar e atualizar os valores existentes?`
+        `Foram encontrados ${imported.length} cargos. Esta importação substituirá TODOS os cargos atuais e seus valores pela planilha selecionada. Deseja continuar?`
       );
       if (!confirmed) return;
 
-      const { error } = await (supabase as any)
+      const { error: upsertError } = await (supabase as any)
         .from('ps_roles')
         .upsert(imported, { onConflict: 'value' });
+      if (upsertError) throw upsertError;
 
-      if (error) throw error;
+      const importedValues = new Set(imported.map(role => role.value));
+      const { data: currentRoles, error: currentRolesError } = await (supabase as any)
+        .from('ps_roles')
+        .select('id,value');
+      if (currentRolesError) throw currentRolesError;
+
+      const staleIds = (currentRoles || [])
+        .filter((role: any) => !importedValues.has(role.value))
+        .map((role: any) => role.id);
+
+      if (staleIds.length) {
+        const { error: deleteError } = await (supabase as any)
+          .from('ps_roles')
+          .delete()
+          .in('id', staleIds);
+        if (deleteError) throw deleteError;
+      }
 
       await queryClient.invalidateQueries({ queryKey: ['ps_roles'] });
-      toast.success(`${imported.length} cargos importados com sucesso.`);
+      toast.success(`${imported.length} cargos substituídos com sucesso.`);
     } catch (error: any) {
       toast.error(error?.message || 'Não foi possível importar a planilha.');
     } finally {
@@ -241,7 +179,7 @@ export default function PsRoles() {
     <MainLayout>
       <PageHeader
         title="Cargos e Valores"
-        description="Configure funções, valores por jornada e combinações permitidas para a equipe."
+        description="Configure funções, valores por jornada e valores específicos do Setor Especial."
         actions={
           <>
             <input
@@ -272,6 +210,7 @@ export default function PsRoles() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {roles.map((role: any) => {
             const hasRateTable = ROLE_RATE_FIELDS.some(({ key }) => role[key] != null);
+            const hasSpecialRateTable = SPECIAL_ROLE_RATE_FIELDS.some(({ key }) => role[key] != null);
 
             return (
               <Card key={role.id} className="border-border/60 bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card/85 hover:shadow-md">
@@ -290,15 +229,37 @@ export default function PsRoles() {
                   </div>
 
                   {hasRateTable && (
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      {ROLE_RATE_FIELDS.map(({ key, label }) => (
-                        <div key={key} className="rounded-lg border border-border/50 bg-background/40 px-2 py-2">
-                          <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-                          <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                            {role[key] == null ? 'N/A' : formatCurrency(role[key])}
-                          </p>
-                        </div>
-                      ))}
+                    <div className="mt-3">
+                      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Tabela padrão</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {ROLE_RATE_FIELDS.map(({ key, label }) => (
+                          <div key={key} className="rounded-lg border border-border/50 bg-background/40 px-2 py-2">
+                            <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+                            <p className="mt-0.5 text-xs font-semibold tabular-nums">
+                              {role[key] == null ? 'N/A' : formatCurrency(role[key])}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {hasSpecialRateTable && (
+                    <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Setor Especial</p>
+                        <Badge variant="outline" className="text-[9px]">Valores específicos</Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {SPECIAL_ROLE_RATE_FIELDS.map(({ key, label }) => (
+                          <div key={key} className="rounded-lg border border-border/50 bg-background/50 px-2 py-2">
+                            <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+                            <p className="mt-0.5 text-xs font-semibold tabular-nums">
+                              {role[key] == null ? 'N/A' : formatCurrency(role[key])}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -335,10 +296,10 @@ export default function PsRoles() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-xl" onInteractOutside={event => event.preventDefault()}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" onInteractOutside={event => event.preventDefault()}>
           <DialogHeader><DialogTitle>{form?.id ? 'Editar cargo' : 'Novo cargo'}</DialogTitle></DialogHeader>
           {form && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Nome *</Label>
                 <Input value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />
@@ -348,11 +309,34 @@ export default function PsRoles() {
                 <Input value={form.value} placeholder={slugify(form.name || '')} onChange={event => setForm({ ...form, value: event.target.value })} />
               </div>
 
-              <div>
+              <div className="rounded-xl border border-border/60 p-4">
                 <Label className="text-xs text-muted-foreground">Valores por jornada (R$)</Label>
                 <p className="mt-1 text-[11px] text-muted-foreground">O valor de 8h é usado como padrão nos fluxos atuais do processo seletivo.</p>
-                <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {ROLE_RATE_FIELDS.map(({ key, label }) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form[key] ?? ''}
+                        placeholder="N/A"
+                        onChange={(event) => setForm({
+                          ...form,
+                          [key]: event.target.value === '' ? null : Number(event.target.value),
+                        })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <Label className="text-xs font-semibold text-primary">Valores do Setor Especial (R$)</Label>
+                <p className="mt-1 text-[11px] text-muted-foreground">Preencha somente as jornadas que possuem valor diferenciado na tabela oficial.</p>
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {SPECIAL_ROLE_RATE_FIELDS.map(({ key, label }) => (
                     <div key={key} className="space-y-1.5">
                       <Label className="text-[11px] text-muted-foreground">{label}</Label>
                       <Input

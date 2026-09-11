@@ -20,6 +20,19 @@ test('resolve valor por faixa e infere jornada pelo snapshot', () => {
   assert.equal(inferPsJourneyFromPay(role, 999), null);
 });
 
+test('resolve tabela do Setor Especial sem alterar a tabela padrão', () => {
+  const role = {
+    pay_value_4h: 200,
+    pay_value_8h: 321,
+    pay_value_special_4h: 240,
+    pay_value_special_8h: 352,
+  };
+  assert.equal(resolvePsRoleRate(role, '4h'), 200);
+  assert.equal(resolvePsRoleRate(role, '4h', true), 240);
+  assert.equal(resolvePsRoleRate(role, '8h', true), 352);
+  assert.equal(resolvePsRoleRate(role, 'integral', true), null);
+});
+
 test('soma múltiplas atribuições sem arredondamento textual', () => {
   assert.equal(psAssignmentsTotal([{ pay_value: 170 }, { pay_value: 90.5 }]), 260.5);
 });
