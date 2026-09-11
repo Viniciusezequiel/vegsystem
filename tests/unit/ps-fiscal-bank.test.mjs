@@ -4,6 +4,9 @@ import {
   normalizeFiscalEmail,
   normalizeFiscalMatricula,
   normalizeFiscalInstitution,
+  normalizeFiscalCpf,
+  isValidFiscalCpf,
+  extractFiscalBankRows,
   dedupeFiscalRows,
   buildFiscalImportFingerprint,
   renderFiscalTemplate,
@@ -17,15 +20,38 @@ test('normaliza e-mail e matrícula sem criar duplicação por caixa/espaco', ()
   assert.equal(normalizeFiscalInstitution('  Faculdade   de  Medicina  '), 'faculdade de medicina');
 });
 
-test('dedupe em planilha remove repetição e preserva identidade correta', () => {
+test('normaliza e valida CPF brasileiro sem aceitar números artificiais', () => {
+  assert.equal(normalizeFiscalCpf('116.480.266-64'), '116.480.266-64');
+  assert.equal(normalizeFiscalCpf('11648026664'), '116.480.266-64');
+  assert.equal(isValidFiscalCpf('116.480.266-64'), true);
+  assert.equal(isValidFiscalCpf('111.111.111-11'), false);
+  assert.equal(normalizeFiscalCpf('123.456.789-00'), '');
+  assert.equal(normalizeFiscalCpf(''), '');
+});
+
+test('encontra a linha real de cabeçalho mesmo quando a planilha possui título acima', () => {
+  const rows = extractFiscalBankRows([
+    ['PROCESSO SELETIVO - 27/09/2026', '', '', ''],
+    ['NOME', 'CPF', 'E-MAIL', 'CELULAR'],
+    ['Maria da Silva', '116.480.266-64', 'MARIA@EXEMPLO.COM', '(31) 99999-9999'],
+  ]);
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].NOME, 'Maria da Silva');
+  assert.equal(rows[0].CPF, '116.480.266-64');
+  assert.equal(rows[0]['E-MAIL'], 'MARIA@EXEMPLO.COM');
+});
+
+test('dedupe em planilha remove repetição e preserva identidade e CPF correto', () => {
   const rows = [
-    { full_name: 'Maria Silva', email: 'maria@empresa.org.br', matricula: '001', institution: 'Faculdade A', role: 'Fiscal de Sala' },
-    { full_name: 'Maria Silva', email: '  maria@empresa.org.br  ', matricula: '002', institution: 'Faculdade B', role: 'Fiscal de Sala' },
+    { full_name: 'Maria Silva', cpf: '', email: 'maria@empresa.org.br', matricula: '001', institution: 'Faculdade A', role: 'Fiscal de Sala' },
+    { full_name: 'Maria Silva', cpf: '116.480.266-64', email: '  maria@empresa.org.br  ', matricula: '002', institution: 'Faculdade B', role: 'Fiscal de Sala' },
     { full_name: 'José', email: 'jose@empresa.org.br', matricula: '010', institution: 'Faculdade A', role: 'Coordenador' },
     { full_name: 'José', email: 'jose@empresa.org.br', matricula: '010', institution: 'Faculdade A', role: 'Coordenador' },
   ];
   const deduped = dedupeFiscalRows(rows);
   assert.equal(deduped.length, 2);
+  assert.equal(deduped[0].cpf, '116.480.266-64');
   assert.equal(deduped[0].sourceKey, deduped[0].sourceKey);
 });
 

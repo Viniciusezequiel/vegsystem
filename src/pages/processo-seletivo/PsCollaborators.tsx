@@ -36,12 +36,14 @@ import {
   usePsFiscalBankConfig,
   usePsSaveFiscalBankConfig,
   usePsCollaboratorParticipations,
-  usePsImportFiscalBank,
 } from '@/hooks/useProcessoSeletivo';
+import { usePsImportFiscalBank } from '@/hooks/usePsFiscalBankImport';
 import { PS_CLASSIFICATION_LABEL, psClassification } from '@/lib/psConstants';
 import {
   dedupeFiscalRows,
+  extractFiscalBankRows,
   extractFiscalImportedHistory,
+  normalizeFiscalCpf,
   normalizeFiscalEmail,
   normalizeFiscalInstitution,
   normalizeFiscalMatricula,
@@ -178,7 +180,15 @@ export default function PsCollaborators() {
   const readFiscalBankFile = async (file: File) => {
     try {
       const wb = XLSX.read(await file.arrayBuffer());
-      const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]] ?? {}, { defval: '' }) as any[];
+      const matrix = XLSX.utils.sheet_to_json(
+        wb.Sheets[wb.SheetNames[0]] ?? {},
+        { header: 1, defval: '', raw: false },
+      ) as any[][];
+      const rawRows = extractFiscalBankRows(matrix);
+      if (!rawRows.length) {
+        throw new Error('Não encontrei uma linha de cabeçalho com NOME, CPF e E-MAIL.');
+      }
+
       const rows = rawRows
         .map((row: any) => {
           const full_name = pickFiscalCell(row, ['NOME', 'Nome', 'NOME COMPLETO']) || '';
@@ -194,7 +204,7 @@ export default function PsCollaborators() {
           const importedHistory = parseImportedHistory(row);
           return {
             full_name: full_name.trim(),
-            cpf: cpf.trim() || null,
+            cpf: normalizeFiscalCpf(cpf) || null,
             email: email.trim() || null,
             phone: phone.trim() || null,
             institution: institution.trim() || null,
@@ -212,6 +222,7 @@ export default function PsCollaborators() {
 
       const prepared = dedupeFiscalRows(rows.map((row) => ({
         full_name: row.full_name,
+        cpf: row.cpf,
         email: normalizeFiscalEmail(row.email),
         matricula: normalizeFiscalMatricula(row.matricula),
         institution: normalizeFiscalInstitution(row.institution),
@@ -225,8 +236,16 @@ export default function PsCollaborators() {
         imported_participation_count: row.imported_participation_count,
       })));
 
-      const emailMap = new Map((collaborators || []).filter((c: any) => c.email_normalized).map((c: any) => [c.email_normalized, c]));
-      const matriculaMap = new Map((collaborators || []).filter((c: any) => c.matricula_normalized && c.institution_normalized).map((c: any) => [`${c.matricula_normalized}|${c.institution_normalized}`, c]));
+      const emailMap = new Map((collaborators || [])
+        .map((c: any) => [normalizeFiscalEmail(c.email), c] as const)
+        .filter(([key]) => Boolean(key)));
+      const matriculaMap = new Map((collaborators || [])
+        .map((c: any) => {
+          const matricula = normalizeFiscalMatricula(c.matricula);
+          const institution = normalizeFiscalInstitution(c.institution);
+          return [`${matricula}|${institution}`, c] as const;
+        })
+        .filter(([key]) => key !== '|'));
 
       let existing = 0;
       let updates = 0;
@@ -254,6 +273,7 @@ export default function PsCollaborators() {
         if (matchesEmail || matchesMatricula) {
           existing += 1;
           const hasMore = Object.values({
+            cpf: row.cpf,
             email: row.email,
             matricula: row.matricula,
             institution: row.institution,
@@ -277,6 +297,8 @@ export default function PsCollaborators() {
         inconsistent,
         ignored,
         historicalNotes: prepared.filter((row) => row.notes).length,
+        validCpfs: prepared.filter((row) => row.cpf).length,
+        missingCpfs: prepared.filter((row) => !row.cpf).length,
         rowsPreview: prepared.slice(0, 8),
       };
 
@@ -522,7 +544,7 @@ export default function PsCollaborators() {
             </label>
 
             <div className="rounded-xl border border-border/60 bg-muted/15 p-3 text-xs leading-relaxed text-muted-foreground">
-              As colunas principais mapeadas são NOME, CPF, E-MAIL, CELULAR, INSTITUTO, SETOR, CARGO, UNIDADE DE ATUAÇÃO, SALA e OBSERVAÇÃO. A reconciliação prioriza <strong className="text-foreground">e-mail institucional</strong>; em seguida, <strong className="text-foreground">matrícula + instituição</strong>. Nome e CPF não fazem merge automático.
+              As colunas principais mapeadas são NOME, CPF, E-MAIL, CELULAR, INSTITUTO, SETOR, CARGO, UNIDADE DE ATUAÇÃO, SALA e OBSERVAÇÃO. A reconciliação prioriza <strong className="text-foreground">e-mail institucional</strong>; em seguida, <strong className="text-foreground">matrícula + instituição</strong>. Nome e CPF não fazem merge automático. Em cadastros já existentes, esta importação usa o CPF válido da planilha como fonte oficial sem sobrescrever os demais dados do fiscal.
             </div>
 
             {fiscalImportPreview && (
@@ -544,13 +566,15 @@ export default function PsCollaborators() {
                 </div>
 
                 <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                  <span>CPFs válidos: <strong className="text-foreground">{fiscalImportPreview.validCpfs}</strong></span>
+                  <span>Sem CPF: <strong className="text-foreground">{fiscalImportPreview.missingCpfs}</strong></span>
                   <span>Ignorados: <strong className="text-foreground">{fiscalImportPreview.ignored}</strong></span>
                   <span>Notas históricas: <strong className="text-foreground">{fiscalImportPreview.historicalNotes}</strong></span>
                 </div>
 
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Amostra da importação</p>
-                  <div className="max-h-56 divide-y divide-border/50 overflow-y-auto rounded-xl border border-border/60">
+                        <div className="max-h-56 divide-y divide-border/50 overflow-y-auto rounded-xl border border-border/60">
                     {(fiscalImportPreview.rowsPreview || []).map((row: any, idx: number) => (
                       <div key={`${row.full_name}-${idx}`} className="p-3 text-sm">
                         <p className="font-medium">{row.full_name}</p>

@@ -16,6 +16,66 @@ export function normalizeFiscalInstitution(value) {
   return normalized || '';
 }
 
+export function isValidFiscalCpf(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+
+  const checkDigit = (length) => {
+    let sum = 0;
+    for (let index = 0; index < length; index += 1) {
+      sum += Number(digits[index]) * (length + 1 - index);
+    }
+    const remainder = (sum * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+
+  return checkDigit(9) === Number(digits[9]) && checkDigit(10) === Number(digits[10]);
+}
+
+export function normalizeFiscalCpf(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!isValidFiscalCpf(digits)) return '';
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+export function extractFiscalBankRows(matrix = []) {
+  if (!Array.isArray(matrix)) return [];
+
+  const normalizeHeader = (value) => String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+
+  const headerIndex = matrix.findIndex((row) => {
+    if (!Array.isArray(row)) return false;
+    const headers = row.map(normalizeHeader);
+    return headers.includes('NOME')
+      && headers.includes('CPF')
+      && (headers.includes('E-MAIL') || headers.includes('EMAIL'));
+  });
+
+  if (headerIndex < 0) return [];
+
+  const headerRow = Array.isArray(matrix[headerIndex]) ? matrix[headerIndex] : [];
+  const headers = headerRow.map((value, index) => {
+    const normalized = String(value ?? '').trim().replace(/\s+/g, ' ');
+    return normalized || `__COL_${index + 1}`;
+  });
+
+  return matrix.slice(headerIndex + 1)
+    .filter((row) => Array.isArray(row) && row.some((value) => String(value ?? '').trim() !== ''))
+    .map((row) => {
+      const record = {};
+      headers.forEach((header, index) => {
+        const value = row[index] ?? '';
+        if (!(header in record) || String(record[header] ?? '').trim() === '') {
+          record[header] = value;
+        }
+      });
+      return record;
+    });
+}
+
 export function buildFiscalImportFingerprint(row = {}) {
   const email = normalizeFiscalEmail(row.email);
   const matricula = normalizeFiscalMatricula(row.matricula);
@@ -31,6 +91,7 @@ export function dedupeFiscalRows(rows = []) {
   for (const row of rows) {
     const source = {
       full_name: String(row.full_name || '').replace(/\s+/g, ' ').trim(),
+      cpf: normalizeFiscalCpf(row.cpf),
       email: normalizeFiscalEmail(row.email),
       matricula: normalizeFiscalMatricula(row.matricula),
       institution: normalizeFiscalInstitution(row.institution),
@@ -52,6 +113,7 @@ export function dedupeFiscalRows(rows = []) {
     } else {
       const existing = byKey.get(key);
       for (const [field, value] of Object.entries({
+        cpf: source.cpf || existing.cpf,
         email: source.email || existing.email,
         matricula: source.matricula || existing.matricula,
         institution: source.institution || existing.institution,
