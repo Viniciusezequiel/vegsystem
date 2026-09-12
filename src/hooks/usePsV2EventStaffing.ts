@@ -10,6 +10,13 @@ const check = (error: any) => { if (error) throw error; };
 const unique = (values: Array<string | null | undefined>) =>
   Array.from(new Set(values.filter(Boolean) as string[]));
 
+const normalizeKey = (value: unknown) => String(value ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('pt-BR')
+  .replace(/\s+/g, ' ')
+  .trim();
+
 export type PsV2StaffingScope = {
   id: string;
   name: string;
@@ -29,6 +36,45 @@ export type PsV2StaffingRequirementInput = {
   required?: boolean;
   notes?: string | null;
   active?: boolean;
+};
+
+const requirementKey = ({
+  scopeType,
+  scopeId,
+  roleId,
+  roleName,
+}: {
+  scopeType: PsV2StaffingScope['scopeType'];
+  scopeId: string;
+  roleId?: string | null;
+  roleName?: string | null;
+}) => `${scopeType}:${scopeId}:${roleId || normalizeKey(roleName)}`;
+
+const requirementPayload = (eventId: string, input: PsV2StaffingRequirementInput) => {
+  if (!input.scope_id) throw new Error('Selecione o local da necessidade.');
+  if (!input.role_name_snapshot?.trim()) throw new Error('Selecione a função da necessidade.');
+  if (Number(input.quantity || 0) < 1) throw new Error('A quantidade deve ser maior que zero.');
+
+  const payload: Record<string, any> = {
+    event_id: eventId,
+    scope_type: input.scope_type,
+    location_id: null,
+    building_id: null,
+    floor_id: null,
+    area_id: null,
+    environment_id: null,
+    role_id: input.role_id || null,
+    role_name_snapshot: input.role_name_snapshot.trim(),
+    quantity: Math.max(1, Number(input.quantity || 1)),
+    start_time: input.start_time || null,
+    end_time: input.end_time || null,
+    priority: Number(input.priority ?? 100),
+    required: input.required !== false,
+    notes: input.notes?.trim() || null,
+    active: input.active !== false,
+  };
+  payload[`${input.scope_type}_id`] = input.scope_id;
+  return payload;
 };
 
 export function usePsV2EventStaffing(eventId?: string) {
@@ -116,30 +162,8 @@ export function usePsV2StaffingMutations(eventId?: string) {
   const saveRequirement = useMutation({
     mutationFn: async (input: PsV2StaffingRequirementInput) => {
       if (!eventId) throw new Error('Evento não informado.');
-      if (!input.scope_id) throw new Error('Selecione o local da necessidade.');
-      if (!input.role_name_snapshot?.trim()) throw new Error('Selecione a função da necessidade.');
-      if (Number(input.quantity || 0) < 1) throw new Error('A quantidade deve ser maior que zero.');
-
-      const { id, scope_id, ...values } = input;
-      const payload: Record<string, any> = {
-        event_id: eventId,
-        scope_type: values.scope_type,
-        location_id: null,
-        building_id: null,
-        floor_id: null,
-        area_id: null,
-        environment_id: null,
-        role_id: values.role_id || null,
-        role_name_snapshot: values.role_name_snapshot.trim(),
-        quantity: Math.max(1, Number(values.quantity || 1)),
-        start_time: values.start_time || null,
-        end_time: values.end_time || null,
-        priority: Number(values.priority ?? 100),
-        required: values.required !== false,
-        notes: values.notes?.trim() || null,
-        active: values.active !== false,
-      };
-      payload[`${values.scope_type}_id`] = scope_id;
+      const { id } = input;
+      const payload = requirementPayload(eventId, input);
 
       const result = id
         ? await db.from('ps_v2_staff_requirements').update(payload).eq('id', id).select('*').single()
@@ -153,6 +177,62 @@ export function usePsV2StaffingMutations(eventId?: string) {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const saveBulkRequirements = useMutation({
+    mutationFn: async (inputs: PsV2StaffingRequirementInput[]) => {
+      if (!eventId) throw new Error('Evento não informado.');
+      if (!inputs.length) throw new Error('O modelo não gerou nenhuma necessidade.');
+
+      const existingResult = await db
+        .from('ps_v2_staff_requirements')
+        .select('scope_type,location_id,building_id,floor_id,area_id,environment_id,role_id,role_name_snapshot')
+        .eq('event_id', eventId);
+
+      if (existingResult.error && isMissingV2Schema(existingResult.error)) throw new Error('A estrutura V2 ainda não foi ativada no banco.');
+      check(existingResult.error);
+
+      const existingKeys = new Set<string>((existingResult.data || []).map((row: any) => {
+        const scopeId = row[`${row.scope_type}_id`];
+        return requirementKey({ scopeType: row.scope_type, scopeId, roleId: row.role_id, roleName: row.role_name_snapshot });
+      }));
+
+      const payloads: Record<string, any>[] = [];
+      let skipped = 0;
+
+      for (const input of inputs) {
+        const key = requirementKey({
+          scopeType: input.scope_type,
+          scopeId: input.scope_id,
+          roleId: input.role_id,
+          roleName: input.role_name_snapshot,
+        });
+        if (existingKeys.has(key)) {
+          skipped += 1;
+          continue;
+        }
+        existingKeys.add(key);
+        payloads.push(requirementPayload(eventId, input));
+      }
+
+      if (payloads.length) {
+        const result = await db.from('ps_v2_staff_requirements').insert(payloads);
+        if (result.error && isMissingV2Schema(result.error)) throw new Error('A estrutura V2 ainda não foi ativada no banco.');
+        check(result.error);
+      }
+
+      return { inserted: payloads.length, skipped };
+    },
+    onSuccess: ({ inserted, skipped }) => {
+      refresh();
+      if (!inserted && skipped) {
+        toast.success('Este modelo já estava aplicado. Nenhuma regra foi duplicada.');
+        return;
+      }
+      const skippedText = skipped ? ` ${skipped} regra(s) já existente(s) foram preservadas.` : '';
+      toast.success(`${inserted} necessidade(s) criada(s) pelo modelo.${skippedText}`);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const removeRequirement = useMutation({
     mutationFn: async (id: string) => {
       const result = await db.from('ps_v2_staff_requirements').delete().eq('id', id).eq('event_id', eventId);
@@ -163,5 +243,5 @@ export function usePsV2StaffingMutations(eventId?: string) {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  return { saveRequirement, removeRequirement };
+  return { saveRequirement, saveBulkRequirements, removeRequirement };
 }
