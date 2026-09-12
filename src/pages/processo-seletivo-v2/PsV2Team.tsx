@@ -5,13 +5,17 @@ import {
   ArrowRight,
   CalendarDays,
   ExternalLink,
+  MapPinned,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
 } from 'lucide-react';
 
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { PsV2EligibilityDialog } from '@/components/processo-seletivo-v2/PsV2EligibilityDialog';
+import { PsV2StaffingDialog } from '@/components/processo-seletivo-v2/PsV2StaffingDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +32,8 @@ const formatDate = (value?: string | null) => {
 export default function PsV2Team() {
   const { data: events = [], isLoading } = usePsEvents();
   const [search, setSearch] = useState('');
+  const [eligibilityOpen, setEligibilityOpen] = useState(false);
+  const [staffingEventId, setStaffingEventId] = useState<string | null>(null);
 
   const filteredEvents = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase('pt-BR');
@@ -45,10 +51,13 @@ export default function PsV2Team() {
     <MainLayout>
       <PageHeader
         title="Equipe e alocação"
-        description="Selecione um evento para revisar a proposta de alocação antes de publicar qualquer alteração na equipe oficial."
+        description="Planeje necessidades, configure elegibilidade e revise propostas sem interferir na equipe oficial."
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary">V2 · paralelo</Badge>
+            <Button variant="outline" size="sm" onClick={() => setEligibilityOpen(true)}>
+              <SlidersHorizontal className="mr-2 h-4 w-4" />Elegibilidade
+            </Button>
             <Button asChild variant="outline" size="sm">
               <Link to={PS_V2_BASE_PATH}><ArrowLeft className="mr-2 h-4 w-4" />Central V2</Link>
             </Button>
@@ -64,7 +73,7 @@ export default function PsV2Team() {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">O Processo Seletivo atual continua sendo o ambiente oficial.</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              O V2 trabalha em paralelo. Uma proposta só entra na equipe oficial depois de ser revisada e publicada de forma explícita.
+              O V2 trabalha em paralelo. Necessidades, regras e propostas ficam isoladas; a publicação na equipe oficial está temporariamente bloqueada.
             </p>
           </div>
           <Button asChild variant="ghost" size="sm" className="shrink-0">
@@ -76,7 +85,7 @@ export default function PsV2Team() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-semibold">Eventos</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Abra a área de equipe do V2 sem interferir na operação vigente.</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Defina primeiro a demanda do evento e depois gere a proposta automática.</p>
         </div>
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -104,12 +113,15 @@ export default function PsV2Team() {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 border-t border-border/50 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <CardContent className="space-y-3 border-t border-border/50 pt-4">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Users className="h-4 w-4 text-primary" />
-                  Revisão e publicação controlada da equipe
+                  Necessidades → proposta → revisão. Sem publicação automática.
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setStaffingEventId(event.id)}>
+                    <MapPinned className="mr-2 h-3.5 w-3.5" />Necessidades
+                  </Button>
                   <Button asChild variant="outline" size="sm">
                     <Link to={`/admin-module/processo-seletivo/eventos/${event.id}`}>Equipe atual <ExternalLink className="ml-2 h-3.5 w-3.5" /></Link>
                   </Button>
@@ -130,6 +142,9 @@ export default function PsV2Team() {
           </CardContent>
         </Card>
       )}
+
+      <PsV2EligibilityDialog open={eligibilityOpen} onOpenChange={setEligibilityOpen} />
+      <PsV2StaffingDialog open={!!staffingEventId} onOpenChange={(open) => { if (!open) setStaffingEventId(null); }} eventId={staffingEventId || undefined} />
     </MainLayout>
   );
 }
