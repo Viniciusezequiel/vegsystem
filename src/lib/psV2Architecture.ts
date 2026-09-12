@@ -37,7 +37,7 @@ export const PS_V2_MODULES = [
     title: 'Equipe e alocação',
     description: 'Banco de fiscais, elegibilidade, experiência, seleção e alocação inteligente.',
     icon: Users,
-    href: null,
+    href: `${PS_V2_BASE_PATH}/equipe`,
   },
   {
     key: 'comunicacao',

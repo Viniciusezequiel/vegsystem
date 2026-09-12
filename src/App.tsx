@@ -113,6 +113,8 @@ import PsEvaluatorPortal from "./pages/processo-seletivo/evaluator/PsEvaluatorPo
 // Processo Seletivo 2 (desenvolvimento paralelo)
 import PsV2Home from "./pages/processo-seletivo-v2/PsV2Home";
 import PsV2Locations from "./pages/processo-seletivo-v2/PsV2Locations";
+import PsV2Team from "./pages/processo-seletivo-v2/PsV2Team";
+import PsV2EventTeam from "./pages/processo-seletivo-v2/PsV2EventTeam";
 
 // PWA
 import Install from "./pages/Install";
@@ -444,6 +446,8 @@ const App = () => (
               {/* Processo Seletivo 2 - desenvolvimento paralelo */}
               <Route path="/admin-module/processo-seletivo-v2" element={<ProtectedRoute requireAdmin><PsV2Home /></ProtectedRoute>} />
               <Route path="/admin-module/processo-seletivo-v2/locais" element={<ProtectedRoute requireAdmin><PsV2Locations /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo-v2/equipe" element={<ProtectedRoute requireAdmin><PsV2Team /></ProtectedRoute>} />
+              <Route path="/admin-module/processo-seletivo-v2/eventos/:eventId/equipe" element={<ProtectedRoute requireAdmin><PsV2EventTeam /></ProtectedRoute>} />
 
               {/* Processo Seletivo */}
               <Route path="/admin-module/processo-seletivo" element={<ProtectedRoute requireAdmin><PsHome /></ProtectedRoute>} />
