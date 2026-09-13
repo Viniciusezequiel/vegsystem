@@ -99,6 +99,17 @@
   margin-top: 0.7rem !important;
 }
 
+/* O quinto atalho era do módulo independente de Etiquetas, agora aposentado. */
+.dashboard-route > .space-y-4 > div:last-child .grid > button:nth-child(5) {
+  display: none !important;
+}
+
+@container veg-dashboard (min-width: 1280px) {
+  .dashboard-route > .space-y-4 > div:last-child .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
 /*
  * O breakpoint do Tailwind considera a largura total da janela. Com a sidebar
  * aberta, a área útil da dashboard fica bem menor e os cards 6/3/3 podem ficar

@@ -35,8 +35,9 @@ const SEARCH_TARGETS = [
   { terms: ['chamado', 'chamados', 'chamados de sala'], path: '/classroom-calls' },
   { terms: ['checklist', 'checklists', 'salas'], path: '/rooms/checklists' },
   { terms: ['semestral', 'checklist semestral'], path: '/semester' },
+  { terms: ['reserva', 'reservas', 'reservas de salas'], path: '/reservations' },
+  { terms: ['aprovacao', 'aprovação', 'aprovacoes', 'aprovações', 'clientes externos'], path: '/external-users-approval' },
   { terms: ['processo seletivo', 'processo'], path: '/admin-module/processo-seletivo' },
-  { terms: ['etiqueta', 'etiquetas'], path: '/labels' },
   { terms: ['relatorio', 'relatório', 'relatorios', 'relatórios'], path: '/reports' },
   { terms: ['historico', 'histórico', 'atividade', 'atividades'], path: '/activity-history' },
   { terms: ['configuracao', 'configuração', 'configuracoes', 'configurações'], path: '/settings' },
@@ -120,6 +121,12 @@ export function MainLayout({ children }: MainLayoutProps) {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/labels')) {
+      navigate('/', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     if (!isMobile || !mobileMenuOpen) return;

@@ -36,7 +36,6 @@ import {
   ClipboardCheck,
   Bell,
   Car,
-  Tag,
   GraduationCap
 } from 'lucide-react';
 
@@ -58,11 +57,9 @@ const moduleOptions = [
   { value: 'semester', label: 'Checklist Semestral', icon: ClipboardCheck },
   { value: 'classroom-calls', label: 'Chamados de Sala', icon: Bell },
   { value: 'uber', label: 'Uber Corporativo', icon: Car },
-  { value: 'labels', label: 'Etiquetas', icon: Tag },
   { value: 'processo-seletivo', label: 'Processo Seletivo', icon: GraduationCap },
   { value: 'settings', label: 'Configurações', icon: Settings },
 ];
-
 
 const actionVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   create: 'default',
