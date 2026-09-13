@@ -1,5 +1,5 @@
 import { useMemo, useState, type ElementType } from 'react';
-import { NavLink as RouterNavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink as RouterNavLink, useLocation } from 'react-router-dom';
 import {
   BarChart3,
   Bell,
@@ -10,12 +10,9 @@ import {
   ChevronRight,
   ClipboardCheck,
   GraduationCap,
-  HeartPulse,
   History,
   LayoutDashboard,
-  Loader2,
   Lock,
-  LogOut,
   Monitor,
   Package,
   Settings,
@@ -25,7 +22,6 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions, type Module } from '@/hooks/usePermissions';
-import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
@@ -87,14 +83,6 @@ const sections: NavSection[] = [
       { name: 'Administração', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
     ],
   },
-  {
-    key: 'system',
-    name: 'Sistema',
-    adminOnly: true,
-    items: [
-      { name: 'Saúde do Sistema', href: '/admin-module/system-health', icon: HeartPulse, adminOnly: true },
-    ],
-  },
 ];
 
 interface SidebarProps {
@@ -117,11 +105,8 @@ export function Sidebar({
   pendingCallsCount = 0,
 }: SidebarProps) {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { signOut, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const { canView } = useUserPermissions();
-  const { toast } = useToast();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [closedSections, setClosedSections] = useState<string[]>([]);
 
   const badgeCounts = {
@@ -147,19 +132,6 @@ export function Sidebar({
 
   const handleNavClick = () => {
     if (isMobile) onCloseMobile?.();
-  };
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await signOut();
-      toast({ title: 'Logout realizado', description: 'Você foi desconectado do sistema.' });
-      navigate('/admin-auth');
-    } catch {
-      toast({ title: 'Erro', description: 'Não foi possível fazer logout.', variant: 'destructive' });
-    } finally {
-      setIsLoggingOut(false);
-    }
   };
 
   const renderLink = (item: NavItem) => {
@@ -265,27 +237,9 @@ export function Sidebar({
         </nav>
 
         <div className={cn('border-t border-sidebar-border/30 bg-sidebar/95', collapsed ? 'p-2' : 'p-2.5')}>
-          <div className={cn('mb-1.5', collapsed && 'flex justify-center')}>
+          <div className={cn(collapsed && 'flex justify-center')}>
             <ThemeToggle collapsed={collapsed} />
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                aria-label="Sair do Sistema"
-                className={cn(
-                  'flex min-h-9 w-full items-center justify-center gap-2 rounded-lg px-2 text-xs font-medium text-destructive/70 transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-50',
-                  collapsed && 'px-0'
-                )}
-              >
-                {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-                {!collapsed ? <span>{isLoggingOut ? 'Saindo...' : 'Sair do Sistema'}</span> : null}
-              </button>
-            </TooltipTrigger>
-            {collapsed ? <TooltipContent side="right">Sair do Sistema</TooltipContent> : null}
-          </Tooltip>
         </div>
       </aside>
     </TooltipProvider>
