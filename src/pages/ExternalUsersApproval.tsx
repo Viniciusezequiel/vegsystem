@@ -3,9 +3,9 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageToolbar } from '@/components/layout/PageToolbar';
 import { ContentState } from '@/components/layout/ContentState';
+import { ReservationsModuleNav } from '@/components/reservations/ReservationsModuleNav';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Check, X, Mail, Phone, Building, UserIcon, ArrowLeft, Search, ShieldAlert } from 'lucide-react';
+import { Check, X, Mail, Phone, Building, UserIcon, Search, ShieldAlert } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -37,7 +37,6 @@ interface ExternalUserRow {
 }
 
 export default function ExternalUsersApproval() {
-  const navigate = useNavigate();
   const { profile, isAdmin } = useAuth();
   const [users, setUsers] = useState<ExternalUserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,15 +168,11 @@ export default function ExternalUsersApproval() {
   return (
     <MainLayout>
       <div className="space-y-4">
+        <ReservationsModuleNav />
+
         <PageHeader
-          title="Aprovação de Clientes Externos"
-          description="Gerencie cadastros do Portal do Cliente"
-          actions={
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar
-            </Button>
-          }
+          title="Aprovações do Portal de Reservas"
+          description="Aprove ou rejeite cadastros de clientes que solicitaram acesso para reservar salas."
         />
 
         <PageToolbar className="mb-0">
