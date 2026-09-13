@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { assertPsV2OfficialWritesEnabled } from '@/lib/psV2Safety';
 
 const db = supabase as any;
 const missingV2 = (error: any) => error?.code === '42P01' || String(error?.message || '').includes('ps_v2_');
@@ -144,6 +145,7 @@ export function usePsV2AllocationReviewMutations(eventId?: string) {
     mutationFn: async ({ runId }: { runId: string }): Promise<PsV2PublishResult> => {
       if (!eventId) throw new Error('Evento não informado.');
       if (!runId) throw new Error('Proposta de alocação não informada.');
+      assertPsV2OfficialWritesEnabled('A publicação da equipe oficial');
 
       const result = await db.rpc('ps_v2_publish_allocation_run', {
         p_event_id: eventId,
