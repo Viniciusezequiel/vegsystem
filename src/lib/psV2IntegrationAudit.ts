@@ -19,6 +19,8 @@ export type PsV2IntegrationAudit = {
     totalSlots: number;
     reviewedItems: number;
     totalItems: number;
+    requiredRoles: number;
+    protectedRoles: number;
   };
   canTechnicallyIntegrate: boolean;
 };
@@ -29,16 +31,39 @@ type AuditInput = {
   team?: any[];
   metrics?: Record<string, any> | null;
   requirements?: any[];
+  eligibilityRules?: any[];
   run?: any | null;
   items?: any[];
   staffingSchemaReady?: boolean;
   reviewSchemaReady?: boolean;
+  eligibilitySchemaReady?: boolean;
   trainingGroups?: any[];
   trainingSessions?: any[];
 };
 
 const asId = (value: unknown) => String(value ?? '').trim();
 const hasText = (value: unknown) => String(value ?? '').trim().length > 0;
+const normalize = (value: unknown) => String(value ?? '')
+  .toLocaleLowerCase('pt-BR')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .trim();
+
+const sensitiveRoleTokens = [
+  'coordenador',
+  'subcoordenador',
+  'sub coordenador',
+  'lider',
+  'itinerante',
+  'sanitario',
+  'detector',
+  'organizador geral',
+];
+
+const isSensitiveRole = (name: unknown) => {
+  const normalized = normalize(name);
+  return sensitiveRoleTokens.some((token) => normalized.includes(token));
+};
 
 const duplicates = (values: string[]) => {
   const counts = new Map<string, number>();
@@ -52,10 +77,12 @@ export function buildPsV2IntegrationAudit(input: AuditInput): PsV2IntegrationAud
   const team = input.team || [];
   const metrics = input.metrics || {};
   const requirements = input.requirements || [];
+  const eligibilityRules = (input.eligibilityRules || []).filter((rule) => rule?.active !== false);
   const items = input.items || [];
   const run = input.run || null;
   const staffingSchemaReady = input.staffingSchemaReady !== false;
   const reviewSchemaReady = input.reviewSchemaReady !== false;
+  const eligibilitySchemaReady = input.eligibilitySchemaReady !== false;
   const trainingGroups = input.trainingGroups || [];
   const trainingSessions = input.trainingSessions || [];
 
@@ -69,10 +96,10 @@ export function buildPsV2IntegrationAudit(input: AuditInput): PsV2IntegrationAud
     else checks.push(finding);
   };
 
-  if (!staffingSchemaReady || !reviewSchemaReady) {
-    push({ code: 'schema', severity: 'blocker', title: 'Estrutura V2 ainda não está ativa', detail: 'As tabelas isoladas do V2 precisam existir antes de qualquer futura integração.' });
+  if (!staffingSchemaReady || !reviewSchemaReady || !eligibilitySchemaReady) {
+    push({ code: 'schema', severity: 'blocker', title: 'Estrutura V2 indisponível', detail: 'As tabelas isoladas de planejamento, revisão e elegibilidade precisam responder antes de qualquer futura integração.' });
   } else {
-    push({ code: 'schema', severity: 'ok', title: 'Estrutura V2 disponível', detail: 'As consultas de planejamento e revisão responderam corretamente.' });
+    push({ code: 'schema', severity: 'ok', title: 'Estrutura V2 disponível', detail: 'Planejamento, revisão e elegibilidade estão acessíveis no banco isolado do V2.' });
   }
 
   if (!hasText(event?.name) || !hasText(event?.date)) {
@@ -85,11 +112,50 @@ export function buildPsV2IntegrationAudit(input: AuditInput): PsV2IntegrationAud
     push({ code: 'event-location', severity: 'warning', title: 'Local oficial não informado', detail: 'O evento ainda não possui local preenchido no cadastro oficial.' });
   }
 
-  const totalSlots = requirements.reduce((sum, item) => sum + Math.max(0, Number(item?.quantity || 0)), 0);
-  if (!requirements.length || totalSlots === 0) {
+  const activeRequirements = requirements.filter((item) => item?.active !== false);
+  const totalSlots = activeRequirements.reduce((sum, item) => sum + Math.max(0, Number(item?.quantity || 0)), 0);
+  if (!activeRequirements.length || totalSlots === 0) {
     push({ code: 'requirements', severity: 'blocker', title: 'Necessidades de equipe não definidas', detail: 'Cadastre as necessidades por local, andar, área ou ambiente antes de validar a escala.' });
   } else {
-    push({ code: 'requirements', severity: 'ok', title: 'Necessidades definidas', detail: `${requirements.length} regra(s) geram ${totalSlots} vaga(s) planejada(s).` });
+    push({ code: 'requirements', severity: 'ok', title: 'Necessidades definidas', detail: `${activeRequirements.length} regra(s) geram ${totalSlots} vaga(s) planejada(s).` });
+  }
+
+  const requiredRoleMap = new Map<string, { id: string; name: string }>();
+  const requirementsWithoutRole = activeRequirements.filter((item) => !asId(item?.role_id));
+  for (const requirement of activeRequirements) {
+    const roleId = asId(requirement?.role_id);
+    if (roleId && !requiredRoleMap.has(roleId)) requiredRoleMap.set(roleId, { id: roleId, name: String(requirement?.role_name_snapshot || 'Função sem nome') });
+  }
+
+  if (requirementsWithoutRole.length) {
+    push({ code: 'requirements-without-role', severity: 'warning', title: 'Necessidades sem vínculo de função', detail: `${requirementsWithoutRole.length} necessidade(s) usam apenas o nome salvo e não podem ser protegidas integralmente pela matriz de elegibilidade.` });
+  }
+
+  const uncoveredSensitive: string[] = [];
+  const uncoveredGeneral: string[] = [];
+  let protectedRoles = 0;
+  for (const role of requiredRoleMap.values()) {
+    const rules = eligibilityRules.filter((rule) => asId(rule?.event_role_id) === role.id);
+    if (rules.length) protectedRoles += 1;
+    else if (isSensitiveRole(role.name)) uncoveredSensitive.push(role.name);
+    else uncoveredGeneral.push(role.name);
+  }
+
+  if (uncoveredSensitive.length) {
+    push({
+      code: 'sensitive-role-eligibility',
+      severity: 'blocker',
+      title: 'Funções sensíveis sem regra de elegibilidade',
+      detail: `${uncoveredSensitive.join(', ')} precisam de ao menos uma regra ativa antes de considerar a escala tecnicamente pronta.`,
+    });
+  } else if ([...requiredRoleMap.values()].some((role) => isSensitiveRole(role.name))) {
+    push({ code: 'sensitive-role-eligibility', severity: 'ok', title: 'Funções sensíveis protegidas', detail: 'Todas as funções sensíveis usadas neste evento possuem regra ativa de elegibilidade.' });
+  }
+
+  if (uncoveredGeneral.length) {
+    push({ code: 'general-role-eligibility', severity: 'warning', title: 'Funções sem regra específica', detail: `${uncoveredGeneral.length} função(ões) não possuem regra própria; o motor dependerá de histórico, afinidade e score geral.` });
+  } else if (requiredRoleMap.size) {
+    push({ code: 'general-role-eligibility', severity: 'ok', title: 'Cobertura de elegibilidade completa', detail: 'Todas as funções vinculadas às necessidades possuem ao menos uma regra ativa.' });
   }
 
   if (!run) {
@@ -106,7 +172,7 @@ export function buildPsV2IntegrationAudit(input: AuditInput): PsV2IntegrationAud
   const acceptedWithoutCollaborator = accepted.filter((item) => !item?.collaborator_id);
   const acceptedIds = accepted.map((item) => asId(item?.collaborator_id)).filter(Boolean);
   const duplicateAcceptedIds = duplicates(acceptedIds);
-  const requirementIds = new Set(requirements.map((item) => asId(item?.id)).filter(Boolean));
+  const requirementIds = new Set(activeRequirements.map((item) => asId(item?.id)).filter(Boolean));
   const missingRequirementItems = accepted.filter((item) => !requirementIds.has(asId(item?.requirement_id)));
 
   if (!accepted.length) {
@@ -171,6 +237,8 @@ export function buildPsV2IntegrationAudit(input: AuditInput): PsV2IntegrationAud
       totalSlots,
       reviewedItems,
       totalItems: items.length,
+      requiredRoles: requiredRoleMap.size,
+      protectedRoles,
     },
     canTechnicallyIntegrate,
   };

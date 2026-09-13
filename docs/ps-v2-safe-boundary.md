@@ -15,8 +15,30 @@ Este documento registra o limite operacional do V2 enquanto o Processo Seletivo 
 - relatórios e exportações locais em XLSX;
 - prévia/checklist de encerramento;
 - auditoria de pré-integração (dry-run) comparando proposta V2 e equipe oficial;
+- validação de cobertura de elegibilidade para funções sensíveis;
 - exportação local da simulação de integração em CSV;
 - barreira explícita em código impedindo publicação da equipe oficial pelo V2.
+
+## Banco V2 ativo e isolado
+
+A migration `ps_v2_structure_foundation` foi aplicada ao banco de produção porque cria exclusivamente estruturas `ps_v2_*` e não altera registros ou comportamento do módulo atual.
+
+Estruturas ativas:
+
+- `ps_v2_locations`;
+- `ps_v2_buildings`;
+- `ps_v2_floors`;
+- `ps_v2_areas`;
+- `ps_v2_environments`;
+- `ps_v2_event_locations`;
+- `ps_v2_staff_requirements`;
+- `ps_v2_role_eligibility`;
+- `ps_v2_allocation_runs`;
+- `ps_v2_allocation_items`.
+
+As tabelas possuem RLS e políticas restritas a usuários internos. No momento da ativação, estavam vazias e sem qualquer impacto nos dados operacionais existentes.
+
+A função/RPC de publicação `ps_v2_publish_allocation_run` **não está instalada no banco**. Portanto, além do bloqueio de interface e do bloqueio de código cliente, não existe caminho de publicação V2 para a equipe oficial nesta fase.
 
 ## Bloqueado enquanto o módulo atual estiver em uso
 
@@ -34,11 +56,13 @@ A constante `PS_V2_OFFICIAL_WRITES_ENABLED` deve permanecer `false` enquanto o m
 
 ## Dry-run de integração
 
-A tela de pré-integração é somente leitura. Ela verifica, entre outros pontos:
+A tela de pré-integração é somente leitura em relação ao módulo oficial. Ela verifica, entre outros pontos:
 
 - disponibilidade da estrutura V2;
 - necessidades e total de vagas planejadas;
 - existência e estado da proposta de alocação;
+- cobertura da matriz de elegibilidade;
+- bloqueio quando funções sensíveis (coordenação, liderança, itinerante, sanitário, detector e organizador geral) não possuem regra ativa;
 - revisão pendente, alocação aceita sem colaborador e duplicidades;
 - vínculos com necessidades removidas/inativas;
 - integrantes já existentes na equipe oficial e quantos seriam novos;
@@ -50,10 +74,16 @@ A tela de pré-integração é somente leitura. Ela verifica, entre outros ponto
 
 O resultado “tecnicamente pronto” significa apenas que o conjunto de dados passou nas validações locais. Ele não habilita escrita oficial.
 
-## Banco V2
-
-As migrations de estrutura V2 permanecem sem aplicação em produção durante esta fase. A migration de publicação da alocação deve permanecer desativada até a migração controlada do módulo oficial.
-
 ## Regra de transição futura
 
-A ativação operacional deve ser feita por etapa, com backup, validação de dados e teste de regressão do módulo atual antes de cada escrita compartilhada. A primeira etapa futura deverá remover a barreira somente após uma decisão explícita, nunca de forma automática por deploy.
+A migration de publicação da alocação permanece desativada. A ativação operacional deve ser feita por etapa, com backup, validação de dados e teste de regressão do módulo atual antes de cada escrita compartilhada.
+
+A primeira etapa futura deverá exigir uma decisão explícita para:
+
+1. instalar a RPC de publicação;
+2. revisar a barreira `PS_V2_OFFICIAL_WRITES_ENABLED`;
+3. validar o dry-run sem bloqueios;
+4. executar teste controlado em um evento não crítico;
+5. somente então considerar o V2 como fonte operacional.
+
+Nenhum desses passos deve acontecer automaticamente por deploy.

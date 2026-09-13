@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePsCandidates, usePsEvent } from '@/hooks/useProcessoSeletivo';
 import { usePsV2AllocationReview } from '@/hooks/usePsV2AllocationReview';
+import { usePsV2Eligibility } from '@/hooks/usePsV2Eligibility';
 import { usePsV2EventReadOnly } from '@/hooks/usePsV2EventReadOnly';
 import { usePsV2EventStaffing } from '@/hooks/usePsV2EventStaffing';
 import { buildPsV2IntegrationAudit, type PsV2AuditFinding } from '@/lib/psV2IntegrationAudit';
@@ -41,12 +42,14 @@ export default function PsV2IntegrationDryRun() {
   const readOnly = usePsV2EventReadOnly(eventId);
   const staffing = usePsV2EventStaffing(eventId);
   const review = usePsV2AllocationReview(eventId);
+  const eligibility = usePsV2Eligibility();
   const base = `${PS_V2_BASE_PATH}/eventos/${eventId}/equipe`;
 
   const data = readOnly.data;
   const requirements = staffing.data?.requirements || [];
   const items = review.data?.items || [];
   const run = review.data?.run || null;
+  const eligibilityRules = eligibility.data?.rules || [];
 
   const audit = useMemo(() => buildPsV2IntegrationAudit({
     event,
@@ -54,13 +57,15 @@ export default function PsV2IntegrationDryRun() {
     team: data?.team || [],
     metrics: data?.metrics,
     requirements,
+    eligibilityRules,
     run,
     items,
     staffingSchemaReady: staffing.data?.schemaReady,
     reviewSchemaReady: review.data?.schemaReady,
+    eligibilitySchemaReady: eligibility.data?.schemaReady,
     trainingGroups: data?.trainingGroups || [],
     trainingSessions: data?.trainingSessions || [],
-  }), [candidates, data, event, items, requirements, review.data?.schemaReady, run, staffing.data?.schemaReady]);
+  }), [candidates, data, eligibility.data?.schemaReady, eligibilityRules, event, items, requirements, review.data?.schemaReady, run, staffing.data?.schemaReady]);
 
   const officialIds = useMemo(() => new Set((data?.team || []).map((member: any) => String(member?.collaborator_id || '')).filter(Boolean)), [data?.team]);
   const requirementById = useMemo(() => new Map(requirements.map((item: any) => [String(item.id), item])), [requirements]);
@@ -92,7 +97,7 @@ export default function PsV2IntegrationDryRun() {
     URL.revokeObjectURL(url);
   };
 
-  if (eventLoading || candidatesLoading || readOnly.isLoading || staffing.isLoading || review.isLoading) {
+  if (eventLoading || candidatesLoading || readOnly.isLoading || staffing.isLoading || review.isLoading || eligibility.isLoading) {
     return <MainLayout><div className="py-16 text-center text-sm text-muted-foreground">Executando conferência pré-integração...</div></MainLayout>;
   }
 
@@ -121,14 +126,15 @@ export default function PsV2IntegrationDryRun() {
       </CardContent>
     </Card>
 
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
       {[
         ['Equipe oficial preservada', p.officialPreserved, 'nenhum vínculo removido', Users],
         ['Aceitos no V2', p.accepted, `${p.reviewedItems}/${p.totalItems} itens revisados`, FileCheck2],
         ['Já estão na equipe', p.alreadyOfficial, 'seriam preservados', CheckCircle2],
         ['Entrariam futuramente', p.wouldInsert, 'nenhuma inserção agora', Database],
+        ['Funções protegidas', `${p.protectedRoles}/${p.requiredRoles}`, 'cobertura de elegibilidade', ShieldCheck],
         ['Bloqueios', audit.blockers.length, statusLabel, Ban],
-        ['Alertas', audit.warnings.length, 'não impedem o dry-run', AlertTriangle],
+        ['Alertas', audit.warnings.length, 'não alteram o módulo atual', AlertTriangle],
       ].map(([label, value, detail, Icon]: any) => <Card key={label} className="rounded-2xl border-border/60 bg-card/70"><CardContent className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p><p className="mt-1.5 text-2xl font-semibold">{value}</p><p className="mt-1 text-[11px] text-muted-foreground">{detail}</p></div><Icon className="h-5 w-5 shrink-0 text-primary" /></CardContent></Card>)}
     </section>
 
@@ -146,7 +152,7 @@ export default function PsV2IntegrationDryRun() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/60 bg-card/70"><CardHeader><CardTitle className="text-base">Conferências aprovadas</CardTitle><CardDescription>Validações que já passaram no estado atual.</CardDescription></CardHeader><CardContent className="grid gap-2 md:grid-cols-2">{audit.checks.length ? audit.checks.map((finding) => <Finding key={finding.code} finding={finding} />) : <p className="text-sm text-muted-foreground">Nenhuma conferência concluída ainda.</p>}</CardContent></Card>
+        <Card className="rounded-2xl border-border/60 bg-card/70"><CardHeader><CardTitle className="text-base">Conferências aprovadas</CardTitle><CardDescription>Validações que já passaram no estado atual, inclusive proteção das funções sensíveis.</CardDescription></CardHeader><CardContent className="grid gap-2 md:grid-cols-2">{audit.checks.length ? audit.checks.map((finding) => <Finding key={finding.code} finding={finding} />) : <p className="text-sm text-muted-foreground">Nenhuma conferência concluída ainda.</p>}</CardContent></Card>
       </div>
 
       <aside className="space-y-4">

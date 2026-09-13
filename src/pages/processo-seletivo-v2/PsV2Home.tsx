@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   CircleDot,
+  Database,
   MapPinned,
   Plus,
   Sparkles,
@@ -19,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePsCollaborators, usePsEvaluations, usePsEvents } from '@/hooks/useProcessoSeletivo';
+import { usePsV2FoundationStatus } from '@/hooks/usePsV2FoundationStatus';
 import { PS_EVENT_STATUS } from '@/lib/psConstants';
 import { PS_V2_BASE_PATH, PS_V2_MODULES, PS_V2_RESOURCES, PS_V2_WORKFLOW } from '@/lib/psV2Architecture';
 
@@ -48,6 +50,7 @@ export default function PsV2Home() {
   const { data: events = [], isLoading: loadingEvents } = usePsEvents();
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: evaluations = [] } = usePsEvaluations();
+  const foundation = usePsV2FoundationStatus();
 
   const today = new Date().toISOString().slice(0, 10);
   const orderedEvents = useMemo(
@@ -57,17 +60,18 @@ export default function PsV2Home() {
   const activeEvents = orderedEvents.filter((event: any) => event.status !== 'finalizado');
   const nextEvent = activeEvents.find((event: any) => !event.date || event.date >= today) || activeEvents[0];
   const pendingEvaluations = evaluations.filter((evaluation: any) => !evaluation.final_score || Number(evaluation.final_score) <= 0).length;
+  const v2 = foundation.data;
 
   return (
     <MainLayout>
       <PageHeader
         title="Processo Seletivo 2"
-        description="Nova central operacional em construção paralela, sem interromper o módulo atual."
+        description="Nova central operacional em paralelo, avançando sem interromper o módulo atual."
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary">V2 · ambiente paralelo</Badge>
             <Button asChild size="sm">
-              <Link to="/admin-module/processo-seletivo/eventos"><Plus className="mr-2 h-4 w-4" />Novo evento</Link>
+              <Link to="/admin-module/processo-seletivo/eventos"><Plus className="mr-2 h-4 w-4" />Novo evento no módulo atual</Link>
             </Button>
           </div>
         )}
@@ -76,16 +80,16 @@ export default function PsV2Home() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Eventos ativos" value={activeEvents.length} detail={`${events.length} eventos cadastrados`} icon={CalendarDays} />
         <MetricCard title="Próximo evento" value={nextEvent ? formatDate(nextEvent.date) : '—'} detail={nextEvent?.name || 'Nenhum evento programado'} icon={CalendarClock} />
-        <MetricCard title="Banco de fiscais" value={collaborators.length} detail="Base compartilhada com o módulo atual" icon={Users} />
-        <MetricCard title="Pendências" value={pendingEvaluations} detail="Indicador inicial; será ampliado no V2" icon={AlertTriangle} attention={pendingEvaluations > 0} />
+        <MetricCard title="Banco de fiscais" value={collaborators.length} detail="Leitura da base atual; sem alteração pelo V2" icon={Users} />
+        <MetricCard title="Pendências" value={pendingEvaluations} detail="Leitura operacional do módulo atual" icon={AlertTriangle} attention={pendingEvaluations > 0} />
       </section>
 
       <section className="mt-5 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/[0.08] via-card/70 to-card/60 p-4 sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="max-w-2xl">
             <div className="flex items-center gap-2 text-primary"><Sparkles className="h-4 w-4" /><span className="text-xs font-semibold uppercase tracking-[0.14em]">Fluxo inteligente</span></div>
-            <h2 className="mt-2 text-lg font-semibold">O evento passa a orientar o trabalho, em vez de apenas guardar cadastros.</h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Planejamento, estrutura física, equipe, comunicação, execução, avaliação e financeiro ficam conectados em uma sequência única, com pendências e próximas ações.</p>
+            <h2 className="mt-2 text-lg font-semibold">O evento orienta o trabalho inteiro, sem tirar o módulo atual de operação.</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Planejamento, estrutura física, equipe, preparação, leitura operacional, auditoria e pré-integração ficam conectados. As ações oficiais continuam no módulo atual enquanto a transição não for autorizada.</p>
           </div>
           <Button asChild variant="outline" className="shrink-0"><Link to={`${PS_V2_BASE_PATH}/locais`}><MapPinned className="mr-2 h-4 w-4" />Estruturar locais</Link></Button>
         </div>
@@ -130,11 +134,11 @@ export default function PsV2Home() {
 
           <Card className="rounded-2xl border-border/60 bg-card/65">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-3"><div><CardTitle className="text-base">Eventos</CardTitle><CardDescription className="mt-1">Acesso rápido aos processos já cadastrados.</CardDescription></div><Button asChild variant="ghost" size="sm"><Link to="/admin-module/processo-seletivo/eventos">Ver todos <ArrowRight className="ml-2 h-4 w-4" /></Link></Button></div>
+              <div className="flex items-center justify-between gap-3"><div><CardTitle className="text-base">Eventos</CardTitle><CardDescription className="mt-1">Acesso rápido à central V2 de cada processo já cadastrado.</CardDescription></div><Button asChild variant="ghost" size="sm"><Link to={`${PS_V2_BASE_PATH}/equipe`}>Ver todos <ArrowRight className="ml-2 h-4 w-4" /></Link></Button></div>
             </CardHeader>
             <CardContent className="space-y-2.5">
               {loadingEvents ? <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Carregando eventos...</div> : orderedEvents.slice(0, 5).map((event: any) => (
-                <Link key={event.id} to={`/admin-module/processo-seletivo/eventos/${event.id}`} className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 transition hover:border-primary/25 hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
+                <Link key={event.id} to={`${PS_V2_BASE_PATH}/eventos/${event.id}/equipe?view=overview`} className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 transition hover:border-primary/25 hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0"><p className="truncate text-sm font-medium">{event.name}</p><p className="mt-1 text-xs text-muted-foreground">{formatDate(event.date)} · {event.location || 'Local ainda não estruturado'}</p></div>
                   <div className="flex items-center gap-2"><Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'}>{PS_EVENT_STATUS[event.status] || event.status}</Badge><ArrowRight className="h-4 w-4 text-muted-foreground" /></div>
                 </Link>
@@ -162,8 +166,14 @@ export default function PsV2Home() {
             </CardContent>
           </Card>
 
+          <Card className={`rounded-2xl ${v2?.schemaReady ? 'border-emerald-500/20 bg-emerald-500/[0.05]' : 'border-amber-500/20 bg-amber-500/[0.05]'}`}>
+            <CardContent className="p-4">
+              <div className="flex gap-3"><Database className={`mt-0.5 h-5 w-5 shrink-0 ${v2?.schemaReady ? 'text-emerald-500' : 'text-amber-500'}`} /><div className="min-w-0"><p className="text-sm font-medium">{foundation.isLoading ? 'Verificando base V2...' : v2?.schemaReady ? 'Base isolada V2 ativa' : 'Base V2 indisponível'}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{v2?.schemaReady ? `${v2.locations} local(is), ${v2.requirements} necessidade(s), ${v2.eligibilityRules} regra(s) e ${v2.allocationRuns} proposta(s) no espaço isolado.` : 'As telas permanecem protegidas e não escrevem no módulo oficial.'}</p></div></div>
+            </CardContent>
+          </Card>
+
           <Card className="rounded-2xl border-emerald-500/20 bg-emerald-500/[0.05]">
-            <CardContent className="flex gap-3 p-4"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" /><div><p className="text-sm font-medium">Módulo atual preservado</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">O V2 está sendo desenvolvido em paralelo. Os dados existentes continuam sendo a fonte principal enquanto cada nova etapa é validada.</p></div></CardContent>
+            <CardContent className="flex gap-3 p-4"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" /><div><p className="text-sm font-medium">Módulo atual preservado</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">A base oficial continua sendo somente leitura pelo V2. Publicação, comunicação, presença, avaliação, financeiro e encerramento permanecem no módulo atual.</p></div></CardContent>
           </Card>
         </aside>
       </div>
