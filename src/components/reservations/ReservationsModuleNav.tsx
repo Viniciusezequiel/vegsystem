@@ -8,7 +8,7 @@ export function ReservationsModuleNav() {
     { label: 'Reservas', href: '/reservations', icon: CalendarDays, activeWhen: pathname => pathname === '/reservations' },
     { label: 'Nova Reserva', href: '/reservations/new', icon: Plus, activeWhen: pathname => pathname.startsWith('/reservations/new') },
     ...(isAdmin ? [
-      { label: 'Aprovações', href: '/reservations/approvals', icon: UserCheck, activeWhen: (pathname: string) => pathname.startsWith('/reservations/approvals') },
+      { label: 'Aprovações', href: '/external-users-approval', icon: UserCheck, activeWhen: (pathname: string) => pathname === '/external-users-approval' },
       { label: 'Cadastro de Salas', href: '/reservations/rooms', icon: Building2, activeWhen: (pathname: string) => pathname.startsWith('/reservations/rooms') },
     ] : []),
   ];
