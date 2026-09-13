@@ -78,7 +78,7 @@ function DashboardPanel({
 }) {
   return (
     <Card
-      className={`overflow-hidden rounded-2xl border border-border/50 bg-card/70 shadow-[0_18px_45px_-30px_rgba(71,36,150,0.75)] backdrop-blur-sm ${className}`}
+      className={`h-full overflow-hidden rounded-2xl border border-border/50 bg-card/70 shadow-[0_18px_45px_-30px_rgba(71,36,150,0.75)] backdrop-blur-sm transition-colors duration-200 hover:border-border/70 ${className}`}
     >
       {children}
     </Card>
@@ -97,7 +97,7 @@ function MiniSparkline({
   gradientId: string;
 }) {
   return (
-    <div className="h-12 w-28 opacity-95">
+    <div className="hidden h-12 w-24 opacity-95 xs:block sm:w-28" aria-hidden="true">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 5, right: 0, bottom: 0, left: 0 }}>
           <defs>
@@ -145,21 +145,25 @@ function KpiCard({
     <button
       type="button"
       onClick={onClick}
-      className="group relative min-h-[128px] overflow-hidden rounded-2xl border border-border/50 bg-card/70 p-4 text-left shadow-[0_18px_45px_-30px_rgba(71,36,150,0.8)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      aria-label={`${label}: ${value}. ${helper}`}
+      className="group relative min-h-[126px] w-full overflow-hidden rounded-2xl border border-border/50 bg-card/70 p-4 text-left shadow-[0_18px_45px_-30px_rgba(71,36,150,0.8)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:min-h-[132px]"
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_25%,hsl(var(--primary)/0.10),transparent_38%)] opacity-70" />
-      <div className="relative flex h-full items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="mb-3 flex items-center gap-3">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_20%,hsl(var(--primary)/0.11),transparent_42%)] opacity-80" />
+      <ArrowRight className="pointer-events-none absolute right-3 top-3 h-3.5 w-3.5 -translate-x-1 text-muted-foreground/0 transition duration-200 group-hover:translate-x-0 group-hover:text-primary/70" />
+
+      <div className="relative flex h-full items-start justify-between gap-2 sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-3 flex items-center gap-2.5 sm:gap-3">
             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 ${iconClass}`}>
               {icon}
             </span>
-            <p className="text-sm font-semibold text-foreground/90">{label}</p>
+            <p className="min-w-0 text-sm font-semibold leading-tight text-foreground/90">{label}</p>
           </div>
           <div className="text-3xl font-bold tracking-tight text-foreground tabular-nums">{value}</div>
-          <p className="mt-1 text-[11px] text-muted-foreground">{helper}</p>
+          <p className="mt-1 max-w-[190px] text-[11px] leading-snug text-muted-foreground">{helper}</p>
         </div>
-        <div className="mt-auto self-end">
+
+        <div className="mt-auto shrink-0 self-end">
           <MiniSparkline
             data={data}
             dataKey={dataKey}
@@ -193,138 +197,142 @@ function DepthDonut({
 }) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const chartData = data.filter((item) => item.value > 0);
+  const legendColumns = data.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
   return (
     <DashboardPanel>
-      <CardContent className="p-5">
-        <div className="mb-2 flex items-start justify-between gap-3">
-          <div>
+      <CardContent className="flex h-full flex-col p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{subtitle}</p>
           </div>
-          <span className="rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
-            tempo real
+          <span className="shrink-0 rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
+            atual
           </span>
         </div>
 
-        <div className="grid items-center gap-3 sm:grid-cols-[1.05fr_0.95fr]">
-          <div className="relative h-[230px] min-w-0">
-            {chartData.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <defs>
-                      {colors.map((color, index) => (
-                        <linearGradient key={color} id={`${id}-gradient-${index}`} x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor={color} stopOpacity={0.72} />
-                          <stop offset="55%" stopColor={color} stopOpacity={1} />
-                          <stop offset="100%" stopColor="#ffffff" stopOpacity={0.58} />
-                        </linearGradient>
-                      ))}
-                      <filter id={`${id}-shadow`} x="-30%" y="-30%" width="160%" height="180%">
-                        <feDropShadow dx="0" dy="10" stdDeviation="8" floodColor="#6d28d9" floodOpacity="0.3" />
-                      </filter>
-                    </defs>
+        <div className="relative mx-auto mt-1 h-[210px] w-full max-w-[270px] sm:h-[220px]">
+          {chartData.length > 0 ? (
+            <>
+              <div className="pointer-events-none absolute left-1/2 top-[56%] h-24 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-2xl" />
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <defs>
+                    {colors.map((color, index) => (
+                      <linearGradient key={color} id={`${id}-gradient-${index}`} x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#ffffff" stopOpacity={0.5} />
+                        <stop offset="18%" stopColor={color} stopOpacity={0.96} />
+                        <stop offset="72%" stopColor={color} stopOpacity={1} />
+                        <stop offset="100%" stopColor="#111827" stopOpacity={0.72} />
+                      </linearGradient>
+                    ))}
+                    <filter id={`${id}-shadow`} x="-35%" y="-35%" width="170%" height="190%">
+                      <feDropShadow dx="0" dy="12" stdDeviation="9" floodColor="#000000" floodOpacity="0.42" />
+                      <feDropShadow dx="0" dy="4" stdDeviation="5" floodColor="#6d28d9" floodOpacity="0.22" />
+                    </filter>
+                  </defs>
 
-                    <Pie
-                      data={chartData}
-                      dataKey="value"
-                      cx="50%"
-                      cy="54%"
-                      innerRadius={59}
-                      outerRadius={88}
-                      paddingAngle={2.5}
-                      startAngle={90}
-                      endAngle={-270}
-                      stroke="transparent"
-                      fill="#312e81"
-                      opacity={0.32}
-                      isAnimationActive={false}
-                    >
-                      {chartData.map((_, index) => (
-                        <Cell
-                          key={`depth-${index}`}
-                          fill={colors[index % colors.length]}
-                          opacity={0.34}
-                        />
-                      ))}
-                    </Pie>
-
-                    <Pie
-                      data={chartData}
-                      dataKey="value"
-                      cx="50%"
-                      cy="48%"
-                      innerRadius={59}
-                      outerRadius={88}
-                      paddingAngle={2.5}
-                      cornerRadius={6}
-                      startAngle={90}
-                      endAngle={-270}
-                      stroke="hsl(var(--background))"
-                      strokeWidth={1.5}
-                      style={{ filter: `url(#${id}-shadow)` }}
-                    >
-                      {chartData.map((_, index) => (
-                        <Cell
-                          key={`top-${index}`}
-                          fill={`url(#${id}-gradient-${index % colors.length})`}
-                        />
-                      ))}
-                    </Pie>
-
-                    <Tooltip
-                      formatter={(value, name) => [String(value), String(name)]}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '12px',
-                        boxShadow: '0 18px 50px rgba(0,0,0,.28)',
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-3">
-                  <div className="text-center">
-                    <div className="text-[28px] font-bold tracking-tight text-foreground tabular-nums">{centerValue}</div>
-                    <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{centerLabel}</div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Sem dados no momento</div>
-            )}
-          </div>
-
-          <div className="space-y-2.5">
-            {data.map((item, index) => {
-              const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
-              return (
-                <div key={item.name} className="rounded-xl border border-border/40 bg-background/20 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_12px_currentColor]"
-                        style={{ color: colors[index % colors.length], backgroundColor: colors[index % colors.length] }}
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    cx="50%"
+                    cy="55%"
+                    innerRadius={60}
+                    outerRadius={89}
+                    paddingAngle={2.8}
+                    startAngle={90}
+                    endAngle={-270}
+                    stroke="transparent"
+                    isAnimationActive={false}
+                  >
+                    {chartData.map((_, index) => (
+                      <Cell
+                        key={`depth-${index}`}
+                        fill={colors[index % colors.length]}
+                        opacity={0.32}
                       />
-                      <span className="truncate text-xs font-medium text-foreground/80">{item.name}</span>
-                    </div>
-                    <span className="text-xs font-semibold tabular-nums">{item.value}</span>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/30">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${pct}%`, backgroundColor: colors[index % colors.length] }}
-                    />
-                  </div>
-                  <div className="mt-1 text-right text-[10px] text-muted-foreground">{pct}%</div>
+                    ))}
+                  </Pie>
+
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    cx="50%"
+                    cy="48%"
+                    innerRadius={60}
+                    outerRadius={89}
+                    paddingAngle={2.8}
+                    cornerRadius={7}
+                    startAngle={90}
+                    endAngle={-270}
+                    stroke="hsl(var(--background))"
+                    strokeWidth={1.5}
+                    style={{ filter: `url(#${id}-shadow)` }}
+                  >
+                    {chartData.map((_, index) => (
+                      <Cell
+                        key={`top-${index}`}
+                        fill={`url(#${id}-gradient-${index % colors.length})`}
+                      />
+                    ))}
+                  </Pie>
+
+                  <Tooltip
+                    formatter={(value, name) => [String(value), String(name)]}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '12px',
+                      boxShadow: '0 18px 50px rgba(0,0,0,.28)',
+                    }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-3">
+                <div className="rounded-full bg-background/15 px-3 py-2 text-center backdrop-blur-[2px]">
+                  <div className="text-[27px] font-bold tracking-tight text-foreground tabular-nums">{centerValue}</div>
+                  <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{centerLabel}</div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Sem dados no momento</div>
+          )}
         </div>
 
-        {footer ? <div className="mt-2 border-t border-border/30 pt-3">{footer}</div> : null}
+        <div className={`grid ${legendColumns} gap-2`}>
+          {data.map((item, index) => {
+            const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+            const color = colors[index % colors.length];
+
+            return (
+              <div
+                key={item.name}
+                className="min-w-0 rounded-xl border border-border/40 bg-background/20 px-2.5 py-2.5 transition-colors hover:bg-background/30"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full shadow-[0_0_10px_currentColor]"
+                    style={{ color, backgroundColor: color }}
+                  />
+                  <span className="truncate text-[10px] font-medium text-muted-foreground">{item.name}</span>
+                </div>
+                <div className="mt-1.5 flex items-end justify-between gap-1">
+                  <span className="text-sm font-bold text-foreground tabular-nums">{item.value}</span>
+                  <span className="text-[9px] text-muted-foreground">{pct}%</span>
+                </div>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted/30">
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {footer ? <div className="mt-3 border-t border-border/30 pt-3">{footer}</div> : null}
       </CardContent>
     </DashboardPanel>
   );
@@ -344,13 +352,13 @@ function SectionTitle({
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex min-w-0 items-start gap-2.5">
-        <span className="mt-0.5 text-primary">{icon}</span>
+        <span className="mt-0.5 shrink-0 text-primary">{icon}</span>
         <div className="min-w-0">
           <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
-          {helper ? <p className="mt-0.5 text-xs text-muted-foreground">{helper}</p> : null}
+          {helper ? <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{helper}</p> : null}
         </div>
       </div>
-      {action}
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }
@@ -539,23 +547,27 @@ export default function DashboardStats() {
   return (
     <MainLayout>
       <div className="space-y-4 pb-2">
-        <section className="relative overflow-hidden rounded-2xl border border-primary/25 bg-[linear-gradient(118deg,hsl(var(--card)/.92),hsl(var(--background)/.74)_48%,hsl(var(--primary)/.10))] px-5 py-5 shadow-[0_22px_70px_-45px_hsl(var(--primary)/.95)] sm:px-6">
+        <section className="relative overflow-hidden rounded-2xl border border-primary/25 bg-[linear-gradient(118deg,hsl(var(--card)/.92),hsl(var(--background)/.74)_48%,hsl(var(--primary)/.10))] px-4 py-5 shadow-[0_22px_70px_-45px_hsl(var(--primary)/.95)] sm:px-6 sm:py-6">
           <div className="pointer-events-none absolute -right-10 -top-20 h-52 w-52 rounded-full bg-primary/16 blur-3xl" />
-          <div className="pointer-events-none absolute right-[18%] top-0 h-full w-px bg-gradient-to-b from-transparent via-primary/30 to-transparent" />
-          <div className="relative grid items-center gap-4 lg:grid-cols-[1fr_auto]">
-            <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.26em] text-primary/80">Bem-vindo ao VEG System</p>
-              <h1 className="max-w-4xl text-2xl font-bold tracking-tight text-foreground sm:text-[30px] sm:leading-tight">
+          <div className="pointer-events-none absolute right-[18%] top-0 hidden h-full w-px bg-gradient-to-b from-transparent via-primary/30 to-transparent lg:block" />
+
+          <div className="relative grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="min-w-0">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-primary/80 sm:tracking-[0.26em]">
+                Bem-vindo ao VEG System
+              </p>
+              <h1 className="max-w-4xl text-[24px] font-bold leading-[1.18] tracking-tight text-foreground sm:text-[30px] sm:leading-tight">
                 Grandes resultados começam com <span className="text-primary">pequenas ações bem feitas.</span>
               </h1>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                 Organização, clareza e constância transformam a rotina em evolução.
               </p>
             </div>
-            <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-background/30 px-4 py-3 backdrop-blur-sm">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <div>
-                <p className="text-xs font-semibold capitalize text-foreground/90">{currentDateLabel}</p>
+
+            <div className="flex w-fit max-w-full items-center gap-3 rounded-xl border border-border/40 bg-background/30 px-3.5 py-3 backdrop-blur-sm sm:px-4">
+              <Sparkles className="h-5 w-5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold capitalize text-foreground/90">{currentDateLabel}</p>
                 <p className="mt-0.5 text-[10px] text-muted-foreground">Tenha um ótimo dia.</p>
               </div>
             </div>
@@ -609,18 +621,23 @@ export default function DashboardStats() {
           />
         </section>
 
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <section className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-12">
           <DashboardPanel className="xl:col-span-6">
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <SectionTitle
                 icon={<Boxes className="h-4 w-4" />}
                 title="Movimentações dos últimos 30 dias"
                 helper="Volume diário dos principais fluxos operacionais."
-                action={<span className="rounded-lg border border-border/40 bg-background/25 px-2.5 py-1 text-[10px] text-muted-foreground">30 dias</span>}
+                action={
+                  <span className="rounded-lg border border-border/40 bg-background/25 px-2.5 py-1 text-[10px] text-muted-foreground">
+                    30 dias
+                  </span>
+                }
               />
-              <div className="mt-4 h-[285px]">
+
+              <div className="mt-4 h-[245px] min-w-0 sm:h-[285px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={movementData} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                  <AreaChart data={movementData} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
                     <defs>
                       {Object.entries(CHART_COLORS).map(([key, color]) => (
                         <linearGradient key={key} id={`area-${key}`} x1="0" y1="0" x2="0" y2="1">
@@ -630,8 +647,20 @@ export default function DashboardStats() {
                       ))}
                     </defs>
                     <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.28} vertical={false} />
-                    <XAxis dataKey="label" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={24} />
-                    <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} tickLine={false} axisLine={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      minTickGap={28}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      width={34}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
@@ -640,6 +669,7 @@ export default function DashboardStats() {
                         boxShadow: '0 18px 50px rgba(0,0,0,.28)',
                       }}
                       labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
+                      itemStyle={{ color: 'hsl(var(--foreground))' }}
                     />
                     <Area type="monotone" dataKey="demandas" name="Demandas" stroke={CHART_COLORS.tasks} strokeWidth={2.2} fill="url(#area-tasks)" />
                     <Area type="monotone" dataKey="emprestimos" name="Empréstimos" stroke={CHART_COLORS.loans} strokeWidth={2.2} fill="url(#area-loans)" />
@@ -648,7 +678,8 @@ export default function DashboardStats() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-muted-foreground">
+
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-2 text-[10px] text-muted-foreground sm:gap-x-4 sm:text-[11px]">
                 {[
                   ['Demandas', CHART_COLORS.tasks],
                   ['Empréstimos', CHART_COLORS.loans],
@@ -687,11 +718,11 @@ export default function DashboardStats() {
               centerLabel="em dia"
               footer={
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-emerald-500/10 px-2.5 py-2">
+                  <div className="rounded-lg border border-emerald-500/10 bg-emerald-500/8 px-2.5 py-2">
                     <p className="text-[10px] text-muted-foreground">Disponíveis</p>
                     <p className="mt-0.5 text-sm font-semibold text-emerald-300 tabular-nums">{equipmentAvailableUnits}</p>
                   </div>
-                  <div className="rounded-lg bg-amber-500/10 px-2.5 py-2">
+                  <div className="rounded-lg border border-amber-500/10 bg-amber-500/8 px-2.5 py-2">
                     <p className="text-[10px] text-muted-foreground">Em manutenção</p>
                     <p className="mt-0.5 text-sm font-semibold text-amber-300 tabular-nums">{maintenanceUnits}</p>
                   </div>
@@ -701,15 +732,19 @@ export default function DashboardStats() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <section className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-12">
           <DashboardPanel className="xl:col-span-5">
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <SectionTitle
                 icon={<AlertTriangle className="h-4 w-4 text-rose-400" />}
                 title="Itens com atenção"
                 helper="Situações reais que merecem uma ação agora."
                 action={
-                  <button type="button" onClick={() => navigate('/activity-history')} className="text-[11px] font-medium text-primary hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/activity-history')}
+                    className="text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
                     Ver histórico
                   </button>
                 }
@@ -722,7 +757,7 @@ export default function DashboardStats() {
                       key={`${item.title}-${index}`}
                       type="button"
                       onClick={() => navigate(item.path)}
-                      className="group flex w-full items-center gap-3 rounded-xl border border-border/40 bg-background/20 p-3 text-left transition hover:border-primary/25 hover:bg-background/30"
+                      className="group flex w-full items-center gap-3 rounded-xl border border-border/40 bg-background/20 p-3 text-left transition hover:border-primary/25 hover:bg-background/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                     >
                       <span
                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
@@ -751,36 +786,54 @@ export default function DashboardStats() {
           </DashboardPanel>
 
           <DashboardPanel className="xl:col-span-3">
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <SectionTitle
                 icon={<Bell className="h-4 w-4" />}
                 title="Perfil dos chamados"
                 helper="Como estão os chamados de sala registrados."
               />
-              <div className="mt-5 space-y-4">
+
+              <div className="mt-5 overflow-hidden rounded-full bg-muted/30 p-0.5">
+                <div className="flex h-2.5 w-full overflow-hidden rounded-full">
+                  {callProfile.values.map((item) => {
+                    const pct = callProfile.total > 0 ? (item.value / callProfile.total) * 100 : 0;
+                    return (
+                      <div
+                        key={item.label}
+                        className="h-full first:rounded-l-full last:rounded-r-full"
+                        style={{ width: `${pct}%`, backgroundColor: item.color }}
+                        title={`${item.label}: ${item.value}`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2.5">
                 {callProfile.values.map((item) => {
                   const pct = callProfile.total > 0 ? Math.round((item.value / callProfile.total) * 100) : 0;
                   return (
-                    <div key={item.label}>
-                      <div className="mb-1.5 flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{item.label}</span>
-                        <span className="font-semibold text-foreground tabular-nums">{item.value}</span>
+                    <div
+                      key={item.label}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border/30 bg-background/15 px-3 py-2.5"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="truncate text-xs text-muted-foreground">{item.label}</span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted/30">
-                        <div
-                          className="h-full rounded-full shadow-[0_0_14px_currentColor]"
-                          style={{ width: `${pct}%`, color: item.color, backgroundColor: item.color }}
-                        />
+                      <div className="flex shrink-0 items-baseline gap-1.5">
+                        <span className="text-sm font-semibold text-foreground tabular-nums">{item.value}</span>
+                        <span className="text-[9px] text-muted-foreground">{pct}%</span>
                       </div>
-                      <p className="mt-1 text-right text-[10px] text-muted-foreground">{pct}%</p>
                     </div>
                   );
                 })}
               </div>
+
               <button
                 type="button"
                 onClick={() => navigate('/classroom-calls')}
-                className="mt-5 flex w-full items-center justify-between rounded-xl border border-border/40 bg-background/25 px-3 py-2.5 text-xs font-medium text-foreground/80 transition hover:border-primary/25 hover:bg-primary/5"
+                className="mt-5 flex w-full items-center justify-between rounded-xl border border-border/40 bg-background/25 px-3 py-2.5 text-xs font-medium text-foreground/80 transition hover:border-primary/25 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               >
                 Abrir chamados
                 <ArrowRight className="h-4 w-4 text-primary" />
@@ -789,13 +842,17 @@ export default function DashboardStats() {
           </DashboardPanel>
 
           <DashboardPanel className="xl:col-span-4">
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <SectionTitle
                 icon={<History className="h-4 w-4" />}
                 title="Atividade recente"
                 helper="Últimas movimentações registradas no sistema."
                 action={
-                  <button type="button" onClick={() => navigate('/activity-history')} className="text-[11px] font-medium text-primary hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/activity-history')}
+                    className="text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
                     Ver todas
                   </button>
                 }
@@ -803,24 +860,36 @@ export default function DashboardStats() {
 
               <div className="mt-4 divide-y divide-border/30">
                 {activityLoading ? (
-                  <div className="py-10 text-center text-xs text-muted-foreground">Carregando atividades…</div>
+                  <div className="space-y-3 py-2">
+                    {[0, 1, 2, 3].map((item) => (
+                      <div key={item} className="flex animate-pulse items-center gap-3 py-2">
+                        <span className="h-8 w-8 shrink-0 rounded-lg bg-muted/40" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-2.5 w-2/5 rounded bg-muted/40" />
+                          <div className="h-2 w-3/5 rounded bg-muted/30" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : recentActivity.length > 0 ? (
                   recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <div key={activity.id} className="flex min-w-0 items-center gap-3 py-3 first:pt-0 last:pb-0">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <History className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-2">
                           <p className="truncate text-xs font-semibold text-foreground/90">{activity.user_name || 'Sistema'}</p>
-                          <span className="shrink-0 rounded-md bg-muted/40 px-1.5 py-0.5 text-[9px] text-muted-foreground">{getModuleLabel(activity.module)}</span>
+                          <span className="hidden shrink-0 rounded-md bg-muted/40 px-1.5 py-0.5 text-[9px] text-muted-foreground sm:inline-flex">
+                            {getModuleLabel(activity.module)}
+                          </span>
                         </div>
                         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                           {getActionLabel(activity.action)}
                           {activity.entity_description ? ` · ${activity.entity_description}` : ''}
                         </p>
                       </div>
-                      <span className="shrink-0 text-[10px] text-muted-foreground/70">
+                      <span className="max-w-[72px] shrink-0 text-right text-[9px] leading-tight text-muted-foreground/70 sm:max-w-[90px] sm:text-[10px]">
                         {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: ptBR })}
                       </span>
                     </div>
@@ -835,7 +904,7 @@ export default function DashboardStats() {
 
         <DashboardPanel>
           <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
-            <div className="flex items-center gap-2.5 lg:w-[190px]">
+            <div className="flex items-center gap-2.5 lg:w-[190px] lg:shrink-0">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Zap className="h-4 w-4" />
               </span>
@@ -844,7 +913,8 @@ export default function DashboardStats() {
                 <p className="text-[10px] text-muted-foreground">Atalhos do dia a dia</p>
               </div>
             </div>
-            <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+
+            <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
               {[
                 { label: 'Nova Demanda', path: '/tasks/my-tasks?new=1', icon: <ClipboardList className="h-4 w-4" />, className: 'text-violet-300' },
                 { label: 'Registrar Achado', path: '/lost-found/register', icon: <Tag className="h-4 w-4" />, className: 'text-pink-300' },
@@ -856,13 +926,13 @@ export default function DashboardStats() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-border/40 bg-background/20 px-3 text-left text-xs font-medium text-foreground/80 transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5"
+                  className="group flex min-h-11 min-w-0 items-center justify-between gap-2 rounded-xl border border-border/40 bg-background/20 px-3 text-left text-xs font-medium text-foreground/80 transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
-                  <span className={`flex items-center gap-2 ${action.className}`}>
-                    {action.icon}
-                    <span className="text-foreground/80">{action.label}</span>
+                  <span className={`flex min-w-0 items-center gap-2 ${action.className}`}>
+                    <span className="shrink-0">{action.icon}</span>
+                    <span className="truncate text-foreground/80">{action.label}</span>
                   </span>
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
                 </button>
               ))}
             </div>
