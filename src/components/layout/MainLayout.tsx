@@ -11,6 +11,7 @@ import { Search, Menu, X } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { OnlineUsersIndicator } from './OnlineUsersIndicator';
 import { ImagePrefetchIndicator } from './ImagePrefetchIndicator';
+import { LostFoundModernShell } from '@/components/lost-found/LostFoundModernShell';
 import { cn } from '@/lib/utils';
 import { useGlobalRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+
+  const isLostFoundItemsPage =
+    location.pathname === '/lost-found' || location.pathname === '/lost-found/items';
 
   useLayoutEffect(() => {
     const el = topBarRef.current;
@@ -277,7 +281,11 @@ export function MainLayout({ children }: MainLayoutProps) {
           )}
           style={{ paddingTop: 'calc(var(--app-topbar-height, 64px) + 1rem)' }}
         >
-          {children}
+          {isLostFoundItemsPage ? (
+            <LostFoundModernShell>{children}</LostFoundModernShell>
+          ) : (
+            children
+          )}
         </div>
 
         <ImagePrefetchIndicator />

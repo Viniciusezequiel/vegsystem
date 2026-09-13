@@ -1,5 +1,4 @@
 import { memo, useRef, useEffect, useState } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -21,10 +20,9 @@ interface VirtualizedItemsListProps {
   fetchNextPage?: () => void;
 }
 
-const ITEM_HEIGHT = 148;
-const GAP = 16;
+const ITEM_HEIGHT = 182;
+const GAP = 12;
 
-// Individual item card component
 const ItemCard = memo(function ItemCard({
   item,
   isSelectionMode,
@@ -39,63 +37,86 @@ const ItemCard = memo(function ItemCard({
   onToggleSelection: (id: string) => void;
 }) {
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        "item-card cursor-pointer relative h-full",
-        isSelectionMode && isSelected && "ring-2 ring-primary"
+        'group relative h-full w-full overflow-hidden rounded-2xl border border-border/45 bg-card/65 p-3 text-left shadow-[0_16px_42px_-34px_rgba(0,0,0,.9)] backdrop-blur-sm transition duration-200',
+        'hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card/82 hover:shadow-[0_20px_48px_-34px_hsl(var(--primary)/.55)]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
+        isSelectionMode && isSelected && 'border-primary/55 ring-2 ring-primary/35'
       )}
       onClick={() => onItemClick(item)}
+      aria-label={`${item.description}. Código ${item.code}. ${item.campus}.`}
     >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_88%_10%,hsl(var(--primary)/.08),transparent_34%)] opacity-0 transition group-hover:opacity-100" />
+
       {isSelectionMode && item.status === 'expired' && (
-        <div className="absolute top-2 right-2 z-10">
+        <div className="absolute right-2.5 top-2.5 z-20">
           <Checkbox
             checked={isSelected}
             onCheckedChange={() => onToggleSelection(item.id)}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Selecionar ${item.description}`}
           />
         </div>
       )}
-      <div className="flex gap-4">
-        <LazyItemImage 
+
+      <div className="relative z-10 flex h-full gap-3">
+        <LazyItemImage
           itemId={item.id}
           alt={item.description}
-          className="w-24 h-24 rounded-lg flex-shrink-0"
+          className="h-[86px] w-[86px] shrink-0 rounded-xl border border-border/30 object-cover shadow-sm"
         />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-mono text-muted-foreground">{item.code}</p>
-              <h3 className="font-medium text-foreground mt-1 line-clamp-2">
+              <p className="truncate font-mono text-[10px] text-muted-foreground">#{item.code}</p>
+              <h3 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-[1.28] text-foreground/95">
                 {item.description}
               </h3>
             </div>
-            <StatusBadge status={item.status} />
+            {!isSelectionMode && (
+              <div className="shrink-0 scale-[0.88] origin-top-right">
+                <StatusBadge status={item.status} />
+              </div>
+            )}
           </div>
-          <div className="mt-2 space-y-0.5">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate font-medium text-primary">{item.campus}</span>
+
+          <div className="mt-auto grid gap-1 pt-2">
+            <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-primary/80" />
+              <span className="truncate font-medium text-primary/90">{item.campus}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+            <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{item.found_location}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>{format(new Date(item.found_date + 'T00:00:00'), "dd 'de' MMM", { locale: ptBR })}</span>
+            <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {format(new Date(`${item.found_date}T00:00:00`), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
+              </span>
             </div>
             {item.box_number && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Package className="w-3.5 h-3.5 flex-shrink-0" />
+              <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+                <Package className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">Caixa {item.box_number}</span>
               </div>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 });
+
+function getColumnCount(width: number) {
+  if (width >= 1180) return 4;
+  if (width >= 860) return 3;
+  if (width >= 540) return 2;
+  return 1;
+}
 
 export const VirtualizedItemsList = memo(function VirtualizedItemsList({
   items,
@@ -108,33 +129,34 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
   fetchNextPage,
 }: VirtualizedItemsListProps) {
   const listRef = useRef<HTMLDivElement>(null);
-  const [columnCount, setColumnCount] = useState(2);
+  const [columnCount, setColumnCount] = useState(1);
 
-  // Update column count based on window width
   useEffect(() => {
-    const updateColumnCount = () => {
-      // 2 columns for md screens (768px+), 1 column otherwise
-      setColumnCount(window.innerWidth >= 768 ? 2 : 1);
+    const element = listRef.current;
+    if (!element) return;
+
+    const updateColumns = () => {
+      setColumnCount(getColumnCount(element.getBoundingClientRect().width));
     };
 
-    updateColumnCount();
-    window.addEventListener('resize', updateColumnCount);
-    return () => window.removeEventListener('resize', updateColumnCount);
+    updateColumns();
+    const observer = new ResizeObserver(updateColumns);
+    observer.observe(element);
+
+    return () => observer.disconnect();
   }, []);
 
   const rowCount = Math.ceil(items.length / columnCount);
 
-  // Use window virtualizer for page-level scrolling
   const virtualizer = useWindowVirtualizer({
     count: rowCount + (hasNextPage ? 1 : 0),
     estimateSize: () => ITEM_HEIGHT + GAP,
-    overscan: 5,
+    overscan: 6,
     scrollMargin: listRef.current?.offsetTop ?? 0,
   });
 
   const virtualRows = virtualizer.getVirtualItems();
 
-  // Infinite scroll: load more when reaching bottom
   useEffect(() => {
     const lastItem = virtualRows[virtualRows.length - 1];
     if (!lastItem) return;
@@ -145,17 +167,18 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
   }, [virtualRows, rowCount, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div ref={listRef}>
+    <div ref={listRef} className="min-w-0 max-w-full">
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,
           width: '100%',
+          maxWidth: '100%',
           position: 'relative',
         }}
       >
         {virtualRows.map((virtualRow) => {
           const isLoaderRow = virtualRow.index >= rowCount;
-          
+
           if (isLoaderRow) {
             return (
               <div
@@ -171,8 +194,8 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                 className="flex items-center justify-center"
               >
                 {isFetchingNextPage && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Carregando mais itens...</span>
                   </div>
                 )}
@@ -191,9 +214,11 @@ export const VirtualizedItemsList = memo(function VirtualizedItemsList({
                 top: 0,
                 left: 0,
                 width: '100%',
+                maxWidth: '100%',
+                height: `${ITEM_HEIGHT}px`,
                 transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
                 display: 'grid',
-                gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
+                gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
                 gap: `${GAP}px`,
                 paddingBottom: `${GAP}px`,
               }}
