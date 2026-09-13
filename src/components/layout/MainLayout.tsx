@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
+import './dashboard-responsive.css';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -270,7 +271,10 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
 
         <div
-          className="mx-auto min-w-0 max-w-[1560px] overflow-x-hidden p-3 sm:p-4 xl:px-6 xl:pb-6"
+          className={cn(
+            'mx-auto min-w-0 max-w-[1560px] overflow-x-hidden p-3 sm:p-4 xl:px-6 xl:pb-6',
+            location.pathname === '/' && 'dashboard-route'
+          )}
           style={{ paddingTop: 'calc(var(--app-topbar-height, 64px) + 1rem)' }}
         >
           {children}
