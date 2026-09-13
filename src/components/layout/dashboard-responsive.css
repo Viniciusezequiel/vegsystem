@@ -1,0 +1,56 @@
+.dashboard-route {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+  container-type: inline-size;
+  container-name: veg-dashboard;
+}
+
+.dashboard-route > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard-route section[class*="grid"] > *,
+.dashboard-route .recharts-responsive-container,
+.dashboard-route .recharts-wrapper {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/*
+ * O breakpoint do Tailwind considera a largura total da janela. Com a sidebar
+ * aberta, a área útil da dashboard fica bem menor e os cards 6/3/3 podem ficar
+ * comprimidos mesmo em notebooks classificados como XL. A container query
+ * abaixo responde à largura REAL disponível para a dashboard.
+ */
+@container veg-dashboard (min-width: 960px) and (max-width: 1440px) {
+  .dashboard-route section.xl\:grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-route section.xl\:grid-cols-12 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-route .xl\:col-span-6 {
+    grid-column: span 2 / span 2 !important;
+  }
+
+  .dashboard-route .xl\:col-span-5,
+  .dashboard-route .xl\:col-span-3 {
+    grid-column: span 1 / span 1 !important;
+  }
+
+  .dashboard-route .xl\:col-span-4 {
+    grid-column: span 2 / span 2 !important;
+  }
+}
+
+/* Em telas realmente estreitas, as três legendas do donut ficam empilhadas. */
+@container veg-dashboard (max-width: 520px) {
+  .dashboard-route .grid.grid-cols-3 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
