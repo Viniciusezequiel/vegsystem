@@ -19,6 +19,86 @@
   max-width: 100% !important;
 }
 
+/* Topo compacto: elimina o grande hero visual sem perder identidade. */
+.dashboard-route > .space-y-4 > section:first-child {
+  min-height: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0.15rem 0.125rem 0.35rem !important;
+}
+
+.dashboard-route > .space-y-4 > section:first-child > .pointer-events-none {
+  display: none !important;
+}
+
+.dashboard-route > .space-y-4 > section:first-child > div.relative.grid {
+  display: flex !important;
+  min-height: 34px;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.75rem !important;
+}
+
+.dashboard-route > .space-y-4 > section:first-child > div.relative.grid > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dashboard-route > .space-y-4 > section:first-child > div.relative.grid > div:first-child > p:first-child,
+.dashboard-route > .space-y-4 > section:first-child > div.relative.grid > div:first-child > h1 + p {
+  display: none !important;
+}
+
+.dashboard-route > .space-y-4 > section:first-child h1 {
+  max-width: 100% !important;
+  margin: 0 !important;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+.dashboard-route > .space-y-4 > section:first-child h1::before {
+  content: "Dashboard";
+  color: hsl(var(--foreground));
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.dashboard-route > .space-y-4 > section:first-child h1::after {
+  content: "  ·  Grandes resultados começam com pequenas ações bem feitas.";
+  margin-left: 0.25rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.dashboard-route > .space-y-4 > section:first-child > div.relative.grid > div:last-child {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.55rem !important;
+  border-color: hsl(var(--border) / 0.28) !important;
+  background: hsl(var(--card) / 0.24) !important;
+}
+
+.dashboard-route > .space-y-4 > section:first-child > div.relative.grid > div:last-child > svg {
+  width: 0.9rem !important;
+  height: 0.9rem !important;
+}
+
+.dashboard-route > .space-y-4 > section:first-child > div.relative.grid > div:last-child p:last-child {
+  display: none !important;
+}
+
+/* Aproxima os blocos para ganhar área útil vertical sem deixar a tela apertada. */
+.dashboard-route > .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.7rem !important;
+}
+
 /*
  * O breakpoint do Tailwind considera a largura total da janela. Com a sidebar
  * aberta, a área útil da dashboard fica bem menor e os cards 6/3/3 podem ficar
@@ -46,9 +126,50 @@
   .dashboard-route .xl\:col-span-4 {
     grid-column: span 2 / span 2 !important;
   }
+
+  /* A primeira dobra do notebook ganha espaço sem sacrificar leitura. */
+  .dashboard-route section.xl\:grid-cols-4 > button {
+    min-height: 112px !important;
+    padding-top: 0.7rem !important;
+    padding-bottom: 0.7rem !important;
+  }
+}
+
+/*
+ * O tooltip do Recharts é HTML, enquanto a rosca é SVG. Em alguns tamanhos o
+ * tooltip ficava visualmente atrás da rosca/valor central. Forçamos uma camada
+ * superior e fundo opaco para garantir leitura.
+ */
+.dashboard-route .recharts-tooltip-wrapper {
+  z-index: 9999 !important;
+  pointer-events: none !important;
+}
+
+.dashboard-route .recharts-tooltip-wrapper > div {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42) !important;
+}
+
+.dashboard-route .recharts-wrapper,
+.dashboard-route .recharts-responsive-container,
+.dashboard-route .recharts-surface {
+  overflow: visible !important;
+}
+
+/* O valor central continua acima do SVG, mas abaixo do tooltip de hover. */
+.dashboard-route .recharts-responsive-container + .pointer-events-none.absolute.inset-0 {
+  z-index: 1;
 }
 
 /* Em telas realmente estreitas, as três legendas do donut ficam empilhadas. */
+@container veg-dashboard (max-width: 700px) {
+  .dashboard-route > .space-y-4 > section:first-child h1::after,
+  .dashboard-route > .space-y-4 > section:first-child > div.relative.grid > div:last-child {
+    display: none !important;
+  }
+}
+
 @container veg-dashboard (max-width: 520px) {
   .dashboard-route .grid.grid-cols-3 {
     grid-template-columns: minmax(0, 1fr) !important;
