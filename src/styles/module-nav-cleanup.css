@@ -1,0 +1,21 @@
+/* Remove cabeçalhos redundantes quando o ModuleNav já informa o contexto da tela. */
+[data-module-nav='Demandas'] + section > div:first-child {
+  display: none !important;
+}
+
+[data-module-nav='Demandas'] + section {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.5rem !important;
+}
+
+[data-module-nav='Escaninhos'] + [data-page-header] {
+  margin-bottom: 0 !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+}
+
+[data-module-nav='Escaninhos'] + [data-page-header] > [data-page-header-copy] {
+  display: none !important;
+}

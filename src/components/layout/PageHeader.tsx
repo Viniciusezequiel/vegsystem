@@ -16,12 +16,13 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div
+      data-page-header
       className={cn(
         'mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between',
         className
       )}
     >
-      <div className="min-w-0">
+      <div data-page-header-copy className="min-w-0">
         <h1 className="text-[28px] font-semibold tracking-tight text-foreground sm:text-[30px]">
           {title}
         </h1>
