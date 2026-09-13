@@ -1,6 +1,7 @@
 import type { ElementType } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import '@/styles/module-nav-cleanup.css';
 
 export interface ModuleNavItem {
   label: string;
@@ -19,7 +20,7 @@ export function ModuleNav({ title, description, items }: ModuleNavProps) {
   const { pathname } = useLocation();
 
   return (
-    <section className="border-b border-border/45 pb-3">
+    <section data-module-nav={title} className="border-b border-border/45 pb-3">
       <div className="mb-3">
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
         <p className="text-sm text-muted-foreground">{description}</p>
