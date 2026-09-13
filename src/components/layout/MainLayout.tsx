@@ -16,7 +16,6 @@ import {
   Menu,
   PackageCheck,
   Settings,
-  UserRound,
   X,
 } from 'lucide-react';
 import { Sidebar } from './Sidebar';
@@ -228,6 +227,9 @@ export function MainLayout({ children }: MainLayoutProps) {
           onToggle={handleToggleSidebar}
           isMobile={isMobile}
           onCloseMobile={() => setMobileMenuOpen(false)}
+          pendingTasksCount={pendingTasksCount}
+          pendingMaterialsCount={pendingMaterialsCount}
+          pendingCallsCount={pendingCallsCount}
         />
       </div>
 
@@ -377,14 +379,6 @@ export function MainLayout({ children }: MainLayoutProps) {
                       Configurações do sistema
                     </DropdownMenuItem>
                   ) : null}
-
-                  <DropdownMenuItem
-                    onSelect={() => navigate('/activity-history')}
-                    className="cursor-pointer rounded-lg px-3 py-2.5 text-xs"
-                  >
-                    <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
-                    Histórico de atividades
-                  </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
 
