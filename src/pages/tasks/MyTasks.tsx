@@ -82,7 +82,19 @@ import { TasksModuleNav } from '@/components/tasks/TasksModuleNav';
 export default function MyTasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldOpen = params.get('new') === '1';
+
+    if (shouldOpen) {
+      params.delete('new');
+      const nextSearch = params.toString();
+      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`;
+      window.history.replaceState(window.history.state, '', nextUrl);
+    }
+
+    return shouldOpen;
+  });
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [deleteTaskDialog, setDeleteTaskDialog] = useState<Task | null>(null);
 

@@ -516,7 +516,7 @@ export default function DashboardStats() {
         title: `Demanda há mais de 24h · ${clampLabel(staleTask.title || 'Sem título', 48)}`,
         detail: `Aberta ${formatDistanceToNow(new Date(staleTask.created_at), { addSuffix: true, locale: ptBR })}`,
         accent: '#60a5fa',
-        path: '/tasks',
+        path: '/tasks/my-tasks',
       });
     }
 
@@ -572,7 +572,7 @@ export default function DashboardStats() {
             data={movementData}
             dataKey="demandas"
             color={CHART_COLORS.tasks}
-            onClick={() => navigate('/tasks')}
+            onClick={() => navigate('/tasks/my-tasks')}
           />
           <KpiCard
             label="Empréstimos ativos"
@@ -846,10 +846,10 @@ export default function DashboardStats() {
             </div>
             <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
               {[
-                { label: 'Nova Demanda', path: '/tasks', icon: <ClipboardList className="h-4 w-4" />, className: 'text-violet-300' },
+                { label: 'Nova Demanda', path: '/tasks/my-tasks?new=1', icon: <ClipboardList className="h-4 w-4" />, className: 'text-violet-300' },
                 { label: 'Registrar Achado', path: '/lost-found/register', icon: <Tag className="h-4 w-4" />, className: 'text-pink-300' },
                 { label: 'Consultar Equipamento', path: '/equipment', icon: <Monitor className="h-4 w-4" />, className: 'text-emerald-300' },
-                { label: 'Abrir Chamado', path: '/classroom-calls', icon: <Bell className="h-4 w-4" />, className: 'text-amber-300' },
+                { label: 'Abrir Chamado', path: '/chamado-sala', icon: <Bell className="h-4 w-4" />, className: 'text-amber-300' },
                 { label: 'Ver Etiquetas', path: '/labels', icon: <Boxes className="h-4 w-4" />, className: 'text-cyan-300' },
               ].map((action) => (
                 <button
