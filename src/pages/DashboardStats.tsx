@@ -1,469 +1,874 @@
-import type { KeyboardEvent } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Package, 
-  Monitor, 
-  Users, 
-  TrendingUp,
-  Clock,
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Bell,
+  Boxes,
   CheckCircle2,
-  AlertCircle,
-  Lock,
-  ArrowUpRight,
+  ClipboardList,
+  Clock3,
   History,
-  Loader2
+  Monitor,
+  PackageSearch,
+  Sparkles,
+  Tag,
+  Wrench,
+  Zap,
 } from 'lucide-react';
 import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
-import { useEquipmentList, useEquipmentLoans } from '@/hooks/useEquipment';
-import { useLockersList, useLockerLoans } from '@/hooks/useLockers';
+import { useLostItems } from '@/hooks/useLostItems';
+import { useEquipmentList, useEquipmentLoans, useOverdueLoans } from '@/hooks/useEquipment';
+import { useClassroomCalls } from '@/hooks/useClassroomCalls';
+import { useTasks } from '@/hooks/useTasks';
 import {
   getActionLabel,
   getModuleLabel,
   useActivityLogs,
 } from '@/hooks/useActivityLogs';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { 
-  PieChart,
-  Pie,
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
   Cell,
-  Legend,
-  Tooltip,
+  Pie,
+  PieChart,
   ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
+import {
+  differenceInHours,
+  format,
+  formatDistanceToNow,
+  startOfDay,
+  subDays,
+} from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--accent))'];
+const CHART_COLORS = {
+  tasks: '#8b5cf6',
+  loans: '#2dd4bf',
+  lost: '#ec4899',
+  calls: '#f59e0b',
+};
+
+const LOST_COLORS = ['#8b5cf6', '#2dd4bf', '#ec4899'];
+const LOAN_COLORS = ['#2dd4bf', '#fb7185'];
+
+function dayKey(value?: string | null) {
+  if (!value) return '';
+  return value.slice(0, 10);
+}
+
+function clampLabel(value: string, max = 64) {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1)}…`;
+}
+
+function DashboardPanel({
+  children,
+  className = '',
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Card
+      className={`overflow-hidden rounded-2xl border border-border/50 bg-card/70 shadow-[0_18px_45px_-30px_rgba(71,36,150,0.75)] backdrop-blur-sm ${className}`}
+    >
+      {children}
+    </Card>
+  );
+}
+
+function MiniSparkline({
+  data,
+  dataKey,
+  color,
+  gradientId,
+}: {
+  data: Array<Record<string, string | number>>;
+  dataKey: string;
+  color: string;
+  gradientId: string;
+}) {
+  return (
+    <div className="h-12 w-28 opacity-95">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 5, right: 0, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.42} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey={dataKey}
+            stroke={color}
+            strokeWidth={2.2}
+            fill={`url(#${gradientId})`}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  helper,
+  icon,
+  iconClass,
+  data,
+  dataKey,
+  color,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  helper: string;
+  icon: ReactNode;
+  iconClass: string;
+  data: Array<Record<string, string | number>>;
+  dataKey: string;
+  color: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative min-h-[128px] overflow-hidden rounded-2xl border border-border/50 bg-card/70 p-4 text-left shadow-[0_18px_45px_-30px_rgba(71,36,150,0.8)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_25%,hsl(var(--primary)/0.10),transparent_38%)] opacity-70" />
+      <div className="relative flex h-full items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-3 flex items-center gap-3">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 ${iconClass}`}>
+              {icon}
+            </span>
+            <p className="text-sm font-semibold text-foreground/90">{label}</p>
+          </div>
+          <div className="text-3xl font-bold tracking-tight text-foreground tabular-nums">{value}</div>
+          <p className="mt-1 text-[11px] text-muted-foreground">{helper}</p>
+        </div>
+        <div className="mt-auto self-end">
+          <MiniSparkline
+            data={data}
+            dataKey={dataKey}
+            color={color}
+            gradientId={`mini-${dataKey}`}
+          />
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function DepthDonut({
+  id,
+  title,
+  subtitle,
+  data,
+  colors,
+  centerValue,
+  centerLabel,
+  footer,
+}: {
+  id: string;
+  title: string;
+  subtitle: string;
+  data: Array<{ name: string; value: number }>;
+  colors: string[];
+  centerValue: string | number;
+  centerLabel: string;
+  footer?: ReactNode;
+}) {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const chartData = data.filter((item) => item.value > 0);
+
+  return (
+    <DashboardPanel>
+      <CardContent className="p-5">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+          </div>
+          <span className="rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
+            tempo real
+          </span>
+        </div>
+
+        <div className="grid items-center gap-3 sm:grid-cols-[1.05fr_0.95fr]">
+          <div className="relative h-[230px] min-w-0">
+            {chartData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <defs>
+                      {colors.map((color, index) => (
+                        <linearGradient key={color} id={`${id}-gradient-${index}`} x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor={color} stopOpacity={0.72} />
+                          <stop offset="55%" stopColor={color} stopOpacity={1} />
+                          <stop offset="100%" stopColor="#ffffff" stopOpacity={0.58} />
+                        </linearGradient>
+                      ))}
+                      <filter id={`${id}-shadow`} x="-30%" y="-30%" width="160%" height="180%">
+                        <feDropShadow dx="0" dy="10" stdDeviation="8" floodColor="#6d28d9" floodOpacity="0.3" />
+                      </filter>
+                    </defs>
+
+                    <Pie
+                      data={chartData}
+                      dataKey="value"
+                      cx="50%"
+                      cy="54%"
+                      innerRadius={59}
+                      outerRadius={88}
+                      paddingAngle={2.5}
+                      startAngle={90}
+                      endAngle={-270}
+                      stroke="transparent"
+                      fill="#312e81"
+                      opacity={0.32}
+                      isAnimationActive={false}
+                    >
+                      {chartData.map((_, index) => (
+                        <Cell
+                          key={`depth-${index}`}
+                          fill={colors[index % colors.length]}
+                          opacity={0.34}
+                        />
+                      ))}
+                    </Pie>
+
+                    <Pie
+                      data={chartData}
+                      dataKey="value"
+                      cx="50%"
+                      cy="48%"
+                      innerRadius={59}
+                      outerRadius={88}
+                      paddingAngle={2.5}
+                      cornerRadius={6}
+                      startAngle={90}
+                      endAngle={-270}
+                      stroke="hsl(var(--background))"
+                      strokeWidth={1.5}
+                      style={{ filter: `url(#${id}-shadow)` }}
+                    >
+                      {chartData.map((_, index) => (
+                        <Cell
+                          key={`top-${index}`}
+                          fill={`url(#${id}-gradient-${index % colors.length})`}
+                        />
+                      ))}
+                    </Pie>
+
+                    <Tooltip
+                      formatter={(value, name) => [String(value), String(name)]}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '12px',
+                        boxShadow: '0 18px 50px rgba(0,0,0,.28)',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-3">
+                  <div className="text-center">
+                    <div className="text-[28px] font-bold tracking-tight text-foreground tabular-nums">{centerValue}</div>
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{centerLabel}</div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Sem dados no momento</div>
+            )}
+          </div>
+
+          <div className="space-y-2.5">
+            {data.map((item, index) => {
+              const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+              return (
+                <div key={item.name} className="rounded-xl border border-border/40 bg-background/20 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_12px_currentColor]"
+                        style={{ color: colors[index % colors.length], backgroundColor: colors[index % colors.length] }}
+                      />
+                      <span className="truncate text-xs font-medium text-foreground/80">{item.name}</span>
+                    </div>
+                    <span className="text-xs font-semibold tabular-nums">{item.value}</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/30">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: colors[index % colors.length] }}
+                    />
+                  </div>
+                  <div className="mt-1 text-right text-[10px] text-muted-foreground">{pct}%</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {footer ? <div className="mt-2 border-t border-border/30 pt-3">{footer}</div> : null}
+      </CardContent>
+    </DashboardPanel>
+  );
+}
+
+function SectionTitle({
+  icon,
+  title,
+  helper,
+  action,
+}: {
+  icon: ReactNode;
+  title: string;
+  helper?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex min-w-0 items-start gap-2.5">
+        <span className="mt-0.5 text-primary">{icon}</span>
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+          {helper ? <p className="mt-0.5 text-xs text-muted-foreground">{helper}</p> : null}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
 
 export default function DashboardStats() {
   const navigate = useNavigate();
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const startWindow = useMemo(() => subDays(today, 29), [today]);
+  const fromDate = format(startWindow, 'yyyy-MM-dd');
+  const toDate = format(today, 'yyyy-MM-dd');
 
-  const handleCardKeyDown = (
-    event: KeyboardEvent<HTMLDivElement>,
-    path: string
-  ) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      navigate(path);
-    }
-  };
-
-  const { data: lostItemsStats } = useLostItemsCounts();
-  const { data: equipment } = useEquipmentList();
-  const { data: activeLoans } = useEquipmentLoans('active');
-  const { data: lockers } = useLockersList();
-  const { data: lockerLoans } = useLockerLoans('active');
-
-  const {
-    data: recentActivity,
-    isLoading: isLoadingActivity,
-  } = useActivityLogs({
-    limit: 3,
+  const { data: tasks = [] } = useTasks();
+  const { data: equipment = [] } = useEquipmentList();
+  const { data: allLoans = [] } = useEquipmentLoans();
+  const { data: activeLoans = [] } = useEquipmentLoans('active');
+  const { data: overdueLoans = [] } = useOverdueLoans();
+  const { data: calls = [] } = useClassroomCalls();
+  const { data: lostCounts } = useLostItemsCounts();
+  const { data: recentLostData } = useLostItems({
+    status: 'all',
+    pageSize: 2000,
+    dateFrom: fromDate,
+    dateTo: toDate,
   });
+  const { data: expiredLostData } = useLostItems({ status: 'expired', pageSize: 3 });
+  const { data: recentActivity = [], isLoading: activityLoading } = useActivityLogs({ limit: 5 });
 
-  const equipmentStats = {
-    total: equipment?.length || 0,
-    available: equipment?.filter(e => e.status === 'available').length || 0,
-    borrowed: equipment?.filter(e => e.status === 'borrowed').length || 0,
-    maintenance: equipment?.filter(e => e.status === 'maintenance').length || 0,
-  };
+  const recentLostItems = recentLostData?.items ?? [];
+  const expiredItems = expiredLostData?.items ?? [];
 
-  const lockerStats = {
-    total: lockers?.length || 0,
-    available: lockers?.filter(l => l.status === 'available').length || 0,
-    occupied: lockers?.filter(l => l.status === 'occupied').length || 0,
-  };
+  const openTasks = useMemo(
+    () => tasks.filter((task) => task.status === 'pending' || task.status === 'in_progress'),
+    [tasks]
+  );
 
-  const activeEquipmentLoans = activeLoans?.length || 0;
-  const activeLockerLoans = lockerLoans?.length || 0;
-  const availableLostItems = lostItemsStats?.available || 0;
-  const totalLostItems = lostItemsStats?.total || 0;
+  const staleTasks = useMemo(
+    () => openTasks
+      .filter((task) => differenceInHours(new Date(), new Date(task.created_at)) >= 24)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    [openTasks]
+  );
 
-  const equipmentUsagePercent = equipmentStats.total > 0
-    ? Math.round((activeEquipmentLoans / equipmentStats.total) * 100)
-    : 0;
+  const maintenanceEquipment = useMemo(
+    () => equipment.filter((item) => item.status === 'maintenance'),
+    [equipment]
+  );
 
-  const lockerUsagePercent = lockerStats.total > 0
-    ? Math.round((activeLockerLoans / lockerStats.total) * 100)
-    : 0;
+  const equipmentAvailableUnits = useMemo(
+    () => equipment.reduce((sum, item) => sum + Math.max(0, item.available_quantity ?? 0), 0),
+    [equipment]
+  );
 
-  const availableLostItemsPercent = totalLostItems > 0
-    ? Math.round((availableLostItems / totalLostItems) * 100)
-    : 0;
+  const maintenanceUnits = useMemo(
+    () => maintenanceEquipment.reduce((sum, item) => sum + Math.max(1, item.quantity ?? 1), 0),
+    [maintenanceEquipment]
+  );
 
-  // Lost items by status for pie chart
-  const lostItemsPieData = [
-    { name: 'Disponíveis', value: lostItemsStats?.available || 0 },
-    { name: 'Entregues', value: lostItemsStats?.delivered || 0 },
-    { name: 'Expirados', value: lostItemsStats?.expired || 0 },
-  ].filter(d => d.value > 0);
+  const movementData = useMemo(() => {
+    const rows = Array.from({ length: 30 }, (_, index) => {
+      const date = subDays(today, 29 - index);
+      return {
+        key: format(date, 'yyyy-MM-dd'),
+        label: format(date, 'dd/MM'),
+        demandas: 0,
+        emprestimos: 0,
+        achados: 0,
+        chamados: 0,
+      };
+    });
 
-  // Equipment by status for pie chart
-  const equipmentPieData = [
-    { name: 'Disponíveis', value: equipmentStats.available },
-    { name: 'Emprestados', value: equipmentStats.borrowed },
-    { name: 'Manutenção', value: equipmentStats.maintenance },
-  ].filter(d => d.value > 0);
+    const indexByKey = new Map(rows.map((row, index) => [row.key, index]));
+
+    tasks.forEach((task) => {
+      const index = indexByKey.get(dayKey(task.created_at));
+      if (index !== undefined) rows[index].demandas += 1;
+    });
+
+    allLoans.forEach((loan) => {
+      const index = indexByKey.get(dayKey(loan.created_at));
+      if (index !== undefined) rows[index].emprestimos += 1;
+    });
+
+    recentLostItems.forEach((item) => {
+      const index = indexByKey.get(dayKey(item.received_date || item.created_at));
+      if (index !== undefined) rows[index].achados += 1;
+    });
+
+    calls.forEach((call) => {
+      const index = indexByKey.get(dayKey(call.created_at));
+      if (index !== undefined) rows[index].chamados += 1;
+    });
+
+    return rows;
+  }, [allLoans, calls, recentLostItems, tasks, today]);
+
+  const lostData = useMemo(
+    () => [
+      { name: 'Disponíveis', value: lostCounts?.available ?? 0 },
+      { name: 'Entregues', value: lostCounts?.delivered ?? 0 },
+      { name: 'Expirados', value: lostCounts?.expired ?? 0 },
+    ],
+    [lostCounts]
+  );
+
+  const overdueIds = useMemo(() => new Set(overdueLoans.map((loan) => loan.id)), [overdueLoans]);
+  const activeOnTime = Math.max(0, activeLoans.filter((loan) => !overdueIds.has(loan.id)).length);
+  const outstandingTotal = activeOnTime + overdueLoans.length;
+  const onTimeRate = outstandingTotal > 0 ? Math.round((activeOnTime / outstandingTotal) * 100) : 100;
+
+  const loanStatusData = useMemo(
+    () => [
+      { name: 'Em dia', value: activeOnTime },
+      { name: 'Atrasados', value: overdueLoans.length },
+    ],
+    [activeOnTime, overdueLoans.length]
+  );
+
+  const callProfile = useMemo(() => {
+    const total = calls.length;
+    const values = [
+      { label: 'Pendentes', value: calls.filter((call) => call.status === 'pending').length, color: '#f59e0b' },
+      { label: 'Em atendimento', value: calls.filter((call) => call.status === 'accepted').length, color: '#3b82f6' },
+      { label: 'Resolvidos', value: calls.filter((call) => call.status === 'resolved').length, color: '#2dd4bf' },
+    ];
+    return { total, values };
+  }, [calls]);
+
+  const attentionItems = useMemo(() => {
+    const list: Array<{
+      icon: ReactNode;
+      title: string;
+      detail: string;
+      accent: string;
+      path: string;
+    }> = [];
+
+    const overdue = overdueLoans[0];
+    if (overdue) {
+      list.push({
+        icon: <Clock3 className="h-4 w-4" />,
+        title: `Empréstimo vencido · ${clampLabel(overdue.equipment?.name || overdue.manual_item_name || overdue.borrower_name, 48)}`,
+        detail: `Devolução prevista para ${format(new Date(`${overdue.expected_return_date}T12:00:00`), 'dd/MM/yyyy')}`,
+        accent: '#fb7185',
+        path: '/equipment/loans',
+      });
+    }
+
+    const expired = expiredItems[0];
+    if (expired) {
+      list.push({
+        icon: <PackageSearch className="h-4 w-4" />,
+        title: `Item expirado · ${expired.code}`,
+        detail: clampLabel(expired.description || 'Prazo de retirada expirado'),
+        accent: '#ec4899',
+        path: `/lost-found/items/${expired.id}`,
+      });
+    }
+
+    const staleTask = staleTasks[0];
+    if (staleTask) {
+      list.push({
+        icon: <ClipboardList className="h-4 w-4" />,
+        title: `Demanda há mais de 24h · ${clampLabel(staleTask.title || 'Sem título', 48)}`,
+        detail: `Aberta ${formatDistanceToNow(new Date(staleTask.created_at), { addSuffix: true, locale: ptBR })}`,
+        accent: '#60a5fa',
+        path: '/tasks',
+      });
+    }
+
+    const maintenance = maintenanceEquipment[0];
+    if (maintenance) {
+      list.push({
+        icon: <Wrench className="h-4 w-4" />,
+        title: `Equipamento em manutenção · ${clampLabel(maintenance.name, 48)}`,
+        detail: maintenance.patrimony_code ? `Patrimônio ${maintenance.patrimony_code}` : 'Indisponível para empréstimo',
+        accent: '#f59e0b',
+        path: '/equipment',
+      });
+    }
+
+    return list.slice(0, 4);
+  }, [expiredItems, maintenanceEquipment, overdueLoans, staleTasks]);
+
+  const currentDateLabel = format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR });
 
   return (
     <MainLayout>
-      <div className="mb-4">
-        <h1 className="text-[28px] font-semibold tracking-tight text-foreground sm:text-[30px]">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Visão geral do sistema</p>
-      </div>
-
-      {/* Indicadores principais */}
-      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card
-          className="group cursor-pointer rounded-xl border-border/60 bg-card/75 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/90 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          role="link"
-          tabIndex={0}
-          aria-label="Abrir Achados e Perdidos"
-          onClick={() => navigate('/lost-found')}
-          onKeyDown={(event) => handleCardKeyDown(event, '/lost-found')}
-        >
-          <CardHeader className="flex flex-row items-center gap-2.5 space-y-0 px-5 pb-1 pt-4">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Package className="h-[17px] w-[17px]" />
-            </span>
-            <CardTitle className="text-sm font-medium text-foreground/90">Achados e Perdidos</CardTitle>
-            <ArrowUpRight className="ml-auto h-4 w-4 text-muted-foreground/50 transition-colors group-hover:text-primary" />
-          </CardHeader>
-          <CardContent className="px-5 pb-4 pt-1">
-            <div className="text-[28px] font-semibold leading-tight tracking-tight">{lostItemsStats?.total || 0}</div>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <span className="text-success">{lostItemsStats?.available || 0} disponíveis</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-primary">{lostItemsStats?.delivered || 0} entregues</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-warning">{lostItemsStats?.expired || 0} expirados</span>
+      <div className="space-y-4 pb-2">
+        <section className="relative overflow-hidden rounded-2xl border border-primary/25 bg-[linear-gradient(118deg,hsl(var(--card)/.92),hsl(var(--background)/.74)_48%,hsl(var(--primary)/.10))] px-5 py-5 shadow-[0_22px_70px_-45px_hsl(var(--primary)/.95)] sm:px-6">
+          <div className="pointer-events-none absolute -right-10 -top-20 h-52 w-52 rounded-full bg-primary/16 blur-3xl" />
+          <div className="pointer-events-none absolute right-[18%] top-0 h-full w-px bg-gradient-to-b from-transparent via-primary/30 to-transparent" />
+          <div className="relative grid items-center gap-4 lg:grid-cols-[1fr_auto]">
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.26em] text-primary/80">Bem-vindo ao VEG System</p>
+              <h1 className="max-w-4xl text-2xl font-bold tracking-tight text-foreground sm:text-[30px] sm:leading-tight">
+                Grandes resultados começam com <span className="text-primary">pequenas ações bem feitas.</span>
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                Organização, clareza e constância transformam a rotina em evolução.
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="group cursor-pointer rounded-xl border-border/60 bg-card/75 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/90 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          role="link"
-          tabIndex={0}
-          aria-label="Abrir Equipamentos"
-          onClick={() => navigate('/equipment')}
-          onKeyDown={(event) => handleCardKeyDown(event, '/equipment')}
-        >
-          <CardHeader className="flex flex-row items-center gap-2.5 space-y-0 px-5 pb-1 pt-4">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Monitor className="h-[17px] w-[17px]" />
-            </span>
-            <CardTitle className="text-sm font-medium text-foreground/90">Equipamentos</CardTitle>
-            <ArrowUpRight className="ml-auto h-4 w-4 text-muted-foreground/50 transition-colors group-hover:text-primary" />
-          </CardHeader>
-          <CardContent className="px-5 pb-4 pt-1">
-            <div className="text-[28px] font-semibold leading-tight tracking-tight">{equipmentStats.total}</div>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <span className="text-success">{equipmentStats.available} disponíveis</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-warning">{activeLoans?.length || 0} emprestados</span>
+            <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-background/30 px-4 py-3 backdrop-blur-sm">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-xs font-semibold capitalize text-foreground/90">{currentDateLabel}</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">Tenha um ótimo dia.</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        <Card
-          className="group cursor-pointer rounded-xl border-border/60 bg-card/75 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/90 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          role="link"
-          tabIndex={0}
-          aria-label="Abrir Escaninhos"
-          onClick={() => navigate('/lockers')}
-          onKeyDown={(event) => handleCardKeyDown(event, '/lockers')}
-        >
-          <CardHeader className="flex flex-row items-center gap-2.5 space-y-0 px-5 pb-1 pt-4">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Lock className="h-[17px] w-[17px]" />
-            </span>
-            <CardTitle className="text-sm font-medium text-foreground/90">Escaninhos</CardTitle>
-            <ArrowUpRight className="ml-auto h-4 w-4 text-muted-foreground/50 transition-colors group-hover:text-primary" />
-          </CardHeader>
-          <CardContent className="px-5 pb-4 pt-1">
-            <div className="text-[28px] font-semibold leading-tight tracking-tight">{lockerStats.total}</div>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <span className="text-success">{lockerStats.available} disponíveis</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-warning">{lockerStats.occupied} ocupados</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard
+            label="Demandas abertas"
+            value={openTasks.length}
+            helper="pendentes ou em andamento"
+            icon={<ClipboardList className="h-5 w-5" />}
+            iconClass="bg-violet-500/15 text-violet-300"
+            data={movementData}
+            dataKey="demandas"
+            color={CHART_COLORS.tasks}
+            onClick={() => navigate('/tasks')}
+          />
+          <KpiCard
+            label="Empréstimos ativos"
+            value={activeLoans.length}
+            helper="equipamentos ainda em circulação"
+            icon={<Monitor className="h-5 w-5" />}
+            iconClass="bg-emerald-500/15 text-emerald-300"
+            data={movementData}
+            dataKey="emprestimos"
+            color={CHART_COLORS.loans}
+            onClick={() => navigate('/equipment/loans')}
+          />
+          <KpiCard
+            label="Achados registrados (30d)"
+            value={recentLostData?.totalCount ?? 0}
+            helper="novos itens recebidos no período"
+            icon={<Tag className="h-5 w-5" />}
+            iconClass="bg-pink-500/15 text-pink-300"
+            data={movementData}
+            dataKey="achados"
+            color={CHART_COLORS.lost}
+            onClick={() => navigate('/lost-found/items')}
+          />
+          <KpiCard
+            label="Chamados de Sala"
+            value={calls.length}
+            helper="total registrado no sistema"
+            icon={<Bell className="h-5 w-5" />}
+            iconClass="bg-amber-500/15 text-amber-300"
+            data={movementData}
+            dataKey="chamados"
+            color={CHART_COLORS.calls}
+            onClick={() => navigate('/classroom-calls')}
+          />
+        </section>
 
-      {/* Distribuições por status */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card className="rounded-xl border-border/60 bg-card/75 shadow-sm">
-          <CardHeader className="px-5 pb-0 pt-4">
-            <CardTitle className="flex items-center gap-2 text-[15px] font-medium">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              Status dos Equipamentos
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/90">Distribuição por status</CardDescription>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-0">
-            <div className="h-[240px]">
-              {equipmentPieData.length > 0 ? (
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <DashboardPanel className="xl:col-span-6">
+            <CardContent className="p-5">
+              <SectionTitle
+                icon={<Boxes className="h-4 w-4" />}
+                title="Movimentações dos últimos 30 dias"
+                helper="Volume diário dos principais fluxos operacionais."
+                action={<span className="rounded-lg border border-border/40 bg-background/25 px-2.5 py-1 text-[10px] text-muted-foreground">30 dias</span>}
+              />
+              <div className="mt-4 h-[285px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={equipmentPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={62}
-                      outerRadius={86}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {equipmentPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <AreaChart data={movementData} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                    <defs>
+                      {Object.entries(CHART_COLORS).map(([key, color]) => (
+                        <linearGradient key={key} id={`area-${key}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={color} stopOpacity={0.24} />
+                          <stop offset="100%" stopColor={color} stopOpacity={0} />
+                        </linearGradient>
                       ))}
-                    </Pie>
-                    <Tooltip 
+                    </defs>
+                    <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.28} vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={24} />
+                    <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} tickLine={false} axisLine={false} />
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        color: 'hsl(var(--foreground))'
+                        borderRadius: '12px',
+                        boxShadow: '0 18px 50px rgba(0,0,0,.28)',
                       }}
-                      itemStyle={{
-                        color: 'hsl(var(--foreground))'
-                      }}
-                      labelStyle={{
-                        color: 'hsl(var(--foreground))'
-                      }}
+                      labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
                     />
-                    <Legend />
-                  </PieChart>
+                    <Area type="monotone" dataKey="demandas" name="Demandas" stroke={CHART_COLORS.tasks} strokeWidth={2.2} fill="url(#area-tasks)" />
+                    <Area type="monotone" dataKey="emprestimos" name="Empréstimos" stroke={CHART_COLORS.loans} strokeWidth={2.2} fill="url(#area-loans)" />
+                    <Area type="monotone" dataKey="achados" name="Achados e Perdidos" stroke={CHART_COLORS.lost} strokeWidth={2.2} fill="url(#area-lost)" />
+                    <Area type="monotone" dataKey="chamados" name="Chamados de Sala" stroke={CHART_COLORS.calls} strokeWidth={2.2} fill="url(#area-calls)" />
+                  </AreaChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Nenhum equipamento encontrado
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-muted-foreground">
+                {[
+                  ['Demandas', CHART_COLORS.tasks],
+                  ['Empréstimos', CHART_COLORS.loans],
+                  ['Achados e Perdidos', CHART_COLORS.lost],
+                  ['Chamados de Sala', CHART_COLORS.calls],
+                ].map(([label, color]) => (
+                  <span key={label} className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </DashboardPanel>
 
-        <Card className="rounded-xl border-border/60 bg-card/75 shadow-sm">
-          <CardHeader className="px-5 pb-0 pt-4">
-            <CardTitle className="flex items-center gap-2 text-[15px] font-medium">
-              <AlertCircle className="h-4 w-4 text-primary" />
-              Status dos Achados e Perdidos
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground/90">Distribuição por status</CardDescription>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-0">
-            <div className="h-[240px]">
-              {lostItemsPieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={lostItemsPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={62}
-                      outerRadius={86}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {lostItemsPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        color: 'hsl(var(--foreground))'
-                      }}
-                      itemStyle={{
-                        color: 'hsl(var(--foreground))'
-                      }}
-                      labelStyle={{
-                        color: 'hsl(var(--foreground))'
-                      }}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Nenhum item encontrado
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Indicadores operacionais */}
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Card
-          className="group cursor-pointer rounded-xl border-border/50 bg-card/55 shadow-none transition-all duration-200 hover:border-primary/25 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          role="link"
-          tabIndex={0}
-          aria-label="Abrir empréstimos ativos"
-          onClick={() => navigate('/equipment/loans')}
-          onKeyDown={(event) => handleCardKeyDown(event, '/equipment/loans')}
-        >
-          <CardContent className="flex items-center gap-3 p-4">
-            <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">Empréstimos Ativos</p>
-              <p className="truncate text-xs text-muted-foreground">Equipamentos emprestados no momento</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground/90">
-                {equipmentUsagePercent}% do inventário em uso
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-xl font-semibold tabular-nums">{activeEquipmentLoans}</div>
-              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/65 transition-colors group-hover:text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="group cursor-pointer rounded-xl border-border/50 bg-card/55 shadow-none transition-all duration-200 hover:border-primary/25 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          role="link"
-          tabIndex={0}
-          aria-label="Abrir alocações de escaninhos"
-          onClick={() => navigate('/lockers/loans')}
-          onKeyDown={(event) => handleCardKeyDown(event, '/lockers/loans')}
-        >
-          <CardContent className="flex items-center gap-3 p-4">
-            <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">Alocações de Escaninhos</p>
-              <p className="truncate text-xs text-muted-foreground">Escaninhos atualmente em uso</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground/90">
-                {lockerUsagePercent}% dos escaninhos ocupados
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-xl font-semibold tabular-nums">{activeLockerLoans}</div>
-              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/65 transition-colors group-hover:text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="group cursor-pointer rounded-xl border-border/50 bg-card/55 shadow-none transition-all duration-200 hover:border-primary/25 hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          role="link"
-          tabIndex={0}
-          aria-label="Abrir itens disponíveis"
-          onClick={() => {
-            sessionStorage.setItem('lostItems_status', 'available');
-            navigate('/lost-found');
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              sessionStorage.setItem('lostItems_status', 'available');
-              navigate('/lost-found');
-            }
-          }}
-        >
-          <CardContent className="flex items-center gap-3 p-4">
-            <TrendingUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">Itens Disponíveis</p>
-              <p className="truncate text-xs text-muted-foreground">Itens aguardando retirada</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground/90">
-                {availableLostItemsPercent}% do total cadastrado
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-xl font-semibold tabular-nums">{availableLostItems}</div>
-              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/65 transition-colors group-hover:text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Atividade recente */}
-      <Card className="mt-4 overflow-hidden rounded-xl border-border/60 bg-card/65 shadow-sm">
-        <CardHeader className="flex flex-row items-start justify-between gap-4 px-5 pb-3 pt-4">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-[15px] font-medium">
-              <History className="h-4 w-4 text-primary" />
-              Atividade recente
-            </CardTitle>
-
-            <CardDescription className="mt-1 text-xs text-muted-foreground/90">
-              Últimas movimentações registradas no sistema
-            </CardDescription>
+          <div className="xl:col-span-3">
+            <DepthDonut
+              id="lost-donut"
+              title="Achados e Perdidos"
+              subtitle="Distribuição atual dos itens cadastrados."
+              data={lostData}
+              colors={LOST_COLORS}
+              centerValue={lostCounts?.total ?? 0}
+              centerLabel="itens"
+            />
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate('/activity-history')}
-            className="group flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          >
-            Ver histórico
-            <ArrowUpRight className="h-3.5 w-3.5 transition-colors group-hover:text-primary" />
-          </button>
-        </CardHeader>
-
-        <CardContent className="px-5 pb-4 pt-0">
-          {isLoadingActivity ? (
-            <div className="flex min-h-[110px] items-center justify-center text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-            </div>
-          ) : recentActivity && recentActivity.length > 0 ? (
-            <div className="divide-y divide-border/50">
-              {recentActivity.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center gap-4 py-3 first:pt-1 last:pb-0"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/8">
-                    <History className="h-3.5 w-3.5 text-primary/80" />
+          <div className="xl:col-span-3">
+            <DepthDonut
+              id="loan-donut"
+              title="Empréstimos de Equipamentos"
+              subtitle="Situação dos empréstimos ainda em aberto."
+              data={loanStatusData}
+              colors={LOAN_COLORS}
+              centerValue={`${onTimeRate}%`}
+              centerLabel="em dia"
+              footer={
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-emerald-500/10 px-2.5 py-2">
+                    <p className="text-[10px] text-muted-foreground">Disponíveis</p>
+                    <p className="mt-0.5 text-sm font-semibold text-emerald-300 tabular-nums">{equipmentAvailableUnits}</p>
                   </div>
+                  <div className="rounded-lg bg-amber-500/10 px-2.5 py-2">
+                    <p className="text-[10px] text-muted-foreground">Em manutenção</p>
+                    <p className="mt-0.5 text-sm font-semibold text-amber-300 tabular-nums">{maintenanceUnits}</p>
+                  </div>
+                </div>
+              }
+            />
+          </div>
+        </section>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="truncate text-sm font-medium text-foreground">
-                        {activity.user_name || 'Sistema'}
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <DashboardPanel className="xl:col-span-5">
+            <CardContent className="p-5">
+              <SectionTitle
+                icon={<AlertTriangle className="h-4 w-4 text-rose-400" />}
+                title="Itens com atenção"
+                helper="Situações reais que merecem uma ação agora."
+                action={
+                  <button type="button" onClick={() => navigate('/activity-history')} className="text-[11px] font-medium text-primary hover:underline">
+                    Ver histórico
+                  </button>
+                }
+              />
+
+              <div className="mt-4 space-y-2">
+                {attentionItems.length > 0 ? (
+                  attentionItems.map((item, index) => (
+                    <button
+                      key={`${item.title}-${index}`}
+                      type="button"
+                      onClick={() => navigate(item.path)}
+                      className="group flex w-full items-center gap-3 rounded-xl border border-border/40 bg-background/20 p-3 text-left transition hover:border-primary/25 hover:bg-background/30"
+                    >
+                      <span
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                        style={{ color: item.accent, backgroundColor: `${item.accent}18` }}
+                      >
+                        {item.icon}
                       </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-foreground/90">{item.title}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{item.detail}</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition group-hover:translate-x-0.5 group-hover:text-primary" />
+                    </button>
+                  ))
+                ) : (
+                  <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
+                    <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-300">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </span>
+                    <p className="text-sm font-semibold">Tudo em dia</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Nenhum item crítico identificado agora.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </DashboardPanel>
 
-                      <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {getModuleLabel(activity.module)}
+          <DashboardPanel className="xl:col-span-3">
+            <CardContent className="p-5">
+              <SectionTitle
+                icon={<Bell className="h-4 w-4" />}
+                title="Perfil dos chamados"
+                helper="Como estão os chamados de sala registrados."
+              />
+              <div className="mt-5 space-y-4">
+                {callProfile.values.map((item) => {
+                  const pct = callProfile.total > 0 ? Math.round((item.value / callProfile.total) * 100) : 0;
+                  return (
+                    <div key={item.label}>
+                      <div className="mb-1.5 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{item.label}</span>
+                        <span className="font-semibold text-foreground tabular-nums">{item.value}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted/30">
+                        <div
+                          className="h-full rounded-full shadow-[0_0_14px_currentColor]"
+                          style={{ width: `${pct}%`, color: item.color, backgroundColor: item.color }}
+                        />
+                      </div>
+                      <p className="mt-1 text-right text-[10px] text-muted-foreground">{pct}%</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/classroom-calls')}
+                className="mt-5 flex w-full items-center justify-between rounded-xl border border-border/40 bg-background/25 px-3 py-2.5 text-xs font-medium text-foreground/80 transition hover:border-primary/25 hover:bg-primary/5"
+              >
+                Abrir chamados
+                <ArrowRight className="h-4 w-4 text-primary" />
+              </button>
+            </CardContent>
+          </DashboardPanel>
+
+          <DashboardPanel className="xl:col-span-4">
+            <CardContent className="p-5">
+              <SectionTitle
+                icon={<History className="h-4 w-4" />}
+                title="Atividade recente"
+                helper="Últimas movimentações registradas no sistema."
+                action={
+                  <button type="button" onClick={() => navigate('/activity-history')} className="text-[11px] font-medium text-primary hover:underline">
+                    Ver todas
+                  </button>
+                }
+              />
+
+              <div className="mt-4 divide-y divide-border/30">
+                {activityLoading ? (
+                  <div className="py-10 text-center text-xs text-muted-foreground">Carregando atividades…</div>
+                ) : recentActivity.length > 0 ? (
+                  recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <History className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="truncate text-xs font-semibold text-foreground/90">{activity.user_name || 'Sistema'}</p>
+                          <span className="shrink-0 rounded-md bg-muted/40 px-1.5 py-0.5 text-[9px] text-muted-foreground">{getModuleLabel(activity.module)}</span>
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                          {getActionLabel(activity.action)}
+                          {activity.entity_description ? ` · ${activity.entity_description}` : ''}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-[10px] text-muted-foreground/70">
+                        {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: ptBR })}
                       </span>
                     </div>
+                  ))
+                ) : (
+                  <div className="py-10 text-center text-xs text-muted-foreground">Nenhuma atividade recente.</div>
+                )}
+              </div>
+            </CardContent>
+          </DashboardPanel>
+        </section>
 
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground/90">
-                      {getActionLabel(activity.action)}
-                      {activity.entity_description
-                        ? ` · ${activity.entity_description}`
-                        : activity.details
-                          ? ` · ${activity.details}`
-                          : ''}
-                    </p>
-                  </div>
-
-                  <span className="shrink-0 text-right text-[11px] text-muted-foreground/80">
-                    {formatDistanceToNow(
-                      new Date(activity.created_at),
-                      {
-                        addSuffix: true,
-                        locale: ptBR,
-                      }
-                    )}
+        <DashboardPanel>
+          <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+            <div className="flex items-center gap-2.5 lg:w-[190px]">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Zap className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Ações rápidas</p>
+                <p className="text-[10px] text-muted-foreground">Atalhos do dia a dia</p>
+              </div>
+            </div>
+            <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+              {[
+                { label: 'Nova Demanda', path: '/tasks', icon: <ClipboardList className="h-4 w-4" />, className: 'text-violet-300' },
+                { label: 'Registrar Achado', path: '/lost-found/register', icon: <Tag className="h-4 w-4" />, className: 'text-pink-300' },
+                { label: 'Consultar Equipamento', path: '/equipment', icon: <Monitor className="h-4 w-4" />, className: 'text-emerald-300' },
+                { label: 'Abrir Chamado', path: '/classroom-calls', icon: <Bell className="h-4 w-4" />, className: 'text-amber-300' },
+                { label: 'Ver Etiquetas', path: '/labels', icon: <Boxes className="h-4 w-4" />, className: 'text-cyan-300' },
+              ].map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => navigate(action.path)}
+                  className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-border/40 bg-background/20 px-3 text-left text-xs font-medium text-foreground/80 transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5"
+                >
+                  <span className={`flex items-center gap-2 ${action.className}`}>
+                    {action.icon}
+                    <span className="text-foreground/80">{action.label}</span>
                   </span>
-                </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+                </button>
               ))}
             </div>
-          ) : (
-            <div className="flex min-h-[110px] items-center justify-center text-sm text-muted-foreground">
-              Nenhuma atividade recente registrada
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </DashboardPanel>
+      </div>
     </MainLayout>
   );
 }

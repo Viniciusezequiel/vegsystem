@@ -1,243 +1,107 @@
+import { useMemo, useState, type ElementType } from 'react';
 import { NavLink as RouterNavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Package,
-  PackagePlus,
-  Search,
-  History,
-  Users,
-  Settings,
-  LogOut,
-  Monitor,
-  ClipboardCheck,
-  Lock,
-  ChevronDown,
-  Loader2,
   BarChart3,
+  Bell,
+  CalendarDays,
+  Car,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CheckSquare,
-  CalendarDays,
-  ShoppingCart,
-  RefreshCw,
-  Bell,
-  Shield,
-  FileText,
-  Tag,
-  Upload,
-  Car,
-  ShieldCheck,
+  ClipboardCheck,
   GraduationCap,
   HeartPulse,
-
+  History,
+  LayoutDashboard,
+  Loader2,
+  Lock,
+  LogOut,
+  Monitor,
+  Package,
+  Settings,
+  ShieldCheck,
+  ShoppingCart,
+  Tag,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
-import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions, type Module } from '@/hooks/usePermissions';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useState, createContext, useContext, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import vegSystemLogo from '@/assets/veg-system-logo.png';
-import { prefetchLostItemsOnHover } from '@/hooks/useLostItemsGlobalPrefetch';
-
-interface SidebarContextType {
-  collapsed: boolean;
-  setCollapsed: (collapsed: boolean) => void;
-}
-
-const SidebarContext = createContext<SidebarContextType>({ collapsed: false, setCollapsed: () => {} });
-
-export const useSidebarCollapse = () => useContext(SidebarContext);
 
 interface NavItem {
   name: string;
   href: string;
-  icon: React.ElementType;
+  icon: ElementType;
   adminOnly?: boolean;
-  hasBadge?: boolean;
   module?: Module;
-}
-
-interface NavGroup {
-  name: string;
-  icon: React.ElementType;
-  items: NavItem[];
-  basePath: string;
-  gradient?: string;
-  adminOnly?: boolean;
-  module?: Module; // Maps to permission module
-  directHref?: string;
+  badge?: 'tasks' | 'materials' | 'calls';
 }
 
 interface NavSection {
   key: string;
   name: string;
-  groups?: NavGroup[];
-  items?: NavItem[];
+  items: NavItem[];
   adminOnly?: boolean;
 }
 
-const mainNav: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-];
-
-const moduleGroups: NavGroup[] = [
-  {
-    name: 'Demandas',
-    icon: ClipboardCheck,
-    basePath: '/tasks',
-    directHref: '/tasks/my-tasks',
-    gradient: 'from-teal-500 to-cyan-500',
-    module: 'tasks',
-    items: [
-      { name: 'Gestão de Demandas', href: '/tasks', icon: ClipboardCheck, adminOnly: true },
-      { name: 'Minhas Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck, hasBadge: true },
-      { name: 'Dashboard', href: '/tasks/dashboard', icon: BarChart3, adminOnly: true },
-    ],
-  },
-  {
-    name: 'Achados e Perdidos',
-    icon: Package,
-    basePath: '/lost-found',
-    directHref: '/lost-found/items',
-    gradient: 'from-purple-500 to-pink-500',
-    module: 'lostAndFound',
-    items: [
-      { name: 'Registrar Item', href: '/lost-found/register', icon: PackagePlus },
-      { name: 'Buscar Itens', href: '/lost-found/items', icon: Search },
-    ],
-  },
-  {
-    name: 'Equipamentos',
-    icon: Monitor,
-    basePath: '/equipment',
-    directHref: '/equipment',
-    gradient: 'from-cyan-500 to-blue-500',
-    module: 'equipment',
-    items: [
-      { name: 'Patrimônios', href: '/equipment', icon: Package },
-      { name: 'Empréstimos', href: '/equipment/loans', icon: PackagePlus },
-    ],
-  },
-  {
-    name: 'Checklist de Salas',
-    icon: ClipboardCheck,
-    basePath: '/rooms',
-    directHref: '/rooms/checklists',
-    gradient: 'from-green-500 to-emerald-500',
-    module: 'rooms',
-    items: [
-      { name: 'Novo Checklist', href: '/rooms/checklist/new', icon: ClipboardCheck },
-      { name: 'Checklists', href: '/rooms/checklists', icon: Search },
-      { name: 'Passagem de Plantão', href: '/rooms/shift-handovers', icon: RefreshCw },
-      { name: 'Gestão de Salas', href: '/rooms', icon: ClipboardCheck, adminOnly: true },
-    ],
-  },
-  {
-    name: 'Checklist Semestral',
-    icon: CalendarDays,
-    basePath: '/semester',
-    directHref: '/semester',
-    gradient: 'from-teal-500 to-green-600',
-    module: 'rooms',
-    items: [
-      { name: 'Checklists Semestrais', href: '/semester', icon: ClipboardCheck },
-      { name: 'Competências', href: '/semester/competencies', icon: Settings, adminOnly: true },
-      { name: 'Etiquetas (Pimaco A4365)', href: '/semester/labels', icon: Tag },
-    ],
-  },
-  {
-    name: 'Escaninhos',
-    icon: Lock,
-    basePath: '/lockers',
-    directHref: '/lockers',
-    gradient: 'from-orange-500 to-amber-500',
-    module: 'lockers',
-    items: [
-      { name: 'Escaninhos', href: '/lockers', icon: Lock },
-      { name: 'Alocações', href: '/lockers/loans', icon: Users },
-    ],
-  },
-  {
-    name: 'Reservas de Salas',
-    icon: CalendarDays,
-    basePath: '/reservations',
-    directHref: '/reservations',
-    gradient: 'from-indigo-500 to-violet-500',
-    module: 'reservations' as Module,
-    items: [
-      { name: 'Reservas', href: '/reservations', icon: CalendarDays },
-      { name: 'Nova Reserva', href: '/reservations/new', icon: PackagePlus },
-      { name: 'Cadastro de Salas', href: '/reservations/rooms', icon: Settings, adminOnly: true },
-    ],
-  },
-  {
-    name: 'Materiais',
-    icon: ShoppingCart,
-    basePath: '/materials',
-    directHref: '/materials/my-requests',
-    gradient: 'from-rose-500 to-pink-500',
-    module: 'materials',
-    items: [
-      { name: 'Minhas Solicitações', href: '/materials/my-requests', icon: FileText, hasBadge: true },
-      { name: 'Nova Solicitação', href: '/materials/new', icon: PackagePlus },
-      { name: 'Gestão de Solicitações', href: '/materials', icon: ShoppingCart, adminOnly: true },
-    ],
-  },
-  {
-    name: 'Chamados de Sala',
-    icon: Bell,
-    basePath: '/classroom-calls',
-    directHref: '/classroom-calls',
-    gradient: 'from-red-500 to-orange-500',
-    module: 'classroomCalls',
-    items: [
-      { name: 'Chamados', href: '/classroom-calls', icon: Bell },
-      { name: 'Configurações', href: '/classroom-calls/settings', icon: Settings, adminOnly: true },
-    ],
-  },
-];
-
-const managementNav: NavItem[] = [
-  { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
-  { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
-  { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
-  { name: 'Aprovações', href: '/external-users-approval', icon: Users, adminOnly: true },
-  { name: 'Relatórios', href: '/reports', icon: BarChart3 },
-  { name: 'Histórico', href: '/activity-history', icon: History, module: 'activityHistory' },
-];
-
-const administrationNav: NavItem[] = [
-  { name: 'Configurações', href: '/settings', icon: Settings, module: 'settings' },
-  { name: 'Administração', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
-];
-
-const systemNav: NavItem[] = [
-  { name: 'Saúde do Sistema', href: '/admin-module/system-health', icon: HeartPulse, adminOnly: true },
-];
-
-const navSections: NavSection[] = [
+const sections: NavSection[] = [
   {
     key: 'operation',
     name: 'Operação',
-    groups: moduleGroups.filter(group => ['Demandas', 'Achados e Perdidos', 'Equipamentos', 'Chamados de Sala', 'Escaninhos', 'Materiais'].includes(group.name)),
+    items: [
+      { name: 'Demandas', href: '/tasks/my-tasks', icon: ClipboardCheck, module: 'tasks', badge: 'tasks' },
+      { name: 'Achados e Perdidos', href: '/lost-found/items', icon: Package, module: 'lostAndFound' },
+      { name: 'Equipamentos', href: '/equipment', icon: Monitor, module: 'equipment' },
+      { name: 'Escaninhos', href: '/lockers', icon: Lock, module: 'lockers' },
+      { name: 'Materiais', href: '/materials/my-requests', icon: ShoppingCart, module: 'materials', badge: 'materials' },
+      { name: 'Chamados de Sala', href: '/classroom-calls', icon: Bell, module: 'classroomCalls', badge: 'calls' },
+    ],
   },
   {
     key: 'rooms',
     name: 'Salas e Checklists',
-    groups: moduleGroups.filter(group => ['Reservas de Salas', 'Checklist de Salas', 'Checklist Semestral'].includes(group.name)),
+    items: [
+      { name: 'Checklist de Salas', href: '/rooms/checklists', icon: ClipboardCheck, module: 'rooms' },
+      { name: 'Checklist Semestral', href: '/semester', icon: CalendarDays, module: 'rooms' },
+      { name: 'Reservas de Salas', href: '/reservations', icon: CalendarDays, module: 'reservations' as Module },
+    ],
   },
-  { key: 'management', name: 'Gestão', items: managementNav },
-  { key: 'administration', name: 'Administração', items: administrationNav },
-  { key: 'system', name: 'Sistema', items: systemNav, adminOnly: true },
+  {
+    key: 'management',
+    name: 'Gestão',
+    items: [
+      { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
+      { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
+      { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
+      { name: 'Aprovações', href: '/external-users-approval', icon: Users, adminOnly: true },
+      { name: 'Relatórios', href: '/reports', icon: BarChart3 },
+      { name: 'Histórico', href: '/activity-history', icon: History, module: 'activityHistory' },
+    ],
+  },
+  {
+    key: 'administration',
+    name: 'Administração',
+    items: [
+      { name: 'Configurações', href: '/settings', icon: Settings, module: 'settings' },
+      { name: 'Administração', href: '/admin-module', icon: ShieldCheck, adminOnly: true },
+    ],
+  },
+  {
+    key: 'system',
+    name: 'Sistema',
+    adminOnly: true,
+    items: [
+      { name: 'Saúde do Sistema', href: '/admin-module/system-health', icon: HeartPulse, adminOnly: true },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -250,468 +114,177 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { profile, role, signOut, isAdmin } = useAuth();
+  const { signOut, isAdmin } = useAuth();
   const { canView } = useUserPermissions();
   const { toast } = useToast();
+  const { data: pendingCallsCount = 0 } = usePendingCallsCount();
+  const { pendingTasksCount = 0 } = useTaskNotifications();
+  const { pendingMaterialsCount = 0 } = useMaterialNotifications();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { data: pendingCallsCount } = usePendingCallsCount();
-  const { pendingTasksCount } = useTaskNotifications();
-  const { pendingMaterialsCount } = useMaterialNotifications();
-  
-  // Prefetch lost items on hover
-  const handleLostItemsHover = useCallback(() => {
-    prefetchLostItemsOnHover(queryClient);
-  }, [queryClient]);
+  const [closedSections, setClosedSections] = useState<string[]>([]);
 
-  const isGroupVisible = (group: NavGroup) => {
-    if (group.adminOnly && !isAdmin) return false;
-    if (!group.module || isAdmin) return true;
-    return canView(group.module);
+  const badgeCounts = {
+    tasks: pendingTasksCount,
+    materials: pendingMaterialsCount,
+    calls: pendingCallsCount,
   };
 
-  const isItemVisible = (item: NavItem) => {
-    if (item.adminOnly && !isAdmin) return false;
-    if (item.module && !isAdmin && !canView(item.module)) return false;
-    return true;
-  };
+  const visibleSections = useMemo(
+    () => sections
+      .filter((section) => !section.adminOnly || isAdmin)
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => {
+          if (item.adminOnly && !isAdmin) return false;
+          if (item.module && !isAdmin && !canView(item.module)) return false;
+          return true;
+        }),
+      }))
+      .filter((section) => section.items.length > 0),
+    [canView, isAdmin]
+  );
 
-  const visibleSections = navSections
-    .filter(section => !section.adminOnly || isAdmin)
-    .map(section => ({
-      ...section,
-      groups: (section.groups ?? []).filter(isGroupVisible),
-      items: (section.items ?? []).filter(isItemVisible),
-    }))
-    .filter(section => section.key === 'system' || section.groups.length > 0 || section.items.length > 0);
-
-  const routeCandidates = visibleSections.flatMap(section => [
-    ...section.groups.map(group => ({ sectionKey: section.key, path: group.basePath })),
-    ...section.items.map(item => ({ sectionKey: section.key, path: item.href })),
-  ]).filter(candidate => location.pathname === candidate.path || location.pathname.startsWith(`${candidate.path}/`));
-  const activeSectionKey = routeCandidates.sort((a, b) => b.path.length - a.path.length)[0]?.sectionKey;
-
-  // Close mobile menu on navigation
   const handleNavClick = () => {
-    if (isMobile && onCloseMobile) {
-      onCloseMobile();
-    }
-  };
-  
-  const [openGroups, setOpenGroups] = useState<string[]>(() => {
-    const currentGroup = moduleGroups.find(group => 
-      location.pathname.startsWith(group.basePath)
-    );
-    return currentGroup ? [currentGroup.basePath] : [];
-  });
-
-  const [openSections, setOpenSections] = useState<string[]>([]);
-
-  useEffect(() => {
-    setOpenSections(activeSectionKey ? [activeSectionKey] : []);
-  }, [activeSectionKey, location.pathname]);
-
-  useEffect(() => {
-    const currentGroup = moduleGroups.find(group => location.pathname.startsWith(group.basePath));
-    setOpenGroups(currentGroup ? [currentGroup.basePath] : []);
-  }, [location.pathname]);
-
-  const toggleSection = (sectionKey: string) => {
-    if (collapsed) return;
-    setOpenSections(prev => prev.includes(sectionKey) ? [] : [sectionKey]);
-  };
-
-  const toggleGroup = (basePath: string) => {
-    if (collapsed) return;
-    setOpenGroups(prev => prev.includes(basePath) ? [] : [basePath]);
+    if (isMobile) onCloseMobile?.();
   };
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
       await signOut();
-      toast({
-        title: 'Logout realizado',
-        description: 'Você foi desconectado do sistema.',
-      });
+      toast({ title: 'Logout realizado', description: 'Você foi desconectado do sistema.' });
       navigate('/admin-auth');
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível fazer logout.',
-        variant: 'destructive',
-      });
+    } catch {
+      toast({ title: 'Erro', description: 'Não foi possível fazer logout.', variant: 'destructive' });
     } finally {
       setIsLoggingOut(false);
     }
   };
 
-  const getRoleLabel = (role: string | null) => {
-    switch (role) {
-      case 'admin': return 'Administrador';
-      case 'supervisor': return 'Supervisor';
-      case 'analista': return 'Analista';
-      case 'assistente': return 'Assistente';
-      case 'atendente': return 'Atendente de Chamados';
-      default: return 'Usuário';
-    }
-  };
+  const renderLink = (item: NavItem) => {
+    const active = location.pathname === item.href || (item.href !== '/' && location.pathname.startsWith(`${item.href}/`));
+    const badgeCount = item.badge ? badgeCounts[item.badge] : 0;
 
-  const getInitials = (name: string | undefined) => {
-    if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  };
-
-  const NavItemContent = ({ item, isActive }: { item: NavItem; isActive: boolean }) => (
-    <>
-      <div className={cn(
-        'flex h-8 w-8 shrink-0 items-center justify-center transition-colors duration-200',
-        isActive ? 'text-primary' : 'text-sidebar-foreground/55'
-      )}>
-        <item.icon className="h-[18px] w-[18px] stroke-[1.8]" />
-      </div>
-      {!collapsed && <span className="truncate text-[13px] font-medium">{item.name}</span>}
-    </>
-  );
-
-  const renderSimpleItem = (item: NavItem) => {
-    const isActive = location.pathname === item.href;
-    const link = (
+    const content = (
       <RouterNavLink
+        key={item.href}
         to={item.href}
         onClick={handleNavClick}
         className={cn(
-          'sidebar-link relative min-h-10 rounded-lg border border-transparent transition-colors duration-200 hover:border-sidebar-border/20',
-          isActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
+          'group relative flex min-h-10 items-center gap-2.5 rounded-lg border border-transparent px-2.5 text-[13px] font-medium text-sidebar-foreground/70 transition-all duration-200',
+          'hover:border-sidebar-border/20 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground',
+          active && 'border-primary/15 bg-primary/10 text-sidebar-foreground before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
           collapsed && 'justify-center px-2'
         )}
       >
-        <NavItemContent item={item} isActive={isActive} />
+        <span className={cn('relative flex h-8 w-8 shrink-0 items-center justify-center', active ? 'text-primary' : 'text-sidebar-foreground/60')}>
+          <item.icon className="h-[18px] w-[18px] stroke-[1.8]" />
+          {collapsed && badgeCount > 0 ? (
+            <span className="absolute -right-1 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[8px] font-bold text-destructive-foreground">
+              {badgeCount > 9 ? '9+' : badgeCount}
+            </span>
+          ) : null}
+        </span>
+        {!collapsed ? <span className="min-w-0 flex-1 truncate">{item.name}</span> : null}
+        {!collapsed && badgeCount > 0 ? (
+          <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        ) : null}
       </RouterNavLink>
     );
 
-    return collapsed ? (
+    if (!collapsed) return content;
+    return (
       <Tooltip key={item.href}>
-        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
         <TooltipContent side="right">{item.name}</TooltipContent>
       </Tooltip>
-    ) : <div key={item.href}>{link}</div>;
-  };
-
-  const renderModuleGroup = (group: NavGroup) => {
-    const isGroupActive = location.pathname.startsWith(group.basePath);
-    const isOpen = openGroups.includes(group.basePath) && !collapsed;
-
-    if (group.directHref) {
-      const badgeCount = group.basePath === '/classroom-calls'
-        ? pendingCallsCount
-        : group.basePath === '/materials'
-          ? pendingMaterialsCount
-          : group.basePath === '/tasks'
-            ? pendingTasksCount
-            : 0;
-      const showBadge = Boolean(badgeCount && badgeCount > 0);
-      const link = (
-        <RouterNavLink
-          to={group.directHref}
-          onClick={handleNavClick}
-          onMouseEnter={group.basePath === '/lost-found' ? handleLostItemsHover : undefined}
-          className={cn(
-            'sidebar-link relative min-h-10 rounded-lg border border-transparent transition-colors duration-200 hover:border-sidebar-border/20',
-            isGroupActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
-            collapsed && 'justify-center px-2'
-          )}
-        >
-          <div className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center transition-colors duration-200',
-            isGroupActive ? 'text-primary' : 'text-sidebar-foreground/55'
-          )}>
-            <group.icon className="h-[18px] w-[18px] stroke-[1.8]" />
-            {showBadge && collapsed && (
-              <span className="absolute right-1.5 top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[8px] font-bold text-destructive-foreground">
-                {badgeCount > 9 ? '9+' : badgeCount}
-              </span>
-            )}
-          </div>
-          {!collapsed && <span className="truncate text-[13px] font-medium tracking-[-0.01em]">{group.name}</span>}
-          {!collapsed && showBadge && (
-            <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">{badgeCount}</span>
-          )}
-        </RouterNavLink>
-      );
-
-      return collapsed ? (
-        <Tooltip key={group.basePath}>
-          <TooltipTrigger asChild>{link}</TooltipTrigger>
-          <TooltipContent side="right">{group.name}</TooltipContent>
-        </Tooltip>
-      ) : <div key={group.basePath}>{link}</div>;
-    }
-
-    if (collapsed) {
-      return (
-        <Tooltip key={group.basePath}>
-          <TooltipTrigger asChild>
-            <RouterNavLink
-              to={group.items[0].href}
-              onClick={handleNavClick}
-              className={cn('sidebar-link relative min-h-10 justify-center rounded-lg px-2', isGroupActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary')}
-            >
-              <div className={cn(
-                'relative flex h-8 w-8 items-center justify-center transition-colors duration-200',
-                isGroupActive ? 'text-primary' : 'text-sidebar-foreground/55'
-              )}>
-                <group.icon className="h-[18px] w-[18px] stroke-[1.8]" />
-                {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                    {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
-                  </span>
-                )}
-              </div>
-            </RouterNavLink>
-          </TooltipTrigger>
-          <TooltipContent side="right">{group.name}</TooltipContent>
-        </Tooltip>
-      );
-    }
-
-    return (
-      <Collapsible
-        key={group.basePath}
-        open={isOpen}
-        onOpenChange={() => toggleGroup(group.basePath)}
-        onMouseEnter={group.basePath === '/lost-found' ? handleLostItemsHover : undefined}
-      >
-        <CollapsibleTrigger className={cn('sidebar-link relative min-h-10 w-full justify-between rounded-lg transition-colors duration-200', isGroupActive && '!bg-primary/10 !text-sidebar-foreground before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary')}>
-          <div className="flex min-w-0 items-center gap-2.5">
-            <div className={cn(
-              'relative flex h-8 w-8 shrink-0 items-center justify-center transition-colors duration-200',
-              isGroupActive ? 'text-primary' : 'text-sidebar-foreground/55'
-            )}>
-              <group.icon className="h-[18px] w-[18px] stroke-[1.8]" />
-              {group.basePath === '/classroom-calls' && pendingCallsCount !== undefined && pendingCallsCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                  {pendingCallsCount > 9 ? '9+' : pendingCallsCount}
-                </span>
-              )}
-            </div>
-            <span className="whitespace-normal text-left text-[13px] font-medium leading-tight">{group.name}</span>
-          </div>
-          <ChevronDown className={cn('w-4 h-4 transition-transform duration-200 shrink-0', isOpen && 'rotate-180')} />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="ml-4 space-y-0.5 border-l border-sidebar-border/40 pl-3 pt-1 animate-accordion-down">
-          {group.items.filter(item => !item.adminOnly || isAdmin).map(item => {
-            const isActive = location.pathname === item.href;
-            const badgeCount = item.hasBadge
-              ? (group.basePath === '/materials' ? pendingMaterialsCount : pendingTasksCount)
-              : 0;
-            const showBadge = item.hasBadge && badgeCount && badgeCount > 0;
-            return (
-              <RouterNavLink
-                key={item.href}
-                to={item.href}
-                onClick={handleNavClick}
-                className={cn('sidebar-link relative min-h-8 rounded-md py-1.5 text-xs transition-colors duration-200', isActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:-left-[13px] before:bottom-1.5 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary')}
-              >
-                <div className="relative shrink-0">
-                  <item.icon className="w-4 h-4" />
-                  {showBadge && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary text-primary-foreground text-[8px] font-bold rounded-full flex items-center justify-center">
-                      {badgeCount > 9 ? '9+' : badgeCount}
-                    </span>
-                  )}
-                </div>
-                <span className="whitespace-normal leading-tight">{item.name}</span>
-                {showBadge && (
-                  <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badgeCount}</span>
-                )}
-              </RouterNavLink>
-            );
-          })}
-        </CollapsibleContent>
-      </Collapsible>
     );
   };
 
   return (
     <TooltipProvider delayDuration={0}>
-      <aside className={cn(
-        'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-x-hidden border-r border-sidebar-border/35 bg-sidebar transition-all duration-200',
-        isMobile
-          ? 'w-[min(280px,calc(100vw-24px))] shadow-2xl'
-          : collapsed
-            ? 'w-[68px]'
-            : 'w-60'
-      )}>
-        {/* Logo */}
-        <div className={cn('border-b border-sidebar-border/35 px-3 py-3', collapsed && 'px-2.5')}>
-        <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-2.5')}>
-            <div className={cn(
-              'flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border/25',
-              collapsed ? 'h-9 w-9' : 'h-9 w-9'
-            )}>
-              <img src={vegSystemLogo} alt="VEG System" className="w-full h-full object-cover" />
-            </div>
-            {!collapsed && (
-              <div className="min-w-0">
-                <h1 className="text-[13px] font-semibold leading-tight text-sidebar-foreground">VEG System</h1>
-                <p className="text-[10px] text-sidebar-foreground/45">Sistema Integrado</p>
-              </div>
-            )}
+      <aside
+        className={cn(
+          'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden border-r border-sidebar-border/30 bg-sidebar shadow-[18px_0_55px_-40px_rgba(90,48,190,.55)] backdrop-blur-xl transition-all duration-200',
+          isMobile ? 'w-[min(280px,calc(100vw-24px))]' : collapsed ? 'w-[68px]' : 'w-60'
+        )}
+      >
+        <div className={cn('flex h-[64px] items-center border-b border-sidebar-border/30 px-3', collapsed ? 'justify-center px-2.5' : 'gap-2.5')}>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary/15 bg-primary/5 shadow-[0_0_24px_-10px_hsl(var(--primary))]">
+            <img src={vegSystemLogo} alt="VEG System" className="h-full w-full object-cover" />
           </div>
+          {!collapsed ? (
+            <div className="min-w-0">
+              <h1 className="text-[13px] font-semibold leading-tight text-sidebar-foreground">VEG System</h1>
+              <p className="mt-0.5 text-[10px] text-sidebar-foreground/50">Sistema Integrado</p>
+            </div>
+          ) : null}
         </div>
 
-        {/* Toggle Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggle}
-          aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-          className="absolute -right-2.5 top-[68px] z-50 h-5 w-5 rounded-md border border-sidebar-border/60 bg-sidebar text-sidebar-foreground/55 shadow-sm transition-colors duration-200 hover:bg-primary/10 hover:text-primary"
-        >
-          {collapsed ? (
-            <ChevronRight className="w-3 h-3" />
-          ) : (
-            <ChevronLeft className="w-3 h-3" />
-          )}
-        </Button>
+        {!isMobile ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            className="absolute -right-2.5 top-[75px] z-50 h-5 w-5 rounded-md border border-sidebar-border/60 bg-sidebar text-sidebar-foreground/60 shadow-sm hover:bg-primary/10 hover:text-primary"
+          >
+            {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+          </Button>
+        ) : null}
 
-        {/* Navigation */}
-        <nav className={cn(
-          'flex-1 space-y-1 overflow-y-auto scrollbar-thin',
-          collapsed ? 'space-y-0.5 p-2' : 'space-y-0.5 px-2 py-2'
-        )}>
-          {/* Main Nav */}
-          {mainNav.map((item) => {
-            const isActive = location.pathname === item.href;
-            const link = (
-              <RouterNavLink
-                key={item.name}
-                to={item.href}
-                onClick={handleNavClick}
-                className={cn(
-                  'sidebar-link relative min-h-10 rounded-lg border border-transparent transition-colors duration-200 hover:border-sidebar-border/20',
-                  isActive && '!bg-primary/10 !text-sidebar-foreground !shadow-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary',
-                  collapsed && 'justify-center px-2'
-                )}
-              >
-                <NavItemContent item={item} isActive={isActive} />
-              </RouterNavLink>
-            );
+        <nav className={cn('flex-1 overflow-y-auto scrollbar-thin', collapsed ? 'space-y-1 p-2' : 'space-y-1 px-2 py-2')}>
+          {renderLink({ name: 'Dashboard', href: '/', icon: LayoutDashboard })}
 
-            return collapsed ? (
-              <Tooltip key={item.name}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right">{item.name}</TooltipContent>
-              </Tooltip>
-            ) : link;
-          })}
+          <div className={cn('mt-1.5', collapsed && 'mt-2')}>
+            {visibleSections.map((section) => {
+              const isClosed = closedSections.includes(section.key);
+              if (collapsed) {
+                return <div key={section.key} className="space-y-0.5">{section.items.map(renderLink)}</div>;
+              }
 
-          {collapsed && <div className="h-4" />}
-
-          {visibleSections.map(section => {
-            const isSectionOpen = openSections.includes(section.key) && !collapsed;
-            const isSectionActive = activeSectionKey === section.key;
-
-            if (collapsed) {
               return (
-                <div key={section.key} className="space-y-1">
-                  {section.groups.map(renderModuleGroup)}
-                  {section.items.map(renderSimpleItem)}
+                <div key={section.key} className="border-t border-sidebar-border/20 pt-1.5 first:border-t-0">
+                  <button
+                    type="button"
+                    onClick={() => setClosedSections((previous) => previous.includes(section.key) ? previous.filter((key) => key !== section.key) : [...previous, section.key])}
+                    className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/40 transition hover:bg-sidebar-accent/20 hover:text-sidebar-foreground/70"
+                    aria-expanded={!isClosed}
+                  >
+                    <span>{section.name}</span>
+                    <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !isClosed && 'rotate-180')} />
+                  </button>
+                  {!isClosed ? <div className="space-y-0.5 pb-1">{section.items.map(renderLink)}</div> : null}
                 </div>
               );
-            }
-
-            return (
-              <Collapsible
-                key={section.key}
-                open={isSectionOpen}
-                onOpenChange={() => toggleSection(section.key)}
-                className="border-t border-sidebar-border/20 pt-1.5 first:border-t-0 first:pt-0"
-                data-testid={`sidebar-section-${section.key}`}
-              >
-                <CollapsibleTrigger
-                  aria-label={`${isSectionOpen ? 'Recolher' : 'Expandir'} ${section.name}`}
-                  className={cn(
-                    'flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] transition-colors duration-200',
-                    isSectionActive
-                      ? 'bg-primary/[0.045] text-primary'
-                      : 'text-sidebar-foreground/40 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground/65'
-                  )}
-                >
-                  <span>{section.name}</span>
-                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', isSectionOpen && 'rotate-180')} />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-0.5 pt-0.5 animate-accordion-down">
-                  {section.groups.map(renderModuleGroup)}
-                  {section.items.map(renderSimpleItem)}
-                  {section.key === 'system' && (
-                    <p className="px-3 py-2 text-xs text-sidebar-foreground/35">Reservado para recursos técnicos.</p>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })}
+            })}
+          </div>
         </nav>
 
-        {/* Theme Toggle & User */}
-        <div className={cn('border-t border-sidebar-border/35 bg-sidebar/95', collapsed ? 'p-2' : 'p-2.5')}>
-          {/* Theme Toggle */}
-          <div className={cn('mb-2', collapsed && 'flex justify-center')}>
+        <div className={cn('border-t border-sidebar-border/30 bg-sidebar/95', collapsed ? 'p-2' : 'p-2.5')}>
+          <div className={cn('mb-1.5', collapsed && 'flex justify-center')}>
             <ThemeToggle collapsed={collapsed} />
           </div>
-
-          {/* User */}
-          {!collapsed ? (
-            <>
-              <div className="mb-1.5 flex items-center gap-2.5 rounded-lg border border-sidebar-border/25 bg-sidebar-accent/25 p-2">
-                <Avatar className="h-8 w-8 ring-1 ring-primary/25">
-                  <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || ''} />
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground font-bold text-sm">
-                    {getInitials(profile?.full_name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-xs font-semibold text-sidebar-foreground">
-                    {profile?.full_name || 'Usuário'}
-                  </p>
-                  <p className="text-[10px] font-medium capitalize text-sidebar-foreground/50">
-                    {getRoleLabel(role)}
-                  </p>
-                </div>
-              </div>
-              <button 
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="sidebar-link min-h-8 w-full justify-center rounded-lg py-1.5 text-destructive/70 hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-              >
-                {isLoggingOut ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <LogOut className="w-4 h-4" />
+                aria-label="Sair do Sistema"
+                className={cn(
+                  'flex min-h-9 w-full items-center justify-center gap-2 rounded-lg px-2 text-xs font-medium text-destructive/70 transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-50',
+                  collapsed && 'px-0'
                 )}
-                <span className="text-xs">{isLoggingOut ? 'Saindo...' : 'Sair do Sistema'}</span>
+              >
+                {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                {!collapsed ? <span>{isLoggingOut ? 'Saindo...' : 'Sair do Sistema'}</span> : null}
               </button>
-            </>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  aria-label="Sair do Sistema"
-                  className="sidebar-link w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 justify-center px-2"
-                >
-                  {isLoggingOut ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <LogOut className="w-4 h-4" />
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Sair do Sistema</TooltipContent>
-            </Tooltip>
-          )}
+            </TooltipTrigger>
+            {collapsed ? <TooltipContent side="right">Sair do Sistema</TooltipContent> : null}
+          </Tooltip>
         </div>
       </aside>
     </TooltipProvider>
