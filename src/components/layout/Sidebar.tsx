@@ -23,9 +23,6 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
-import { useTaskNotifications } from '@/hooks/useTaskNotifications';
-import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPermissions, type Module } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
@@ -105,17 +102,25 @@ interface SidebarProps {
   onToggle: () => void;
   isMobile?: boolean;
   onCloseMobile?: () => void;
+  pendingTasksCount?: number;
+  pendingMaterialsCount?: number;
+  pendingCallsCount?: number;
 }
 
-export function Sidebar({ collapsed, onToggle, isMobile, onCloseMobile }: SidebarProps) {
+export function Sidebar({
+  collapsed,
+  onToggle,
+  isMobile,
+  onCloseMobile,
+  pendingTasksCount = 0,
+  pendingMaterialsCount = 0,
+  pendingCallsCount = 0,
+}: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, isAdmin } = useAuth();
   const { canView } = useUserPermissions();
   const { toast } = useToast();
-  const { data: pendingCallsCount = 0 } = usePendingCallsCount();
-  const { pendingTasksCount = 0 } = useTaskNotifications();
-  const { pendingMaterialsCount = 0 } = useMaterialNotifications();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [closedSections, setClosedSections] = useState<string[]>([]);
 

@@ -1,5 +1,4 @@
 import {
-  type FormEvent,
   type ReactNode,
   useEffect,
   useLayoutEffect,
@@ -7,49 +6,43 @@ import {
   useState,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Menu, X } from 'lucide-react';
+import {
+  Bell,
+  ChevronDown,
+  ClipboardList,
+  KeyRound,
+  Loader2,
+  LogOut,
+  Menu,
+  PackageCheck,
+  Settings,
+  X,
+} from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { OnlineUsersIndicator } from './OnlineUsersIndicator';
 import { ImagePrefetchIndicator } from './ImagePrefetchIndicator';
 import { LostFoundModernShell } from '@/components/lost-found/LostFoundModernShell';
 import { cn } from '@/lib/utils';
 import { useGlobalRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
+import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import './dashboard-responsive.css';
 
 interface MainLayoutProps {
   children: ReactNode;
-}
-
-const SEARCH_TARGETS = [
-  { terms: ['dashboard', 'inicio', 'início'], path: '/' },
-  { terms: ['demanda', 'demandas', 'tarefas'], path: '/tasks/my-tasks' },
-  { terms: ['achados', 'perdidos', 'achados e perdidos'], path: '/lost-found/items' },
-  { terms: ['equipamento', 'equipamentos', 'patrimonio', 'patrimônio'], path: '/equipment' },
-  { terms: ['emprestimo', 'empréstimo', 'emprestimos', 'empréstimos'], path: '/equipment/loans' },
-  { terms: ['escaninho', 'escaninhos'], path: '/lockers' },
-  { terms: ['material', 'materiais'], path: '/materials/my-requests' },
-  { terms: ['chamado', 'chamados', 'chamados de sala'], path: '/classroom-calls' },
-  { terms: ['checklist', 'checklists', 'salas'], path: '/rooms/checklists' },
-  { terms: ['semestral', 'checklist semestral'], path: '/semester' },
-  { terms: ['reserva', 'reservas', 'reservas de salas'], path: '/reservations' },
-  { terms: ['aprovacao', 'aprovação', 'aprovacoes', 'aprovações', 'clientes externos'], path: '/external-users-approval' },
-  { terms: ['processo seletivo', 'processo'], path: '/admin-module/processo-seletivo' },
-  { terms: ['relatorio', 'relatório', 'relatorios', 'relatórios'], path: '/reports' },
-  { terms: ['historico', 'histórico', 'atividade', 'atividades'], path: '/activity-history' },
-  { terms: ['configuracao', 'configuração', 'configuracoes', 'configurações'], path: '/settings' },
-  { terms: ['saude do sistema', 'saúde do sistema'], path: '/admin-module/system-health' },
-];
-
-function normalizeSearch(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase();
 }
 
 function roleLabel(role: string | null) {
@@ -59,6 +52,7 @@ function roleLabel(role: string | null) {
     case 'analista': return 'Analista';
     case 'assistente': return 'Assistente';
     case 'atendente': return 'Atendente';
+    case 'visualizador': return 'Visualizador';
     default: return 'Usuário';
   }
 }
@@ -74,22 +68,67 @@ function initials(name?: string | null) {
     .toUpperCase();
 }
 
+function PendingShortcut({
+  label,
+  value,
+  icon,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  const hasPending = value > 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex h-9 items-center gap-2 rounded-xl border px-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+        hasPending
+          ? 'border-primary/20 bg-primary/[0.07] hover:border-primary/30 hover:bg-primary/[0.11]'
+          : 'border-border/35 bg-card/35 hover:border-border/60 hover:bg-card/55'
+      )}
+      aria-label={`${label}: ${value} pendência${value === 1 ? '' : 's'}`}
+    >
+      <span className={cn('shrink-0', hasPending ? 'text-primary' : 'text-muted-foreground/70')}>
+        {icon}
+      </span>
+      <span className="hidden text-[10px] font-medium text-muted-foreground xl:inline">{label}</span>
+      <span
+        className={cn(
+          'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums',
+          hasPending ? 'bg-primary/15 text-primary' : 'bg-muted/35 text-muted-foreground'
+        )}
+      >
+        {value > 99 ? '99+' : value}
+      </span>
+    </button>
+  );
+}
+
 export function MainLayout({ children }: MainLayoutProps) {
   useGlobalRealtimeSubscription();
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, role } = useAuth();
+  const { user, profile, role, isAdmin, signOut } = useAuth();
+  const { pendingTasksCount = 0 } = useTaskNotifications();
+  const { pendingMaterialsCount = 0 } = useMaterialNotifications();
+  const { data: pendingCallsCount = 0 } = usePendingCallsCount();
 
   const topBarRef = useRef<HTMLDivElement | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const stored = localStorage.getItem('sidebar-collapsed');
     return stored === 'true';
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const totalPending = pendingTasksCount + pendingMaterialsCount + pendingCallsCount;
 
   const isLostFoundItemsPage =
     location.pathname === '/lost-found' || location.pathname === '/lost-found/items';
@@ -137,17 +176,6 @@ export function MainLayout({ children }: MainLayoutProps) {
     };
   }, [isMobile, mobileMenuOpen]);
 
-  useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        searchInputRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', handleShortcut);
-    return () => window.removeEventListener('keydown', handleShortcut);
-  }, []);
-
   const handleToggleSidebar = () => {
     if (isMobile) {
       setMobileMenuOpen((previous) => !previous);
@@ -161,22 +189,14 @@ export function MainLayout({ children }: MainLayoutProps) {
     });
   };
 
-  const handleSearch = (event: FormEvent) => {
-    event.preventDefault();
-    const query = normalizeSearch(searchValue);
-    if (!query) return;
-
-    const target = SEARCH_TARGETS.find(({ terms }) =>
-      terms.some((term) => {
-        const normalizedTerm = normalizeSearch(term);
-        return normalizedTerm.includes(query) || query.includes(normalizedTerm);
-      })
-    );
-
-    if (target) {
-      navigate(target.path);
-      setSearchValue('');
-      searchInputRef.current?.blur();
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      navigate('/admin-auth');
+    } finally {
+      setIsSigningOut(false);
     }
   };
 
@@ -207,6 +227,9 @@ export function MainLayout({ children }: MainLayoutProps) {
           onToggle={handleToggleSidebar}
           isMobile={isMobile}
           onCloseMobile={() => setMobileMenuOpen(false)}
+          pendingTasksCount={pendingTasksCount}
+          pendingMaterialsCount={pendingMaterialsCount}
+          pendingCallsCount={pendingCallsCount}
         />
       </div>
 
@@ -236,47 +259,139 @@ export function MainLayout({ children }: MainLayoutProps) {
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
 
-            <form onSubmit={handleSearch} className="hidden min-w-0 flex-1 sm:block sm:max-w-[560px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
-                <input
-                  ref={searchInputRef}
-                  value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
-                  placeholder="Pesquisar módulos no sistema..."
-                  aria-label="Pesquisar módulos"
-                  className="h-9 w-full rounded-xl border border-border/50 bg-card/50 pl-9 pr-16 text-xs text-foreground outline-none transition placeholder:text-muted-foreground/60 focus:border-primary/30 focus:bg-card/60 focus:ring-2 focus:ring-primary/10"
-                />
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-md border border-border/40 bg-background/30 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-                  Ctrl + K
+            <div className="hidden min-w-0 flex-1 items-center gap-2 sm:flex">
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="flex h-9 items-center gap-2 rounded-xl border border-border/35 bg-card/35 px-3 text-xs font-medium text-foreground/80 transition hover:border-primary/20 hover:bg-card/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 lg:hidden"
+                aria-label={`Resumo operacional: ${totalPending} pendências`}
+              >
+                <Bell className={cn('h-4 w-4', totalPending > 0 ? 'text-primary' : 'text-muted-foreground')} />
+                <span>Pendências</span>
+                <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums', totalPending > 0 ? 'bg-primary/15 text-primary' : 'bg-muted/40 text-muted-foreground')}>
+                  {totalPending > 99 ? '99+' : totalPending}
                 </span>
+              </button>
+
+              <div className="hidden min-w-0 items-center gap-2 lg:flex">
+                <div className="mr-1 hidden min-w-0 2xl:block">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">Atenção do dia</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">Pendências que pedem ação</p>
+                </div>
+                <PendingShortcut
+                  label="Demandas"
+                  value={pendingTasksCount}
+                  icon={<ClipboardList className="h-4 w-4" />}
+                  onClick={() => navigate('/tasks/my-tasks')}
+                />
+                <PendingShortcut
+                  label="Materiais"
+                  value={pendingMaterialsCount}
+                  icon={<PackageCheck className="h-4 w-4" />}
+                  onClick={() => navigate('/materials/my-requests')}
+                />
+                <PendingShortcut
+                  label="Chamados"
+                  value={pendingCallsCount}
+                  icon={<Bell className="h-4 w-4" />}
+                  onClick={() => navigate('/classroom-calls')}
+                />
               </div>
-            </form>
+            </div>
 
             <div className="ml-auto flex items-center gap-2.5">
               <div className="hidden lg:block">
                 <OnlineUsersIndicator />
               </div>
 
-              <button
-                type="button"
-                onClick={() => navigate('/settings')}
-                className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-card/50 px-2 py-1.5 text-left transition hover:border-primary/25 hover:bg-card/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                aria-label="Abrir configurações do perfil"
-              >
-                <Avatar className="h-8 w-8 ring-1 ring-primary/25">
-                  <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || 'Usuário'} />
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
-                    {initials(profile?.full_name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden min-w-0 md:block">
-                  <p className="max-w-[180px] truncate text-[11px] font-semibold leading-tight text-foreground/90">
-                    {profile?.full_name || 'Usuário'}
-                  </p>
-                  <p className="mt-0.5 text-[9px] leading-tight text-muted-foreground">{roleLabel(role)}</p>
-                </div>
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-card/50 px-2 py-1.5 text-left transition hover:border-primary/25 hover:bg-card/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 data-[state=open]:border-primary/25 data-[state=open]:bg-card/65"
+                    aria-label="Abrir menu do perfil"
+                  >
+                    <Avatar className="h-8 w-8 ring-1 ring-primary/25">
+                      <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || 'Usuário'} />
+                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
+                        {initials(profile?.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden min-w-0 md:block">
+                      <p className="max-w-[180px] truncate text-[11px] font-semibold leading-tight text-foreground/90">
+                        {profile?.full_name || 'Usuário'}
+                      </p>
+                      <p className="mt-0.5 text-[9px] leading-tight text-muted-foreground">{roleLabel(role)}</p>
+                    </div>
+                    <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground/70 md:block" />
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" sideOffset={8} className="w-[min(340px,calc(100vw-24px))] rounded-xl border-border/60 bg-popover/95 p-1.5 shadow-2xl backdrop-blur-xl">
+                  <DropdownMenuLabel className="p-3 font-normal">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-10 w-10 shrink-0 ring-1 ring-primary/20">
+                        <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || 'Usuário'} />
+                        <AvatarFallback className="bg-primary/15 text-xs font-bold text-primary">
+                          {initials(profile?.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">{profile?.full_name || 'Usuário'}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{user?.email || 'E-mail não informado'}</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-md border border-primary/15 bg-primary/[0.07] px-2 py-1 text-[9px] font-medium text-primary">
+                            {roleLabel(role)}
+                          </span>
+                          {profile?.position ? (
+                            <span className="max-w-full truncate rounded-md border border-border/40 bg-muted/20 px-2 py-1 text-[9px] text-muted-foreground">
+                              {profile.position}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    {profile?.department ? (
+                      <div className="mt-3 rounded-lg border border-border/35 bg-background/25 px-3 py-2">
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">Setor</p>
+                        <p className="mt-0.5 truncate text-[11px] font-medium text-foreground/80">{profile.department}</p>
+                      </div>
+                    ) : null}
+                  </DropdownMenuLabel>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    onSelect={() => navigate('/change-password')}
+                    className="cursor-pointer rounded-lg px-3 py-2.5 text-xs"
+                  >
+                    <KeyRound className="mr-2 h-4 w-4 text-muted-foreground" />
+                    Alterar senha
+                  </DropdownMenuItem>
+
+                  {isAdmin ? (
+                    <DropdownMenuItem
+                      onSelect={() => navigate('/settings')}
+                      className="cursor-pointer rounded-lg px-3 py-2.5 text-xs"
+                    >
+                      <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                      Configurações do sistema
+                    </DropdownMenuItem>
+                  ) : null}
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    disabled={isSigningOut}
+                    onSelect={() => void handleSignOut()}
+                    className="cursor-pointer rounded-lg px-3 py-2.5 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  >
+                    {isSigningOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+                    {isSigningOut ? 'Saindo...' : 'Sair do sistema'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
