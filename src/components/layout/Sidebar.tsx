@@ -21,8 +21,6 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
-  Tag,
-  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
@@ -80,8 +78,6 @@ const sections: NavSection[] = [
     items: [
       { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
       { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
-      { name: 'Etiquetas', href: '/labels', icon: Tag, adminOnly: true },
-      { name: 'Aprovações', href: '/external-users-approval', icon: Users, adminOnly: true },
       { name: 'Relatórios', href: '/reports', icon: BarChart3 },
       { name: 'Histórico', href: '/activity-history', icon: History, module: 'activityHistory' },
     ],
