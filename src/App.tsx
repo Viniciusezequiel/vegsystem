@@ -40,11 +40,6 @@ import ChecklistHistory from "./pages/rooms/ChecklistHistory";
 import ShiftHandoverForm from "./pages/rooms/ShiftHandoverForm";
 import ShiftHandoverHistory from "./pages/rooms/ShiftHandoverHistory";
 
-// Materials Module
-import MaterialRequestsList from "./pages/materials/MaterialRequestsList";
-import MaterialRequestForm from "./pages/materials/MaterialRequestForm";
-import MyMaterialRequests from "./pages/materials/MyMaterialRequests";
-
 // Classroom Calls Module
 import ClassroomCallForm from "./pages/classroom/ClassroomCallForm";
 import ClassroomCallsList from "./pages/classroom/ClassroomCallsList";
@@ -272,23 +267,6 @@ const App = () => (
               <Route path="/lockers/allocations" element={
                 <ProtectedRoute>
                   <LockerLoans />
-                </ProtectedRoute>
-              } />
-              
-              {/* Materials Module */}
-              <Route path="/materials" element={
-                <ProtectedRoute>
-                  <MaterialRequestsList />
-                </ProtectedRoute>
-              } />
-              <Route path="/materials/new" element={
-                <ProtectedRoute>
-                  <MaterialRequestForm />
-                </ProtectedRoute>
-              } />
-              <Route path="/materials/my-requests" element={
-                <ProtectedRoute>
-                  <MyMaterialRequests />
                 </ProtectedRoute>
               } />
               
