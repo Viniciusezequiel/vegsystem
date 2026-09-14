@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -20,7 +20,24 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Camera, CheckCircle, Loader2, Copy, Check, Image as ImageIcon } from 'lucide-react';
+import {
+  Archive,
+  ArrowLeft,
+  CalendarDays,
+  Camera,
+  Check,
+  CheckCircle2,
+  Copy,
+  Image as ImageIcon,
+  Info,
+  Loader2,
+  MapPin,
+  PackagePlus,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useCreateLostItem, useLostItems } from '@/hooks/useLostItems';
 import { useStorageConfig } from '@/hooks/useStorageConfig';
@@ -47,6 +64,12 @@ const formatLocalDate = (date = new Date()) => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const formatDateLabel = (value: string) => {
+  if (!value) return 'Não informada';
+  const [year, month, day] = value.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : value;
 };
 
 const normalizeComparableText = (value: string | null | undefined) => {
@@ -128,7 +151,6 @@ const buildAutoDescription = (suggestion: Awaited<ReturnType<typeof analyzeLostI
   return parts.join(' ').trim();
 };
 
-// Generate a unique 6-digit code
 const generateUniqueCode = (existingCodes: string[]): string => {
   let code: string;
   do {
@@ -142,7 +164,7 @@ export default function RegisterItem() {
   const createLostItem = useCreateLostItem();
   const { data: existingItems } = useLostItems();
   const { data: storageConfig } = useStorageConfig();
-  
+
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isOptimizingImage, setIsOptimizingImage] = useState(false);
@@ -312,7 +334,7 @@ export default function RegisterItem() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!campus) return;
     if (!imageFile) {
       const { toast } = await import('sonner');
@@ -322,7 +344,6 @@ export default function RegisterItem() {
     if (isSubmittingRef.current || createLostItem.isPending || isOptimizingImage) return;
     isSubmittingRef.current = true;
 
-    // Generate unique 6-digit code
     const existingCodes = existingItems?.items?.map(item => item.code) || [];
     const newCode = generateUniqueCode(existingCodes);
 
@@ -355,25 +376,25 @@ export default function RegisterItem() {
         cleanupNew: deleteStorageObjectSafely,
       });
 
-        setCreatedCode(newCode);
-        setSuccessDialogOpen(true);
-        
-        if (imagePreview) URL.revokeObjectURL(imagePreview);
-        setImagePreview(null);
-        setImageFile(null);
-        setCampus('');
-        setDescription('');
-        setLocation('');
-        setFoundDate(formatLocalDate());
-        setReceivedDate(formatLocalDate());
-        setShelf('');
-        setShelfCode('');
-        setBox('');
-        setBoxNumber('');
-        setStorageManualOverride(false);
-        setSealNumber('');
-        setDeliveredBy('');
-        setContact('');
+      setCreatedCode(newCode);
+      setSuccessDialogOpen(true);
+
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+      setImageFile(null);
+      setCampus('');
+      setDescription('');
+      setLocation('');
+      setFoundDate(formatLocalDate());
+      setReceivedDate(formatLocalDate());
+      setShelf('');
+      setShelfCode('');
+      setBox('');
+      setBoxNumber('');
+      setStorageManualOverride(false);
+      setSealNumber('');
+      setDeliveredBy('');
+      setContact('');
     } catch (error: any) {
       const { toast } = await import('sonner');
       if (error?.possibleOrphanLocator) {
@@ -401,450 +422,568 @@ export default function RegisterItem() {
     navigate('/lost-found');
   };
 
+  const removeImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    setImageFile(null);
+    setAiSuggestion(null);
+    setSuggestionError(null);
+    setAcceptedAiDescription(false);
+    setSearchMetadata('');
+    setSelectedSuggestionFields({});
+  };
+
+  const coreInfoReady = Boolean(description.trim() && campus && location.trim() && foundDate && receivedDate);
+  const deliveryReady = Boolean(deliveredBy.trim());
+  const storageLabel = shelfCode
+    ? `${shelfCode}${boxNumber ? ` · Caixa ${boxNumber}` : ''}`
+    : 'Ainda não definido';
+
   return (
     <MainLayout>
-      <div className="mb-6"><LostFoundModuleNav /></div>
+      <div className="relative isolate -m-2 overflow-hidden rounded-[28px] bg-gradient-to-br from-primary/[0.065] via-background/10 to-cyan-500/[0.045] p-2 sm:-m-3 sm:p-3">
+        <div className="pointer-events-none absolute -left-40 top-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-32 bottom-10 h-96 w-96 rounded-full bg-cyan-500/[0.07] blur-3xl" />
 
-      <PageHeader
-        title="Registrar Novo Item"
-        description="Cadastre um item encontrado no sistema"
-      />
+        <div className="relative space-y-5">
+          <LostFoundModuleNav />
 
-      <form onSubmit={handleSubmit} className="max-w-4xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Image Upload */}
-          <div className="form-section animate-fade-in">
-            <h3 className="font-medium text-foreground mb-4">Foto do Item</h3>
-            <div className="relative">
-              {imagePreview ? (
-                <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); setImageFile(null); setAiSuggestion(null); setSuggestionError(null); setAcceptedAiDescription(false); setSearchMetadata(''); setSelectedSuggestionFields({}); }}
-                    className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1.5 hover:bg-destructive/90"
-                  >
-                    <span className="sr-only">Remover</span>
-                    ×
-                  </button>
-                </div>
-              ) : (
-                <div className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors bg-muted/30 flex flex-col items-center justify-center gap-4">
-                  <Camera className="w-12 h-12 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground text-center px-4">Escolha uma opção para adicionar foto</span>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <label className="cursor-pointer">
-                      <Button type="button" variant="outline" size="sm" asChild>
-                        <span>
-                          <Camera className="w-4 h-4 mr-2" />
-                          Abrir Câmera
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            onChange={handleImageChange}
-                            className="hidden"
-                          />
-                        </span>
-                      </Button>
-                    </label>
-                    <label className="cursor-pointer">
-                      <Button type="button" variant="outline" size="sm" asChild>
-                        <span>
-                          <ImageIcon className="w-4 h-4 mr-2" />
-                          Galeria
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="hidden"
-                          />
-                        </span>
-                      </Button>
-                    </label>
-                  </div>
-                  <span className="text-xs text-destructive font-medium">* Foto obrigatória</span>
-                </div>
-              )}
-              {imageFile && (
-                <div className="mt-4 space-y-3 rounded-lg border bg-muted/20 p-3">
-                  <div>
-                    <p className="text-sm font-medium">Identificação inteligente</p>
-                    <p className="text-xs text-muted-foreground">Use a foto para receber sugestões de descrição e categoria.</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={isAnalyzingImage}
-                    onClick={handleAnalyzeImage}
-                  >
-                    {isAnalyzingImage ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Analisando item...
-                      </>
+          <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/20 to-cyan-500/10 text-primary shadow-[0_0_30px_-10px_hsl(var(--primary)/0.8)]">
+                <PackagePlus className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary/80">Registro de achado</p>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Registrar Novo Item</h1>
+                <p className="mt-1 text-sm text-muted-foreground">Cadastre o item, defina o armazenamento e registre quem realizou a entrega.</p>
+              </div>
+            </div>
+
+            <Button type="button" variant="outline" onClick={() => navigate('/lost-found/items')} className="h-10 gap-2 self-start rounded-xl lg:self-auto">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+          </section>
+
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+              <div className="space-y-4">
+                <Card className="overflow-hidden border-border/45 bg-card/70 shadow-[0_24px_70px_-52px_hsl(var(--primary)/0.85)] backdrop-blur-xl">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="mb-4 flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
+                        <Camera className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h2 className="text-base font-semibold">Foto do Item</h2>
+                        <p className="mt-0.5 text-xs text-muted-foreground">A foto é obrigatória e ajuda na identificação e na busca futura.</p>
+                      </div>
+                    </div>
+
+                    {imagePreview ? (
+                      <div className="relative overflow-hidden rounded-2xl border border-border/45 bg-background/25">
+                        <img src={imagePreview} alt="Preview do item encontrado" className="max-h-[420px] w-full object-contain" />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={removeImage}
+                          className="absolute right-3 top-3 h-9 w-9 rounded-xl shadow-lg"
+                        >
+                          <X className="h-4 w-4" />
+                          <span className="sr-only">Remover foto</span>
+                        </Button>
+                        <div className="absolute bottom-3 left-3 rounded-lg border border-white/10 bg-black/55 px-2.5 py-1 text-[11px] text-white backdrop-blur-md">
+                          Foto pronta para o cadastro
+                        </div>
+                      </div>
                     ) : (
-                      'Analisar foto'
+                      <div className="flex min-h-[270px] flex-col items-center justify-center rounded-2xl border border-dashed border-primary/25 bg-background/18 px-5 text-center transition hover:border-primary/45 hover:bg-primary/[0.025]">
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/[0.07] text-primary">
+                          <Camera className="h-6 w-6" />
+                        </div>
+                        <p className="text-sm font-semibold">Adicione uma foto do item encontrado</p>
+                        <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">Use a câmera do dispositivo ou selecione uma imagem da galeria.</p>
+                        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                          <label className="cursor-pointer">
+                            <Button type="button" variant="outline" asChild className="h-10 rounded-xl border-primary/25 bg-primary/[0.035]">
+                              <span>
+                                <Camera className="mr-2 h-4 w-4" />
+                                Abrir Câmera
+                                <input type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" />
+                              </span>
+                            </Button>
+                          </label>
+                          <label className="cursor-pointer">
+                            <Button type="button" variant="outline" asChild className="h-10 rounded-xl">
+                              <span>
+                                <ImageIcon className="mr-2 h-4 w-4" />
+                                Galeria
+                                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                              </span>
+                            </Button>
+                          </label>
+                        </div>
+                        <p className="mt-4 text-[11px] font-medium text-destructive">Foto obrigatória</p>
+                      </div>
                     )}
-                  </Button>
-                  {suggestionError && (
-                    <p className="text-xs text-amber-700">{suggestionError}</p>
-                  )}
-                  {aiSuggestion && (
-                    <div className="rounded-md border bg-background p-3 text-sm">
-                      <p className="font-medium mb-2">Identificação inteligente</p>
-                      <p className="text-xs text-muted-foreground mb-2">Selecione os itens que devem ajudar na busca após o cadastro.</p>
-                      <div className="space-y-2">
-                        {Object.entries({
-                          item_type: aiSuggestion.item_type,
-                          product_name: aiSuggestion.product_name,
-                          model_variant: aiSuggestion.model_variant,
-                          primary_color: aiSuggestion.primary_color,
-                          secondary_color: aiSuggestion.secondary_color,
-                          brand: aiSuggestion.brand,
-                          material: aiSuggestion.material,
-                          condition: aiSuggestion.condition,
-                          storage_category: aiSuggestion.storage_category,
-                        }).filter(([, value]) => !!value).map(([key, value]) => (
-                          <label key={key} className="flex items-start gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!selectedSuggestionFields[key]}
-                              onChange={() => handleSuggestionToggle(key)}
-                              className="mt-0.5"
-                            />
-                            <span className="text-xs">{key === 'storage_category' ? 'Categoria: ' : key === 'primary_color' ? 'Cor: ' : key === 'secondary_color' ? 'Cor secundária: ' : key === 'brand' ? 'Marca: ' : key === 'material' ? 'Material: ' : key === 'condition' ? 'Condição: ' : key === 'product_name' ? 'Produto: ' : key === 'model_variant' ? 'Modelo/variante: ' : 'Tipo: '}{String(value)}</span>
-                          </label>
-                        ))}
-                        {aiSuggestion.features?.length > 0 && (
-                          <label className="flex items-start gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!selectedSuggestionFields.features}
-                              onChange={() => handleSuggestionToggle('features')}
-                              className="mt-0.5"
-                            />
-                            <span className="text-xs">Características: {aiSuggestion.features.join(', ')}</span>
-                          </label>
+
+                    {imageFile && (
+                      <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/[0.035] p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                              <Sparkles className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold">Identificação inteligente</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">A imagem pode sugerir descrição, características e armazenamento.</p>
+                            </div>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" disabled={isAnalyzingImage} onClick={handleAnalyzeImage} className="rounded-xl border-primary/25">
+                            {isAnalyzingImage ? (
+                              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analisando...</>
+                            ) : (
+                              <><Sparkles className="mr-2 h-4 w-4" />Analisar foto</>
+                            )}
+                          </Button>
+                        </div>
+
+                        {suggestionError && (
+                          <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/[0.06] p-3 text-xs text-amber-200">{suggestionError}</div>
                         )}
-                        {aiSuggestion.visible_specs?.length > 0 && (
-                          <label className="flex items-start gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!selectedSuggestionFields.visible_specs}
-                              onChange={() => handleSuggestionToggle('visible_specs')}
-                              className="mt-0.5"
-                            />
-                            <span className="text-xs">Especificações visíveis: {aiSuggestion.visible_specs.join(', ')}</span>
-                          </label>
-                        )}
-                        {aiSuggestion.distinguishing_features?.length > 0 && (
-                          <label className="flex items-start gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!selectedSuggestionFields.distinguishing_features}
-                              onChange={() => handleSuggestionToggle('distinguishing_features')}
-                              className="mt-0.5"
-                            />
-                            <span className="text-xs">Detalhes distintivos: {aiSuggestion.distinguishing_features.join(', ')}</span>
-                          </label>
-                        )}
-                        {aiSuggestion.visible_text_safe?.length > 0 && (
-                          <label className="flex items-start gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!selectedSuggestionFields.visible_text_safe}
-                              onChange={() => handleSuggestionToggle('visible_text_safe')}
-                              className="mt-0.5"
-                            />
-                            <span className="text-xs">Texto visível: {aiSuggestion.visible_text_safe.join(', ')}</span>
-                          </label>
+
+                        {aiSuggestion && (
+                          <div className="mt-4 space-y-3 border-t border-border/35 pt-4">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">Dados reconhecidos</p>
+                              <p className="mt-1 text-xs text-muted-foreground">Marque as informações que devem ajudar na busca do item após o cadastro.</p>
+                            </div>
+
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {Object.entries({
+                                item_type: aiSuggestion.item_type,
+                                product_name: aiSuggestion.product_name,
+                                model_variant: aiSuggestion.model_variant,
+                                primary_color: aiSuggestion.primary_color,
+                                secondary_color: aiSuggestion.secondary_color,
+                                brand: aiSuggestion.brand,
+                                material: aiSuggestion.material,
+                                condition: aiSuggestion.condition,
+                                storage_category: aiSuggestion.storage_category,
+                              }).filter(([, value]) => !!value).map(([key, value]) => (
+                                <label key={key} className="flex cursor-pointer items-start gap-2 rounded-xl border border-border/35 bg-background/20 p-2.5 text-xs transition hover:border-primary/25">
+                                  <input type="checkbox" checked={!!selectedSuggestionFields[key]} onChange={() => handleSuggestionToggle(key)} className="mt-0.5 accent-primary" />
+                                  <span className="leading-5">
+                                    <span className="text-muted-foreground">
+                                      {key === 'storage_category' ? 'Categoria: ' : key === 'primary_color' ? 'Cor: ' : key === 'secondary_color' ? 'Cor secundária: ' : key === 'brand' ? 'Marca: ' : key === 'material' ? 'Material: ' : key === 'condition' ? 'Condição: ' : key === 'product_name' ? 'Produto: ' : key === 'model_variant' ? 'Modelo/variante: ' : 'Tipo: '}
+                                    </span>
+                                    {String(value)}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+
+                            {aiSuggestion.features?.length > 0 && (
+                              <SuggestionCheck label={`Características: ${aiSuggestion.features.join(', ')}`} checked={!!selectedSuggestionFields.features} onChange={() => handleSuggestionToggle('features')} />
+                            )}
+                            {aiSuggestion.visible_specs?.length > 0 && (
+                              <SuggestionCheck label={`Especificações visíveis: ${aiSuggestion.visible_specs.join(', ')}`} checked={!!selectedSuggestionFields.visible_specs} onChange={() => handleSuggestionToggle('visible_specs')} />
+                            )}
+                            {aiSuggestion.distinguishing_features?.length > 0 && (
+                              <SuggestionCheck label={`Detalhes distintivos: ${aiSuggestion.distinguishing_features.join(', ')}`} checked={!!selectedSuggestionFields.distinguishing_features} onChange={() => handleSuggestionToggle('distinguishing_features')} />
+                            )}
+                            {aiSuggestion.visible_text_safe?.length > 0 && (
+                              <SuggestionCheck label={`Texto visível: ${aiSuggestion.visible_text_safe.join(', ')}`} checked={!!selectedSuggestionFields.visible_text_safe} onChange={() => handleSuggestionToggle('visible_text_safe')} />
+                            )}
+
+                            {aiSuggestion.description_suggestion && (
+                              <div className="rounded-xl border border-border/35 bg-background/20 p-3">
+                                <p className="text-xs font-semibold">Descrição sugerida</p>
+                                <p className="mt-1 text-xs leading-5 text-muted-foreground">{aiSuggestion.description_suggestion}</p>
+                                <Button type="button" variant="secondary" size="sm" className="mt-3 rounded-lg" onClick={handleUseAiDescription} disabled={!!description.trim() || acceptedAiDescription}>
+                                  Usar descrição
+                                </Button>
+                              </div>
+                            )}
+
+                            {aiStorageSuggestion && (
+                              <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/[0.045] p-3">
+                                <div className="flex items-start gap-2">
+                                  <Archive className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-semibold">Sugestão de armazenamento</p>
+                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                      {aiStorageSuggestion.boxNumber
+                                        ? `Prateleira ${aiStorageSuggestion.shelfCode} — ${aiStorageSuggestion.shelfLabel} · Caixa ${aiStorageSuggestion.boxNumber}`
+                                        : `Prateleira ${aiStorageSuggestion.shelfCode} — ${aiStorageSuggestion.shelfLabel}`}
+                                    </p>
+                                    <Button type="button" variant="secondary" size="sm" className="mt-2 rounded-lg" onClick={handleUseStorageSuggestion} disabled={!!shelfCode && !!boxNumber}>
+                                      Usar sugestão
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="rounded-xl border border-border/35 bg-background/20 p-3">
+                              <Label htmlFor="searchMetadata" className="text-xs">Termos adicionais para busca</Label>
+                              <Textarea
+                                id="searchMetadata"
+                                value={searchMetadata}
+                                onChange={(event) => setSearchMetadata(event.target.value)}
+                                rows={2}
+                                className="mt-1.5 resize-none rounded-xl bg-background/25 text-xs"
+                                placeholder="Ex: chaveiro vermelho, marca visível, detalhe na capa..."
+                              />
+                            </div>
+                          </div>
                         )}
                       </div>
-                      {aiSuggestion.description_suggestion && (
-                        <div className="mt-3 rounded-md border bg-muted/30 p-2">
-                          <p className="text-xs font-medium text-foreground">Descrição sugerida</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{aiSuggestion.description_suggestion}</p>
-                          <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={handleUseAiDescription} disabled={!!description.trim() || acceptedAiDescription}>
-                            Usar descrição
-                          </Button>
-                        </div>
-                      )}
-                      {aiStorageSuggestion && (
-                        <div className="mt-3 rounded-md border bg-muted/30 p-2">
-                          <p className="text-xs font-medium text-foreground">Sugestão de armazenamento</p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {aiStorageSuggestion.boxNumber
-                              ? `Prateleira sugerida: ${aiStorageSuggestion.shelfCode} — ${aiStorageSuggestion.shelfLabel} · Caixa ${aiStorageSuggestion.boxNumber}`
-                              : `Prateleira sugerida: ${aiStorageSuggestion.shelfCode} — ${aiStorageSuggestion.shelfLabel}`}
-                          </p>
-                          <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={handleUseStorageSuggestion} disabled={!!shelfCode && !!boxNumber}>
-                            Usar sugestão
-                          </Button>
-                        </div>
-                      )}
-                      <div className="mt-3 rounded-md border bg-muted/30 p-2">
-                        <label className="block text-xs font-medium text-foreground">Termos adicionais para busca</label>
-                        <textarea
-                          value={searchMetadata}
-                          onChange={(event) => setSearchMetadata(event.target.value)}
-                          rows={2}
-                          className="mt-1.5 w-full rounded-md border bg-background px-2.5 py-2 text-xs"
-                          placeholder="Esses termos ajudam a localizar o item depois."
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/45 bg-card/70 shadow-[0_24px_70px_-52px_hsl(var(--primary)/0.75)] backdrop-blur-xl">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="mb-5 flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                        <Info className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h2 className="text-base font-semibold">Informações do Item</h2>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Descreva onde e quando o objeto foi encontrado.</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div>
+                        <Label htmlFor="description">Descrição do Item *</Label>
+                        <Textarea
+                          id="description"
+                          placeholder="Ex: Carteira de couro marrom com documentos"
+                          className="mt-1.5 resize-none rounded-xl bg-background/25"
+                          rows={3}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          required
                         />
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Item Info */}
-          <div className="space-y-6">
-            <div className="form-section animate-fade-in" style={{ animationDelay: '100ms' }}>
-              <h3 className="font-medium text-foreground mb-4">Informações do Item</h3>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="description">Descrição do Item *</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Ex: Carteira de couro marrom com documentos"
-                    className="mt-1.5 resize-none"
-                    rows={3}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="campus">Campus *</Label>
-                  <Select value={campus} onValueChange={(v) => { setCampus(v as CampusEnum); }} required>
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Selecione o campus" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {campusOptions.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="location">Local onde foi encontrado *</Label>
-                  <Input
-                    id="location"
-                    placeholder="Ex: Refeitório - Mesa 12"
-                    className="mt-1.5"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="foundDate">Data encontrado *</Label>
-                    <Input
-                      id="foundDate"
-                      type="date"
-                      className="mt-1.5"
-                      value={foundDate}
-                      onChange={(e) => setFoundDate(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="receivedDate">Data recebido *</Label>
-                    <Input
-                      id="receivedDate"
-                      type="date"
-                      className="mt-1.5"
-                      value={receivedDate}
-                      readOnly
-                      aria-readonly="true"
-                      title="Preenchida automaticamente"
-                      onChange={(e) => setReceivedDate(e.target.value)}
-                      required
-                    />
-                    <p className="mt-1 text-[10px] text-muted-foreground">Preenchida automaticamente</p>
+                      <div className="grid gap-5 md:grid-cols-2">
+                        <div>
+                          <Label htmlFor="campus">Campus *</Label>
+                          <Select value={campus} onValueChange={(value) => setCampus(value as CampusEnum)} required>
+                            <SelectTrigger id="campus" className="mt-1.5 h-10 rounded-xl bg-background/25">
+                              <SelectValue placeholder="Selecione o campus" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {campusOptions.map((campusOption) => (
+                                <SelectItem key={campusOption} value={campusOption}>{campusOption}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="location">Local onde foi encontrado *</Label>
+                          <Input
+                            id="location"
+                            placeholder="Ex: Refeitório - Mesa 12"
+                            className="mt-1.5 h-10 rounded-xl bg-background/25"
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="foundDate">Data encontrado *</Label>
+                          <Input
+                            id="foundDate"
+                            type="date"
+                            className="mt-1.5 h-10 rounded-xl bg-background/25"
+                            value={foundDate}
+                            onChange={(e) => setFoundDate(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="receivedDate">Data recebido *</Label>
+                          <Input
+                            id="receivedDate"
+                            type="date"
+                            className="mt-1.5 h-10 rounded-xl bg-muted/30"
+                            value={receivedDate}
+                            readOnly
+                            aria-readonly="true"
+                            title="Preenchida automaticamente"
+                            onChange={(e) => setReceivedDate(e.target.value)}
+                            required
+                          />
+                          <p className="mt-1 text-[10px] text-muted-foreground">Preenchida automaticamente</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/45 bg-card/70 shadow-[0_24px_70px_-52px_hsl(var(--primary)/0.75)] backdrop-blur-xl">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="mb-5 flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
+                        <Archive className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="text-base font-semibold">Armazenamento</h2>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Defina onde o item ficará guardado até a retirada.</p>
+                      </div>
+                    </div>
+
+                    {!storageManualOverride && aiStorageSuggestion && (
+                      <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/[0.05] px-3 py-2 text-xs text-emerald-200">
+                        <Sparkles className="h-4 w-4 shrink-0" />
+                        Armazenamento preenchido automaticamente com base no item e na ocupação atual.
+                      </div>
+                    )}
+
+                    {(() => {
+                      const campusConfig = storageConfig?.campuses.find(c => c.campus === campus);
+                      const shelves = campusConfig?.shelves || [];
+                      const selectedShelf = shelves.find(s => s.code === shelfCode);
+                      const estante = shelfCode ? shelfCode.split('.')[0] : '';
+
+                      return (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                          <div>
+                            <Label>Estante</Label>
+                            <Input value={estante} readOnly placeholder={campus ? 'Auto' : 'Selecione campus'} className="mt-1.5 h-10 rounded-xl bg-muted/30" />
+                          </div>
+
+                          <div>
+                            <Label>Prateleira</Label>
+                            <Select
+                              value={shelfCode}
+                              onValueChange={(value) => {
+                                setShelfCode(value);
+                                setShelf(value);
+                                setBoxNumber('');
+                                setBox('');
+                                setStorageManualOverride(true);
+                              }}
+                              disabled={!campus || shelves.length === 0}
+                            >
+                              <SelectTrigger className="mt-1.5 h-10 rounded-xl bg-background/25">
+                                <SelectValue placeholder={!campus ? 'Selecione campus' : shelves.length === 0 ? 'Nenhuma configurada' : 'Selecione'} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {shelves.map(shelfItem => (
+                                  <SelectItem key={shelfItem.id} value={shelfItem.code}>{shelfItem.code} ({shelfItem.label})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label>Nº da Caixa</Label>
+                            <Select
+                              value={boxNumber}
+                              onValueChange={(value) => {
+                                setBoxNumber(value);
+                                setBox(value);
+                                setStorageManualOverride(true);
+                              }}
+                              disabled={!selectedShelf || selectedShelf.boxes.length === 0}
+                            >
+                              <SelectTrigger className="mt-1.5 h-10 rounded-xl bg-background/25">
+                                <SelectValue placeholder={!selectedShelf ? 'Selecione prat.' : selectedShelf.boxes.length === 0 ? 'Sem caixas' : 'Selecione'} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {selectedShelf?.boxes.map(boxItem => (
+                                  <SelectItem key={boxItem.id} value={boxItem.label}>Caixa {boxItem.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="sealNumber">Nº do Lacre</Label>
+                            <Input id="sealNumber" placeholder="Ex: LC-001234" className="mt-1.5 h-10 rounded-xl bg-background/25" value={sealNumber} onChange={(e) => setSealNumber(e.target.value)} />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/45 bg-card/70 shadow-[0_24px_70px_-52px_hsl(var(--primary)/0.75)] backdrop-blur-xl">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="mb-5 flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/10 text-violet-300">
+                        <UserRound className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h2 className="text-base font-semibold">Quem está entregando o item</h2>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Registre quem encontrou ou trouxe o objeto ao setor.</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <div>
+                        <Label htmlFor="deliveredBy">Nome completo *</Label>
+                        <Input id="deliveredBy" placeholder="Nome de quem encontrou/está entregando" className="mt-1.5 h-10 rounded-xl bg-background/25" value={deliveredBy} onChange={(e) => setDeliveredBy(e.target.value)} required />
+                      </div>
+                      <div>
+                        <Label htmlFor="contact">Contato (telefone ou e-mail)</Label>
+                        <Input id="contact" placeholder="(31) 99999-9999 ou e-mail" className="mt-1.5 h-10 rounded-xl bg-background/25" value={contact} onChange={(e) => setContact(e.target.value)} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex flex-col-reverse gap-2 rounded-2xl border border-border/45 bg-card/65 p-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+                  <Button type="button" variant="ghost" onClick={() => navigate('/lost-found/items')} className="h-10 rounded-xl sm:min-w-28">Cancelar</Button>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <span className="hidden text-xs text-muted-foreground lg:inline">Confira a foto e os dados antes de registrar.</span>
+                    <Button type="submit" disabled={createLostItem.isPending || isOptimizingImage} className="h-10 min-w-44 rounded-xl bg-gradient-to-r from-primary to-violet-600 shadow-[0_12px_34px_-16px_hsl(var(--primary)/0.95)] hover:opacity-95">
+                      {createLostItem.isPending || isOptimizingImage ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Registrando...</>
+                      ) : (
+                        <><CheckCircle2 className="mr-2 h-4 w-4" />Registrar Item</>
+                      )}
+                    </Button>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="form-section animate-fade-in" style={{ animationDelay: '150ms' }}>
-              <h3 className="font-medium text-foreground mb-4">Armazenamento</h3>
-              {!storageManualOverride && aiStorageSuggestion && <p className="text-xs text-muted-foreground mb-3">Armazenamento preenchido automaticamente</p>}
-              {(() => {
-                const campusConfig = storageConfig?.campuses.find(c => c.campus === campus);
-                const shelves = campusConfig?.shelves || [];
-                const selectedShelf = shelves.find(s => s.code === shelfCode);
-                const estante = shelfCode ? shelfCode.split('.')[0] : '';
+              <aside className="space-y-3 xl:sticky xl:top-20 xl:self-start">
+                <Card className="border-border/45 bg-card/75 shadow-[0_24px_70px_-48px_hsl(var(--primary)/0.8)] backdrop-blur-xl">
+                  <CardContent className="p-4">
+                    <div className="mb-4 flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      <h2 className="text-sm font-semibold">Resumo do Cadastro</h2>
+                    </div>
 
-                return (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div>
-                      <Label>Estante</Label>
-                      <Input
-                        value={estante}
-                        readOnly
-                        placeholder={campus ? 'Auto' : 'Selecione campus'}
-                        className="mt-1.5 bg-muted/50"
-                      />
-                    </div>
-                    <div>
-                      <Label>Prateleira</Label>
-                      <Select
-                        value={shelfCode}
-                        onValueChange={(v) => {
-                          setShelfCode(v);
-                          setShelf(v);
-                          setBoxNumber('');
-                          setBox('');
-                          setStorageManualOverride(true);
-                        }}
-                        disabled={!campus || shelves.length === 0}
-                      >
-                        <SelectTrigger className="mt-1.5">
-                          <SelectValue placeholder={!campus ? 'Selecione campus' : shelves.length === 0 ? 'Nenhuma configurada' : 'Selecione'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {shelves.map(s => (
-                            <SelectItem key={s.id} value={s.code}>
-                              {s.code} ({s.label})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Nº da Caixa</Label>
-                      <Select
-                        value={boxNumber}
-                        onValueChange={(value) => {
-                          setBoxNumber(value);
-                          setBox(value);
-                          setStorageManualOverride(true);
-                        }}
-                        disabled={!selectedShelf || selectedShelf.boxes.length === 0}
-                      >
-                        <SelectTrigger className="mt-1.5">
-                          <SelectValue placeholder={!selectedShelf ? 'Selecione prat.' : selectedShelf.boxes.length === 0 ? 'Sem caixas' : 'Selecione'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {selectedShelf?.boxes.map(b => (
-                            <SelectItem key={b.id} value={b.label}>
-                              Caixa {b.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="sealNumber">Nº do Lacre</Label>
-                      <Input
-                        id="sealNumber"
-                        placeholder="Ex: LC-001234"
-                        className="mt-1.5"
-                        value={sealNumber}
-                        onChange={(e) => setSealNumber(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+                    {imagePreview ? (
+                      <div className="mb-3 overflow-hidden rounded-xl border border-border/40 bg-background/20">
+                        <img src={imagePreview} alt="Miniatura do item" className="h-32 w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="mb-3 flex h-24 items-center justify-center rounded-xl border border-dashed border-border/45 bg-background/15 text-muted-foreground">
+                        <Camera className="h-5 w-5" />
+                      </div>
+                    )}
 
-            <div className="form-section animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <h3 className="font-medium text-foreground mb-4">Quem está entregando o item</h3>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="deliveredBy">Nome completo *</Label>
-                  <Input
-                    id="deliveredBy"
-                    placeholder="Nome de quem encontrou/está entregando"
-                    className="mt-1.5"
-                    value={deliveredBy}
-                    onChange={(e) => setDeliveredBy(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="contact">Contato (telefone ou email)</Label>
-                  <Input
-                    id="contact"
-                    placeholder="(11) 99999-9999"
-                    className="mt-1.5"
-                    value={contact}
-                    onChange={(e) => setContact(e.target.value)}
-                  />
-                </div>
-              </div>
+                    <div className="space-y-2.5">
+                      <SummaryItem icon={Camera} label="Foto" value={imageFile ? 'Adicionada' : 'Pendente'} caption={imageFile ? 'Imagem pronta para envio' : 'Obrigatória para registrar'} ready={Boolean(imageFile)} />
+                      <SummaryItem icon={Info} label="Informações do item" value={coreInfoReady ? 'Preenchidas' : 'Em preenchimento'} caption={campus || 'Campus ainda não selecionado'} ready={coreInfoReady} />
+                      <SummaryItem icon={CalendarDays} label="Data encontrada" value={formatDateLabel(foundDate)} caption={`Recebido em ${formatDateLabel(receivedDate)}`} ready={Boolean(foundDate && receivedDate)} />
+                      <SummaryItem icon={Archive} label="Armazenamento" value={storageLabel} caption={sealNumber ? `Lacre ${sealNumber}` : 'Lacre não informado'} ready={Boolean(shelfCode)} />
+                      <SummaryItem icon={UserRound} label="Entregue por" value={deliveredBy || 'Não informado'} caption={contact || 'Contato opcional'} ready={deliveryReady} />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-primary/25 bg-primary/[0.05] backdrop-blur-xl">
+                  <CardContent className="p-4">
+                    <div className="flex gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Cadastro inteligente</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">Depois de adicionar a foto, use a análise inteligente para acelerar a descrição e receber uma sugestão de armazenamento.</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {campus && location.trim() && (
+                  <Card className="border-cyan-400/20 bg-cyan-500/[0.04] backdrop-blur-xl">
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
+                          <MapPin className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] text-muted-foreground">Encontrado em</p>
+                          <p className="mt-0.5 text-sm font-semibold">{campus}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{location}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </aside>
             </div>
-          </div>
+          </form>
         </div>
+      </div>
 
-        <div className="mt-8 flex flex-col sm:flex-row justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => navigate('/lost-found')}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={createLostItem.isPending || isOptimizingImage}>
-            {createLostItem.isPending || isOptimizingImage ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Registrando...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Registrar Item
-              </>
-            )}
-          </Button>
-        </div>
-      </form>
-
-      {/* Success Dialog with Code */}
       <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
-        <DialogContent className="text-center">
+        <DialogContent className="border-border/50 bg-card/95 text-center backdrop-blur-xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-center gap-2 text-success">
-              <CheckCircle className="w-6 h-6" />
-              Item Registrado com Sucesso!
-            </DialogTitle>
-            <DialogDescription>
-              O item foi cadastrado no sistema com o seguinte código:
-            </DialogDescription>
+            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-500/10 text-emerald-300">
+              <CheckCircle2 className="h-7 w-7" />
+            </div>
+            <DialogTitle className="text-center text-xl">Item registrado com sucesso</DialogTitle>
+            <DialogDescription className="text-center">Use o código abaixo para localizar rapidamente este item no sistema.</DialogDescription>
           </DialogHeader>
-          <div className="py-6">
-            <div className="inline-flex items-center gap-3 bg-primary/10 rounded-lg px-6 py-4">
-              <span className="text-3xl font-mono font-bold text-primary">{createdCode}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={handleCopyCode}
-                className="h-8 w-8"
-              >
-                {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+
+          <div className="py-4">
+            <div className="inline-flex items-center gap-3 rounded-2xl border border-primary/25 bg-primary/[0.07] px-6 py-4 shadow-[0_14px_36px_-22px_hsl(var(--primary)/0.9)]">
+              <span className="font-mono text-3xl font-bold tracking-[0.12em] text-primary">{createdCode}</span>
+              <Button type="button" variant="ghost" size="icon" onClick={handleCopyCode} className="h-9 w-9 rounded-xl">
+                {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mt-3">
-              Guarde este código para localizar o item
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">Guarde este código para localizar o item.</p>
           </div>
-          <Button onClick={handleCloseSuccessDialog} className="w-full">
-            Ver Lista de Itens
-          </Button>
+
+          <Button onClick={handleCloseSuccessDialog} className="h-10 w-full rounded-xl bg-gradient-to-r from-primary to-violet-600">Ver Lista de Itens</Button>
         </DialogContent>
       </Dialog>
     </MainLayout>
+  );
+}
+
+function SuggestionCheck({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border/35 bg-background/20 p-2.5 text-xs transition hover:border-primary/25">
+      <input type="checkbox" checked={checked} onChange={onChange} className="mt-0.5 accent-primary" />
+      <span className="leading-5">{label}</span>
+    </label>
+  );
+}
+
+function SummaryItem({
+  icon: Icon,
+  label,
+  value,
+  caption,
+  ready,
+}: {
+  icon: typeof Camera;
+  label: string;
+  value: string;
+  caption: string;
+  ready: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-border/40 bg-background/20 p-3">
+      <div className="flex items-start gap-3">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${ready ? 'border-emerald-400/25 bg-emerald-500/[0.07] text-emerald-300' : 'border-border/45 bg-muted/20 text-muted-foreground'}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] text-muted-foreground">{label}</p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-foreground">{value}</p>
+          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{caption}</p>
+        </div>
+        {ready && <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-400" />}
+      </div>
+    </div>
   );
 }
