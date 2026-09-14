@@ -266,7 +266,7 @@ export default function ActivityHistory() {
 
   const exportCsv = () => {
     if (!filteredLogs.length) return;
-    const escape = (value: string | null | undefined) => `"${String(value || '').replaceAll('"', '""')}"`;
+    const escape = (value: string | null | undefined) => `"${String(value || '').replace(/"/g, '""')}"`;
     const rows = filteredLogs.map((log) => [
       formatDateTime(log.created_at),
       log.user_name,
