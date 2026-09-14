@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, FileDown, Loader2, Plus, Trash2, Users } from 'lucide-react';
+import { CalendarClock, FileDown, Loader2, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,16 @@ import { generatePsTrainingAttendancePdf } from '@/lib/psTrainingAttendancePdf';
 type Props = { eventId: string; roles: any[] };
 type GroupForm = { name: string; description: string; required: boolean; roleValues: string[] };
 type SessionForm = { groupId: string; startsAt: string; endsAt: string; campus: string; location: string; room: string; capacity: string; notes: string };
+
 const emptyGroup: GroupForm = { name: '', description: '', required: true, roleValues: [] };
 const emptySession: SessionForm = { groupId: '', startsAt: '', endsAt: '', campus: '', location: '', room: '', capacity: '', notes: '' };
 const fmt = (value?: string) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Data não definida';
+const toDateTimeLocal = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
 
 export function PsEventTrainingTab({ eventId, roles }: Props) {
   const qc = useQueryClient();
@@ -26,6 +33,8 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
   const [sessionOpen, setSessionOpen] = useState(false);
   const [groupForm, setGroupForm] = useState<GroupForm>(emptyGroup);
   const [sessionForm, setSessionForm] = useState<SessionForm>(emptySession);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const query = useQuery({
@@ -81,34 +90,176 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     }
     return map;
   }, [data.assignments]);
-  const refresh = () => qc.invalidateQueries({ queryKey: ['ps_event_trainings', eventId] });
 
+  const refresh = () => qc.invalidateQueries({ queryKey: ['ps_event_trainings', eventId] });
   const toggleRole = (value: string) => setGroupForm(f => ({ ...f, roleValues: f.roleValues.includes(value) ? f.roleValues.filter(v => v !== value) : [...f.roleValues, value] }));
 
+  const closeGroupDialog = () => {
+    if (saving) return;
+    setGroupOpen(false);
+    setEditingGroupId(null);
+    setGroupForm(emptyGroup);
+  };
+
+  const openNewGroup = () => {
+    setEditingGroupId(null);
+    setGroupForm(emptyGroup);
+    setGroupOpen(true);
+  };
+
+  const openEditGroup = (group: any, groupRoles: any[]) => {
+    setEditingGroupId(String(group.id));
+    setGroupForm({
+      name: String(group.name || ''),
+      description: String(group.description || ''),
+      required: group.required !== false,
+      roleValues: groupRoles.map((item: any) => String(item.role_value)),
+    });
+    setGroupOpen(true);
+  };
+
   const saveGroup = async () => {
-    if (!groupForm.name.trim() || !groupForm.roleValues.length) return toast.error('Informe o nome e pelo menos um cargo participante.');
+    const name = groupForm.name.trim();
+    const roleValues = [...new Set(groupForm.roleValues.map(String))];
+    if (name.length < 2 || !roleValues.length) return toast.error('Informe o nome e pelo menos um cargo participante.');
+
     setSaving(true);
     try {
-      const created = await (supabase as any).from('ps_event_training_groups').insert({ event_id: eventId, name: groupForm.name.trim(), description: groupForm.description.trim() || null, required: groupForm.required, active: true }).select('id').single();
-      if (created.error) throw created.error;
-      const linked = await (supabase as any).from('ps_event_training_group_roles').insert(groupForm.roleValues.map(role_value => ({ training_group_id: created.data.id, role_value })));
-      if (linked.error) throw linked.error;
-      setGroupOpen(false); setGroupForm(emptyGroup); await refresh(); toast.success('Treinamento criado.');
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Não foi possível criar o treinamento.'); }
-    finally { setSaving(false); }
+      if (editingGroupId) {
+        const updated = await (supabase as any)
+          .from('ps_event_training_groups')
+          .update({ name, description: groupForm.description.trim() || null, required: groupForm.required })
+          .eq('id', editingGroupId)
+          .eq('event_id', eventId);
+        if (updated.error) throw updated.error;
+
+        const currentRoleValues = data.groupRoles
+          .filter((item: any) => String(item.training_group_id) === editingGroupId)
+          .map((item: any) => String(item.role_value));
+        const toAdd = roleValues.filter(value => !currentRoleValues.includes(value));
+        const toRemove = currentRoleValues.filter(value => !roleValues.includes(value));
+
+        if (toAdd.length) {
+          const added = await (supabase as any)
+            .from('ps_event_training_group_roles')
+            .insert(toAdd.map(role_value => ({ training_group_id: editingGroupId, role_value })));
+          if (added.error) throw added.error;
+        }
+        if (toRemove.length) {
+          const removed = await (supabase as any)
+            .from('ps_event_training_group_roles')
+            .delete()
+            .eq('training_group_id', editingGroupId)
+            .in('role_value', toRemove);
+          if (removed.error) throw removed.error;
+        }
+
+        toast.success('Treinamento atualizado.');
+      } else {
+        const created = await (supabase as any)
+          .from('ps_event_training_groups')
+          .insert({ event_id: eventId, name, description: groupForm.description.trim() || null, required: groupForm.required, active: true })
+          .select('id')
+          .single();
+        if (created.error) throw created.error;
+        const linked = await (supabase as any)
+          .from('ps_event_training_group_roles')
+          .insert(roleValues.map(role_value => ({ training_group_id: created.data.id, role_value })));
+        if (linked.error) throw linked.error;
+        toast.success('Treinamento criado.');
+      }
+
+      setGroupOpen(false);
+      setEditingGroupId(null);
+      setGroupForm(emptyGroup);
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : editingGroupId ? 'Não foi possível atualizar o treinamento.' : 'Não foi possível criar o treinamento.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const closeSessionDialog = () => {
+    if (saving) return;
+    setSessionOpen(false);
+    setEditingSessionId(null);
+    setSessionForm(emptySession);
+  };
+
+  const openNewSession = (groupId: string) => {
+    setEditingSessionId(null);
+    setSessionForm({ ...emptySession, groupId });
+    setSessionOpen(true);
+  };
+
+  const openEditSession = (session: any) => {
+    setEditingSessionId(String(session.id));
+    setSessionForm({
+      groupId: String(session.training_group_id),
+      startsAt: toDateTimeLocal(session.starts_at),
+      endsAt: toDateTimeLocal(session.ends_at),
+      campus: String(session.campus || ''),
+      location: String(session.location || ''),
+      room: String(session.room || ''),
+      capacity: session.capacity ? String(session.capacity) : '',
+      notes: String(session.notes || ''),
+    });
+    setSessionOpen(true);
   };
 
   const saveSession = async () => {
     if (!sessionForm.groupId || !sessionForm.startsAt || !sessionForm.campus.trim()) return toast.error('Informe data/horário e campus.');
+    const startsAt = new Date(sessionForm.startsAt);
+    const endsAt = sessionForm.endsAt ? new Date(sessionForm.endsAt) : null;
+    if (endsAt && endsAt <= startsAt) return toast.error('O término deve ser posterior ao início.');
+
     const capacity = sessionForm.capacity ? Number(sessionForm.capacity) : null;
     if (capacity !== null && (!Number.isInteger(capacity) || capacity <= 0)) return toast.error('O limite de vagas deve ser um inteiro maior que zero.');
+
+    if (editingSessionId && capacity !== null) {
+      const selectedCount = data.choices.filter((choice: any) => String(choice.training_session_id) === editingSessionId).length;
+      if (capacity < selectedCount) return toast.error(`Esta data já possui ${selectedCount} inscrito(s). O limite não pode ser menor que esse total.`);
+    }
+
     setSaving(true);
     try {
-      const res = await (supabase as any).from('ps_event_training_sessions').insert({ event_id: eventId, training_group_id: sessionForm.groupId, starts_at: new Date(sessionForm.startsAt).toISOString(), ends_at: sessionForm.endsAt ? new Date(sessionForm.endsAt).toISOString() : null, campus: sessionForm.campus.trim(), location: sessionForm.location.trim() || null, room: sessionForm.room.trim() || null, capacity, notes: sessionForm.notes.trim() || null, active: true });
-      if (res.error) throw res.error;
-      setSessionOpen(false); setSessionForm(emptySession); await refresh(); toast.success('Data adicionada.');
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Não foi possível adicionar a data.'); }
-    finally { setSaving(false); }
+      const payload = {
+        training_group_id: sessionForm.groupId,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt ? endsAt.toISOString() : null,
+        campus: sessionForm.campus.trim(),
+        location: sessionForm.location.trim() || null,
+        room: sessionForm.room.trim() || null,
+        capacity,
+        notes: sessionForm.notes.trim() || null,
+      };
+
+      if (editingSessionId) {
+        const res = await (supabase as any)
+          .from('ps_event_training_sessions')
+          .update(payload)
+          .eq('id', editingSessionId)
+          .eq('event_id', eventId);
+        if (res.error) throw res.error;
+        toast.success('Data de treinamento atualizada.');
+      } else {
+        const res = await (supabase as any)
+          .from('ps_event_training_sessions')
+          .insert({ event_id: eventId, ...payload, active: true });
+        if (res.error) throw res.error;
+        toast.success('Data adicionada.');
+      }
+
+      setSessionOpen(false);
+      setEditingSessionId(null);
+      setSessionForm(emptySession);
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : editingSessionId ? 'Não foi possível atualizar a data.' : 'Não foi possível adicionar a data.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleGroup = async (group: any, active: boolean) => {
@@ -193,7 +344,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
         <h2 className="text-base font-semibold">Treinamentos do evento</h2>
         <p className="mt-1 text-xs text-muted-foreground">Defina cargos, datas, campi e vagas para escolha no link de confirmação.</p>
       </div>
-      <Button onClick={() => { setGroupForm(emptyGroup); setGroupOpen(true); }}><Plus className="mr-2 h-4 w-4" />Novo treinamento</Button>
+      <Button onClick={openNewGroup}><Plus className="mr-2 h-4 w-4" />Novo treinamento</Button>
     </div>
 
     {!data.groups.length ? (
@@ -227,7 +378,12 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch checked={!!group.active} onCheckedChange={active => void toggleGroup(group, active)} />
-                    <Button size="sm" variant="outline" onClick={() => { setSessionForm({ ...emptySession, groupId: group.id }); setSessionOpen(true); }}><Plus className="mr-1.5 h-3.5 w-3.5" />Adicionar data</Button>
+                    <Button size="sm" variant="outline" onClick={() => openEditGroup(group, groupRoles)}>
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />Editar treinamento
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => openNewSession(String(group.id))}>
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />Adicionar data
+                    </Button>
                     <Button size="icon" variant="ghost" onClick={() => void removeGroup(group)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
@@ -246,6 +402,8 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                             <div>
                               <p className="text-sm font-semibold">{fmt(session.starts_at)}</p>
                               <p className="mt-1 text-xs text-muted-foreground">{[session.campus, session.location, session.room && `Sala ${session.room}`].filter(Boolean).join(' · ')}</p>
+                              {session.ends_at && <p className="mt-1 text-[11px] text-muted-foreground">Término: {fmt(session.ends_at)}</p>}
+                              {session.notes && <p className="mt-1 text-[11px] text-muted-foreground">{session.notes}</p>}
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-1">
                               <Button
@@ -255,6 +413,9 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                                 onClick={() => exportSessionAttendance(group, session, choices)}
                               >
                                 <FileDown className="mr-1.5 h-3.5 w-3.5" />Lista PDF
+                              </Button>
+                              <Button size="icon" variant="ghost" title="Editar data" onClick={() => openEditSession(session)}>
+                                <Pencil className="h-3.5 w-3.5" />
                               </Button>
                               <Switch checked={!!session.active} onCheckedChange={active => void toggleSession(session, active)} />
                               <Button size="icon" variant="ghost" onClick={() => void removeSession(session)}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -286,9 +447,9 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
       </div>
     )}
 
-    <Dialog open={groupOpen} onOpenChange={open => !saving && setGroupOpen(open)}>
+    <Dialog open={groupOpen} onOpenChange={open => { if (!open) closeGroupDialog(); else if (!saving) setGroupOpen(true); }}>
       <DialogContent className="sm:max-w-2xl" onInteractOutside={e => e.preventDefault()}>
-        <DialogHeader><DialogTitle>Novo treinamento</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{editingGroupId ? 'Editar treinamento' : 'Novo treinamento'}</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div><Label>Nome *</Label><Input value={groupForm.name} onChange={e => setGroupForm({ ...groupForm, name: e.target.value })} /></div>
           <div><Label>Descrição</Label><Textarea rows={3} value={groupForm.description} onChange={e => setGroupForm({ ...groupForm, description: e.target.value })} /></div>
@@ -299,17 +460,24 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
           <div>
             <Label>Cargos participantes *</Label>
             <div className="mt-2 grid max-h-64 gap-2 overflow-y-auto rounded-xl border p-2 sm:grid-cols-2">
-              {roles.filter((r: any) => r.active !== false).map((r: any) => <Button key={r.id} type="button" variant={groupForm.roleValues.includes(r.value) ? 'default' : 'outline'} className="justify-start" onClick={() => toggleRole(r.value)}>{r.name}</Button>)}
+              {roles.filter((r: any) => r.active !== false).map((r: any) => <Button key={r.id} type="button" variant={groupForm.roleValues.includes(String(r.value)) ? 'default' : 'outline'} className="justify-start" onClick={() => toggleRole(String(r.value))}>{r.name}</Button>)}
             </div>
+            {editingGroupId && <p className="mt-2 text-xs text-muted-foreground">Alterar os cargos muda quem visualizará este treinamento no link de confirmação. Escolhas já registradas não são apagadas.</p>}
           </div>
         </div>
-        <DialogFooter><Button variant="outline" disabled={saving} onClick={() => setGroupOpen(false)}>Cancelar</Button><Button disabled={saving} onClick={() => void saveGroup()}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Criar</Button></DialogFooter>
+        <DialogFooter>
+          <Button variant="outline" disabled={saving} onClick={closeGroupDialog}>Cancelar</Button>
+          <Button disabled={saving} onClick={() => void saveGroup()}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {editingGroupId ? 'Salvar alterações' : 'Criar'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
 
-    <Dialog open={sessionOpen} onOpenChange={open => !saving && setSessionOpen(open)}>
+    <Dialog open={sessionOpen} onOpenChange={open => { if (!open) closeSessionDialog(); else if (!saving) setSessionOpen(true); }}>
       <DialogContent className="sm:max-w-xl" onInteractOutside={e => e.preventDefault()}>
-        <DialogHeader><DialogTitle>Adicionar data de treinamento</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{editingSessionId ? 'Editar data de treinamento' : 'Adicionar data de treinamento'}</DialogTitle></DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><Label>Início *</Label><Input type="datetime-local" value={sessionForm.startsAt} onChange={e => setSessionForm({ ...sessionForm, startsAt: e.target.value })} /></div>
           <div><Label>Término</Label><Input type="datetime-local" value={sessionForm.endsAt} onChange={e => setSessionForm({ ...sessionForm, endsAt: e.target.value })} /></div>
@@ -319,7 +487,13 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
           <div><Label>Limite de vagas</Label><Input type="number" min="1" step="1" value={sessionForm.capacity} onChange={e => setSessionForm({ ...sessionForm, capacity: e.target.value })} placeholder="Sem limite" /></div>
           <div className="sm:col-span-2"><Label>Observações</Label><Textarea rows={2} value={sessionForm.notes} onChange={e => setSessionForm({ ...sessionForm, notes: e.target.value })} /></div>
         </div>
-        <DialogFooter><Button variant="outline" disabled={saving} onClick={() => setSessionOpen(false)}>Cancelar</Button><Button disabled={saving} onClick={() => void saveSession()}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Adicionar data</Button></DialogFooter>
+        <DialogFooter>
+          <Button variant="outline" disabled={saving} onClick={closeSessionDialog}>Cancelar</Button>
+          <Button disabled={saving} onClick={() => void saveSession()}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {editingSessionId ? 'Salvar alterações' : 'Adicionar data'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   </div>;
