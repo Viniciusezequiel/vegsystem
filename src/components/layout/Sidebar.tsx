@@ -1,7 +1,6 @@
 import { useMemo, useState, type ElementType } from 'react';
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom';
 import {
-  BarChart3,
   Bell,
   CalendarDays,
   Car,
@@ -69,7 +68,6 @@ const sections: NavSection[] = [
     items: [
       { name: 'Uber Corporativo', href: '/admin-module/uber', icon: Car, adminOnly: true },
       { name: 'Processo Seletivo', href: '/admin-module/processo-seletivo', icon: GraduationCap, adminOnly: true },
-      { name: 'Relatórios', href: '/reports', icon: BarChart3 },
       { name: 'Histórico', href: '/activity-history', icon: History, module: 'activityHistory' },
     ],
   },
