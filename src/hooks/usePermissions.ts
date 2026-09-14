@@ -9,7 +9,6 @@ export type Module =
   | 'reservations' 
   | 'lockers' 
   | 'rooms' 
-  | 'materials' 
   | 'users' 
   | 'settings' 
   | 'classroomCalls'
@@ -36,7 +35,6 @@ export const MODULE_LABELS: Record<Module, string> = {
   reservations: 'Reservas',
   lockers: 'Escaninhos',
   rooms: 'Salas (Checklist)',
-  materials: 'Materiais',
   users: 'Usuários',
   settings: 'Configurações',
   classroomCalls: 'Chamados de Sala',
