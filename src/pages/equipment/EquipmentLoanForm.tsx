@@ -39,20 +39,28 @@ import {
 } from '@/components/ui/select';
 import {
   ArrowLeft,
+  Cable,
   CalendarDays,
+  Camera,
   CheckCircle2,
   ClipboardList,
   FileText,
   Info,
+  KeyRound,
+  Laptop,
   Loader2,
+  Monitor,
   Package,
   PenLine,
   Plus,
+  Printer,
+  Projector,
   Search,
   ShieldCheck,
   Trash2,
   UserCheck,
   UserRound,
+  X,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -111,6 +119,54 @@ function formatDateLabel(value: string) {
   return year && month && day ? `${day}/${month}/${year}` : value;
 }
 
+function normalizeEquipmentText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function equipmentSearchText(equipment: Equipment) {
+  return normalizeEquipmentText([
+    equipment.name,
+    equipment.patrimony_code,
+    equipment.old_patrimony_code,
+    equipment.category,
+    equipment.location,
+    equipment.campus,
+  ].filter(Boolean).join(' '));
+}
+
+function getEquipmentIcon(equipment: Equipment) {
+  const text = normalizeEquipmentText(`${equipment.name} ${equipment.category || ''}`);
+  if (text.includes('notebook') || text.includes('laptop')) return Laptop;
+  if (text.includes('monitor') || text.includes('tela')) return Monitor;
+  if (text.includes('projetor')) return Projector;
+  if (text.includes('camera')) return Camera;
+  if (text.includes('impressora')) return Printer;
+  if (text.includes('cabo') || text.includes('hdmi') || text.includes('adaptador')) return Cable;
+  if (text.includes('chave')) return KeyRound;
+  return Package;
+}
+
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  const match = query.trim();
+  if (!match) return <>{text}</>;
+
+  const escaped = match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'ig'));
+
+  return (
+    <>
+      {parts.map((part, index) => (
+        part.toLowerCase() === match.toLowerCase()
+          ? <mark key={`${part}-${index}`} className="rounded bg-cyan-400/20 px-0.5 text-cyan-100">{part}</mark>
+          : <span key={`${part}-${index}`}>{part}</span>
+      ))}
+    </>
+  );
+}
+
 export default function EquipmentLoanForm() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -155,13 +211,29 @@ export default function EquipmentLoanForm() {
   const filteredEquipment = useMemo(() => {
     const selectedIds = selectedItems.flatMap(s => s.kind === 'inventory' ? [s.equipment.id] : []);
     const notSelected = availableEquipment.filter(e => !selectedIds.includes(e.id));
+    const search = normalizeEquipmentText(searchValue.trim());
+    const matching = search
+      ? notSelected.filter(e => equipmentSearchText(e).includes(search))
+      : notSelected;
 
-    if (!searchValue) return notSelected;
-    const search = searchValue.toLowerCase();
-    return notSelected.filter(e =>
-      e.name.toLowerCase().includes(search) ||
-      e.patrimony_code.toLowerCase().includes(search)
-    );
+    return [...matching].sort((a, b) => {
+      const availabilityDifference = Number(b.available_quantity > 0) - Number(a.available_quantity > 0);
+      if (availabilityDifference !== 0) return availabilityDifference;
+
+      if (search) {
+        const aName = normalizeEquipmentText(a.name);
+        const bName = normalizeEquipmentText(b.name);
+        const nameStartDifference = Number(bName.startsWith(search)) - Number(aName.startsWith(search));
+        if (nameStartDifference !== 0) return nameStartDifference;
+
+        const aPatrimony = normalizeEquipmentText(a.patrimony_code);
+        const bPatrimony = normalizeEquipmentText(b.patrimony_code);
+        const patrimonyStartDifference = Number(bPatrimony.startsWith(search)) - Number(aPatrimony.startsWith(search));
+        if (patrimonyStartDifference !== 0) return patrimonyStartDifference;
+      }
+
+      return a.name.localeCompare(b.name, 'pt-BR', { numeric: true });
+    });
   }, [availableEquipment, searchValue, selectedItems]);
 
   const form = useForm<LoanFormData>({
@@ -186,6 +258,10 @@ export default function EquipmentLoanForm() {
   const expectedReturnDate = form.watch('expected_return_date');
 
   const handleAddEquipment = (equip: Equipment) => {
+    if (equip.available_quantity <= 0) {
+      toast({ title: 'Equipamento indisponível', description: 'Este item não possui unidades disponíveis para empréstimo.', variant: 'destructive' });
+      return;
+    }
     setSelectedItems(prev => [...prev, { kind: 'inventory', equipment: equip, quantity: 1 }]);
     setOpen(false);
     setSearchValue('');
@@ -346,46 +422,73 @@ export default function EquipmentLoanForm() {
                           <Button type="button" variant="outline" className="mt-4 h-11 w-full justify-start rounded-xl border-primary/35 bg-background/25 px-3 text-muted-foreground hover:border-primary/55 hover:bg-primary/[0.05] hover:text-foreground">
                             <Search className="mr-3 h-4 w-4 text-primary" />
                             <span className="font-medium text-foreground">Buscar equipamento</span>
-                            <span className="ml-auto hidden text-xs text-muted-foreground sm:inline">Nome ou patrimônio</span>
+                            <span className="ml-auto hidden text-xs text-muted-foreground sm:inline">Nome, patrimônio, campus ou categoria</span>
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[420px] max-w-[calc(100vw-2rem)] p-0 sm:w-[540px]" align="start" sideOffset={6}>
-                          <Command shouldFilter={false}>
-                            <div className="flex items-center border-b px-3">
-                              <Search className="h-4 w-4 shrink-0 opacity-50" />
+                        <PopoverContent
+                          className="w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border-primary/25 bg-popover/95 p-0 shadow-[0_28px_90px_-35px_hsl(var(--primary)/0.85)] backdrop-blur-xl sm:w-[680px] lg:w-[760px]"
+                          align="start"
+                          sideOffset={7}
+                        >
+                          <Command shouldFilter={false} className="bg-transparent">
+                            <div className="relative">
                               <CommandInput
-                                placeholder="Buscar por nome ou patrimônio..."
+                                placeholder="Buscar por nome, patrimônio, campus, local ou categoria..."
                                 value={searchValue}
                                 onValueChange={setSearchValue}
-                                className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                                className="h-12 pr-10 text-sm"
                               />
+                              {searchValue && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSearchValue('')}
+                                  className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
+                                  aria-label="Limpar busca"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
                             </div>
-                            <CommandList className="max-h-[320px] overflow-y-auto">
+
+                            <div className="flex items-center justify-between gap-3 border-b border-border/40 bg-background/20 px-4 py-2.5">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-medium text-foreground">
+                                  {filteredEquipment.length} resultado(s){searchValue.trim() ? ` para “${searchValue.trim()}”` : ''}
+                                </p>
+                                <p className="mt-0.5 hidden text-[10px] text-muted-foreground sm:block">Resultados disponíveis aparecem primeiro.</p>
+                              </div>
+                              <Badge variant="outline" className="shrink-0 border-emerald-400/25 bg-emerald-500/[0.06] text-[10px] text-emerald-300">
+                                {filteredEquipment.filter(item => item.available_quantity > 0).length} disponível(is)
+                              </Badge>
+                            </div>
+
+                            <CommandList className="max-h-[390px] px-1.5 py-1.5">
                               {filteredEquipment.length === 0 ? (
-                                <CommandEmpty>Nenhum equipamento encontrado.</CommandEmpty>
+                                <CommandEmpty className="px-5 py-10">
+                                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-border/45 bg-muted/20 text-muted-foreground">
+                                    <Search className="h-4 w-4" />
+                                  </div>
+                                  <p className="font-medium text-foreground">Nenhum equipamento encontrado</p>
+                                  <p className="mt-1 text-xs text-muted-foreground">Tente buscar por outro nome, patrimônio, campus ou categoria.</p>
+                                </CommandEmpty>
                               ) : (
-                                <CommandGroup heading={`${filteredEquipment.length} equipamento(s) disponível(is)`}>
+                                <CommandGroup className="p-0">
                                   {filteredEquipment.slice(0, 50).map((equip) => (
-                                    <CommandItem key={equip.id} value={equip.id} onSelect={() => handleAddEquipment(equip)} className="cursor-pointer py-2.5 hover:bg-accent">
-                                      <div className="mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                                        <Package className="h-4 w-4" />
-                                      </div>
-                                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                                        <span className="truncate font-medium">{equip.name}</span>
-                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                          <span>Patrimônio: {equip.patrimony_code}</span>
-                                          {equip.quantity > 1 ? (
-                                            <span className="font-medium text-primary">{equip.available_quantity} disponível(is)</span>
-                                          ) : (
-                                            <Badge variant="outline" className="px-1.5 py-0 text-[10px]">Único</Badge>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </CommandItem>
+                                    <EquipmentSearchResult
+                                      key={equip.id}
+                                      equipment={equip}
+                                      query={searchValue}
+                                      onAdd={handleAddEquipment}
+                                    />
                                   ))}
                                 </CommandGroup>
                               )}
                             </CommandList>
+
+                            <div className="flex flex-col gap-1 border-t border-border/40 bg-background/20 px-4 py-2.5 text-[10px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                              <span>Busque pelo nome, patrimônio, localização ou categoria do item.</span>
+                              <span className="font-medium text-primary">Clique em um item disponível para adicionar</span>
+                            </div>
                           </Command>
                         </PopoverContent>
                       </Popover>
@@ -732,6 +835,89 @@ export default function EquipmentLoanForm() {
         </div>
       </div>
     </MainLayout>
+  );
+}
+
+function EquipmentSearchResult({
+  equipment,
+  query,
+  onAdd,
+}: {
+  equipment: Equipment;
+  query: string;
+  onAdd: (equipment: Equipment) => void;
+}) {
+  const Icon = getEquipmentIcon(equipment);
+  const isUnique = equipment.quantity <= 1;
+  const isAvailable = equipment.available_quantity > 0;
+  const locationMeta = [equipment.campus, equipment.location, equipment.category].filter(Boolean).join(' · ');
+
+  return (
+    <CommandItem
+      value={`${equipment.name} ${equipment.patrimony_code}`}
+      disabled={!isAvailable}
+      onSelect={() => onAdd(equipment)}
+      className={cn(
+        'group my-1 min-h-[72px] cursor-pointer rounded-xl border border-transparent px-3 py-2.5 transition-all duration-150',
+        'data-[selected=true]:border-cyan-400/45 data-[selected=true]:bg-cyan-500/[0.07] data-[selected=true]:shadow-[0_0_28px_-18px_rgba(34,211,238,.9)]',
+        isAvailable ? 'hover:border-primary/30 hover:bg-primary/[0.04]' : 'cursor-not-allowed opacity-55'
+      )}
+    >
+      <div className={cn(
+        'mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition',
+        isAvailable
+          ? 'border-primary/25 bg-gradient-to-br from-primary/12 to-blue-500/[0.08] text-primary group-data-[selected=true]:border-cyan-400/35 group-data-[selected=true]:text-cyan-300'
+          : 'border-border/40 bg-muted/15 text-muted-foreground'
+      )}>
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-foreground">
+          <HighlightMatch text={equipment.name} query={query} />
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+          <span className="whitespace-nowrap">
+            Patrimônio: <span className="text-foreground/80"><HighlightMatch text={equipment.patrimony_code} query={query} /></span>
+          </span>
+          {equipment.old_patrimony_code && <span className="whitespace-nowrap">Antigo: {equipment.old_patrimony_code}</span>}
+        </div>
+        {locationMeta && <p className="mt-0.5 truncate text-[10px] text-muted-foreground/85">{locationMeta}</p>}
+      </div>
+
+      <div className="ml-3 flex shrink-0 items-center gap-1.5">
+        {isUnique && (
+          <Badge variant="outline" className="hidden border-primary/25 bg-primary/[0.05] px-2 py-0.5 text-[10px] text-primary sm:inline-flex">
+            Único
+          </Badge>
+        )}
+        <Badge
+          variant="outline"
+          className={cn(
+            'whitespace-nowrap px-2 py-0.5 text-[10px]',
+            isAvailable
+              ? isUnique
+                ? 'border-emerald-400/30 bg-emerald-500/[0.08] text-emerald-300'
+                : equipment.available_quantity <= 2
+                  ? 'border-amber-400/30 bg-amber-500/[0.08] text-amber-300'
+                  : 'border-sky-400/30 bg-sky-500/[0.08] text-sky-300'
+              : 'border-red-400/25 bg-red-500/[0.06] text-red-300'
+          )}
+        >
+          {isAvailable
+            ? isUnique
+              ? 'Disponível'
+              : `${equipment.available_quantity} disponíveis`
+            : 'Indisponível'}
+        </Badge>
+        <span className={cn('ml-1 hidden items-center gap-1.5 border-l border-border/35 pl-2.5 text-xs font-medium lg:flex', isAvailable ? 'text-primary' : 'text-muted-foreground')}>
+          <span className={cn('flex h-7 w-7 items-center justify-center rounded-full border', isAvailable ? 'border-primary/35 bg-primary/10' : 'border-border/40 bg-muted/15')}>
+            <Plus className="h-3.5 w-3.5" />
+          </span>
+          {isAvailable ? 'Adicionar' : 'Sem estoque'}
+        </span>
+      </div>
+    </CommandItem>
   );
 }
 
