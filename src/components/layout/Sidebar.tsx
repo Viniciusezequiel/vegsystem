@@ -17,7 +17,6 @@ import {
   Package,
   Settings,
   ShieldCheck,
-  ShoppingCart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +32,7 @@ interface NavItem {
   icon: ElementType;
   adminOnly?: boolean;
   module?: Module;
-  badge?: 'tasks' | 'materials' | 'calls';
+  badge?: 'tasks' | 'calls';
 }
 
 interface NavSection {
@@ -52,7 +51,6 @@ const sections: NavSection[] = [
       { name: 'Achados e Perdidos', href: '/lost-found/items', icon: Package, module: 'lostAndFound' },
       { name: 'Equipamentos', href: '/equipment', icon: Monitor, module: 'equipment' },
       { name: 'Escaninhos', href: '/lockers', icon: Lock, module: 'lockers' },
-      { name: 'Materiais', href: '/materials/my-requests', icon: ShoppingCart, module: 'materials', badge: 'materials' },
       { name: 'Chamados de Sala', href: '/classroom-calls', icon: Bell, module: 'classroomCalls', badge: 'calls' },
     ],
   },
@@ -91,7 +89,6 @@ interface SidebarProps {
   isMobile?: boolean;
   onCloseMobile?: () => void;
   pendingTasksCount?: number;
-  pendingMaterialsCount?: number;
   pendingCallsCount?: number;
 }
 
@@ -101,7 +98,6 @@ export function Sidebar({
   isMobile,
   onCloseMobile,
   pendingTasksCount = 0,
-  pendingMaterialsCount = 0,
   pendingCallsCount = 0,
 }: SidebarProps) {
   const location = useLocation();
@@ -111,7 +107,6 @@ export function Sidebar({
 
   const badgeCounts = {
     tasks: pendingTasksCount,
-    materials: pendingMaterialsCount,
     calls: pendingCallsCount,
   };
 
