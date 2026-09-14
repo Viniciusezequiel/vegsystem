@@ -27,7 +27,6 @@ const MODULES: Module[] = [
   'reservations',
   'lockers',
   'rooms',
-  'materials',
   'users',
   'settings',
   'classroomCalls',
@@ -73,7 +72,7 @@ export default function Permissions({ embedded }: { embedded?: boolean } = {}) {
 
   const getPermissionStats = (role: AppRole) => {
     if (!permissions) return { allowed: 0, total: 0 };
-    const rolePerms = permissions.filter(p => p.role === role);
+    const rolePerms = permissions.filter(p => p.role === role && MODULES.includes(p.module as Module));
     return {
       allowed: rolePerms.filter(p => p.allowed).length,
       total: rolePerms.length,
