@@ -14,7 +14,6 @@ import {
   Loader2,
   LogOut,
   Menu,
-  PackageCheck,
   Settings,
   X,
 } from 'lucide-react';
@@ -26,7 +25,6 @@ import { cn } from '@/lib/utils';
 import { useGlobalRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
-import { useMaterialNotifications } from '@/hooks/useMaterialNotifications';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -116,7 +114,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   const navigate = useNavigate();
   const { user, profile, role, isAdmin, signOut } = useAuth();
   const { pendingTasksCount = 0 } = useTaskNotifications();
-  const { pendingMaterialsCount = 0 } = useMaterialNotifications();
   const { data: pendingCallsCount = 0 } = usePendingCallsCount();
 
   const topBarRef = useRef<HTMLDivElement | null>(null);
@@ -128,7 +125,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const totalPending = pendingTasksCount + pendingMaterialsCount + pendingCallsCount;
+  const totalPending = pendingTasksCount + pendingCallsCount;
 
   const isLostFoundItemsPage =
     location.pathname === '/lost-found' || location.pathname === '/lost-found/items';
@@ -228,7 +225,6 @@ export function MainLayout({ children }: MainLayoutProps) {
           isMobile={isMobile}
           onCloseMobile={() => setMobileMenuOpen(false)}
           pendingTasksCount={pendingTasksCount}
-          pendingMaterialsCount={pendingMaterialsCount}
           pendingCallsCount={pendingCallsCount}
         />
       </div>
@@ -283,12 +279,6 @@ export function MainLayout({ children }: MainLayoutProps) {
                   value={pendingTasksCount}
                   icon={<ClipboardList className="h-4 w-4" />}
                   onClick={() => navigate('/tasks/my-tasks')}
-                />
-                <PendingShortcut
-                  label="Materiais"
-                  value={pendingMaterialsCount}
-                  icon={<PackageCheck className="h-4 w-4" />}
-                  onClick={() => navigate('/materials/my-requests')}
                 />
                 <PendingShortcut
                   label="Chamados"
