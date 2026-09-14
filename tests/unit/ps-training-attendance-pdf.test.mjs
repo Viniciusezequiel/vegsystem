@@ -19,6 +19,15 @@ test('cada turma de treinamento pode exportar sua própria lista de presença', 
   assert.match(component, /generatePsTrainingAttendancePdf/);
 });
 
+test('treinamentos e datas podem ser editados depois do cadastro', () => {
+  assert.match(component, /Editar treinamento/);
+  assert.match(component, /editingGroupId/);
+  assert.match(component, /Treinamento atualizado/);
+  assert.match(component, /Editar data de treinamento/);
+  assert.match(component, /editingSessionId/);
+  assert.match(component, /Data de treinamento atualizada/);
+});
+
 test('exportação usa escolhas registradas e cargos reais do colaborador', () => {
   assert.match(component, /ps_event_training_choices/);
   assert.match(component, /ps_event_collaborator_assignments/);
