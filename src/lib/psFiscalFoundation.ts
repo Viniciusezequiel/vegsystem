@@ -1,5 +1,6 @@
 export type PsFiscalIdentity = {
   id: string;
+  cpf?: string | null;
   email?: string | null;
   email_normalized?: string | null;
   matricula?: string | null;
@@ -9,8 +10,8 @@ export type PsFiscalIdentity = {
 export type PsFiscalInput = Omit<PsFiscalIdentity, 'id'> & { full_name?: string | null };
 
 export type PsFiscalResolution =
-  | { status: 'matched'; collaboratorId: string; matchedBy: 'email' | 'matricula_institution' }
-  | { status: 'ambiguous'; matchedBy: 'email' | 'matricula_institution' | 'identity_conflict'; candidateIds: string[] }
+  | { status: 'matched'; collaboratorId: string; matchedBy: 'email' | 'cpf' | 'matricula_institution' }
+  | { status: 'ambiguous'; matchedBy: 'email' | 'cpf' | 'matricula_institution' | 'identity_conflict'; candidateIds: string[] }
   | { status: 'new' }
   | { status: 'inconsistent'; reason: 'missing_identity' };
 
@@ -92,7 +93,6 @@ export function findPossibleNameMatch(
   return best;
 }
 
-
 const normalizedText = (value?: string | null) => {
   const result = String(value ?? '').trim().toLowerCase();
   return result || null;
@@ -101,6 +101,11 @@ const normalizedText = (value?: string | null) => {
 export const normalizeEmail = normalizedText;
 export const normalizeMatricula = normalizedText;
 
+export function normalizeCpf(value?: string | null) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits.length === 11 ? digits : null;
+}
+
 export function normalizeInstitution(value?: string | null) {
   const result = String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
   return result || null;
@@ -108,10 +113,15 @@ export function normalizeInstitution(value?: string | null) {
 
 export function resolvePsFiscal(existing: PsFiscalIdentity[], input: PsFiscalInput): PsFiscalResolution {
   const email = normalizeEmail(input.email);
+  const cpf = normalizeCpf(input.cpf);
   const matricula = normalizeMatricula(input.matricula);
   const institution = normalizeInstitution(input.institution);
+
   const emailMatches = email
     ? existing.filter(candidate => normalizeEmail(candidate.email_normalized ?? candidate.email) === email)
+    : [];
+  const cpfMatches = cpf
+    ? existing.filter(candidate => normalizeCpf(candidate.cpf) === cpf)
     : [];
   const fallbackMatches = matricula && institution
     ? existing.filter(candidate => normalizeMatricula(candidate.matricula) === matricula
@@ -121,17 +131,25 @@ export function resolvePsFiscal(existing: PsFiscalIdentity[], input: PsFiscalInp
   if (emailMatches.length > 1) {
     return { status: 'ambiguous', matchedBy: 'email', candidateIds: emailMatches.map(item => item.id) };
   }
+  if (cpfMatches.length > 1) {
+    return { status: 'ambiguous', matchedBy: 'cpf', candidateIds: cpfMatches.map(item => item.id) };
+  }
   if (fallbackMatches.length > 1) {
     return { status: 'ambiguous', matchedBy: 'matricula_institution', candidateIds: fallbackMatches.map(item => item.id) };
   }
-  if (emailMatches.length === 1 && fallbackMatches.length === 1 && emailMatches[0].id !== fallbackMatches[0].id) {
-    return { status: 'ambiguous', matchedBy: 'identity_conflict', candidateIds: [emailMatches[0].id, fallbackMatches[0].id] };
+
+  const singletonMatches = [emailMatches[0], cpfMatches[0], fallbackMatches[0]].filter(Boolean) as PsFiscalIdentity[];
+  const candidateIds = [...new Set(singletonMatches.map(item => item.id))];
+  if (candidateIds.length > 1) {
+    return { status: 'ambiguous', matchedBy: 'identity_conflict', candidateIds };
   }
+
   if (emailMatches.length === 1) return { status: 'matched', collaboratorId: emailMatches[0].id, matchedBy: 'email' };
+  if (cpfMatches.length === 1) return { status: 'matched', collaboratorId: cpfMatches[0].id, matchedBy: 'cpf' };
   if (fallbackMatches.length === 1) {
     return { status: 'matched', collaboratorId: fallbackMatches[0].id, matchedBy: 'matricula_institution' };
   }
-  if (!email && !(matricula && institution)) return { status: 'inconsistent', reason: 'missing_identity' };
+  if (!email && !cpf && !(matricula && institution)) return { status: 'inconsistent', reason: 'missing_identity' };
   return { status: 'new' };
 }
 
@@ -141,7 +159,7 @@ export function planPsFiscalReconciliation(existing: PsFiscalIdentity[], rows: P
     const resolution = resolvePsFiscal(candidates, row);
     if (resolution.status !== 'new') return { ...resolution, rowIndex };
     const temporaryId = `__new_fiscal_${rowIndex}`;
-    candidates.push({ id: temporaryId, email: row.email, matricula: row.matricula, institution: row.institution });
+    candidates.push({ id: temporaryId, cpf: row.cpf, email: row.email, matricula: row.matricula, institution: row.institution });
     return { ...resolution, rowIndex, temporaryId };
   });
 }

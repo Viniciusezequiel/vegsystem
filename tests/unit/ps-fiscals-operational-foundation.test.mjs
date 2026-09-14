@@ -2,52 +2,69 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import {
-  normalizeEmail, normalizeInstitution, normalizeMatricula,
+  normalizeCpf, normalizeEmail, normalizeInstitution, normalizeMatricula,
   planPsFiscalReconciliation, psPresencePatch, resolvePsFiscal,
 } from '../../src/lib/psFiscalFoundation.ts';
 
-test('normalização é conservadora e não exige CPF', () => {
+test('normalização mantém identificadores seguros e normaliza CPF', () => {
   assert.equal(normalizeEmail('  Fiscal+Evento@INSTITUICAO.BR '), 'fiscal+evento@instituicao.br');
   assert.equal(normalizeEmail('  '), null);
+  assert.equal(normalizeCpf('125.404.086-21'), '12540408621');
+  assert.equal(normalizeCpf('12540408621'), '12540408621');
+  assert.equal(normalizeCpf('123'), null);
   assert.equal(normalizeMatricula(' AB-123 '), 'ab-123');
   assert.equal(normalizeInstitution(' Faculdade   Ciências Médicas '), 'faculdade ciências médicas');
 });
 
-test('e-mail tem prioridade e fallback exige matrícula + instituição', () => {
-  const existing = [{ id: 'a', email: 'fiscal@inst.br', matricula: '10', institution: 'Instituição' }];
+test('e-mail, CPF e matrícula + instituição reconciliam o cadastro existente', () => {
+  const existing = [{ id: 'a', cpf: '125.404.086-21', email: 'fiscal@inst.br', matricula: '10', institution: 'Instituição' }];
   assert.deepEqual(resolvePsFiscal(existing, { email: ' FISCAL@INST.BR ' }), {
     status: 'matched', collaboratorId: 'a', matchedBy: 'email',
+  });
+  assert.deepEqual(resolvePsFiscal(existing, { cpf: '12540408621' }), {
+    status: 'matched', collaboratorId: 'a', matchedBy: 'cpf',
   });
   assert.deepEqual(resolvePsFiscal(existing, { matricula: ' 10 ', institution: ' INSTITUIÇÃO ' }), {
     status: 'matched', collaboratorId: 'a', matchedBy: 'matricula_institution',
   });
 });
 
-test('conflito entre identificadores e colisões nunca escolhem automaticamente', () => {
+test('conflito entre identificadores e colisões nunca escolhem pessoas diferentes automaticamente', () => {
   const existing = [
-    { id: 'a', email: 'a@inst.br', matricula: '10', institution: 'Inst' },
-    { id: 'b', email: 'b@inst.br', matricula: '20', institution: 'Inst' },
+    { id: 'a', cpf: '111.111.111-11', email: 'a@inst.br', matricula: '10', institution: 'Inst' },
+    { id: 'b', cpf: '222.222.222-22', email: 'b@inst.br', matricula: '20', institution: 'Inst' },
   ];
+  assert.deepEqual(resolvePsFiscal(existing, { email: 'a@inst.br', cpf: '22222222222' }), {
+    status: 'ambiguous', matchedBy: 'identity_conflict', candidateIds: ['a', 'b'],
+  });
   assert.deepEqual(resolvePsFiscal(existing, { email: 'a@inst.br', matricula: '20', institution: 'Inst' }), {
     status: 'ambiguous', matchedBy: 'identity_conflict', candidateIds: ['a', 'b'],
   });
   assert.equal(resolvePsFiscal([...existing, { id: 'c', email: ' A@INST.BR ' }], { email: 'a@inst.br' }).status, 'ambiguous');
 });
 
-test('nome e CPF sozinhos nunca fazem merge nem criam pessoa automaticamente', () => {
+test('nome sozinho não faz merge e CPF válido pode identificar cadastro existente ou novo', () => {
   assert.deepEqual(resolvePsFiscal([{ id: 'a' }], { full_name: 'Mesmo Nome' }), {
     status: 'inconsistent', reason: 'missing_identity',
   });
+  assert.deepEqual(resolvePsFiscal([], { full_name: 'Pessoa', cpf: '125.404.086-21' }), { status: 'new' });
   assert.deepEqual(resolvePsFiscal([], { full_name: 'Pessoa', email: 'nova@inst.br' }), { status: 'new' });
 });
 
-test('duplicidade dentro da planilha reutiliza a nova identidade temporária', () => {
-  const decisions = planPsFiscalReconciliation([], [
+test('duplicidade dentro da planilha reutiliza a nova identidade temporária por e-mail ou CPF', () => {
+  const byEmail = planPsFiscalReconciliation([], [
     { full_name: 'Pessoa A', email: 'pessoa@inst.br' },
     { full_name: 'Outro nome', email: ' PESSOA@INST.BR ' },
   ]);
-  assert.equal(decisions[0].status, 'new');
-  assert.deepEqual(decisions[1], { status: 'matched', collaboratorId: '__new_fiscal_0', matchedBy: 'email', rowIndex: 1 });
+  assert.equal(byEmail[0].status, 'new');
+  assert.deepEqual(byEmail[1], { status: 'matched', collaboratorId: '__new_fiscal_0', matchedBy: 'email', rowIndex: 1 });
+
+  const byCpf = planPsFiscalReconciliation([], [
+    { full_name: 'Pessoa B', cpf: '125.404.086-21' },
+    { full_name: 'Pessoa B repetida', cpf: '12540408621' },
+  ]);
+  assert.equal(byCpf[0].status, 'new');
+  assert.deepEqual(byCpf[1], { status: 'matched', collaboratorId: '__new_fiscal_0', matchedBy: 'cpf', rowIndex: 1 });
 });
 
 test('presença administrativa nunca produz true/true', () => {
@@ -65,11 +82,13 @@ test('migration é incremental, preserva RLS e exige identidade/vínculo consist
   assert.doesNotMatch(sql, /DROP TABLE|DELETE FROM|TRUNCATE|cpf_normalized|ALTER POLICY|DROP POLICY/i);
 });
 
-test('importação mostra preview e não concilia por CPF/nome', () => {
-  const hook = fs.readFileSync(new URL('../../src/hooks/useProcessoSeletivo.ts', import.meta.url), 'utf8');
+test('importação mostra preview e concilia CPF sem usar nome como identidade automática', () => {
+  const hook = fs.readFileSync(new URL('../../src/hooks/usePsEventTeamImport.ts', import.meta.url), 'utf8');
   const dialog = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventTeamImportDialog.tsx', import.meta.url), 'utf8');
   assert.match(hook, /planPsFiscalReconciliation/);
-  assert.doesNotMatch(hook, /byCpf|byName|normalizeCpf/);
+  assert.match(hook, /id,full_name,cpf,email,email_normalized,matricula,institution/);
+  assert.match(hook, /normalizeCpf/);
+  assert.match(dialog, /CPF/);
   assert.match(dialog, /Encontrados/);
   assert.match(dialog, /Já vinculados/);
   assert.match(dialog, /Inconsistentes/);

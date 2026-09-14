@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Upload, Download, FileSpreadsheet } from 'lucide-react';
 import {
   previewPsEventTeamImport, usePsImportEventTeam, type PsTeamImportPreview, type PsTeamImportRow,
-} from '@/hooks/useProcessoSeletivo';
+} from '@/hooks/usePsEventTeamImport';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -168,8 +168,8 @@ export function PsEventTeamImportDialog({
           </div>
 
           <p className="text-sm text-muted-foreground">
-            A conciliação usa e-mail normalizado e, como fallback, matrícula + instituição. Nome e CPF nunca
-            provocam merge automático. Linhas sem identidade segura devem ser corrigidas antes da importação.
+            A conciliação usa e-mail normalizado, CPF e, como fallback, matrícula + instituição. O nome não provoca
+            merge automático. Se os identificadores apontarem para pessoas diferentes, a linha é bloqueada para revisão.
           </p>
 
           {preview.length > 0 && (
