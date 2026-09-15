@@ -61,6 +61,7 @@ export default function PsEventDetail() {
   const [importOpen, setImportOpen] = useState(false);
   const [editLink, setEditLink] = useState<any>(null);
   const [searchFiscal, setSearchFiscal] = useState('');
+  const [teamSearch, setTeamSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [roleValue, setRoleValue] = useState('');
   const [campusValue, setCampusValue] = useState('');
@@ -139,6 +140,30 @@ export default function PsEventDetail() {
       && (confirmationUnit === 'all' || (link.unit || 'Sem unidade') === confirmationUnit)
       && (!query || [link.collaborator_name, link.role_name, link.assigned_role, link.unit, link.room].filter(Boolean).join(' ').toLowerCase().includes(query)));
   }, [links, confirmationSearch, confirmationStatus, confirmationRole, confirmationUnit]);
+
+  const teamRows = useMemo(() => {
+    const query = teamSearch.trim().toLocaleLowerCase('pt-BR');
+    if (!query) return links;
+
+    return links.filter((link: any) =>
+      [
+        link.collaborator_name,
+        link.email,
+        link.role_name,
+        link.assigned_role,
+        link.campus,
+        link.unit,
+        link.building,
+        link.floor,
+        link.room,
+        link.sector,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase('pt-BR')
+        .includes(query)
+    );
+  }, [links, teamSearch]);
 
   const operationalLinks = useMemo(
     () =>
@@ -1150,17 +1175,31 @@ export default function PsEventDetail() {
           </TabsContent>
 
           <TabsContent value="fiscais" className="space-y-3 pt-4">
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Importar planilha</Button>
-              <Button variant="outline" onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" />Vincular manualmente</Button>
-              {links.length > 0 && (
-                <Button variant="outline" onClick={() => { if (confirm('Remover toda a equipe deste evento? Os cadastros e as avaliações dos colaboradores são mantidos.')) clearTeam.mutate(id!); }}>
-                  <Trash2 className="mr-2 h-4 w-4" />Limpar equipe
-                </Button>
-              )}
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="relative w-full xl:max-w-xl">
+                <Input
+                  value={teamSearch}
+                  onChange={(event) => setTeamSearch(event.target.value)}
+                  placeholder="Buscar na equipe por nome, e-mail, cargo, prédio ou sala..."
+                  className="h-10 bg-background/70 pr-24"
+                  aria-label="Buscar colaborador na equipe"
+                />
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                  {teamRows.length}/{links.length}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Importar planilha</Button>
+                <Button variant="outline" onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" />Vincular manualmente</Button>
+                {links.length > 0 && (
+                  <Button variant="outline" onClick={() => { if (confirm('Remover toda a equipe deste evento? Os cadastros e as avaliações dos colaboradores são mantidos.')) clearTeam.mutate(id!); }}>
+                    <Trash2 className="mr-2 h-4 w-4" />Limpar equipe
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {links.map((l: any) => (
+              {teamRows.map((l: any) => (
                 <Card key={l.id} className="rounded-2xl">
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
@@ -1197,6 +1236,13 @@ export default function PsEventDetail() {
                 </Card>
               ))}
               {links.length === 0 && <p className="text-muted-foreground">Nenhum fiscal vinculado.</p>}
+              {links.length > 0 && teamRows.length === 0 && (
+                <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-border/60 bg-muted/10 p-8 text-center">
+                  <p className="font-medium">Nenhuma pessoa encontrada</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Tente outro nome, e-mail, cargo, prédio ou sala.</p>
+                  <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={() => setTeamSearch('')}>Limpar busca</Button>
+                </div>
+              )}
             </div>
           </TabsContent>
 
