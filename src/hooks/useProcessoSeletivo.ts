@@ -243,7 +243,7 @@ export function usePsEventCommunications(eventId?: string) {
     queryKey: ['ps_event_communications', eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('ps_event_communications').select('id,batch_id,event_id,event_collaborator_id,communication_type,logical_recipient,actual_recipient,subject,status,provider,provider_message_id,attempt_count,requested_at,sent_at,failed_at,last_error,created_at').eq('event_id', eventId!).order('requested_at', { ascending: false });
+      const { data, error } = await (supabase as any).from('ps_event_communications').select('id,batch_id,event_id,event_collaborator_id,communication_type,logical_recipient,actual_recipient,subject,status,provider,provider_message_id,delivery_status,delivered_at,opened_at,clicked_at,provider_last_event,provider_last_event_at,attempt_count,requested_at,sent_at,failed_at,last_error,created_at').eq('event_id', eventId!).order('requested_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -257,6 +257,25 @@ export function usePsEventCommunications(eventId?: string) {
     return () => { void supabase.removeChannel(channel); };
   }, [eventId, qc]);
   return query;
+}
+
+export function usePsEmailTrackingSync(eventId?: string) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ['ps_email_tracking_sync', eventId],
+    enabled: !!eventId,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('ps-email-webhook', {
+        body: { action: 'sync', eventId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      await qc.invalidateQueries({ queryKey: ['ps_event_communications', eventId] });
+      return data;
+    },
+  });
 }
 
 export function usePsSendEventCommunication() {

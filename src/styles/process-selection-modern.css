@@ -60,42 +60,25 @@
   background: hsl(var(--primary) / 0.06);
 }
 
-.ps-event-nav__identity {
+.ps-event-nav__heading {
   padding: 15px 14px 13px;
   border-bottom: 1px solid hsl(var(--border) / 0.38);
 }
 
-.ps-event-nav__eyebrow {
+.ps-event-nav__heading p {
   margin: 0;
   color: hsl(var(--primary));
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 750;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
-.ps-event-nav__identity h2 {
-  margin: 5px 0 0;
-  overflow: hidden;
-  color: hsl(var(--foreground));
-  font-size: 15px;
-  font-weight: 720;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-}
-
-.ps-event-nav__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-  margin-top: 10px;
+.ps-event-nav__heading span {
+  display: block;
+  margin-top: 4px;
   color: hsl(var(--muted-foreground));
-  font-size: 9px;
-}
-
-.ps-event-nav__meta [class*='badge'] {
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .ps-event-nav__list {

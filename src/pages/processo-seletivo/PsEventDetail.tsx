@@ -18,6 +18,8 @@ import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventT
 import { PsEventCommunicationTab } from '@/components/processo-seletivo/PsEventCommunicationTab';
 import { PsEventCollaboratorEditDialog } from '@/components/processo-seletivo/PsEventCollaboratorEditDialog';
 import { PsEventWorkspaceNav } from '@/components/processo-seletivo/PsEventWorkspaceNav';
+import { PsEventTrainingTab } from '@/components/processo-seletivo/PsEventTrainingTab';
+import { PsEventPaymentsPanel } from '@/components/processo-seletivo/PsEventPaymentsPanel';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
@@ -1082,8 +1084,6 @@ export default function PsEventDetail() {
         className="ps-event-workspace"
       >
         <PsEventWorkspaceNav
-          event={event}
-          eventId={id!}
           teamCount={links.length}
           candidateCount={candidates.length}
           pendingConfirmationCount={links.filter((link: any) => link.participation_status === 'pending_confirmation').length}
@@ -1136,6 +1136,8 @@ export default function PsEventDetail() {
                 <SelectItem value="comunicacao">Envios</SelectItem>
                 <SelectItem value="candidatos">Candidatos</SelectItem>
                 <SelectItem value="presenca">Presença</SelectItem>
+                <SelectItem value="treinamentos">Treinamentos</SelectItem>
+                <SelectItem value="pagamentos">Pagamentos</SelectItem>
                 <SelectItem value="avaliacoes">Avaliações</SelectItem>
                 <SelectItem value="auto">Autoavaliações</SelectItem>
                 <SelectItem value="configuracoes">Configurações</SelectItem>
@@ -2097,6 +2099,14 @@ export default function PsEventDetail() {
                 {candidates.length === 0 && <p className="p-4 text-muted-foreground">Nenhum candidato disponível para geração de etiquetas.</p>}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="treinamentos" className="pt-4">
+            <PsEventTrainingTab eventId={id!} roles={roles as any[]} />
+          </TabsContent>
+
+          <TabsContent value="pagamentos" className="pt-4">
+            <PsEventPaymentsPanel event={event} />
           </TabsContent>
           </div>
         </div>
