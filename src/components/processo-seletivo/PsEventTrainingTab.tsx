@@ -37,6 +37,10 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [selectedCollaborator, setSelectedCollaborator] = useState<any>(null);
+  const [collaboratorDialogOpen, setCollaboratorDialogOpen] = useState(false);
+  const [selectedNewSession, setSelectedNewSession] = useState("");
+
   const query = useQuery({
     queryKey: ['ps_event_trainings', eventId],
     queryFn: async () => {
@@ -92,6 +96,40 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
   }, [data.assignments]);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['ps_event_trainings', eventId] });
+
+  const openCollaboratorManager = (choice: any) => {
+    const collaborator = linkById.get(String(choice.event_collaborator_id));
+
+    setSelectedCollaborator({
+      choice,
+      collaborator,
+    });
+
+    setSelectedNewSession(String(choice.training_session_id));
+    setCollaboratorDialogOpen(true);
+  };
+
+  const moveCollaboratorTraining = async () => {
+    if (!selectedCollaborator || !selectedNewSession) return;
+
+    const { error } = await (supabase as any)
+      .from('ps_event_training_choices')
+      .update({
+        training_session_id: selectedNewSession,
+      })
+      .eq('id', selectedCollaborator.choice.id);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success('Treinamento alterado com sucesso.');
+    setCollaboratorDialogOpen(false);
+    setSelectedCollaborator(null);
+    await refresh();
+  };
+
   const toggleRole = (value: string) => setGroupForm(f => ({ ...f, roleValues: f.roleValues.includes(value) ? f.roleValues.filter(v => v !== value) : [...f.roleValues, value] }));
 
   const closeGroupDialog = () => {
@@ -430,7 +468,16 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                             <div className="mt-3 border-t pt-3">
                               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Escolhas registradas</p>
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {choices.slice(0, 8).map((c: any) => <span key={c.id} className="rounded-md bg-muted px-2 py-1 text-[11px]">{linkMap.get(String(c.event_collaborator_id)) || 'Colaborador'}</span>)}
+                                {choices.slice(0, 8).map((c: any) => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => openCollaboratorManager(c)}
+                                    className="rounded-md bg-muted px-2 py-1 text-[11px] hover:bg-primary/20"
+                                  >
+                                    {linkMap.get(String(c.event_collaborator_id)) || 'Colaborador'}
+                                  </button>
+                                ))}
                                 {choices.length > 8 && <span className="px-1 py-1 text-[11px] text-muted-foreground">+{choices.length - 8}</span>}
                               </div>
                             </div>
@@ -492,6 +539,45 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
           <Button disabled={saving} onClick={() => void saveSession()}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {editingSessionId ? 'Salvar alterações' : 'Adicionar data'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={collaboratorDialogOpen} onOpenChange={setCollaboratorDialogOpen}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Treinamentos da pessoa</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <p className="font-semibold">
+            {selectedCollaborator?.collaborator?.collaborator_name || 'Colaborador'}
+          </p>
+
+          <div>
+            <Label>Mover para outro treinamento</Label>
+            <select
+              className="mt-2 w-full rounded-md border p-2"
+              value={selectedNewSession}
+              onChange={(e) => setSelectedNewSession(e.target.value)}
+            >
+              {data.sessions.map((session: any) => (
+                <option key={session.id} value={session.id}>
+                  {fmt(session.starts_at)} - {session.campus} {session.room ? `Sala ${session.room}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setCollaboratorDialogOpen(false)}>
+            Cancelar
+          </Button>
+
+          <Button onClick={() => void moveCollaboratorTraining()}>
+            Confirmar transferência
           </Button>
         </DialogFooter>
       </DialogContent>
