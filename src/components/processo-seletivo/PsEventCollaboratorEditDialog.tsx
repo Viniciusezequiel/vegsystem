@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleDollarSign, Loader2, Plus, Trash2 } from 'lucide-react';
+import { BriefcaseBusiness, Building2, CircleDollarSign, CreditCard, Loader2, Plus, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizePix } from '@/lib/psPixPlan';
 import {
@@ -201,9 +202,22 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
 
   return (
     <Dialog open={open} onOpenChange={value => !saving && onOpenChange(value)}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl" onInteractOutside={event => event.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle>Editar dados no evento</DialogTitle>
+      <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-4xl" onInteractOutside={event => event.preventDefault()}>
+        <DialogHeader className="border-b border-border/60 px-6 py-5 pr-12">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <DialogTitle>Editar fiscal no evento</DialogTitle>
+              <DialogDescription className="mt-1">
+                As alterações abaixo valem para este evento e não removem o histórico do fiscal.
+              </DialogDescription>
+            </div>
+            {form && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-2 text-right">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total previsto</p>
+                <p className="text-lg font-semibold tabular-nums">{money(total)}</p>
+              </div>
+            )}
+          </div>
         </DialogHeader>
 
         {!form || assignmentQuery.isLoading ? (
@@ -211,110 +225,135 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando dados...
           </div>
         ) : (
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <Label>Nome</Label>
-              <Input value={form.collaborator_name || ''} onChange={event => setForm({ ...form, collaborator_name: event.target.value })} />
+          <Tabs defaultValue="assignment" className="flex min-h-0 flex-col">
+            <div className="border-b border-border/60 px-6 py-3">
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted/45 p-1 sm:grid-cols-4">
+                <TabsTrigger value="assignment" className="gap-2 py-2 text-xs"><BriefcaseBusiness className="h-3.5 w-3.5" />Atuação</TabsTrigger>
+                <TabsTrigger value="identity" className="gap-2 py-2 text-xs"><UserRound className="h-3.5 w-3.5" />Dados</TabsTrigger>
+                <TabsTrigger value="location" className="gap-2 py-2 text-xs"><Building2 className="h-3.5 w-3.5" />Local</TabsTrigger>
+                <TabsTrigger value="payment" className="gap-2 py-2 text-xs"><CreditCard className="h-3.5 w-3.5" />Financeiro</TabsTrigger>
+              </TabsList>
             </div>
 
-            <section className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="max-h-[calc(92vh-225px)] min-h-[360px] overflow-y-auto px-6 py-5">
+              <TabsContent value="assignment" className="m-0 space-y-4">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <CircleDollarSign className="h-4 w-4 text-primary" />
-                    <h3 className="font-semibold">Cargo e pagamento neste evento</h3>
-                  </div>
+                  <h3 className="flex items-center gap-2 font-semibold"><CircleDollarSign className="h-4 w-4 text-primary" />Funções e jornada</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {hasMultipleAssignments
-                      ? 'O primeiro cargo é considerado principal. Os demais são funções adicionais exercidas no mesmo evento.'
-                      : 'Os dados abaixo refletem o cargo e a jornada vinculados ao fiscal neste evento.'}
+                      ? 'O primeiro cargo é o principal. Os demais representam funções adicionais neste evento.'
+                      : 'Defina o cargo, a jornada, o horário e o valor específico deste evento.'}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total a receber</p>
-                  <p className="text-xl font-semibold tabular-nums">{money(total)}</p>
-                </div>
-              </div>
 
-              <div className="mt-4 space-y-3">
-                {assignments.map((assignment, index) => (
-                  <div key={assignment.id || `new-${index}`} className="rounded-xl border border-border/60 bg-background/50 p-3">
-                    {hasMultipleAssignments && (
+                <div className="space-y-3">
+                  {assignments.map((assignment, index) => (
+                    <section key={assignment.id || `new-${index}`} className="rounded-xl border border-border/60 bg-muted/10 p-4">
                       <div className="mb-3 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium">Cargo {index + 1}</p>
                           {index === 0 && <Badge variant="secondary">Principal</Badge>}
                         </div>
-                        <Button type="button" size="icon" variant="ghost" onClick={() => removeAssignment(index)} aria-label="Remover cargo">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {hasMultipleAssignments && (
+                          <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeAssignment(index)} aria-label={`Remover cargo ${index + 1}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
-                    )}
 
-                    <div className="grid gap-3 md:grid-cols-[1.45fr_.65fr_.75fr]">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Função</Label>
-                        <Select value={assignment.role_value || undefined} onValueChange={value => selectRole(index, value)}>
-                          <SelectTrigger><SelectValue placeholder="Selecione o cargo" /></SelectTrigger>
-                          <SelectContent>
-                            {activeRoles.map((role: any) => <SelectItem key={role.id} value={role.value}>{role.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                      <div className="grid gap-3 md:grid-cols-[1.45fr_.65fr_.75fr]">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Função</Label>
+                          <Select value={assignment.role_value || undefined} onValueChange={value => selectRole(index, value)}>
+                            <SelectTrigger><SelectValue placeholder="Selecione o cargo" /></SelectTrigger>
+                            <SelectContent>
+                              {activeRoles.map((role: any) => <SelectItem key={role.id} value={role.value}>{role.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Jornada</Label>
+                          <Select value={assignment.journey_key || 'custom'} onValueChange={value => selectJourney(index, value)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {PS_JOURNEY_OPTIONS.map(option => <SelectItem key={option.key} value={option.key}>{option.label}</SelectItem>)}
+                              <SelectItem value="custom">Personalizada</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Valor (R$)</Label>
+                          <Input type="number" min="0" step="0.01" value={assignment.pay_value} onChange={event => patchAssignment(index, { pay_value: event.target.value })} />
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Jornada</Label>
-                        <Select value={assignment.journey_key || 'custom'} onValueChange={value => selectJourney(index, value)}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {PS_JOURNEY_OPTIONS.map(option => <SelectItem key={option.key} value={option.key}>{option.label}</SelectItem>)}
-                            <SelectItem value="custom">Personalizada</SelectItem>
-                          </SelectContent>
-                        </Select>
+
+                      <div className="mt-3 space-y-1.5">
+                        <Label className="text-xs">Horário deste cargo</Label>
+                        <Input value={assignment.work_schedule || ''} onChange={event => patchAssignment(index, { work_schedule: event.target.value || null })} placeholder="Ex.: 08:00 às 12:00" />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Valor (R$)</Label>
-                        <Input type="number" min="0" step="0.01" value={assignment.pay_value} onChange={event => patchAssignment(index, { pay_value: event.target.value })} />
-                      </div>
-                    </div>
+                    </section>
+                  ))}
 
-                    <div className="mt-3 space-y-1.5">
-                      <Label className="text-xs">Horário deste cargo</Label>
-                      <Input value={assignment.work_schedule || ''} onChange={event => patchAssignment(index, { work_schedule: event.target.value || null })} placeholder="Ex.: 08:00 às 12:00" />
-                    </div>
-                  </div>
-                ))}
+                  <Button type="button" variant="outline" className="border-dashed" onClick={addAssignment}>
+                    <Plus className="mr-2 h-4 w-4" />Adicionar outro cargo
+                  </Button>
+                </div>
+              </TabsContent>
 
-                <Button type="button" variant="outline" className="w-full" onClick={addAssignment}>
-                  <Plus className="mr-2 h-4 w-4" />Adicionar outro cargo
-                </Button>
-              </div>
-            </section>
+              <TabsContent value="identity" className="m-0 space-y-4">
+                <div>
+                  <h3 className="font-semibold">Identificação e contato</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">Dados usados nas listas, comunicações e documentos deste evento.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nome</Label>
+                  <Input value={form.collaborator_name || ''} onChange={event => setForm({ ...form, collaborator_name: event.target.value })} />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5"><Label>E-mail</Label><Input type="email" value={form.email || ''} onChange={event => setForm({ ...form, email: event.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>Telefone</Label><Input value={form.phone || ''} onChange={event => setForm({ ...form, phone: event.target.value })} /></div>
+                </div>
+              </TabsContent>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div><Label>Prédio</Label><Input value={form.building || ''} onChange={event => setForm({ ...form, building: event.target.value })} /></div>
-              <div><Label>Andar</Label><Input value={form.floor || ''} onChange={event => setForm({ ...form, floor: event.target.value })} /></div>
-              <div><Label>Sala</Label><Input value={form.room || ''} onChange={event => setForm({ ...form, room: event.target.value })} /></div>
+              <TabsContent value="location" className="m-0 space-y-4">
+                <div>
+                  <h3 className="font-semibold">Alocação no evento</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">Informe onde o fiscal atuará. Esses dados aparecem nas comunicações e listas.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5"><Label>Campus do evento</Label><Input value={form.campus || ''} onChange={event => setForm({ ...form, campus: event.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>Setor</Label><Input value={form.sector || ''} onChange={event => setForm({ ...form, sector: event.target.value })} /></div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1.5"><Label>Prédio</Label><Input value={form.building || ''} onChange={event => setForm({ ...form, building: event.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>Andar</Label><Input value={form.floor || ''} onChange={event => setForm({ ...form, floor: event.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>Sala</Label><Input value={form.room || ''} onChange={event => setForm({ ...form, room: event.target.value })} /></div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="payment" className="m-0 space-y-4">
+                <div>
+                  <h3 className="font-semibold">Dados para pagamento</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">O PIX é obrigatório para salvar. O total é calculado pelos cargos cadastrados na aba Atuação.</p>
+                </div>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <p className="text-xs text-muted-foreground">Total previsto neste evento</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums">{money(total)}</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5"><Label>PIX *</Label><Input value={form.pix || ''} onChange={event => setForm({ ...form, pix: event.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>Informações de depósito</Label><Input value={form.deposit_info || ''} onChange={event => setForm({ ...form, deposit_info: event.target.value })} /></div>
+                </div>
+              </TabsContent>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div><Label>Setor</Label><Input value={form.sector || ''} onChange={event => setForm({ ...form, sector: event.target.value })} /></div>
-              <div><Label>Campus do evento</Label><Input value={form.campus || ''} onChange={event => setForm({ ...form, campus: event.target.value })} /></div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div><Label>E-mail</Label><Input value={form.email || ''} onChange={event => setForm({ ...form, email: event.target.value })} /></div>
-              <div><Label>Telefone</Label><Input value={form.phone || ''} onChange={event => setForm({ ...form, phone: event.target.value })} /></div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div><Label>PIX</Label><Input value={form.pix || ''} onChange={event => setForm({ ...form, pix: event.target.value })} /></div>
-              <div><Label>Depósito</Label><Input value={form.deposit_info || ''} onChange={event => setForm({ ...form, deposit_info: event.target.value })} /></div>
-            </div>
-          </div>
+          </Tabs>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-border/60 bg-background/95 px-6 py-4">
           <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button type="button" disabled={saving || assignmentQuery.isLoading} onClick={() => void save()}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Salvar
+            Salvar alterações
           </Button>
         </DialogFooter>
       </DialogContent>

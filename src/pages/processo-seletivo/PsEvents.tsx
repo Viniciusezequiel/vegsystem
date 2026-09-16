@@ -85,7 +85,7 @@ export default function PsEvents() {
       />
 
       <PageToolbar>
-        <div className="relative max-w-xl">
+        <div className="relative w-full max-w-3xl">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
@@ -110,7 +110,7 @@ export default function PsEvents() {
           action={!search ? <Button size="sm" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Novo evento</Button> : undefined}
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="ps-events-grid">
           {filtered.map((event: any) => (
             <Card key={event.id} className="ps-gradient-surface group border-border/60 bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/85 hover:shadow-md">
               <CardContent className="p-4">

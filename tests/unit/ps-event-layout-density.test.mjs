@@ -10,6 +10,10 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const detail = read('src/pages/processo-seletivo/PsEventDetail.tsx');
 const communication = read('src/components/processo-seletivo/PsEventCommunicationTab.tsx');
 const emailDashboard = read('src/components/processo-seletivo/PsEmailTrackingDashboard.tsx');
+const events = read('src/pages/processo-seletivo/PsEvents.tsx');
+const editDialog = read('src/components/processo-seletivo/PsEventCollaboratorEditDialog.tsx');
+const mainLayout = read('src/components/layout/MainLayout.tsx');
+const modernStyles = read('src/styles/process-selection-modern.css');
 
 test('event summary dashboard is restricted to the overview tab', () => {
   assert.match(detail, /activeTab === 'visao-geral'/);
@@ -28,4 +32,18 @@ test('communication metrics use one compact dashboard surface', () => {
   assert.match(emailDashboard, /grid-cols-2/);
   assert.match(emailDashboard, /sm:grid-cols-4/);
   assert.equal((emailDashboard.match(/<Card /g) || []).length, 1);
+});
+
+test('process selection uses the available width and events fill their grid', () => {
+  assert.match(mainLayout, /processo-seletivo'\) && 'max-w-\[1800px\]'/);
+  assert.match(events, /className="ps-events-grid"/);
+  assert.match(modernStyles, /repeat\(auto-fit, minmax\(min\(100%, 430px\), 1fr\)\)/);
+});
+
+test('event collaborator editing is separated into clear sections', () => {
+  for (const section of ['Atuação', 'Dados', 'Local', 'Financeiro']) {
+    assert.match(editDialog, new RegExp(`>${section}<`));
+  }
+  assert.match(editDialog, /As alterações abaixo valem para este evento/);
+  assert.match(editDialog, /Salvar alterações/);
 });
