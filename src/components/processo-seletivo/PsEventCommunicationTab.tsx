@@ -310,29 +310,36 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
     ]),
   ]);
 
-  return <div className="space-y-4">
-    <div>
-      <h2 className="text-lg font-semibold">Comunicação</h2>
-      <p className="text-sm text-muted-foreground">Envie mensagens e solicitações de confirmação aos fiscais deste evento.</p>
+  return <div className="space-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 className="text-base font-semibold">Comunicação</h2>
+        <p className="text-xs text-muted-foreground">Mensagens, confirmações e acompanhamento dos envios.</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+        <Badge variant={config?.mode === 'test' ? 'secondary' : 'outline'}>
+          {config?.mode === 'test' ? 'Modo teste' : config?.mode === 'production' ? 'Produção' : 'Verificando'}
+        </Badge>
+        <Badge variant="outline">{String(config?.provider || 'brevo').toUpperCase()}</Badge>
+        {config && <Badge variant="outline">{config.dailyLimit}/dia · lote {config.batchLimit}</Badge>}
+      </div>
     </div>
 
-    <div className={`rounded-xl border p-3 text-sm ${config?.mode === 'test' ? 'border-amber-400 bg-amber-50 text-amber-900' : 'bg-muted/30'}`}>
-      {config?.mode === 'test'
-        ? <strong>TEST MODE: os e-mails NÃO serão enviados aos fiscais reais.</strong>
-        : configError
-          ? 'Backend de e-mail ainda não publicado/configurado.'
-          : config?.mode === 'production'
-            ? 'Modo Produção'
-            : 'Verificando configuração do provider...'}
-      {config && !config.providerConfigured && <span> Provider pendente de configuração.</span>}
-      {config?.mode === 'test' && !config.testRecipientConfigured && <span> PS_EMAIL_TEST_RECIPIENT ausente; envios bloqueados.</span>}
-      {config && <span className="ml-2">Provider: {String(config.provider || 'brevo').toUpperCase()} · Limite configurado: {config.dailyLimit}/dia · lote técnico: {config.batchLimit}</span>}
-    </div>
+    {(configError || config?.mode === 'test' || (config && !config.providerConfigured)) && (
+      <div className={`rounded-xl border px-3 py-2 text-xs ${config?.mode === 'test' ? 'border-amber-400/50 bg-amber-500/10 text-amber-200' : 'bg-muted/30 text-muted-foreground'}`}>
+        {config?.mode === 'test'
+          ? <strong>MODO TESTE: os e-mails não serão enviados aos fiscais reais.</strong>
+          : configError
+            ? 'Backend de e-mail ainda não publicado/configurado.'
+            : 'Provider pendente de configuração.'}
+        {config?.mode === 'test' && !config.testRecipientConfigured && <span> Destinatário de teste ausente; envios bloqueados.</span>}
+      </div>
+    )}
 
     {quotaWaiting > 0 && <p className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">{quotaWaiting} mensagens aguardando a renovação da cota diária do provedor.</p>}
 
     <PsEmailTrackingDashboard communications={history} />
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-1.5 text-[11px] text-muted-foreground">
       <span>
         {tracking.isFetching
           ? 'Sincronizando entrega e abertura com a Brevo...'
@@ -340,7 +347,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
             ? 'Não foi possível sincronizar os eventos da Brevo agora. Os envios continuam funcionando normalmente.'
             : 'Status de entrega e abertura sincronizados automaticamente com a Brevo.'}
       </span>
-      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={tracking.isFetching} onClick={() => void tracking.refetch()}>
+      <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" disabled={tracking.isFetching} onClick={() => void tracking.refetch()}>
         Atualizar status
       </Button>
     </div>

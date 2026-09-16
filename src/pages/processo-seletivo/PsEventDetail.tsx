@@ -1118,12 +1118,14 @@ export default function PsEventDetail() {
             </div>
           </header>
 
-          <section className="ps-event-stats" aria-label="Resumo do evento">
-            <Card className="ps-event-stat ps-event-stat--violet"><CardContent><p>Equipe</p><strong>{links.length}</strong><span>fiscais vinculados</span></CardContent></Card>
-            <Card className="ps-event-stat ps-event-stat--green"><CardContent><p>Presentes</p><strong>{links.filter((l: any) => l.present).length}</strong><span>presenças registradas</span></CardContent></Card>
-            <Card className="ps-event-stat ps-event-stat--rose"><CardContent><p>Ausentes</p><strong>{links.filter((l: any) => l.absent).length}</strong><span>ausências registradas</span></CardContent></Card>
-            <Card className="ps-event-stat ps-event-stat--blue"><CardContent><p>Avaliações</p><strong>{links.filter((l: any) => l.evaluated).length}</strong><span>avaliações concluídas</span></CardContent></Card>
-          </section>
+          {activeTab === 'visao-geral' && (
+            <section className="ps-event-stats" aria-label="Resumo do evento">
+              <Card className="ps-event-stat ps-event-stat--violet"><CardContent><p>Equipe</p><strong>{links.length}</strong><span>fiscais vinculados</span></CardContent></Card>
+              <Card className="ps-event-stat ps-event-stat--green"><CardContent><p>Presentes</p><strong>{links.filter((l: any) => l.present).length}</strong><span>presenças registradas</span></CardContent></Card>
+              <Card className="ps-event-stat ps-event-stat--rose"><CardContent><p>Ausentes</p><strong>{links.filter((l: any) => l.absent).length}</strong><span>ausências registradas</span></CardContent></Card>
+              <Card className="ps-event-stat ps-event-stat--blue"><CardContent><p>Avaliações</p><strong>{links.filter((l: any) => l.evaluated).length}</strong><span>avaliações concluídas</span></CardContent></Card>
+            </section>
+          )}
 
           <div className="ps-event-mobile-nav">
             <Label htmlFor="ps-event-section">Área do evento</Label>
@@ -1211,52 +1213,66 @@ export default function PsEventDetail() {
                 )}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <Card className="overflow-hidden rounded-2xl">
+              <div className="hidden grid-cols-[minmax(230px,1.4fr)_minmax(210px,1fr)_auto_auto] items-center gap-4 border-b bg-muted/20 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground xl:grid">
+                <span>Fiscal</span>
+                <span>Situação</span>
+                <span>Presença</span>
+                <span className="text-right">Ações</span>
+              </div>
+              <CardContent className="divide-y p-0">
               {teamRows.map((l: any) => (
-                <Card key={l.id} className="rounded-2xl">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base">{l.collaborator_name}</CardTitle>
-                      <div className="flex flex-wrap justify-end gap-1">
-                        {l.signed_at && <Badge>Assinado</Badge>}
-                        {l.departed_at && <Badge variant="outline">Saiu</Badge>}
-                        {l.evaluated && <Badge variant="secondary">Avaliado</Badge>}
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
+                <div key={l.id} className="grid gap-3 px-4 py-3 transition-colors hover:bg-muted/15 xl:grid-cols-[minmax(230px,1.4fr)_minmax(210px,1fr)_auto_auto] xl:items-center xl:gap-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{l.collaborator_name}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                       {[l.role_name, `R$ ${Number(l.pay_value || 0).toFixed(2)}`, l.building, l.floor, l.room && `Sala ${l.room}`]
                         .filter(Boolean).join(' · ')}
                     </p>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between"><Label className="text-xs">Presente</Label>
-                      <Switch checked={!!l.present} onCheckedChange={(v) => setParticipantState(l, psPresencePatch('present', v))} /></div>
-                    <div className="flex items-center justify-between"><Label className="text-xs">Ausente</Label>
-                      <Switch checked={!!l.absent} onCheckedChange={(v) => setParticipantState(l, psPresencePatch('absent', v))} /></div>
-                    <Button size="sm" variant="outline" className="w-full" onClick={() => setParticipantState(l, {
+                  </div>
+
+                  <div className="flex min-h-6 flex-wrap items-center gap-1">
+                    {l.signed_at && <Badge className="h-5 text-[10px]">Assinado</Badge>}
+                    {l.departed_at && <Badge variant="outline" className="h-5 text-[10px]">Saiu</Badge>}
+                    {l.evaluated && <Badge variant="secondary" className="h-5 text-[10px]">Avaliado</Badge>}
+                    {!l.signed_at && !l.departed_at && !l.evaluated && <span className="text-[11px] text-muted-foreground">Sem registros</span>}
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/35 px-2.5 py-1.5">
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      <Switch aria-label={`Marcar ${l.collaborator_name} como presente`} checked={!!l.present} onCheckedChange={(v) => setParticipantState(l, psPresencePatch('present', v))} />
+                      <span>Presente</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      <Switch aria-label={`Marcar ${l.collaborator_name} como ausente`} checked={!!l.absent} onCheckedChange={(v) => setParticipantState(l, psPresencePatch('absent', v))} />
+                      <span>Ausente</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
+                    <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setParticipantState(l, {
                       departed_at: l.departed_at ? null : new Date().toISOString(),
                     })} disabled={updateState.isPending}>
                       {l.departed_at ? 'Cancelar saída' : 'Registrar saída'}
                     </Button>
-                    <div className="flex gap-2">
-                      <Button size="sm" className="flex-1" onClick={() => { setEvalTarget(l); setCriteria(emptyCriteria()); }}>
-                        <Star className="mr-1 h-4 w-4" />Avaliar
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditLink(l)}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="outline" onClick={() => { if (confirm('Remover vínculo?')) remove.mutate(l.id); }}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    <Button size="sm" className="h-8 px-2.5 text-xs" onClick={() => { setEvalTarget(l); setCriteria(emptyCriteria()); }}>
+                      <Star className="mr-1 h-3.5 w-3.5" />Avaliar
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Editar ${l.collaborator_name}`} title="Editar fiscal" onClick={() => setEditLink(l)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" aria-label={`Remover ${l.collaborator_name}`} title="Remover fiscal" onClick={() => { if (confirm('Remover vínculo?')) remove.mutate(l.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>
+                </div>
               ))}
-              {links.length === 0 && <p className="text-muted-foreground">Nenhum fiscal vinculado.</p>}
+              {links.length === 0 && <p className="p-6 text-center text-muted-foreground">Nenhum fiscal vinculado.</p>}
               {links.length > 0 && teamRows.length === 0 && (
-                <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-border/60 bg-muted/10 p-8 text-center">
+                <div className="p-8 text-center">
                   <p className="font-medium">Nenhuma pessoa encontrada</p>
                   <p className="mt-1 text-sm text-muted-foreground">Tente outro nome, e-mail, cargo, prédio ou sala.</p>
                   <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={() => setTeamSearch('')}>Limpar busca</Button>
                 </div>
               )}
-            </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="confirmacoes" className="space-y-4 pt-4">
