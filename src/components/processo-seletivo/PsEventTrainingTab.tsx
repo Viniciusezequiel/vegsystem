@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, FileDown, Loader2, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { CalendarClock, CalendarX2, FileDown, Loader2, Mail, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,22 @@ type SessionForm = { groupId: string; startsAt: string; endsAt: string; campus: 
 
 const emptyGroup: GroupForm = { name: '', description: '', required: true, roleValues: [] };
 const emptySession: SessionForm = { groupId: '', startsAt: '', endsAt: '', campus: '', location: '', room: '', capacity: '', notes: '' };
+const RESELECTION_SUBJECT = 'Escolha de nova data de treinamento — {{evento}}';
+const RESELECTION_TEMPLATE = `Olá, {{nome}}.
+
+A data de treinamento escolhida anteriormente foi cancelada.
+
+Motivo: {{motivo_cancelamento}}
+
+Utilize o link abaixo para escolher uma nova data disponível:
+
+{{link_treinamento}}
+
+Sua confirmação de participação no evento permanece válida.
+
+Atenciosamente,
+Equipe de Processo Seletivo
+VEG System`;
 const fmt = (value?: string) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Data não definida';
 const toDateTimeLocal = (value?: string) => {
   if (!value) return '';
@@ -40,6 +56,11 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
   const [selectedCollaborator, setSelectedCollaborator] = useState<any>(null);
   const [collaboratorDialogOpen, setCollaboratorDialogOpen] = useState(false);
   const [selectedNewSession, setSelectedNewSession] = useState("");
+  const [cancelSession, setCancelSession] = useState<any>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [resendingSessionId, setResendingSessionId] = useState<string | null>(null);
 
   const query = useQuery({
     queryKey: ['ps_event_trainings', eventId],
@@ -48,15 +69,16 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
       if (groupsRes.error) throw groupsRes.error;
       const groups = groupsRes.data || [];
       const ids = groups.map((g: any) => g.id);
-      const [roleRes, sessionRes, choiceRes, linkRes, assignmentRes, eventRes] = await Promise.all([
+      const [roleRes, sessionRes, choiceRes, linkRes, assignmentRes, eventRes, reselectionRes] = await Promise.all([
         ids.length ? (supabase as any).from('ps_event_training_group_roles').select('*').in('training_group_id', ids) : Promise.resolve({ data: [], error: null }),
         (supabase as any).from('ps_event_training_sessions').select('*').eq('event_id', eventId).order('starts_at'),
         (supabase as any).from('ps_event_training_choices').select('*').eq('event_id', eventId),
         (supabase as any).from('ps_event_collaborators').select('id,collaborator_name,role_name,assigned_role').eq('event_id', eventId),
         (supabase as any).from('ps_event_collaborator_assignments').select('event_collaborator_id,role_value,role_name,is_primary').eq('event_id', eventId),
         (supabase as any).from('ps_events').select('id,name,date,location').eq('id', eventId).maybeSingle(),
+        (supabase as any).from('ps_training_reselection_requests').select('id,event_id,event_collaborator_id,training_group_id,cancelled_session_id,replacement_session_id,status,reason,created_at,used_at').eq('event_id', eventId),
       ]);
-      const error = roleRes.error || sessionRes.error || choiceRes.error || linkRes.error || assignmentRes.error || eventRes.error;
+      const error = roleRes.error || sessionRes.error || choiceRes.error || linkRes.error || assignmentRes.error || eventRes.error || reselectionRes.error;
       if (error) throw error;
       return {
         groups,
@@ -66,11 +88,12 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
         links: linkRes.data || [],
         assignments: assignmentRes.data || [],
         event: eventRes.data || null,
+        reselections: reselectionRes.data || [],
       };
     },
   });
 
-  const data = query.data || { groups: [], groupRoles: [], sessions: [], choices: [], links: [], assignments: [], event: null };
+  const data = query.data || { groups: [], groupRoles: [], sessions: [], choices: [], links: [], assignments: [], event: null, reselections: [] };
   const roleMap = useMemo(
     () => new Map<string, string>(roles.map((r: any) => [String(r.value), String(r.name)] as [string, string])),
     [roles]
@@ -308,10 +331,84 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
   };
 
   const toggleSession = async (session: any, active: boolean) => {
+    if (session.cancelled_at) return toast.error('Uma data cancelada não pode ser reativada. Crie uma nova data, se necessário.');
     const res = await (supabase as any).from('ps_event_training_sessions').update({ active }).eq('id', session.id).eq('event_id', eventId);
     if (res.error) return toast.error(res.error.message);
     await refresh();
     toast.success(active ? 'Data reativada.' : 'Data pausada.');
+  };
+
+  const openCancelSession = (session: any) => {
+    const alternatives = data.sessions.filter((item: any) =>
+      item.id !== session.id
+      && item.training_group_id === session.training_group_id
+      && item.active
+      && !item.cancelled_at
+    );
+    if (!alternatives.length) return toast.error('Cadastre ou ative outra data deste treinamento antes de cancelar.');
+    setCancelSession(session);
+    setCancelReason('');
+    setCancelOpen(true);
+  };
+
+  const cancelTrainingSession = async () => {
+    if (!cancelSession || !cancelReason.trim()) return toast.error('Informe o motivo do cancelamento.');
+    setCancelling(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('ps-event-communications', {
+        body: {
+          action: 'cancel_training_session',
+          eventId,
+          sessionId: cancelSession.id,
+          reason: cancelReason.trim(),
+          subject: RESELECTION_SUBJECT,
+          template: RESELECTION_TEMPLATE,
+          requestKey: crypto.randomUUID(),
+        },
+      });
+      if (error) throw error;
+      if (result?.error === 'no_alternative_training_session') throw new Error('Não existe outra data ativa para este treinamento.');
+      if (result?.error) throw new Error(result.error);
+      const affected = Number(result?.reselectionAffected || 0);
+      const sent = Number(result?.sent || 0);
+      const missing = Number(result?.missingRecipient || 0);
+      const pending = Number(result?.pending || 0);
+      toast.success(affected
+        ? `Data cancelada. ${sent} link(s) enviado(s)${pending ? `, ${pending} na fila` : ''}${missing ? ` e ${missing} fiscal(is) sem e-mail` : ''}.`
+        : 'Data cancelada. Não havia fiscais inscritos.');
+      setCancelOpen(false);
+      setCancelSession(null);
+      setCancelReason('');
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível cancelar a data.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const resendPendingReselections = async (session: any) => {
+    setResendingSessionId(String(session.id));
+    try {
+      const { data: result, error } = await supabase.functions.invoke('ps-event-communications', {
+        body: {
+          action: 'resend_training_reselection',
+          eventId,
+          sessionId: session.id,
+          subject: RESELECTION_SUBJECT,
+          template: RESELECTION_TEMPLATE,
+          requestKey: crypto.randomUUID(),
+        },
+      });
+      if (error) throw error;
+      if (result?.error) throw new Error(result.error);
+      toast.success(`${Number(result?.sent || 0)} link(s) reenviado(s).`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível reenviar os links.');
+    } finally {
+      setResendingSessionId(null);
+    }
   };
 
   const removeGroup = async (group: any) => {
@@ -434,8 +531,11 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                     {sessions.map((session: any) => {
                       const choices = groupChoices.filter((c: any) => c.training_session_id === session.id);
                       const full = !!session.capacity && choices.length >= session.capacity;
+                      const reselections = data.reselections.filter((request: any) => request.cancelled_session_id === session.id);
+                      const pendingReselections = reselections.filter((request: any) => request.status === 'pending');
+                      const completedReselections = reselections.filter((request: any) => request.status === 'completed');
                       return (
-                        <div key={session.id} className="rounded-xl border border-border/60 bg-muted/10 p-3">
+                        <div key={session.id} className={`rounded-xl border p-3 ${session.cancelled_at ? 'border-destructive/30 bg-destructive/5' : 'border-border/60 bg-muted/10'}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-sm font-semibold">{fmt(session.starts_at)}</p>
@@ -455,15 +555,20 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                               <Button size="icon" variant="ghost" title="Editar data" onClick={() => openEditSession(session)}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
-                              <Switch checked={!!session.active} onCheckedChange={active => void toggleSession(session, active)} />
+                              {!session.cancelled_at && <Switch checked={!!session.active} onCheckedChange={active => void toggleSession(session, active)} />}
+                              {!session.cancelled_at && <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" title="Cancelar data e enviar nova escolha" onClick={() => openCancelSession(session)}><CalendarX2 className="h-3.5 w-3.5" /></Button>}
                               <Button size="icon" variant="ghost" onClick={() => void removeSession(session)}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Badge variant={full ? 'secondary' : 'outline'}><Users className="mr-1 h-3 w-3" />{choices.length}{session.capacity ? `/${session.capacity}` : ''}</Badge>
-                            {!session.active && <Badge variant="outline">Pausada</Badge>}
+                            {session.cancelled_at ? <Badge variant="destructive">Cancelada</Badge> : !session.active && <Badge variant="outline">Pausada</Badge>}
                             {full && <Badge variant="secondary">Lotado</Badge>}
+                            {pendingReselections.length > 0 && <Badge variant="outline">{pendingReselections.length} aguardando nova escolha</Badge>}
+                            {completedReselections.length > 0 && <Badge variant="secondary">{completedReselections.length} remarcado(s)</Badge>}
                           </div>
+                          {session.cancelled_at && session.cancellation_reason && <p className="mt-2 rounded-lg border border-destructive/20 bg-background/50 px-3 py-2 text-xs"><strong>Motivo:</strong> {session.cancellation_reason}</p>}
+                          {pendingReselections.length > 0 && <div className="mt-2"><Button size="sm" variant="outline" disabled={resendingSessionId === session.id} onClick={() => void resendPendingReselections(session)}>{resendingSessionId === session.id ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1.5 h-3.5 w-3.5" />}Reenviar links pendentes</Button></div>}
                           {choices.length > 0 && (
                             <div className="mt-3 border-t pt-3">
                               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Escolhas registradas</p>
@@ -544,6 +649,25 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
       </DialogContent>
     </Dialog>
 
+    <Dialog open={cancelOpen} onOpenChange={open => { if (!cancelling) setCancelOpen(open); }}>
+      <DialogContent className="sm:max-w-xl" onInteractOutside={event => event.preventDefault()}>
+        <DialogHeader><DialogTitle>Cancelar data de treinamento</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-4 text-sm">
+            <p className="font-semibold">{fmt(cancelSession?.starts_at)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{[cancelSession?.campus, cancelSession?.location, cancelSession?.room && `Sala ${cancelSession.room}`].filter(Boolean).join(' · ')}</p>
+            <p className="mt-3">{cancelSession ? data.choices.filter((choice: any) => choice.training_session_id === cancelSession.id).length : 0} fiscal(is) serão avisados para escolher outra data.</p>
+          </div>
+          <div><Label>Motivo do cancelamento *</Label><Textarea rows={3} maxLength={500} value={cancelReason} onChange={event => setCancelReason(event.target.value)} placeholder="Ex.: indisponibilidade da sala" /></div>
+          <p className="text-xs text-muted-foreground">A data ficará cancelada e os fiscais inscritos receberão um link individual com as demais datas ativas deste treinamento. A confirmação de participação no evento não será alterada.</p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" disabled={cancelling} onClick={() => setCancelOpen(false)}>Voltar</Button>
+          <Button variant="destructive" disabled={cancelling || !cancelReason.trim()} onClick={() => void cancelTrainingSession()}>{cancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Cancelar data e enviar links</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <Dialog open={collaboratorDialogOpen} onOpenChange={setCollaboratorDialogOpen}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
@@ -562,7 +686,11 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
               value={selectedNewSession}
               onChange={(e) => setSelectedNewSession(e.target.value)}
             >
-              {data.sessions.map((session: any) => (
+              {data.sessions.filter((session: any) =>
+                session.training_group_id === selectedCollaborator?.choice?.training_group_id
+                && session.active
+                && !session.cancelled_at
+              ).map((session: any) => (
                 <option key={session.id} value={session.id}>
                   {fmt(session.starts_at)} - {session.campus} {session.room ? `Sala ${session.room}` : ''}
                 </option>

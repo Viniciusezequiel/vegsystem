@@ -102,6 +102,7 @@ import PsPublicSelfEvaluation from "./pages/processo-seletivo/public/PsPublicSel
 import PsPublicAttendance from "./pages/processo-seletivo/public/PsPublicAttendance";
 import PsPublicFiscalBank from "./pages/processo-seletivo/public/PsPublicFiscalBank";
 import PsPublicConfirmation from "./pages/processo-seletivo/public/PsPublicConfirmation";
+import PsPublicTrainingReselection from "./pages/processo-seletivo/public/PsPublicTrainingReselection";
 import PsEvaluatorPortal from "./pages/processo-seletivo/evaluator/PsEvaluatorPortal";
 
 
@@ -437,6 +438,7 @@ const App = () => (
               <Route path="/ps/presenca/:eventId/:eventCollaboratorId" element={<PsPublicAttendance />} />
               <Route path="/ps/confirmacao" element={<PsPublicConfirmation />} />
               <Route path="/ps/confirmacao/:eventId/:token" element={<PsPublicConfirmation />} />
+              <Route path="/ps/treinamento/:eventId/:token" element={<PsPublicTrainingReselection />} />
               <Route path="/ps/banco-fiscais" element={<PsPublicFiscalBank />} />
               <Route path="/ps/avaliador" element={<PsEvaluatorPortal />} />
               <Route path="/ps/avaliador/:eventId" element={<PsEvaluatorPortal />} />

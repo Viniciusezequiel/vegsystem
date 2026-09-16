@@ -123,6 +123,26 @@ export function renderConfirmationEmailHtml(text: string, fields: PsEmailInfoFie
   return renderEmailShell(body);
 }
 
+export function renderTrainingReselectionEmailHtml(text: string, fields: PsEmailInfoFields, reselectionUrl: string): string {
+  const safeUrl = escapeHtml(reselectionUrl);
+  const body = `
+    <p style="margin:0 0 16px;font-size:19px;line-height:24px;font-weight:bold;color:#111827;">Nova escolha de treinamento</p>
+    ${buildMessageBodyHtml(text)}
+    ${buildInfoCardHtml(fields)}
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
+      <tr>
+        <td style="border-radius:6px;background-color:${EMAIL_BRAND_COLOR};">
+          <a href="${safeUrl}" style="display:inline-block;padding:14px 32px;font-size:15px;line-height:20px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Escolher nova data</a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 20px;font-size:12px;line-height:16px;color:#6b7280;text-align:center;">Este link é individual, válido por 7 dias e pode ser utilizado uma única vez.</p>
+    <p style="margin:0 0 4px;font-size:13px;line-height:18px;color:#6b7280;">Se o botão não funcionar, copie e cole o endereço abaixo:</p>
+    <p style="margin:0;font-size:13px;line-height:18px;word-break:break-all;"><a href="${safeUrl}" style="color:${EMAIL_BRAND_COLOR};">${safeUrl}</a></p>`;
+
+  return renderEmailShell(body);
+}
+
 export function renderEventMessageEmailHtml(text: string, fields: PsEmailInfoFields): string {
   const body = `
     <p style="margin:0 0 16px;font-size:19px;line-height:24px;font-weight:bold;color:#111827;">Convocação para Processo Seletivo</p>

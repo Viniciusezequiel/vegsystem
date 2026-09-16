@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.86.2';
 import { configuredEmailProvider } from '../_shared/emailProvider.ts';
-import { renderConfirmationEmailHtml, renderEventMessageEmailHtml } from '../_shared/emailTemplates.ts';
+import { renderConfirmationEmailHtml, renderEventMessageEmailHtml, renderTrainingReselectionEmailHtml } from '../_shared/emailTemplates.ts';
 import { selectJobsForProcessing } from '../_shared/testModeBatch.ts';
 
 const cors={
@@ -10,9 +10,9 @@ const cors={
   'Content-Type':'application/json',
 };
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const allowedTypes=new Set(['confirmation_request','event_message']);
-const allowedActions=new Set(['enqueue','retry','config','process_queue','process_queue_worker']);
-const PS_VARIABLE_KEYS=['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'];
+const allowedTypes=new Set(['confirmation_request','event_message','training_reselection']);
+const allowedActions=new Set(['enqueue','retry','config','process_queue','process_queue_worker','cancel_training_session','resend_training_reselection']);
+const PS_VARIABLE_KEYS=['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao','link_treinamento','motivo_cancelamento'];
 const render=(template:string,values:Record<string,string>)=>PS_VARIABLE_KEYS.reduce((text,key)=>text.replaceAll(`{{${key}}}`,values[key]||''),template);
 const formatDateBR=(value?:string|null)=>{const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return match?`${match[3]}/${match[2]}/${match[1]}`:'';};
 const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -141,10 +141,78 @@ serve(async req=>{
     const provider=configuredEmailProvider();
     const quotaDate=new Date().toISOString().slice(0,10);
     let jobs:any[]=[];
+    let reselectionAffected=0;
     const {data:event}=await admin.from('ps_events').select('id,name,date,location,description,coordinator_name').eq('id',eventId).maybeSingle();
     if(!event) return json({error:'event_not_found'},404);
 
-    if(action==='enqueue'){
+    if(action==='cancel_training_session'||action==='resend_training_reselection'){
+      const sessionId=String(input.sessionId||'');
+      const subject=String(input.subject||'').trim();
+      const template=String(input.template||'');
+      const requestKey=String(input.requestKey||'');
+      if(!uuid.test(sessionId)||!subject||subject.length>200||!template||template.length>10000||!uuid.test(requestKey)) return json({error:'invalid_training_reselection'},400);
+
+      let requests:any[]=[];
+      if(action==='cancel_training_session'){
+        const reason=String(input.reason||'').trim();
+        if(!reason||reason.length>500) return json({error:'invalid_cancellation_reason'},400);
+        const {data,error}=await admin.rpc('ps_cancel_training_session',{p_session_id:sessionId,p_reason:reason,p_created_by:userId||null});
+        if(error){
+          if(String(error.message||'').includes('no_alternative_training_session')) return json({error:'no_alternative_training_session'},400);
+          throw error;
+        }
+        requests=data||[];
+      }else{
+        const {data,error}=await admin.from('ps_training_reselection_requests')
+          .select('id,event_id,event_collaborator_id,training_group_id')
+          .eq('event_id',eventId)
+          .eq('cancelled_session_id',sessionId)
+          .eq('status','pending');
+        if(error) throw error;
+        requests=data||[];
+      }
+
+      reselectionAffected=requests.length;
+      if(requests.length){
+        const linkIds=[...new Set(requests.map(request=>String(request.event_collaborator_id)))];
+        const {data:links,error:linksError}=await admin.from('ps_event_collaborators')
+          .select('id,event_id,email,participation_status')
+          .eq('event_id',eventId)
+          .in('id',linkIds);
+        if(linksError||links?.length!==linkIds.length) return json({error:'recipient_scope_mismatch'},400);
+        const linkById=new Map((links||[]).map(link=>[String(link.id),link]));
+        const batchId=crypto.randomUUID();
+        const rows=[];
+        for(const request of requests){
+          const link=linkById.get(String(request.event_collaborator_id));
+          const logical=String(link?.email||'').trim()||null;
+          const key=await hash(`${eventId}:${request.id}:training_reselection:${requestKey}`);
+          rows.push({
+            batch_id:batchId,
+            event_id:eventId,
+            event_collaborator_id:request.event_collaborator_id,
+            communication_type:'training_reselection',
+            training_reselection_request_id:request.id,
+            logical_recipient:logical,
+            actual_recipient:logical?(testMode?testRecipient:logical):null,
+            subject:testMode?`[TESTE VEG SYSTEM] ${subject}`:subject,
+            body_template:template,
+            status:logical?'pending':'failed_missing_recipient',
+            provider:providerName,
+            test_mode:testMode,
+            idempotency_key:key,
+            created_by:userId,
+            failed_at:logical?null:new Date().toISOString(),
+            last_error:logical?null:'missing_recipient',
+          });
+        }
+        const {error:insertError}=await admin.from('ps_event_communications').upsert(rows,{onConflict:'idempotency_key',ignoreDuplicates:true});
+        if(insertError) throw insertError;
+        const keys=rows.map(row=>row.idempotency_key);
+        const {data}=await admin.from('ps_event_communications').select('*').in('idempotency_key',keys);
+        jobs=data||[];
+      }
+    }else if(action==='enqueue'){
       const ids=Array.isArray(input.eventCollaboratorIds)?[...new Set(input.eventCollaboratorIds.map(String))]:[];
       if(!ids.length||ids.length>1000||ids.some(id=>!uuid.test(id))) return json({error:'invalid_recipients'},400);
       const type=String(input.communicationType||'');
@@ -213,7 +281,7 @@ serve(async req=>{
       details:[] as Array<Record<string,unknown>>,
     };
 
-    const eligibleJobs:{job:any;link:any;logical:string}[]=[];
+    const eligibleJobs:{job:any;link:any;logical:string;reselection:any|null}[]=[];
     for(const job of processingJobs){
       if(!['pending','waiting_provider_quota','failed','failed_missing_recipient'].includes(job.status)){
         result.details.push({id:job.id,status:job.status});
@@ -239,6 +307,21 @@ serve(async req=>{
         continue;
       }
 
+      let reselection=null;
+      if(job.communication_type==='training_reselection'){
+        const {data:request}=await admin.from('ps_training_reselection_requests')
+          .select('id,status,reason')
+          .eq('id',job.training_reselection_request_id)
+          .eq('event_id',eventId)
+          .maybeSingle();
+        if(!request||request.status!=='pending'){
+          await admin.from('ps_event_communications').update({status:'cancelled',last_error:'training_reselection_not_pending',updated_at:new Date().toISOString()}).eq('id',job.id);
+          result.details.push({id:job.id,status:'cancelled'});
+          continue;
+        }
+        reselection=request;
+      }
+
       const logical=String(link.email||'').trim();
       if(!logical){
         await admin.from('ps_event_communications').update({status:'failed_missing_recipient',failed_at:new Date().toISOString(),last_error:'missing_recipient',updated_at:new Date().toISOString()}).eq('id',job.id);
@@ -247,7 +330,7 @@ serve(async req=>{
         continue;
       }
 
-      eligibleJobs.push({job,link,logical});
+      eligibleJobs.push({job,link,logical,reselection});
     }
 
     const {selected:selectedForProcessing,deferred:deferredJobs}=selectJobsForProcessing(eligibleJobs,{testMode,testBatchLimit});
@@ -256,7 +339,7 @@ serve(async req=>{
       result.details.push({id:job.id,status:job.status});
     }
 
-    for(const {job,link,logical} of selectedForProcessing){
+    for(const {job,link,logical,reselection} of selectedForProcessing){
       let quotaReserved=false;
       if(!testMode){
         const {data:quota,error:quotaError}=await admin.rpc('ps_reserve_email_daily_quota',{p_provider:provider.name,p_quota_date:quotaDate,p_daily_limit:dailyLimit});
@@ -289,12 +372,20 @@ serve(async req=>{
 
       try{
         let confirmationUrl='';
+        let trainingReselectionUrl='';
         let version=null;
         if(job.communication_type==='confirmation_request'){
           const {data:prepared,error}=await admin.rpc('ps_prepare_confirmation_communication',{p_link_id:link.id});
           if(error||!prepared?.[0]?.token) throw new Error('confirmation_token_failed');
           version=prepared[0].token_version;
           confirmationUrl=`https://www.vegsystem.site/ps/confirmacao/${eventId}/${prepared[0].token}`;
+          const {error:updateVersionError}=await admin.from('ps_event_communications').update({confirmation_token_version:version}).eq('id',job.id);
+          if(updateVersionError) throw updateVersionError;
+        }else if(job.communication_type==='training_reselection'){
+          const {data:prepared,error}=await admin.rpc('ps_prepare_training_reselection_communication',{p_request_id:reselection.id});
+          if(error||!prepared?.[0]?.token) throw new Error('training_reselection_token_failed');
+          version=prepared[0].token_version;
+          trainingReselectionUrl=`https://www.vegsystem.site/ps/treinamento/${eventId}/${prepared[0].token}`;
           const {error:updateVersionError}=await admin.from('ps_event_communications').update({confirmation_token_version:version}).eq('id',job.id);
           if(updateVersionError) throw updateVersionError;
         }
@@ -316,13 +407,17 @@ serve(async req=>{
           descricao_evento:event.description||'',
           coordenador_evento:event.coordinator_name||'',
           link_confirmacao:confirmationUrl,
+          link_treinamento:trainingReselectionUrl,
+          motivo_cancelamento:reselection?.reason||'',
         };
         const text=render(job.body_template,values);
         const renderedSubject=render(job.subject,values);
         const infoFields={evento:values.evento,data_evento:values.data_evento,cargo:values.cargo,campus:values.campus,unidade:values.unidade,predio:values.predio,andar:values.andar,sala:values.sala,horario:values.horario};
         const html=job.communication_type==='confirmation_request'
           ?renderConfirmationEmailHtml(text,infoFields,confirmationUrl)
-          :renderEventMessageEmailHtml(text,infoFields);
+          :job.communication_type==='training_reselection'
+            ?renderTrainingReselectionEmailHtml(text,infoFields,trainingReselectionUrl)
+            :renderEventMessageEmailHtml(text,infoFields);
         const delivered=await provider.send({to:testMode?testRecipient:logical,subject:renderedSubject,text,html,metadata:{module:'process-selection',event_id:eventId,type:job.communication_type}});
 
         await admin.from('ps_event_communications').update({
@@ -346,12 +441,12 @@ serve(async req=>{
       }
     }
 
-    if(!testMode&&cronSecret&&['enqueue','process_queue_worker'].includes(action)&&await hasEligibleQueue(admin,eventId,quotaDate)){
+    if(!testMode&&cronSecret&&['enqueue','cancel_training_session','resend_training_reselection','process_queue_worker'].includes(action)&&await hasEligibleQueue(admin,eventId,quotaDate)){
       scheduleWorker(url,serviceRoleKey,cronSecret,eventId);
     }
 
     const diagnostics=testMode?{testBatchLimit,eligibleCount:eligibleJobs.length,selectedForProcessing:selectedForProcessing.length}:{};
-    return json({mode:testMode?'test':'production',provider:provider.name,...result,...diagnostics});
+    return json({mode:testMode?'test':'production',provider:provider.name,reselectionAffected,...result,...diagnostics});
   }catch(error){
     console.error('ps-event-communications failed',{message:error instanceof Error?error.message:'internal_error'});
     return json({error:'internal_error'},500);

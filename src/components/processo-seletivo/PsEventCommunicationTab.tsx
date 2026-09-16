@@ -41,6 +41,12 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Cancelado',
 };
 
+const communicationTypeLabel: Record<string, string> = {
+  confirmation_request: 'Solicitação de confirmação',
+  event_message: 'Mensagem do evento',
+  training_reselection: 'Nova escolha de treinamento',
+};
+
 const VARIABLE_CHIPS: { label: string; token: string; confirmationOnly?: boolean }[] = [
   { label: 'Nome', token: 'nome' },
   { label: 'Evento', token: 'evento' },
@@ -461,7 +467,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
         <CardContent className="space-y-2">
           {history.slice(0, 20).map((job: any) => (
             <div key={job.id} className="flex flex-wrap justify-between gap-2 border-b py-2 text-sm">
-              <span>{links.find((link) => link.id === job.event_collaborator_id)?.collaborator_name || 'Fiscal'} · {job.communication_type}</span>
+              <span>{links.find((link) => link.id === job.event_collaborator_id)?.collaborator_name || 'Fiscal'} · {communicationTypeLabel[job.communication_type] || job.communication_type}</span>
               <span>{statusLabel[job.status] || job.status} · tentativa {job.attempt_count}</span>
             </div>
           ))}

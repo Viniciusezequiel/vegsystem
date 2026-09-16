@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20260910124500_ps_multi_roles_and_training.sql'), 'utf8');
 const confirmation = fs.readFileSync(path.join(root, 'src/pages/processo-seletivo/public/PsPublicConfirmation.tsx'), 'utf8');
+const reselectionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260916161959_ps_training_session_reselection.sql'), 'utf8');
+const reselectionPage = fs.readFileSync(path.join(root, 'src/pages/processo-seletivo/public/PsPublicTrainingReselection.tsx'), 'utf8');
+const trainingTab = fs.readFileSync(path.join(root, 'src/components/processo-seletivo/PsEventTrainingTab.tsx'), 'utf8');
 const home = fs.readFileSync(path.join(root, 'src/pages/processo-seletivo/PsHome.tsx'), 'utf8');
 
 test('migração cria atribuições filhas e mantém uma principal por vínculo', () => {
@@ -69,6 +72,27 @@ test('novas tabelas usam RLS e não concedem leitura direta ao anon', () => {
     assert.match(migration, new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY`));
     assert.doesNotMatch(migration, new RegExp(`GRANT (?:SELECT|ALL)[^\\n]*${table} TO anon`));
   }
+});
+
+test('cancelamento mantém histórico e cria remarcação por token individual', () => {
+  assert.match(reselectionMigration, /ps_training_reselection_requests/);
+  assert.match(reselectionMigration, /cancelled_session_id uuid NOT NULL/);
+  assert.match(reselectionMigration, /token_hash text/);
+  assert.match(reselectionMigration, /encode\(extensions\.digest\(p_token, 'sha256'\), 'hex'\)/);
+  assert.match(reselectionMigration, /status = 'completed'/);
+  assert.match(reselectionMigration, /UPDATE public\.ps_event_training_choices/);
+  assert.doesNotMatch(reselectionMigration, /GRANT (?:SELECT|ALL)[^\n]*ps_training_reselection_requests TO anon/);
+});
+
+test('remarcação pública mostra apenas datas ativas do mesmo grupo e preserva a confirmação do evento', () => {
+  assert.match(reselectionMigration, /session\.training_group_id = v_request\.training_group_id/);
+  assert.match(reselectionMigration, /session\.active = true/);
+  assert.match(reselectionMigration, /training_session_full/);
+  assert.match(reselectionPage, /ps_public_get_training_reselection/);
+  assert.match(reselectionPage, /ps_public_set_training_reselection/);
+  assert.match(trainingTab, /Cancelar data e enviar links/);
+  assert.match(trainingTab, /Reenviar links pendentes/);
+  assert.match(trainingTab, /Sua confirmação de participação no evento permanece válida/);
 });
 
 test('central mantém sidebar global e expõe os novos fluxos', () => {

@@ -23,7 +23,7 @@ async function importDenoModule(relativePath){
   try { return await import(`file://${tmpFile}`); } finally { fs.unlinkSync(tmpFile); }
 }
 
-const { renderConfirmationEmailHtml, renderEventMessageEmailHtml, escapeHtml, linkifyEscapedText } = await importDenoModule('../../supabase/functions/_shared/emailTemplates.ts');
+const { renderConfirmationEmailHtml, renderEventMessageEmailHtml, renderTrainingReselectionEmailHtml, escapeHtml, linkifyEscapedText } = await importDenoModule('../../supabase/functions/_shared/emailTemplates.ts');
 const { selectJobsForProcessing } = await importDenoModule('../../supabase/functions/_shared/testModeBatch.ts');
 
 
@@ -176,6 +176,16 @@ test('event_message preserva texto livre editável, transforma apenas URLs http/
   assert.doesNotMatch(html,/Confirmar participação/);
 });
 
+test('remarcação de treinamento usa botão dedicado e mantém conteúdo escapado',()=>{
+  const url='https://www.vegsystem.site/ps/treinamento/e/t';
+  const html=renderTrainingReselectionEmailHtml('Motivo: <b>mudança</b>',{evento:'Vestibular'},url);
+  assert.match(html,/Nova escolha de treinamento/);
+  assert.match(html,/Escolher nova data/);
+  assert.match(html,new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  assert.doesNotMatch(html,/<b>mudança<\/b>/);
+  assert.match(html,/&lt;b&gt;mudança&lt;\/b&gt;/);
+});
+
 test('escapeHtml/linkifyEscapedText não interpretam HTML fornecido pelo usuário',()=>{
   assert.equal(escapeHtml('<script>alert(1)</script>'),'&lt;script&gt;alert(1)&lt;/script&gt;');
   const linked=linkifyEscapedText(escapeHtml('veja http://a.b/c?x=1&y=2.'));
@@ -183,16 +193,17 @@ test('escapeHtml/linkifyEscapedText não interpretam HTML fornecido pelo usuári
 });
 
 test('edge function gera HTML dedicado por tipo, renderiza o assunto e mantém text/plain como fallback',()=>{
-  assert.match(edge,/import \{ renderConfirmationEmailHtml, renderEventMessageEmailHtml \} from '\.\.\/_shared\/emailTemplates\.ts'/);
+  assert.match(edge,/import \{ renderConfirmationEmailHtml, renderEventMessageEmailHtml, renderTrainingReselectionEmailHtml \} from '\.\.\/_shared\/emailTemplates\.ts'/);
   assert.match(edge,/job\.communication_type==='confirmation_request'\s*\?\s*renderConfirmationEmailHtml\(text,infoFields,confirmationUrl\)/);
+  assert.match(edge,/job\.communication_type==='training_reselection'\s*\?renderTrainingReselectionEmailHtml\(text,infoFields,trainingReselectionUrl\)/);
   assert.match(edge,/:\s*renderEventMessageEmailHtml\(text,infoFields\)/);
   assert.match(edge,/const renderedSubject=render\(job\.subject,values\);/);
   assert.match(edge,/provider\.send\(\{to:testMode\?testRecipient:logical,subject:renderedSubject,text,html,/);
   assert.doesNotMatch(edge,/white-space:pre-wrap;font-family:Arial,sans-serif/);
 });
 
-test('edge function busca os novos campos de ps_events/ps_event_collaborators e expõe as 16 variáveis novas',()=>{
-  assert.match(edge,/PS_VARIABLE_KEYS=\['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao'\]/);
+test('edge function busca os campos de evento/colaborador e expõe também as variáveis da remarcação',()=>{
+  assert.match(edge,/PS_VARIABLE_KEYS=\['nome','evento','cargo','unidade','campus','instituicao','setor','predio','andar','sala','horario','data_evento','local_evento','descricao_evento','coordenador_evento','link_confirmacao','link_treinamento','motivo_cancelamento'\]/);
   assert.match(edge,/from\('ps_events'\)\.select\('id,name,date,location,description,coordinator_name'\)/);
   assert.match(edge,/select\('id,event_id,collaborator_name,email,role_name,assigned_role,unit,campus,institution,sector,building,floor,room,work_schedule,participation_status'\)/);
   assert.match(edge,/formatDateBR=\(value\?:string\|null\)=>\{const match=String\(value\|\|''\)\.match/);
@@ -224,10 +235,10 @@ test('produção (testMode=false) não é limitada pelo corte estrutural de TEST
 
 test('edge function usa exatamente selectJobsForProcessing (mesma lógica, não um contador solto) e não chama provider.send() para jobs adiados',()=>{
   assert.match(edge,/import \{ selectJobsForProcessing \} from '\.\.\/_shared\/testModeBatch\.ts'/);
-  assert.match(edge,/const eligibleJobs:\{job:any;link:any;logical:string\}\[\]=\[\];/);
+  assert.match(edge,/const eligibleJobs:\{job:any;link:any;logical:string;reselection:any\|null\}\[\]=\[\];/);
   assert.match(edge,/const \{selected:selectedForProcessing,deferred:deferredJobs\}=selectJobsForProcessing\(eligibleJobs,\{testMode,testBatchLimit\}\);/);
   assert.match(edge,/for\s*\(const\s*\{job\}\s*of\s*deferredJobs\)\s*\{\s*result\.pending\+\+;\s*result\.details\.push\(\{id:job\.id,status:job\.status\}\);\s*\}/);
-  assert.match(edge,/for\(const \{job,link,logical\} of selectedForProcessing\)\{/);
+  assert.match(edge,/for\(const \{job,link,logical,reselection\} of selectedForProcessing\)\{/);
   // provider.send só pode existir dentro do loop de selectedForProcessing.
   const sendCallCount=(edge.match(/=await provider\.send\(/g)||[]).length; assert.equal(sendCallCount,1);
   assert.doesNotMatch(edge,/let testProcessed/); assert.doesNotMatch(edge,/alreadySentTestCount/);
