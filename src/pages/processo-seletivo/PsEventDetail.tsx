@@ -10,13 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
 import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventTeamImportDialog';
 import { PsEventCommunicationTab } from '@/components/processo-seletivo/PsEventCommunicationTab';
 import { PsEventCollaboratorEditDialog } from '@/components/processo-seletivo/PsEventCollaboratorEditDialog';
+import { PsEventWorkspaceNav } from '@/components/processo-seletivo/PsEventWorkspaceNav';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
@@ -26,7 +27,7 @@ import {
 import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psConfirmationState.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { ArrowLeft, Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -58,6 +59,7 @@ export default function PsEventDetail() {
   const confirmationActions = usePsConfirmationActions(id);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('visao-geral');
   const [importOpen, setImportOpen] = useState(false);
   const [editLink, setEditLink] = useState<any>(null);
   const [searchFiscal, setSearchFiscal] = useState('');
@@ -1073,66 +1075,75 @@ export default function PsEventDetail() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="rounded-2xl border bg-background/80 p-4 backdrop-blur-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3">
-              <Button asChild variant="ghost" size="icon"><Link to="/admin-module/processo-seletivo/eventos"><ArrowLeft className="h-4 w-4" /></Link></Button>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-bold sm:text-2xl">{event.name}</h1>
-                  <Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'}>{PS_EVENT_STATUS[event.status]}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR')} · {event.location || 'Local não informado'}
-                </p>
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        orientation="vertical"
+        className="ps-event-workspace"
+      >
+        <PsEventWorkspaceNav
+          event={event}
+          eventId={id!}
+          teamCount={links.length}
+          candidateCount={candidates.length}
+          pendingConfirmationCount={links.filter((link: any) => link.participation_status === 'pending_confirmation').length}
+          selfEvaluationCount={selfEvaluations.length}
+        />
+
+        <div className="ps-event-workspace__content">
+          <header className="ps-event-hero">
+            <div className="ps-event-hero__copy">
+              <p className="ps-event-hero__eyebrow">Processo Seletivo · Gestão do evento</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1>{event.name}</h1>
+                <Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'}>
+                  {PS_EVENT_STATUS[event.status]}
+                </Badge>
               </div>
+              <p>
+                {new Date(`${event.date}T00:00:00`).toLocaleDateString('pt-BR')} · {event.location || 'Local não informado'}
+              </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+
+            <div className="ps-event-hero__actions">
               <Button variant="outline" onClick={exportBadges}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
               <Button asChild variant="outline"><Link to={`/admin-module/processo-seletivo/eventos/${id}/avaliadores`}><ShieldCheck className="mr-2 h-4 w-4" />Equipe de avaliação</Link></Button>
               <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
               <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />XLSX</Button>
               {event.status !== 'finalizado' && (
-                <Button onClick={() => { if (confirm('Finalizar evento?')) finalize.mutate(event.id); }}>
+                <Button className="ps-gradient-button" onClick={() => { if (confirm('Finalizar evento?')) finalize.mutate(event.id); }}>
                   <CheckCircle2 className="mr-2 h-4 w-4" />Finalizar
                 </Button>
               )}
             </div>
-          </div>
-        </div>
+          </header>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="rounded-2xl"><CardContent className="p-3"><p className="text-xs text-muted-foreground">Equipe</p><p className="mt-1 text-2xl font-bold">{links.length}</p></CardContent></Card>
-          <Card className="rounded-2xl"><CardContent className="p-3"><p className="text-xs text-muted-foreground">Presentes</p><p className="mt-1 text-2xl font-bold">{links.filter((l: any) => l.present).length}</p></CardContent></Card>
-          <Card className="rounded-2xl"><CardContent className="p-3"><p className="text-xs text-muted-foreground">Ausentes</p><p className="mt-1 text-2xl font-bold">{links.filter((l: any) => l.absent).length}</p></CardContent></Card>
-          <Card className="rounded-2xl"><CardContent className="p-3"><p className="text-xs text-muted-foreground">Avaliações</p><p className="mt-1 text-2xl font-bold">{links.filter((l: any) => l.evaluated).length}</p></CardContent></Card>
-        </div>
+          <section className="ps-event-stats" aria-label="Resumo do evento">
+            <Card className="ps-event-stat ps-event-stat--violet"><CardContent><p>Equipe</p><strong>{links.length}</strong><span>fiscais vinculados</span></CardContent></Card>
+            <Card className="ps-event-stat ps-event-stat--green"><CardContent><p>Presentes</p><strong>{links.filter((l: any) => l.present).length}</strong><span>presenças registradas</span></CardContent></Card>
+            <Card className="ps-event-stat ps-event-stat--rose"><CardContent><p>Ausentes</p><strong>{links.filter((l: any) => l.absent).length}</strong><span>ausências registradas</span></CardContent></Card>
+            <Card className="ps-event-stat ps-event-stat--blue"><CardContent><p>Avaliações</p><strong>{links.filter((l: any) => l.evaluated).length}</strong><span>avaliações concluídas</span></CardContent></Card>
+          </section>
 
-        <Tabs defaultValue="visao-geral">
-          <div className="w-full overflow-x-auto overflow-y-hidden scrollbar-none">
-            <TabsList className="w-max min-w-full flex-nowrap">
-              <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
-              <TabsTrigger value="fiscais">Equipe</TabsTrigger>
-              <TabsTrigger value="confirmacoes">Confirmações</TabsTrigger>
-              <TabsTrigger value="comunicacao">Comunicação</TabsTrigger>
-              <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
-              <TabsTrigger value="presenca">Presença</TabsTrigger>
-              <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
-              <TabsTrigger value="auto" className="shrink-0">
-                Autoavaliações
-                {selfEvaluations.length > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-2 px-1.5 py-0 text-[10px]"
-                  >
-                    {selfEvaluations.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
-            </TabsList>
+          <div className="ps-event-mobile-nav">
+            <Label htmlFor="ps-event-section">Área do evento</Label>
+            <Select value={activeTab} onValueChange={setActiveTab}>
+              <SelectTrigger id="ps-event-section"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="visao-geral">Visão geral</SelectItem>
+                <SelectItem value="fiscais">Equipe</SelectItem>
+                <SelectItem value="confirmacoes">Confirmações</SelectItem>
+                <SelectItem value="comunicacao">Envios</SelectItem>
+                <SelectItem value="candidatos">Candidatos</SelectItem>
+                <SelectItem value="presenca">Presença</SelectItem>
+                <SelectItem value="avaliacoes">Avaliações</SelectItem>
+                <SelectItem value="auto">Autoavaliações</SelectItem>
+                <SelectItem value="configuracoes">Configurações</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          <div className="ps-event-workspace__panel">
 
           <TabsContent value="visao-geral" className="space-y-4 pt-4">
             <Card className="rounded-2xl">
@@ -2087,8 +2098,9 @@ export default function PsEventDetail() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
-      </div>
+          </div>
+        </div>
+      </Tabs>
 
       {/* Fechamento de presença por prédio */}
       <Dialog

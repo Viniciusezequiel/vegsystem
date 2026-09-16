@@ -72,11 +72,12 @@ export default function PsEvents() {
 
   return (
     <MainLayout>
+      <div className="ps-module-modern">
       <PageHeader
         title="Eventos"
         description="Cadastre e acompanhe os processos seletivos, datas, locais e responsáveis."
         actions={
-          <Button size="sm" onClick={openCreate}>
+          <Button size="sm" className="ps-gradient-button" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Novo evento
           </Button>
@@ -111,7 +112,7 @@ export default function PsEvents() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((event: any) => (
-            <Card key={event.id} className="group border-border/60 bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/85 hover:shadow-md">
+            <Card key={event.id} className="ps-gradient-surface group border-border/60 bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/85 hover:shadow-md">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -216,6 +217,7 @@ export default function PsEvents() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </MainLayout>
   );
 }

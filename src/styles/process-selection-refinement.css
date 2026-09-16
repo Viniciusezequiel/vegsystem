@@ -5,72 +5,6 @@
  */
 
 /* -------------------------------------------------------------------------- */
-/* Detalhe do Evento                                                          */
-/* Escopo: link real da Equipe de Avaliação, exclusivo do detalhe do evento. */
-/* -------------------------------------------------------------------------- */
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) .rounded-2xl {
-  border-radius: 0.75rem !important;
-}
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tablist"] {
-  gap: 0.125rem;
-  padding: 0.25rem;
-  overflow-x: auto;
-  border: 1px solid hsl(var(--border) / 0.6);
-  border-radius: 0.75rem;
-  background: hsl(var(--muted) / 0.25);
-  scrollbar-width: thin;
-}
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tab"] {
-  min-height: 2.25rem;
-  flex: 0 0 auto;
-  border-radius: 0.5rem;
-  padding-inline: 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: hsl(var(--muted-foreground));
-  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
-}
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tab"][data-state="active"] {
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
-}
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] > .rounded-2xl,
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] > .grid > .rounded-2xl {
-  border-color: hsl(var(--border) / 0.6);
-  background: hsl(var(--card) / 0.72);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.035);
-}
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] .divide-y > * {
-  border-color: hsl(var(--border) / 0.5);
-}
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] input,
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] textarea,
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] button[role="combobox"] {
-  border-color: hsl(var(--border) / 0.75);
-}
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] input:focus-visible,
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] textarea:focus-visible,
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] button[role="combobox"]:focus-visible {
-  border-color: hsl(var(--primary) / 0.45);
-  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.12);
-}
-
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] .text-2xl.font-bold,
-body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tabpanel"] .text-3xl.font-bold {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.025em;
-}
-
-/* -------------------------------------------------------------------------- */
 /* Presença Pública — lista                                                   */
 /* -------------------------------------------------------------------------- */
 
@@ -141,11 +75,6 @@ body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .border-emerald-500\
 }
 
 @media (max-width: 640px) {
-  body:has(a[href*="/admin-module/processo-seletivo/eventos/"][href$="/avaliadores"]) [role="tablist"] {
-    justify-content: flex-start;
-    flex-wrap: nowrap !important;
-  }
-
   body:has(input[placeholder="Digite os 11 dígitos do CPF"]) .max-w-3xl {
     padding-block: 0.5rem;
   }
