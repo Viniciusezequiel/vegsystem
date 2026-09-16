@@ -7,6 +7,7 @@ const EVENT = { name: 'Processo Seletivo 2026 - Campus Central', date: '2026-09-
 
 const sourcePdf = fs.readFileSync(new URL('../../src/lib/psEventPdf.ts', import.meta.url), 'utf8');
 const sourceTabs = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
+const sourceEventNav = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventWorkspaceNav.tsx', import.meta.url), 'utf8');
 const sourceGlobalTabs = fs.readFileSync(new URL('../../src/components/ui/tabs.tsx', import.meta.url), 'utf8');
 
 const sheet = {
@@ -63,17 +64,14 @@ test('CC182 physical page size is compatible with jsPDF', () => {
   assert.match(sourcePdf, /pcd_type/i);
 });
 
-test('process selection tabs are scrollable only in the screen-specific container', () => {
-  const mainTabsWrapper = sourceTabs.match(/<div className="w-full overflow-x-auto overflow-y-hidden scrollbar-none">[\s\S]*?<TabsList className="w-max min-w-full flex-nowrap">[\s\S]*?<\/TabsList>[\s\S]*?<\/div>/)?.[0] ?? '';
-
-  assert.ok(mainTabsWrapper.includes('overflow-x-auto'));
-  assert.ok(mainTabsWrapper.includes('overflow-y-hidden'));
-  assert.ok(mainTabsWrapper.includes('scrollbar-none'));
-  assert.ok(mainTabsWrapper.includes('w-max'));
-  assert.ok(mainTabsWrapper.includes('min-w-full'));
-  assert.ok(mainTabsWrapper.includes('flex-nowrap'));
-  assert.match(sourceTabs, /TabsTrigger value="auto" className="shrink-0"/);
-  assert.doesNotMatch(mainTabsWrapper, /overflow-y-auto/i);
+test('process selection uses contextual navigation without a horizontal scrolling tab bar', () => {
+  assert.match(sourceTabs, /orientation="vertical"/);
+  assert.match(sourceTabs, /PsEventWorkspaceNav/);
+  assert.match(sourceEventNav, /className="ps-event-nav__list"/);
+  assert.match(sourceEventNav, /value: 'auto', label: 'Autoavaliações'/);
+  assert.match(sourceEventNav, /value: 'fiscais', label: 'Equipe'/);
+  assert.match(sourceEventNav, /value: 'confirmacoes', label: 'Confirmações'/);
+  assert.doesNotMatch(sourceTabs, /overflow-x-auto overflow-y-hidden scrollbar-none/);
 
   assert.doesNotMatch(sourceGlobalTabs, /overflow-x-auto/i);
   assert.doesNotMatch(sourceGlobalTabs, /scrollbar-none/i);

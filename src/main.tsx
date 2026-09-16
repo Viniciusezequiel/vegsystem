@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import "./styles/process-selection-refinement.css";
+import "./styles/process-selection-modern.css";
 import { assertSupabaseEnv } from "./lib/envCheck";
 import { setupNotificationChannel } from "./hooks/useNativeNotifications";
 import { installActivityAutoLog } from "./lib/activityAutoLog";

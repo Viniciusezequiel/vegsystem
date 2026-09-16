@@ -41,9 +41,10 @@ test('avaliação pública legada redireciona para o portal seguro do avaliador'
   );
 });
 
-test('detalhe do evento restaura a aba de candidatos sem perder o layout por abas', () => {
+test('detalhe do evento mantém candidatos na navegação contextual', () => {
   const eventDetailSource = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
-  assert.match(eventDetailSource, /TabsTrigger value="candidatos">Candidatos<\/TabsTrigger>/);
+  const eventNavSource = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventWorkspaceNav.tsx', import.meta.url), 'utf8');
+  assert.match(eventNavSource, /value: 'candidatos', label: 'Candidatos'/);
   assert.match(eventDetailSource, /TabsContent value="candidatos"/);
   assert.match(eventDetailSource, /Importar candidatos/);
   assert.match(eventDetailSource, /Etiquetas/);
@@ -52,9 +53,10 @@ test('detalhe do evento restaura a aba de candidatos sem perder o layout por aba
 
 test('aba de confirmações e rota pública ficam preparadas no contrato do módulo', () => {
   const eventDetailSource = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
+  const eventNavSource = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventWorkspaceNav.tsx', import.meta.url), 'utf8');
   const appSource = fs.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 
-  assert.match(eventDetailSource, /TabsTrigger value="confirmacoes">Confirmações<\/TabsTrigger>/);
+  assert.match(eventNavSource, /value: 'confirmacoes', label: 'Confirmações'/);
   assert.match(eventDetailSource, /Aguardando confirma[çc]ã?o/);
   assert.match(eventDetailSource, /Confirmados|Recusaram|Substituídos/);
   assert.match(appSource, /\/ps\/confirmacao/);

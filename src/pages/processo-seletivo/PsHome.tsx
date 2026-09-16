@@ -34,7 +34,7 @@ type ActionCardProps = {
 
 function ActionCard({ title, description, icon: Icon, onClick, href, badge }: ActionCardProps) {
   const content = (
-    <div className="group flex h-full items-center gap-4 rounded-2xl border border-border/60 bg-card/65 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/85 hover:shadow-md">
+    <div className="ps-gradient-surface group flex h-full items-center gap-4 rounded-2xl border border-border/60 bg-card/65 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/85 hover:shadow-md">
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="h-5 w-5" /></div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{title}</h3>{badge && <Badge variant="outline" className="text-[10px]">{badge}</Badge>}</div>
@@ -70,7 +70,8 @@ function WorkspaceView({ workspace, event, onBack }: { workspace: Workspace; eve
 
   return (
     <MainLayout>
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/55 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="ps-module-modern">
+      <div className="ps-gradient-surface mb-5 flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/55 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <Button type="button" variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button>
           <div><p className="text-xs font-medium uppercase tracking-[0.12em] text-primary">{event.name}</p><h1 className="mt-1 text-xl font-semibold">{meta.title}</h1><p className="mt-1 text-sm text-muted-foreground">{meta.description}</p></div>
@@ -82,6 +83,7 @@ function WorkspaceView({ workspace, event, onBack }: { workspace: Workspace; eve
       {workspace === 'labels' && <PsEventDocumentsPanel event={event} />}
       {workspace === 'training' && <PsEventTrainingTab eventId={event.id} roles={roles as any[]} />}
       {workspace === 'payments' && <PsEventPaymentsPanel event={event} />}
+      </div>
     </MainLayout>
   );
 }
@@ -119,14 +121,15 @@ export default function PsHome() {
 
   return (
     <MainLayout>
-      <PageHeader title="Central do Processo Seletivo" description="Eventos, fiscais, comunicações, treinamentos, pagamentos e configurações em um só lugar." actions={<Button asChild size="sm"><Link to="/admin-module/processo-seletivo/eventos"><Plus className="mr-2 h-4 w-4" />Novo / gerenciar evento</Link></Button>} />
+      <div className="ps-module-modern">
+      <PageHeader title="Central do Processo Seletivo" description="Eventos, fiscais, comunicações, treinamentos, pagamentos e configurações em um só lugar." actions={<Button asChild size="sm" className="ps-gradient-button"><Link to="/admin-module/processo-seletivo/eventos"><Plus className="mr-2 h-4 w-4" />Novo / gerenciar evento</Link></Button>} />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Eventos" value={events.length} icon={<CalendarDays className="h-5 w-5" />} />
-        <StatCard title="Próximos eventos" value={upcomingEvents.length} icon={<CalendarClock className="h-5 w-5" />} />
-        <StatCard title="Banco de fiscais" value={collaborators.length} icon={<Users className="h-5 w-5" />} />
-        <StatCard title="Avaliações" value={evaluations.length} icon={<ClipboardCheck className="h-5 w-5" />} />
-        <StatCard title="Pendências" value={pendingEvaluations.length} icon={<AlertTriangle className="h-5 w-5" />} iconClassName="bg-warning/10 text-warning" />
+        <StatCard className="ps-gradient-surface" title="Eventos" value={events.length} icon={<CalendarDays className="h-5 w-5" />} />
+        <StatCard className="ps-gradient-surface" title="Próximos eventos" value={upcomingEvents.length} icon={<CalendarClock className="h-5 w-5" />} />
+        <StatCard className="ps-gradient-surface" title="Banco de fiscais" value={collaborators.length} icon={<Users className="h-5 w-5" />} />
+        <StatCard className="ps-gradient-surface" title="Avaliações" value={evaluations.length} icon={<ClipboardCheck className="h-5 w-5" />} />
+        <StatCard className="ps-gradient-surface" title="Pendências" value={pendingEvaluations.length} icon={<AlertTriangle className="h-5 w-5" />} iconClassName="bg-warning/10 text-warning" />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_300px]">
@@ -157,14 +160,14 @@ export default function PsHome() {
             <div className="grid gap-3 md:grid-cols-2"><ActionCard title="Resultados e Relatórios" description="Avaliações, médias e classificações consolidadas." icon={FileBarChart} href="/admin-module/processo-seletivo/avaliacao-geral" /><ActionCard title="Atividades recentes" description="Acompanhamento das movimentações importantes do módulo." icon={Activity} badge="Em evolução" /></div>
           </section>
 
-          <Card className="rounded-2xl border-border/60 bg-card/65">
+          <Card className="ps-gradient-surface rounded-2xl border-border/60 bg-card/65">
             <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="h-4 w-4 text-primary" />Próximos eventos</CardTitle><CardDescription>Eventos programados a partir de hoje.</CardDescription></CardHeader>
             <CardContent className="space-y-2.5">{upcomingEvents.length ? upcomingEvents.map((event: any) => <UpcomingEventRow key={event.id} event={event} />) : <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum evento futuro programado.</div>}</CardContent>
           </Card>
         </div>
 
         <aside className="space-y-4">
-          <Card className="rounded-2xl border-border/60 bg-card/65 xl:sticky xl:top-20">
+          <Card className="ps-gradient-surface rounded-2xl border-border/60 bg-card/65 xl:sticky xl:top-20">
             <CardHeader className="pb-3"><CardTitle className="text-base">Atalhos rápidos</CardTitle><CardDescription>Ações frequentes sem poluir o menu principal.</CardDescription></CardHeader>
             <CardContent className="space-y-2">
               <Button asChild className="w-full justify-start"><Link to="/admin-module/processo-seletivo/eventos"><Plus className="mr-2 h-4 w-4" />Novo evento</Link></Button>
@@ -191,6 +194,7 @@ export default function PsHome() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </MainLayout>
   );
 }
