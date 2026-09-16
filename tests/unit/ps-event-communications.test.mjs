@@ -226,7 +226,7 @@ test('edge function usa exatamente selectJobsForProcessing (mesma lógica, não 
   assert.match(edge,/import \{ selectJobsForProcessing \} from '\.\.\/_shared\/testModeBatch\.ts'/);
   assert.match(edge,/const eligibleJobs:\{job:any;link:any;logical:string\}\[\]=\[\];/);
   assert.match(edge,/const \{selected:selectedForProcessing,deferred:deferredJobs\}=selectJobsForProcessing\(eligibleJobs,\{testMode,testBatchLimit\}\);/);
-  assert.match(edge,/for\(const \{job\} of deferredJobs\)\{result\.pending\+\+;result\.details\.push\(\{id:job\.id,status:job\.status\}\);\}/);
+  assert.match(edge,/for\s*\(const\s*\{job\}\s*of\s*deferredJobs\)\s*\{\s*result\.pending\+\+;\s*result\.details\.push\(\{id:job\.id,status:job\.status\}\);\s*\}/);
   assert.match(edge,/for\(const \{job,link,logical\} of selectedForProcessing\)\{/);
   // provider.send só pode existir dentro do loop de selectedForProcessing.
   const sendCallCount=(edge.match(/=await provider\.send\(/g)||[]).length; assert.equal(sendCallCount,1);
