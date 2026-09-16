@@ -343,6 +343,12 @@
   box-shadow: 0 24px 60px -48px hsl(var(--primary) / 0.95);
 }
 
+.ps-events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr));
+  gap: 12px;
+}
+
 @media (max-width: 1280px) {
   .ps-event-workspace {
     grid-template-columns: 204px minmax(0, 1fr);

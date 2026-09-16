@@ -389,6 +389,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div
           className={cn(
             'mx-auto min-w-0 max-w-[1560px] overflow-x-hidden p-3 sm:p-4 xl:px-6 xl:pb-6',
+            location.pathname.startsWith('/admin-module/processo-seletivo') && 'max-w-[1800px]',
             location.pathname === '/' && 'dashboard-route'
           )}
           style={{ paddingTop: 'calc(var(--app-topbar-height, 64px) + 1rem)' }}
