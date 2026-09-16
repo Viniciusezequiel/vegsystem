@@ -11,6 +11,7 @@ const reselectionMigration = fs.readFileSync(path.join(root, 'supabase/migration
 const reselectionPage = fs.readFileSync(path.join(root, 'src/pages/processo-seletivo/public/PsPublicTrainingReselection.tsx'), 'utf8');
 const trainingTab = fs.readFileSync(path.join(root, 'src/components/processo-seletivo/PsEventTrainingTab.tsx'), 'utf8');
 const home = fs.readFileSync(path.join(root, 'src/pages/processo-seletivo/PsHome.tsx'), 'utf8');
+const eventDetail = fs.readFileSync(path.join(root, 'src/pages/processo-seletivo/PsEventDetail.tsx'), 'utf8');
 
 test('migração cria atribuições filhas e mantém uma principal por vínculo', () => {
   assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.ps_event_collaborator_assignments/);
@@ -95,11 +96,12 @@ test('remarcação pública mostra apenas datas ativas do mesmo grupo e preserva
   assert.match(trainingTab, /Sua confirmação de participação no evento permanece válida/);
 });
 
-test('central mantém sidebar global e expõe os novos fluxos', () => {
+test('central direciona ao evento e mantém os fluxos específicos no mesmo workspace', () => {
   assert.doesNotMatch(home, /Sidebar/);
   assert.match(home, /Central do Processo Seletivo/);
-  assert.match(home, /Comunicações/);
-  assert.match(home, /Gerar Etiquetas/);
-  assert.match(home, /Treinamentos/);
-  assert.match(home, /Pagamentos/);
+  assert.match(home, /As rotinas específicas ficam dentro de cada evento/);
+  assert.doesNotMatch(home, /title="Comunicações"/);
+  assert.match(eventDetail, /PsEventCommunicationTab/);
+  assert.match(eventDetail, /PsEventTrainingTab/);
+  assert.match(eventDetail, /PsEventPaymentsPanel/);
 });

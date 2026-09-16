@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
@@ -679,23 +680,24 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
             {selectedCollaborator?.collaborator?.collaborator_name || 'Colaborador'}
           </p>
 
-          <div>
+          <div className="space-y-2">
             <Label>Mover para outro treinamento</Label>
-            <select
-              className="mt-2 w-full rounded-md border p-2"
-              value={selectedNewSession}
-              onChange={(e) => setSelectedNewSession(e.target.value)}
-            >
-              {data.sessions.filter((session: any) =>
+            <Select value={selectedNewSession} onValueChange={setSelectedNewSession}>
+              <SelectTrigger className="w-full bg-background/80">
+                <SelectValue placeholder="Selecione uma nova data" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {data.sessions.filter((session: any) =>
                 session.training_group_id === selectedCollaborator?.choice?.training_group_id
                 && session.active
                 && !session.cancelled_at
               ).map((session: any) => (
-                <option key={session.id} value={session.id}>
+                <SelectItem key={session.id} value={session.id}>
                   {fmt(session.starts_at)} - {session.campus} {session.room ? `Sala ${session.room}` : ''}
-                </option>
+                </SelectItem>
               ))}
-            </select>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

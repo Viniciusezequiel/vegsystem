@@ -14,8 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { PsEmailTrackingDashboard } from '@/components/processo-seletivo/PsEmailTrackingDashboard';
 import {
   usePsCommunicationConfig,
+  usePsEmailTrackingSync,
   usePsEventCommunications,
   usePsProcessEventCommunicationQueue,
   usePsRetryEventCommunications,
@@ -61,10 +63,27 @@ const VARIABLE_CHIPS: { label: string; token: string; confirmationOnly?: boolean
   { label: 'Link de confirmação', token: 'link_confirmacao', confirmationOnly: true },
 ];
 
-type ConfirmationDeliveryState = 'not_sent' | 'sent' | 'failed' | 'queued';
+type ConfirmationDeliveryState = 'not_sent' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'failed' | 'queued';
 
 const queuedStatuses = new Set(['pending', 'waiting_provider_quota', 'processing']);
 const failedStatuses = new Set(['failed', 'failed_missing_recipient']);
+const providerErrorStatuses = new Set(['soft_bounce', 'hard_bounce', 'blocked', 'spam', 'invalid', 'error', 'unsubscribed']);
+
+const deliveryLabel: Record<string, string> = {
+  sent: 'Enviado',
+  delivered: 'Entregue',
+  opened: 'Aberto',
+  clicked: 'Clicou no link',
+  deferred: 'Entrega adiada',
+  soft_bounce: 'Erro temporário',
+  hard_bounce: 'E-mail rejeitado',
+  blocked: 'Bloqueado',
+  spam: 'Marcado como spam',
+  invalid: 'E-mail inválido',
+  error: 'Erro no envio',
+  unsubscribed: 'Descadastrado',
+  unknown: 'Status recebido',
+};
 
 function formatSentAt(value?: string | null) {
   if (!value) return '';
@@ -80,6 +99,7 @@ function formatSentAt(value?: string | null) {
 
 export function PsEventCommunicationTab({ event, links }: { event: any; links: any[] }) {
   const { data: history = [] } = usePsEventCommunications(event?.id);
+  const tracking = usePsEmailTrackingSync(event?.id);
   const { data: config, error: configError } = usePsCommunicationConfig(event?.id);
   const send = usePsSendEventCommunication();
   const retry = usePsRetryEventCommunications();
@@ -130,14 +150,13 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
     const state = new Map<string, ConfirmationDeliveryState>();
     for (const link of links) {
       const linkId = String(link.id);
-      if (sent.has(linkId)) {
-        state.set(linkId, 'sent');
-        continue;
-      }
       const job = latest.get(linkId);
       if (!job || job.status === 'cancelled') state.set(linkId, 'not_sent');
       else if (failedStatuses.has(job.status)) state.set(linkId, 'failed');
       else if (queuedStatuses.has(job.status)) state.set(linkId, 'queued');
+      else if (providerErrorStatuses.has(job.delivery_status)) state.set(linkId, 'failed');
+      else if (['delivered', 'opened', 'clicked'].includes(job.delivery_status)) state.set(linkId, job.delivery_status);
+      else if (job.status === 'sent') state.set(linkId, 'sent');
       else state.set(linkId, 'not_sent');
     }
 
@@ -312,6 +331,20 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
 
     {quotaWaiting > 0 && <p className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">{quotaWaiting} mensagens aguardando a renovação da cota diária do provedor.</p>}
 
+    <PsEmailTrackingDashboard communications={history} />
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2 text-xs text-muted-foreground">
+      <span>
+        {tracking.isFetching
+          ? 'Sincronizando entrega e abertura com a Brevo...'
+          : tracking.isError
+            ? 'Não foi possível sincronizar os eventos da Brevo agora. Os envios continuam funcionando normalmente.'
+            : 'Status de entrega e abertura sincronizados automaticamente com a Brevo.'}
+      </span>
+      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={tracking.isFetching} onClick={() => void tracking.refetch()}>
+        Atualizar status
+      </Button>
+    </div>
+
     <div className="grid gap-2 lg:grid-cols-6">
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome" />
 
@@ -374,6 +407,9 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
           <SelectItem value="all">Todos os envios</SelectItem>
           <SelectItem value="not_sent">Não enviado</SelectItem>
           <SelectItem value="sent">Enviado</SelectItem>
+          <SelectItem value="delivered">Entregue</SelectItem>
+          <SelectItem value="opened">Aberto</SelectItem>
+          <SelectItem value="clicked">Clicou no link</SelectItem>
           <SelectItem value="failed">Falhou</SelectItem>
           <SelectItem value="queued">Na fila</SelectItem>
         </SelectContent>
@@ -422,8 +458,12 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
             {filtered.map((link: any) => {
               const linkId = String(link.id);
               const deliveryState = confirmationDelivery.state.get(linkId) || 'not_sent';
-              const sentJob = confirmationDelivery.sent.get(linkId);
               const latestConfirmation = confirmationDelivery.latest.get(linkId);
+              const statusTimestamp = latestConfirmation?.clicked_at
+                || latestConfirmation?.opened_at
+                || latestConfirmation?.delivered_at
+                || latestConfirmation?.sent_at;
+              const providerStatus = String(latestConfirmation?.delivery_status || '');
               return <tr key={link.id} className="border-b">
                 <td className="p-3">
                   <Checkbox
@@ -439,9 +479,13 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
                 <td><Badge variant="outline">{link.participation_status}</Badge></td>
                 <td>{link.email || <span className="text-destructive">Sem e-mail</span>}</td>
                 <td>
-                  {deliveryState === 'sent' && <Badge>Enviado{sentJob?.sent_at ? ` · ${formatSentAt(sentJob.sent_at)}` : ''}</Badge>}
+                  {['sent', 'delivered', 'opened', 'clicked'].includes(deliveryState) && (
+                    <Badge className={deliveryState === 'opened' || deliveryState === 'clicked' ? 'bg-violet-600 hover:bg-violet-600' : deliveryState === 'delivered' ? 'bg-emerald-600 hover:bg-emerald-600' : ''}>
+                      {deliveryLabel[providerStatus] || deliveryLabel[deliveryState] || 'Enviado'}{statusTimestamp ? ` · ${formatSentAt(statusTimestamp)}` : ''}
+                    </Badge>
+                  )}
                   {deliveryState === 'queued' && <Badge variant="secondary">Na fila</Badge>}
-                  {deliveryState === 'failed' && <Badge variant="destructive">{latestConfirmation?.status === 'failed_missing_recipient' ? 'Sem e-mail' : 'Falhou'}</Badge>}
+                  {deliveryState === 'failed' && <Badge variant="destructive">{latestConfirmation?.status === 'failed_missing_recipient' ? 'Sem e-mail' : deliveryLabel[providerStatus] || 'Falhou'}</Badge>}
                   {deliveryState === 'not_sent' && <Badge variant="outline">Não enviado</Badge>}
                 </td>
                 <td><Button size="sm" variant="ghost" onClick={() => openMessage('event_message', link.id)}>Mensagem</Button></td>
@@ -468,7 +512,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
           {history.slice(0, 20).map((job: any) => (
             <div key={job.id} className="flex flex-wrap justify-between gap-2 border-b py-2 text-sm">
               <span>{links.find((link) => link.id === job.event_collaborator_id)?.collaborator_name || 'Fiscal'} · {communicationTypeLabel[job.communication_type] || job.communication_type}</span>
-              <span>{statusLabel[job.status] || job.status} · tentativa {job.attempt_count}</span>
+              <span>{deliveryLabel[job.delivery_status] || statusLabel[job.status] || job.status}{job.provider_last_event_at ? ` · ${formatSentAt(job.provider_last_event_at)}` : ''} · tentativa {job.attempt_count}</span>
             </div>
           ))}
           {!history.length && <p className="text-sm text-muted-foreground">Nenhuma comunicação registrada.</p>}

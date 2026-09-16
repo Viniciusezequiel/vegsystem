@@ -15,10 +15,8 @@ import {
   WalletCards,
 } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { PS_EVENT_STATUS } from '@/lib/psConstants';
 
 type EventNavItem = {
   value: string;
@@ -33,8 +31,6 @@ type EventNavGroup = {
 };
 
 interface PsEventWorkspaceNavProps {
-  event: any;
-  eventId: string;
   teamCount: number;
   candidateCount: number;
   pendingConfirmationCount: number;
@@ -52,8 +48,6 @@ function CountBadge({ value }: { value?: number }) {
 }
 
 export function PsEventWorkspaceNav({
-  event,
-  eventId,
   teamCount,
   candidateCount,
   pendingConfirmationCount,
@@ -82,6 +76,8 @@ export function PsEventWorkspaceNav({
       label: 'Operação',
       items: [
         { value: 'presenca', label: 'Presença', icon: CalendarCheck2 },
+        { value: 'treinamentos', label: 'Treinamentos', icon: GraduationCap },
+        { value: 'pagamentos', label: 'Pagamentos', icon: WalletCards },
       ],
     },
     {
@@ -100,19 +96,9 @@ export function PsEventWorkspaceNav({
         Todos os eventos
       </Link>
 
-      <div className="ps-event-nav__identity">
-        <p className="ps-event-nav__eyebrow">Evento selecionado</p>
-        <h2>{event.name}</h2>
-        <div className="ps-event-nav__meta">
-          <Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'}>
-            {PS_EVENT_STATUS[event.status] || event.status}
-          </Badge>
-          <span>
-            {event.date
-              ? new Date(`${event.date}T00:00:00`).toLocaleDateString('pt-BR')
-              : 'Data não definida'}
-          </span>
-        </div>
+      <div className="ps-event-nav__heading">
+        <p>Áreas do evento</p>
+        <span>Escolha uma seção para gerenciar</span>
       </div>
 
       <TabsList className="ps-event-nav__list">
@@ -130,24 +116,6 @@ export function PsEventWorkspaceNav({
               );
             })}
 
-            {group.label === 'Operação' ? (
-              <>
-                <Link
-                  to={`/admin-module/processo-seletivo?workspace=training&event=${eventId}`}
-                  className="ps-event-nav__link"
-                >
-                  <GraduationCap className="h-4 w-4" />
-                  <span>Treinamentos</span>
-                </Link>
-                <Link
-                  to={`/admin-module/processo-seletivo?workspace=payments&event=${eventId}`}
-                  className="ps-event-nav__link"
-                >
-                  <WalletCards className="h-4 w-4" />
-                  <span>Pagamentos</span>
-                </Link>
-              </>
-            ) : null}
           </div>
         ))}
 
