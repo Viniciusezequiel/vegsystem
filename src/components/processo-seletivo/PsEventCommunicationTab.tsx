@@ -173,17 +173,41 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
     });
   }, [links, search, status, unit, room, roles, delivery, confirmationDelivery]);
 
+  const selectedLinks = useMemo(
+    () => selected.map((id) => links.find((link) => String(link.id) === id)).filter(Boolean),
+    [selected, links],
+  );
+  const operationalSelected = useMemo(
+    () => selectedLinks
+      .filter((link) => ['pending_confirmation', 'confirmed'].includes(String(link.participation_status || '')))
+      .map((link) => String(link.id)),
+    [selectedLinks],
+  );
+  const selectedInactive = useMemo(
+    () => selectedLinks.filter((link) => !['pending_confirmation', 'confirmed'].includes(String(link.participation_status || ''))),
+    [selectedLinks],
+  );
+  const pendingConfirmationSelected = useMemo(
+    () => selectedLinks
+      .filter((link) => link.participation_status === 'pending_confirmation')
+      .map((link) => String(link.id)),
+    [selectedLinks],
+  );
+  const selectedNotPendingConfirmation = useMemo(
+    () => selectedLinks.filter((link) => link.participation_status !== 'pending_confirmation'),
+    [selectedLinks],
+  );
   const selectedAlreadySent = useMemo(
-    () => selected.filter((id) => confirmationDelivery.sent.has(id)),
-    [selected, confirmationDelivery],
+    () => pendingConfirmationSelected.filter((id) => confirmationDelivery.sent.has(id)),
+    [pendingConfirmationSelected, confirmationDelivery],
   );
   const selectedNotPreviouslySent = useMemo(
-    () => selected.filter((id) => !confirmationDelivery.sent.has(id)),
-    [selected, confirmationDelivery],
+    () => pendingConfirmationSelected.filter((id) => !confirmationDelivery.sent.has(id)),
+    [pendingConfirmationSelected, confirmationDelivery],
   );
-  const effectiveSelected = type === 'confirmation_request' && !allowConfirmationResend
-    ? selectedNotPreviouslySent
-    : selected;
+  const effectiveSelected = type === 'confirmation_request'
+    ? (allowConfirmationResend ? pendingConfirmationSelected : selectedNotPreviouslySent)
+    : operationalSelected;
 
   const previewLink = links.find((link) => effectiveSelected.includes(link.id)) || links.find((link) => selected.includes(link.id));
   const previewValues = {
@@ -541,6 +565,23 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
                 <Checkbox checked={allowConfirmationResend} onCheckedChange={(checked) => setAllowConfirmationResend(checked === true)} />
                 Incluir pessoas que já receberam a confirmação
               </label>
+            </div>
+          )}
+          {type === 'confirmation_request' && selectedNotPendingConfirmation.length > 0 && (
+            <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm">
+              <p className="font-medium">
+                {selectedNotPendingConfirmation.length} pessoa(s) não estão aguardando confirmação e não receberão esta solicitação.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Já confirmados, recusados ou substituídos são retirados automaticamente deste envio.
+              </p>
+            </div>
+          )}
+          {type !== 'confirmation_request' && selectedInactive.length > 0 && (
+            <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm">
+              <p className="font-medium">
+                {selectedInactive.length} pessoa(s) recusadas ou substituídas serão ignoradas neste envio.
+              </p>
             </div>
           )}
           <div><Label>Modo</Label><p className="font-semibold">{config?.mode === 'test' ? 'TESTE' : 'PRODUÇÃO'}</p></div>

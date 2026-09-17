@@ -40,6 +40,13 @@ test('seleção suporta individual, múltiplos, todos filtrados e filtros combin
   assert.match(ui,/Selecionar todos filtrados/); assert.match(ui,/destinatários selecionados/);
 });
 
+test('solicitação de confirmação exclui confirmados, recusados e substituídos antes de chamar a Edge Function',()=>{
+  assert.match(ui,/pendingConfirmationSelected/);
+  assert.match(ui,/link\.participation_status === 'pending_confirmation'/);
+  assert.match(ui,/allowConfirmationResend \? pendingConfirmationSelected : selectedNotPreviouslySent/);
+  assert.match(ui,/não estão aguardando confirmação e não receberão esta solicitação/);
+});
+
 test('template resolve variáveis, URL correta e campos opcionais vazios',()=>{
   const rendered=renderPsCommunicationTemplate(DEFAULT_CONFIRMATION_TEMPLATE,{nome:'Ana',evento:'Evento',cargo:'Fiscal',data_evento:'02/09/2026',horario:'08h-12h',campus:'Centro',unidade:'Bloco A',predio:'A',andar:'2',sala:'201',link_confirmacao:'https://www.vegsystem.site/ps/confirmacao/e/t'});
   assert.match(rendered,/Olá, Ana/); assert.match(rendered,/https:\/\/www\.vegsystem\.site\/ps\/confirmacao/); assert.doesNotMatch(rendered,/undefined|null/);
