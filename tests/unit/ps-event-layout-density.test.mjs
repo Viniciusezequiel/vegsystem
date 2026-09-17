@@ -12,6 +12,7 @@ const communication = read('src/components/processo-seletivo/PsEventCommunicatio
 const emailDashboard = read('src/components/processo-seletivo/PsEmailTrackingDashboard.tsx');
 const events = read('src/pages/processo-seletivo/PsEvents.tsx');
 const editDialog = read('src/components/processo-seletivo/PsEventCollaboratorEditDialog.tsx');
+const eventPdf = read('src/lib/psEventPdf.ts');
 const mainLayout = read('src/components/layout/MainLayout.tsx');
 const modernStyles = read('src/styles/process-selection-modern.css');
 const dialog = read('src/components/ui/dialog.tsx');
@@ -34,6 +35,15 @@ test('communication metrics use one compact dashboard surface', () => {
   assert.match(emailDashboard, /grid-cols-2/);
   assert.match(emailDashboard, /sm:grid-cols-4/);
   assert.equal((emailDashboard.match(/<Card /g) || []).length, 1);
+});
+
+test('confirmation report exports only filtered people with delivery status', () => {
+  assert.match(detail, /PDF filtrado/);
+  assert.match(detail, /generatePsConfirmationReportPdf\(reportEvent, rows, filters\)/);
+  assert.match(detail, /latestEmailByLink/);
+  assert.match(eventPdf, /RELATÓRIO DE CONFIRMAÇÕES/);
+  assert.match(eventPdf, /email_status_label/);
+  assert.match(eventPdf, /Filtros:/);
 });
 
 test('process selection uses the available width and events fill their grid', () => {
