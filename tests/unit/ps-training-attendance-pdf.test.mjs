@@ -52,3 +52,15 @@ test('lista é ordenada alfabeticamente e paginada', () => {
   assert.match(pdf, /doc\.addPage/);
   assert.match(pdf, /getNumberOfPages/);
 });
+
+test('gestão do treinamento permite localizar e remanejar qualquer pessoa', () => {
+  assert.match(component, /Buscar pessoa por nome para localizar o treinamento/);
+  assert.match(component, /normalize\('NFD'\)/);
+  assert.match(component, /matchingSessionIds/);
+  assert.match(component, /matchingGroupIds/);
+  assert.match(component, /Ver todos \(\{choices\.length\}\)/);
+  assert.match(component, /openSessionParticipants/);
+  assert.match(component, /Pesquisar nome dentro desta data/);
+  assert.match(component, /Remanejar/);
+  assert.match(component, /openParticipantFromList/);
+});

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, FileDown, Loader2, Mail, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { ArrowRightLeft, CalendarClock, CalendarX2, FileDown, Loader2, Mail, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,12 @@ const toDateTimeLocal = (value?: string) => {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
 };
+const normalizeSearch = (value: unknown) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLocaleLowerCase('pt-BR');
 
 export function PsEventTrainingTab({ eventId, roles }: Props) {
   const qc = useQueryClient();
@@ -62,6 +68,9 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [resendingSessionId, setResendingSessionId] = useState<string | null>(null);
+  const [trainingSearch, setTrainingSearch] = useState('');
+  const [participantsDialog, setParticipantsDialog] = useState<any>(null);
+  const [participantsSearch, setParticipantsSearch] = useState('');
 
   const query = useQuery({
     queryKey: ['ps_event_trainings', eventId],
@@ -118,6 +127,46 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     }
     return map;
   }, [data.assignments]);
+  const normalizedTrainingSearch = useMemo(() => normalizeSearch(trainingSearch), [trainingSearch]);
+  const matchingChoices = useMemo(() => {
+    if (!normalizedTrainingSearch) return data.choices;
+    return data.choices.filter((choice: any) => {
+      const name = linkMap.get(String(choice.event_collaborator_id)) || '';
+      return normalizeSearch(name).includes(normalizedTrainingSearch);
+    });
+  }, [data.choices, linkMap, normalizedTrainingSearch]);
+  const matchingChoiceIds = useMemo(
+    () => new Set(matchingChoices.map((choice: any) => String(choice.id))),
+    [matchingChoices],
+  );
+  const matchingSessionIds = useMemo(
+    () => new Set(matchingChoices.map((choice: any) => String(choice.training_session_id))),
+    [matchingChoices],
+  );
+  const matchingGroupIds = useMemo(
+    () => new Set(matchingChoices.map((choice: any) => String(choice.training_group_id))),
+    [matchingChoices],
+  );
+  const visibleGroups = useMemo(
+    () => normalizedTrainingSearch
+      ? data.groups.filter((group: any) => matchingGroupIds.has(String(group.id)))
+      : data.groups,
+    [data.groups, matchingGroupIds, normalizedTrainingSearch],
+  );
+  const participantRows = useMemo(() => {
+    const query = normalizeSearch(participantsSearch);
+    const choices = participantsDialog?.choices || [];
+    return [...choices]
+      .filter((choice: any) => {
+        if (!query) return true;
+        const name = linkMap.get(String(choice.event_collaborator_id)) || '';
+        return normalizeSearch(name).includes(query);
+      })
+      .sort((a: any, b: any) => String(linkMap.get(String(a.event_collaborator_id)) || '').localeCompare(
+        String(linkMap.get(String(b.event_collaborator_id)) || ''),
+        'pt-BR',
+      ));
+  }, [linkMap, participantsDialog, participantsSearch]);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['ps_event_trainings', eventId] });
 
@@ -131,6 +180,17 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
 
     setSelectedNewSession(String(choice.training_session_id));
     setCollaboratorDialogOpen(true);
+  };
+
+  const openSessionParticipants = (group: any, session: any, choices: any[]) => {
+    setParticipantsSearch('');
+    setParticipantsDialog({ group, session, choices });
+  };
+
+  const openParticipantFromList = (choice: any) => {
+    setParticipantsDialog(null);
+    setParticipantsSearch('');
+    openCollaboratorManager(choice);
   };
 
   const moveCollaboratorTraining = async () => {
@@ -482,6 +542,40 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
       <Button onClick={openNewGroup}><Plus className="mr-2 h-4 w-4" />Novo treinamento</Button>
     </div>
 
+    {!!data.groups.length && (
+      <div className="rounded-2xl border border-primary/20 bg-card/70 p-3 shadow-sm backdrop-blur-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={trainingSearch}
+              onChange={(event) => setTrainingSearch(event.target.value)}
+              placeholder="Buscar pessoa por nome para localizar o treinamento..."
+              aria-label="Buscar pessoa nos treinamentos"
+              className="h-11 bg-background/80 pl-10 pr-10"
+            />
+            {trainingSearch && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                onClick={() => setTrainingSearch('')}
+                aria-label="Limpar busca"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <div className="shrink-0 text-xs text-muted-foreground sm:px-2">
+            {normalizedTrainingSearch
+              ? `${matchingChoices.length} alocação(ões) encontrada(s)`
+              : `${data.choices.length} pessoa(s) alocada(s)`}
+          </div>
+        </div>
+      </div>
+    )}
+
     {!data.groups.length ? (
       <Card className="rounded-2xl border-dashed">
         <CardContent className="p-8 text-center">
@@ -490,11 +584,23 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
           <p className="mt-1 text-xs text-muted-foreground">Crie um treinamento e vincule os cargos que precisam realizá-lo.</p>
         </CardContent>
       </Card>
+    ) : normalizedTrainingSearch && !visibleGroups.length ? (
+      <Card className="rounded-2xl border-dashed">
+        <CardContent className="p-8 text-center">
+          <Search className="mx-auto h-8 w-8 text-muted-foreground/45" />
+          <p className="mt-3 text-sm font-medium">Pessoa não encontrada nos treinamentos</p>
+          <p className="mt-1 text-xs text-muted-foreground">Confira o nome digitado ou limpe a busca para visualizar todas as turmas.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => setTrainingSearch('')}>Ver todos os treinamentos</Button>
+        </CardContent>
+      </Card>
     ) : (
       <div className="space-y-4">
-        {data.groups.map((group: any) => {
+        {visibleGroups.map((group: any) => {
           const groupRoles = data.groupRoles.filter((r: any) => r.training_group_id === group.id);
-          const sessions = data.sessions.filter((s: any) => s.training_group_id === group.id);
+          const sessions = data.sessions.filter((s: any) =>
+            s.training_group_id === group.id
+            && (!normalizedTrainingSearch || matchingSessionIds.has(String(s.id)))
+          );
           const groupChoices = data.choices.filter((c: any) => c.training_group_id === group.id);
           return (
             <Card key={group.id} className="rounded-2xl">
@@ -530,6 +636,9 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                   <div className="grid gap-3 lg:grid-cols-2">
                     {sessions.map((session: any) => {
                       const choices = groupChoices.filter((c: any) => c.training_session_id === session.id);
+                      const visibleChoices = normalizedTrainingSearch
+                        ? choices.filter((choice: any) => matchingChoiceIds.has(String(choice.id)))
+                        : choices;
                       const full = !!session.capacity && choices.length >= session.capacity;
                       const reselections = data.reselections.filter((request: any) => request.cancelled_session_id === session.id);
                       const pendingReselections = reselections.filter((request: any) => request.status === 'pending');
@@ -562,6 +671,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Badge variant={full ? 'secondary' : 'outline'}><Users className="mr-1 h-3 w-3" />{choices.length}{session.capacity ? `/${session.capacity}` : ''}</Badge>
+                            {normalizedTrainingSearch && <Badge variant="default">{visibleChoices.length} resultado(s) nesta data</Badge>}
                             {session.cancelled_at ? <Badge variant="destructive">Cancelada</Badge> : !session.active && <Badge variant="outline">Pausada</Badge>}
                             {full && <Badge variant="secondary">Lotado</Badge>}
                             {pendingReselections.length > 0 && <Badge variant="outline">{pendingReselections.length} aguardando nova escolha</Badge>}
@@ -569,11 +679,24 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                           </div>
                           {session.cancelled_at && session.cancellation_reason && <p className="mt-2 rounded-lg border border-destructive/20 bg-background/50 px-3 py-2 text-xs"><strong>Motivo:</strong> {session.cancellation_reason}</p>}
                           {pendingReselections.length > 0 && <div className="mt-2"><Button size="sm" variant="outline" disabled={resendingSessionId === session.id} onClick={() => void resendPendingReselections(session)}>{resendingSessionId === session.id ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1.5 h-3.5 w-3.5" />}Reenviar links pendentes</Button></div>}
-                          {choices.length > 0 && (
+                          {visibleChoices.length > 0 && (
                             <div className="mt-3 border-t pt-3">
-                              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Escolhas registradas</p>
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  {normalizedTrainingSearch ? 'Resultado da busca' : 'Escolhas registradas'}
+                                </p>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => openSessionParticipants(group, session, choices)}
+                                >
+                                  <Users className="mr-1.5 h-3.5 w-3.5" />Ver todos ({choices.length})
+                                </Button>
+                              </div>
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {choices.slice(0, 8).map((c: any) => (
+                                {visibleChoices.slice(0, normalizedTrainingSearch ? visibleChoices.length : 8).map((c: any) => (
                                   <button
                                     key={c.id}
                                     type="button"
@@ -583,7 +706,15 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                                     {linkMap.get(String(c.event_collaborator_id)) || 'Colaborador'}
                                   </button>
                                 ))}
-                                {choices.length > 8 && <span className="px-1 py-1 text-[11px] text-muted-foreground">+{choices.length - 8}</span>}
+                                {!normalizedTrainingSearch && choices.length > 8 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openSessionParticipants(group, session, choices)}
+                                    className="rounded-md px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10"
+                                  >
+                                    +{choices.length - 8} · abrir lista completa
+                                  </button>
+                                )}
                               </div>
                             </div>
                           )}
@@ -664,6 +795,68 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
         <DialogFooter>
           <Button variant="outline" disabled={cancelling} onClick={() => setCancelOpen(false)}>Voltar</Button>
           <Button variant="destructive" disabled={cancelling || !cancelReason.trim()} onClick={() => void cancelTrainingSession()}>{cancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Cancelar data e enviar links</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!participantsDialog} onOpenChange={open => {
+      if (!open) {
+        setParticipantsDialog(null);
+        setParticipantsSearch('');
+      }
+    }}>
+      <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Pessoas desta data de treinamento</DialogTitle>
+        </DialogHeader>
+
+        <div className="min-h-0 space-y-3">
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="font-semibold">{participantsDialog?.group?.name}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {fmt(participantsDialog?.session?.starts_at)} · {[participantsDialog?.session?.campus, participantsDialog?.session?.location, participantsDialog?.session?.room && `Sala ${participantsDialog.session.room}`].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={participantsSearch}
+              onChange={(event) => setParticipantsSearch(event.target.value)}
+              placeholder="Pesquisar nome dentro desta data..."
+              className="pl-10"
+              aria-label="Pesquisar pessoa nesta data de treinamento"
+            />
+          </div>
+
+          <div className="max-h-[48vh] divide-y overflow-y-auto rounded-xl border">
+            {participantRows.map((choice: any) => (
+              <button
+                key={choice.id}
+                type="button"
+                onClick={() => openParticipantFromList(choice)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-primary/10"
+              >
+                <span className="min-w-0 truncate text-sm font-medium">
+                  {linkMap.get(String(choice.event_collaborator_id)) || 'Colaborador'}
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary">
+                  <ArrowRightLeft className="h-3.5 w-3.5" />Remanejar
+                </span>
+              </button>
+            ))}
+            {!participantRows.length && (
+              <p className="p-6 text-center text-sm text-muted-foreground">Nenhuma pessoa encontrada nesta data.</p>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {participantRows.length} de {participantsDialog?.choices?.length || 0} pessoa(s). Clique em um nome para trocar a data do treinamento.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setParticipantsDialog(null)}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
