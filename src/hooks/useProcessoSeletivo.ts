@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { psFinalScore, psClassification } from '@/lib/psConstants';
 import { planPsFiscalReconciliation, classifyEvaluatorRole, findPossibleNameMatch, type PsFiscalDecision, type PsNameMatchCandidate } from '@/lib/psFiscalFoundation';
 import { normalizeFiscalEmail, normalizeFiscalInstitution, normalizeFiscalMatricula, dedupeFiscalRows, normalizeFiscalImportNote } from '@/lib/psFiscalBank.mjs';
+import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
 
 const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'id', 'event_id', 'collaborator_id', 'collaborator_name', 'role_value', 'role_name',
@@ -766,7 +767,7 @@ export function usePsImportEventTeam() {
           sector: row.sector || null,
           unit: row.unit || null,
           institution: row.institution || null,
-          building: row.building || null,
+          building: normalizePsLocation(row.building, { building: true }) || null,
           floor: row.floor || null,
           room: row.room || null,
           work_schedule: row.work_schedule || null,

@@ -9,6 +9,7 @@ import {
   type PsFiscalDecision,
   type PsNameMatchCandidate,
 } from '@/lib/psFiscalFoundation';
+import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
 
 export type PsTeamImportRow = {
   full_name: string;
@@ -190,7 +191,7 @@ export function usePsImportEventTeam() {
           sector: row.sector || null,
           unit: row.unit || null,
           institution: row.institution || null,
-          building: row.building || null,
+          building: normalizePsLocation(row.building, { building: true }) || null,
           floor: row.floor || null,
           room: row.room || null,
           work_schedule: row.work_schedule || null,

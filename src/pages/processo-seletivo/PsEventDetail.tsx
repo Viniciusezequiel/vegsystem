@@ -40,6 +40,7 @@ import {
   cleanupUploadedSignatureIfUnreferenced,
 } from '@/lib/signatureStorage';
 import { buildManualEventCollaboratorRow } from '@/lib/psManualEventCollaboratorSnapshot.mjs';
+import { getPsAttendanceLocation } from '@/lib/psLocationNormalization.mjs';
 
 export default function PsEventDetail() {
   const { id } = useParams();
@@ -213,21 +214,13 @@ export default function PsEventDetail() {
     const locations = new Map<string, any>();
 
     for (const link of operationalLinks as any[]) {
-      const campus = String(link.campus || '').trim();
-
-      const building = String(
-        link.building ||
-        link.unit ||
-        link.campus ||
-        'Sem prédio'
-      ).trim();
-
-      const key = `${campus}|||${building}`;
+      const { key, campus, campusLabel, building } = getPsAttendanceLocation(link);
 
       if (!locations.has(key)) {
         locations.set(key, {
           key,
           campus,
+          campusLabel,
           building,
           links: [],
         });
@@ -257,10 +250,8 @@ export default function PsEventDetail() {
             !row.present
         ).length;
 
-        const closure = attendanceClosures.find(
-          (item: any) =>
-            String(item.campus || '').trim() === location.campus &&
-            String(item.building || '').trim() === location.building
+        const closure = attendanceClosures.find((item: any) =>
+          getPsAttendanceLocation(item).key === location.key
         );
 
         return {
@@ -1550,10 +1541,10 @@ export default function PsEventDetail() {
                             {location.building}
                           </p>
 
-                          {location.campus &&
-                            location.campus !== location.building && (
+                          {location.campusLabel &&
+                            location.campusLabel !== location.building && (
                               <p className="mt-1 text-xs text-muted-foreground">
-                                {location.campus}
+                                {location.campusLabel}
                               </p>
                             )}
                         </div>
@@ -2154,11 +2145,11 @@ export default function PsEventDetail() {
                   {closureTarget.building}
                 </p>
 
-                {closureTarget.campus &&
-                  closureTarget.campus !==
+                {closureTarget.campusLabel &&
+                  closureTarget.campusLabel !==
                     closureTarget.building && (
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {closureTarget.campus}
+                      {closureTarget.campusLabel}
                     </p>
                   )}
 
