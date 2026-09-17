@@ -14,6 +14,8 @@ const events = read('src/pages/processo-seletivo/PsEvents.tsx');
 const editDialog = read('src/components/processo-seletivo/PsEventCollaboratorEditDialog.tsx');
 const mainLayout = read('src/components/layout/MainLayout.tsx');
 const modernStyles = read('src/styles/process-selection-modern.css');
+const dialog = read('src/components/ui/dialog.tsx');
+const indexHtml = read('index.html');
 
 test('event summary dashboard is restricted to the overview tab', () => {
   assert.match(detail, /activeTab === 'visao-geral'/);
@@ -46,4 +48,14 @@ test('event collaborator editing is separated into clear sections', () => {
   }
   assert.match(editDialog, /As alterações abaixo valem para este evento/);
   assert.match(editDialog, /Salvar alterações/);
+});
+
+test('tablet and mobile layouts stay inside the viewport', () => {
+  assert.match(mainLayout, /w-full min-w-0 max-w-\[1560px\] overflow-x-clip/);
+  assert.match(dialog, /w-\[calc\(100%-1rem\)\]/);
+  assert.match(dialog, /max-h-\[calc\(100dvh-1rem\)\]/);
+  assert.match(indexHtml, /viewport-fit=cover/);
+  assert.doesNotMatch(indexHtml, /user-scalable=no/);
+  assert.match(modernStyles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(modernStyles, /overflow-wrap: anywhere/);
 });

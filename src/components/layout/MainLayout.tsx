@@ -198,7 +198,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
+    <div className="relative min-h-screen w-full max-w-full overflow-x-clip bg-background">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute -right-64 -top-72 h-[560px] w-[560px] rounded-full bg-primary/[0.055] blur-3xl" />
         <div className="absolute left-[28%] top-[12%] h-[420px] w-[420px] rounded-full bg-cyan-500/[0.018] blur-3xl" />
@@ -231,7 +231,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       <main
         className={cn(
-          'relative z-10 min-h-screen min-w-0 transition-all duration-300',
+          'relative z-10 min-h-screen min-w-0 max-w-full transition-all duration-300',
           !isMobile && (sidebarCollapsed ? 'xl:ml-[68px]' : 'xl:ml-60'),
           'ml-0'
         )}
@@ -388,7 +388,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
         <div
           className={cn(
-            'mx-auto min-w-0 max-w-[1560px] overflow-x-hidden p-3 sm:p-4 xl:px-6 xl:pb-6',
+            'mx-auto w-full min-w-0 max-w-[1560px] overflow-x-clip p-3 sm:p-4 xl:px-6 xl:pb-6',
             location.pathname.startsWith('/admin-module/processo-seletivo') && 'max-w-[1800px]',
             location.pathname === '/' && 'dashboard-route'
           )}

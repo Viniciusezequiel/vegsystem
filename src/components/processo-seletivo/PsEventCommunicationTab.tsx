@@ -352,7 +352,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
       </Button>
     </div>
 
-    <div className="grid gap-2 lg:grid-cols-6">
+    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome" />
 
       <Select value={status} onValueChange={setStatus}>
@@ -369,7 +369,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
             {roles.length === 0 ? 'Todos: Cargo' : roles.length === 1 ? roles[0] : `${roles.length} cargos selecionados`}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="max-h-80 w-[320px] overflow-y-auto" align="start">
+        <DropdownMenuContent className="max-h-80 w-[min(320px,calc(100vw-24px))] overflow-y-auto" align="start">
           <DropdownMenuCheckboxItem
             checked={roles.length === 0}
             onCheckedChange={() => setRoles([])}
@@ -448,7 +448,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
 
     <Card>
       <CardContent className="overflow-x-auto p-0">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[920px] text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="p-3" />
