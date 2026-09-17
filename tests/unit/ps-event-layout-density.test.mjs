@@ -48,6 +48,8 @@ test('event collaborator editing is separated into clear sections', () => {
   }
   assert.match(editDialog, /As alterações abaixo valem para este evento/);
   assert.match(editDialog, /Salvar alterações/);
+  assert.match(editDialog, /Celular \/ WhatsApp/);
+  assert.match(editDialog, /mobile: form\.mobile \|\| null/);
 });
 
 test('tablet and mobile layouts stay inside the viewport', () => {

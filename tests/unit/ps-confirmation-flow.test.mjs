@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   canTransitionPsConfirmation, getPsConfirmationSummary, replacementAssignment,
 } from '../../src/lib/psConfirmationState.mjs';
-import { buildPsConfirmationNotice, createPsConfirmationDeliveryRequest } from '../../src/lib/psConfirmationNotice.mjs';
+import { buildPsConfirmationNotice, createPsConfirmationDeliveryRequest, getPsContactPhone, getPsWhatsAppUrl } from '../../src/lib/psConfirmationNotice.mjs';
 
 const sql = fs.readFileSync(new URL('../../supabase/migrations/20260902050000_ps_confirmation_flow_base.sql', import.meta.url), 'utf8');
 const page = fs.readFileSync(new URL('../../src/pages/processo-seletivo/public/PsPublicConfirmation.tsx', import.meta.url), 'utf8');
@@ -63,4 +63,12 @@ test('contrato de aviso não realiza envio real', () => {
   const notice = buildPsConfirmationNotice({ collaboratorName: 'Fiscal', eventName: 'Evento', confirmationUrl: 'https://example.test/token', expiresAt: 'amanhã' });
   const request = createPsConfirmationDeliveryRequest({ recipient: 'fiscal@example.test', notice });
   assert.equal(request.dispatch, false); assert.match(notice.text, /example\.test\/token/);
+  assert.match(notice.text, /Consulte o valor, cargo e área de atuação através da Intranet\./);
+});
+
+test('telefone do evento prioriza celular e gera link seguro do WhatsApp', () => {
+  assert.equal(getPsContactPhone({ mobile: '(31) 99876-4321', phone: '3133334444' }), '(31) 99876-4321');
+  assert.equal(getPsContactPhone({ phone: '3133334444' }), '3133334444');
+  assert.equal(getPsWhatsAppUrl('(31) 99876-4321'), 'https://wa.me/5531998764321');
+  assert.equal(getPsWhatsAppUrl(''), null);
 });
