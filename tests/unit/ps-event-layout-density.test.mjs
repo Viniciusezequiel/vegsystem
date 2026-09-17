@@ -38,8 +38,14 @@ test('communication metrics use one compact dashboard surface', () => {
 });
 
 test('confirmation report exports only filtered people with delivery status', () => {
-  assert.match(detail, /PDF filtrado/);
-  assert.match(detail, /generatePsConfirmationReportPdf\(reportEvent, rows, filters\)/);
+  assert.match(detail, /Exportar filtrados/);
+  assert.match(detail, /Exportar em PDF/);
+  assert.match(detail, /Exportar em Excel/);
+  assert.match(detail, /generatePsConfirmationReportPdf\(report\.reportEvent, report\.rows, report\.filters\)/);
+  assert.match(detail, /XLSX\.utils\.json_to_sheet\(rows\)/);
+  assert.match(detail, /Confirmações filtradas/);
+  assert.match(detail, /Status do e-mail/);
+  assert.match(detail, /worksheet\['!autofilter'\]/);
   assert.match(detail, /latestEmailByLink/);
   assert.match(eventPdf, /RELATÓRIO DE CONFIRMAÇÕES/);
   assert.match(eventPdf, /email_status_label/);

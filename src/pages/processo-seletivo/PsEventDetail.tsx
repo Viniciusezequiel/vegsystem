@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
 import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventTeamImportDialog';
 import { PsEventCommunicationTab } from '@/components/processo-seletivo/PsEventCommunicationTab';
@@ -31,7 +32,7 @@ import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psCon
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, FileSpreadsheet, ChevronDown, FileText } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -443,8 +444,8 @@ export default function PsEventDetail() {
     } catch { /* mutation already reports a safe error */ }
   };
 
-  const exportFilteredConfirmationsPdf = () => {
-    if (!event || !confirmationRows.length) return;
+  const getFilteredConfirmationReportData = () => {
+    if (!event || !confirmationRows.length) return null;
     const latestEmailByLink = new Map<string, any>();
     for (const job of eventCommunications as any[]) {
       if (job.communication_type !== 'confirmation_request') continue;
@@ -490,9 +491,52 @@ export default function PsEventDetail() {
       date: event.date ? new Date(`${event.date}T00:00:00`).toLocaleDateString('pt-BR') : null,
       location: event.location,
     };
-    generatePsConfirmationReportPdf(reportEvent, rows, filters)
-      .save(`confirmacoes-${String(event.name || 'evento').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
-    toast.success(`PDF gerado com ${rows.length} pessoa(s) filtrada(s).`);
+    return { rows, filters, reportEvent };
+  };
+
+  const exportFilteredConfirmationsPdf = () => {
+    const report = getFilteredConfirmationReportData();
+    if (!report) return;
+    generatePsConfirmationReportPdf(report.reportEvent, report.rows, report.filters)
+      .save(`confirmacoes-${String(report.reportEvent.name || 'evento').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
+    toast.success(`PDF gerado com ${report.rows.length} pessoa(s) filtrada(s).`);
+  };
+
+  const exportFilteredConfirmationsExcel = () => {
+    const report = getFilteredConfirmationReportData();
+    if (!report) return;
+    const rows = report.rows.map((row: any) => ({
+      'Nome': row.collaborator_name || '',
+      'Status da confirmação': row.participation_status_label || '',
+      'Data da confirmação/status': row.confirmation_date || '',
+      'Motivo da recusa': row.decline_reason || '',
+      'Cargo': row.role_name || row.assigned_role || '',
+      'Horário': row.work_schedule || '',
+      'Campus': row.campus || '',
+      'Unidade': row.unit || '',
+      'Instituição': row.institution || '',
+      'Prédio': row.building || '',
+      'Andar': row.floor || '',
+      'Sala': row.room || '',
+      'Setor': row.sector || '',
+      'E-mail cadastrado': row.email || '',
+      'Celular': row.phone || '',
+      'Status do e-mail': row.email_status_label || '',
+      'Data do status do e-mail': row.email_status_date || '',
+      'Destinatário do envio': row.email_recipient || '',
+      'Erro do e-mail': row.email_error || '',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!autofilter'] = { ref: worksheet['!ref'] || `A1:S${rows.length + 1}` };
+    worksheet['!cols'] = [
+      { wch: 34 }, { wch: 22 }, { wch: 23 }, { wch: 34 }, { wch: 28 }, { wch: 18 },
+      { wch: 16 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 14 }, { wch: 12 },
+      { wch: 24 }, { wch: 34 }, { wch: 18 }, { wch: 22 }, { wch: 23 }, { wch: 34 }, { wch: 38 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Confirmações filtradas');
+    XLSX.writeFile(workbook, `confirmacoes-${String(report.reportEvent.name || 'evento').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.xlsx`);
+    toast.success(`Excel gerado com ${rows.length} pessoa(s) filtrada(s).`);
   };
 
   const copyConfirmationMessage = async (link: any) => {
@@ -1379,9 +1423,22 @@ export default function PsEventDetail() {
               <Select value={confirmationUnit} onValueChange={setConfirmationUnit}><SelectTrigger><SelectValue placeholder="Unidade" /></SelectTrigger><SelectContent><SelectItem value="all">Todas as unidades</SelectItem>
                 {[...new Set(links.map((link: any) => link.unit || 'Sem unidade'))].map((unit: any) => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
               </SelectContent></Select>
-              <Button type="button" variant="outline" onClick={exportFilteredConfirmationsPdf} disabled={!confirmationRows.length}>
-                <Download className="mr-2 h-4 w-4" />PDF filtrado
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" disabled={!confirmationRows.length}>
+                    <Download className="mr-2 h-4 w-4" />Exportar filtrados
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-52">
+                  <DropdownMenuItem onSelect={exportFilteredConfirmationsPdf}>
+                    <FileText className="mr-2 h-4 w-4" />Exportar em PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={exportFilteredConfirmationsExcel}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />Exportar em Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <Card className="rounded-2xl">
               <CardContent className="p-0">
