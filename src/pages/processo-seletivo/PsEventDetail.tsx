@@ -41,6 +41,10 @@ import {
 } from '@/lib/signatureStorage';
 import { buildManualEventCollaboratorRow } from '@/lib/psManualEventCollaboratorSnapshot.mjs';
 import { getPsAttendanceLocation } from '@/lib/psLocationNormalization.mjs';
+import {
+  downloadPsCandidateTemplate,
+  readPsCandidateSpreadsheet,
+} from '@/lib/psCandidateSpreadsheet';
 
 export default function PsEventDetail() {
   const { id } = useParams();
@@ -539,32 +543,29 @@ export default function PsEventDetail() {
   };
 
   const importCandidates = async (file: File) => {
-    const wb = XLSX.read(await file.arrayBuffer());
-    const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-    const pick = (r: any, keys: string[]) => {
-      for (const k of keys) {
-        const found = Object.keys(r).find((c) => c.trim().toUpperCase() === k.toUpperCase());
-        if (found && String(r[found]).trim()) return String(r[found]).trim();
+    try {
+      const result = await readPsCandidateSpreadsheet(file, id!);
+      if (!result.rows.length) {
+        toast.error('Nenhum candidato encontrado. Use a coluna CANDIDATO ou NOME.');
+        return;
       }
-      return '';
-    };
-    const mapped = rows.map((r) => ({
-      event_id: id,
-      process_name: pick(r, ['PROCESSO SELETIVO', 'PROCESSO']) || null,
-      registration_number: pick(r, ['INSCRIÇÃO', 'INSCRICAO', 'Inscrição']) || null,
-      full_name: pick(r, ['CANDIDATO', 'NOME', 'Nome']),
-      phone: pick(r, ['CELULAR', 'TELEFONE']) || null,
-      email: pick(r, ['E-MAIL', 'EMAIL']) || null,
-      rg: pick(r, ['IDENTIDADE', 'RG']) || null,
-      cpf: pick(r, ['CPF', 'DOCUMENTO']) || null,
-      exam_type: pick(r, ['TIPO DE PROVA', 'TIPO']) || null,
-      campus: pick(r, ['LOCAL DE PROVA', 'CAMPUS', 'LOCAL']) || null,
-      building: pick(r, ['PRÉDIO', 'PREDIO', 'EDIFÍCIO', 'EDIFICIO']) || null,
-      room: pick(r, ['SALA']) || null,
-      barcode: pick(r, ['CÓD DE BARRAS', 'COD DE BARRAS', 'CODIGO DE BARRAS']) || null,
-      seat_number: pick(r, ['CARTEIRA', 'ASSENTO']) || null,
-    })).filter((r) => r.full_name);
-    if (mapped.length) addMany.mutate(mapped);
+      if (!result.campusCount || !result.buildingCount) {
+        toast.error(
+          'Campus e Prédio não foram identificados. Baixe o modelo e confira os cabeçalhos da planilha.',
+        );
+        return;
+      }
+      if (result.campusCount < result.rows.length || result.buildingCount < result.rows.length) {
+        toast.warning(
+          `${result.rows.length - Math.min(result.campusCount, result.buildingCount)} candidato(s) têm Campus ou Prédio em branco.`,
+        );
+      }
+      addMany.mutate(result.rows);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Não foi possível ler a planilha de candidatos.',
+      );
+    }
   };
 
 
@@ -2080,13 +2081,20 @@ export default function PsEventDetail() {
 
           <TabsContent value="candidatos" className="space-y-3 pt-4">
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={downloadPsCandidateTemplate}>
+                <Download className="mr-2 h-4 w-4" />Baixar modelo XLSX
+              </Button>
               <Button variant="outline" asChild>
-                <label className="cursor-pointer"><Upload className="mr-2 h-4 w-4" />Importar candidatos
-                  <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && importCandidates(e.target.files[0])} />
+                <label className="cursor-pointer"><Upload className="mr-2 h-4 w-4" />Importar candidatos / atualizar dados
+                  <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) void importCandidates(file);
+                  }} />
                 </label>
               </Button>
               <Button variant="outline" onClick={exportCandidateBadges} disabled={candidates.length === 0}>
-                <IdCard className="mr-2 h-4 w-4" />Etiquetas
+                <IdCard className="mr-2 h-4 w-4" />Gerar etiquetas (PDF)
               </Button>
               {candidates.length > 0 && (
                 <Button variant="outline" onClick={() => { if (confirm('Remover todos os candidatos do evento?')) removeAll.mutate(id!); }}>
