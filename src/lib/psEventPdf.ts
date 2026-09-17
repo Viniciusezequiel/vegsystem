@@ -32,6 +32,27 @@ export interface PsEventInfo {
   location?: string | null;
 }
 
+export interface PsConfirmationReportRow {
+  collaborator_name: string;
+  role_name?: string | null;
+  work_schedule?: string | null;
+  campus?: string | null;
+  unit?: string | null;
+  building?: string | null;
+  floor?: string | null;
+  room?: string | null;
+  sector?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  participation_status_label: string;
+  confirmation_date?: string | null;
+  decline_reason?: string | null;
+  email_status_label: string;
+  email_status_date?: string | null;
+  email_recipient?: string | null;
+  email_error?: string | null;
+}
+
 export const PS_CANDIDATE_LABEL_SHEET = {
   pageWidth: 215.9,
   pageHeight: 279.4,
@@ -47,6 +68,95 @@ export const PS_CANDIDATE_LABEL_SHEET = {
 } as const;
 
 const BRAND = 'RD Avaliações';
+
+/** Relatório operacional da aba Confirmações, respeitando os filtros ativos na tela. */
+export function generatePsConfirmationReportPdf(
+  event: PsEventInfo,
+  rows: PsConfirmationReportRow[],
+  filters: string[],
+): jsPDF {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+  const PW = 297, PH = 210, ML = 10, MR = 10, GAP = 5;
+  const cardW = (PW - ML - MR - GAP) / 2;
+  const cardH = 39;
+  let y = 0;
+  let column = 0;
+  let page = 0;
+
+  const value = (input?: string | null) => String(input || '').trim() || 'Não informado';
+  const header = () => {
+    page += 1;
+    if (page > 1) doc.addPage('a4', 'landscape');
+    y = 11;
+    column = 0;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(22, 25, 34);
+    doc.text('RELATÓRIO DE CONFIRMAÇÕES', ML, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(80, 86, 98);
+    doc.text(value(event.name), ML, y + 6);
+    const meta = [event.date ? `Data do evento: ${event.date}` : '', event.location ? `Local: ${event.location}` : ''].filter(Boolean).join(' · ');
+    if (meta) doc.text(meta, ML, y + 11);
+    doc.setFontSize(7.5);
+    doc.text(`Filtros: ${filters.length ? filters.join(' · ') : 'Todos'} · ${rows.length} pessoa(s)`, ML, y + 16);
+    doc.text(`Emitido em ${new Date().toLocaleString('pt-BR')}`, PW - MR, y + 16, { align: 'right' });
+    doc.setDrawColor(139, 92, 246);
+    doc.setLineWidth(0.6);
+    doc.line(ML, y + 20, PW - MR, y + 20);
+    y += 25;
+  };
+
+  const line = (label: string, text: string, x: number, lineY: number, maxWidth: number) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(45, 49, 61);
+    doc.text(`${label}:`, x, lineY);
+    const offset = doc.getTextWidth(`${label}: `);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(70, 76, 90);
+    doc.text(truncate(doc, text, maxWidth - offset), x + offset, lineY);
+  };
+
+  header();
+  const sorted = [...rows].sort((a, b) => a.collaborator_name.localeCompare(b.collaborator_name, 'pt-BR'));
+  sorted.forEach((row, index) => {
+    if (column === 0 && y + cardH > PH - 12) header();
+    const x = ML + column * (cardW + GAP);
+    doc.setDrawColor(205, 210, 220);
+    doc.setFillColor(index % 2 ? 250 : 247, 248, 252);
+    doc.roundedRect(x, y, cardW, cardH, 2, 2, 'FD');
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(25, 29, 39);
+    doc.text(truncate(doc, value(row.collaborator_name), cardW - 8), x + 4, y + 5.5);
+    doc.setFontSize(7.2);
+    line('Confirmação', value(row.participation_status_label), x + 4, y + 11, cardW - 8);
+    line('Cargo/horário', [value(row.role_name), row.work_schedule].filter(Boolean).join(' · '), x + 4, y + 16, cardW - 8);
+    line('Local', [row.campus, row.unit, row.building, row.floor, row.room && `Sala ${row.room}`].filter(Boolean).join(' · ') || 'Não informado', x + 4, y + 21, cardW - 8);
+    line('Setor', value(row.sector), x + 4, y + 26, cardW - 8);
+    line('Contato', [row.email, row.phone].filter(Boolean).join(' · ') || 'Não informado', x + 4, y + 31, cardW - 8);
+    const emailDetail = [row.email_status_label, row.email_status_date, row.email_recipient].filter(Boolean).join(' · ');
+    line('E-mail', emailDetail || 'Não enviado', x + 4, y + 36, cardW - 8);
+    if (row.decline_reason || row.email_error) {
+      doc.setFontSize(6.4);
+      doc.setTextColor(170, 55, 55);
+      doc.text(truncate(doc, `Obs.: ${row.decline_reason || row.email_error}`, cardW - 8), x + 4, y + 38.3);
+    }
+    column = column === 0 ? 1 : 0;
+    if (column === 0) y += cardH + 4;
+  });
+
+  const totalPages = doc.getNumberOfPages();
+  for (let current = 1; current <= totalPages; current += 1) {
+    doc.setPage(current);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(110, 116, 128);
+    doc.text(`${BRAND} · Página ${current} de ${totalPages}`, PW - MR, PH - 5, { align: 'right' });
+  }
+  return doc;
+}
 
 function fit(doc: jsPDF, text: string, maxW: number, start: number, min = 6) {
   let size = start;

@@ -25,13 +25,14 @@ import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
   usePsCollaborators, usePsRoles, usePsEvaluations, usePsSaveEvaluation, usePsCandidates,
   usePsCandidateMutations, usePsSelfEvaluations, usePsClearEventTeam, usePsEventConfirmationSummary, usePsConfirmationActions,
+  usePsEventCommunications,
 } from '@/hooks/useProcessoSeletivo';
 import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psConfirmationState.mjs';
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
 import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone } from 'lucide-react';
-import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
+import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -65,6 +66,7 @@ export default function PsEventDetail() {
   const clearTeam = usePsClearEventTeam();
   const { data: confirmationSummary = {} } = usePsEventConfirmationSummary(id);
   const confirmationActions = usePsConfirmationActions(id);
+  const { data: eventCommunications = [] } = usePsEventCommunications(id);
 
   const [addOpen, setAddOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('visao-geral');
@@ -439,6 +441,58 @@ export default function PsEventDetail() {
       });
       copy(`${publicBase}/confirmacao/${id}/${result.token}`);
     } catch { /* mutation already reports a safe error */ }
+  };
+
+  const exportFilteredConfirmationsPdf = () => {
+    if (!event || !confirmationRows.length) return;
+    const latestEmailByLink = new Map<string, any>();
+    for (const job of eventCommunications as any[]) {
+      if (job.communication_type !== 'confirmation_request') continue;
+      const linkId = String(job.event_collaborator_id || '');
+      if (linkId && !latestEmailByLink.has(linkId)) latestEmailByLink.set(linkId, job);
+    }
+    const errorDelivery = new Set(['soft_bounce', 'hard_bounce', 'blocked', 'spam', 'invalid', 'error', 'unsubscribed']);
+    const deliveryLabels: Record<string, string> = {
+      sent: 'Enviado', delivered: 'Entregue', opened: 'Aberto', clicked: 'Clicou no link',
+      soft_bounce: 'Erro temporário', hard_bounce: 'E-mail rejeitado', blocked: 'Bloqueado',
+      spam: 'Marcado como spam', invalid: 'E-mail inválido', error: 'Erro no envio', unsubscribed: 'Descadastrado',
+    };
+    const rows = confirmationRows.map((link: any) => {
+      const job = latestEmailByLink.get(String(link.id));
+      const delivery = String(job?.delivery_status || '');
+      let emailStatus = 'Não enviado';
+      if (job?.status === 'failed_missing_recipient') emailStatus = 'Sem e-mail';
+      else if (job?.status === 'failed' || errorDelivery.has(delivery)) emailStatus = deliveryLabels[delivery] || 'Erro no envio';
+      else if (['pending', 'waiting_provider_quota', 'processing'].includes(job?.status)) emailStatus = 'Na fila';
+      else if (deliveryLabels[delivery]) emailStatus = deliveryLabels[delivery];
+      else if (job?.status === 'sent') emailStatus = 'Enviado';
+      const emailDate = job?.opened_at || job?.clicked_at || job?.delivered_at || job?.sent_at || job?.provider_last_event_at || job?.requested_at;
+      const confirmationDate = link.confirmed_at || link.declined_at || link.confirmation_requested_at;
+      return {
+        ...link,
+        phone: getPsContactPhone(link),
+        participation_status_label: getPsConfirmationStatusLabel(link.participation_status),
+        confirmation_date: confirmationDate ? new Date(confirmationDate).toLocaleString('pt-BR') : null,
+        email_status_label: emailStatus,
+        email_status_date: emailDate ? new Date(emailDate).toLocaleString('pt-BR') : null,
+        email_recipient: job?.actual_recipient || job?.logical_recipient || link.email || null,
+        email_error: job?.last_error || null,
+      };
+    });
+    const filters = [
+      confirmationSearch.trim() ? `Busca: ${confirmationSearch.trim()}` : '',
+      confirmationStatus !== 'all' ? `Situação: ${getPsConfirmationStatusLabel(confirmationStatus)}` : '',
+      confirmationRole !== 'all' ? `Cargo: ${confirmationRole}` : '',
+      confirmationUnit !== 'all' ? `Unidade: ${confirmationUnit}` : '',
+    ].filter(Boolean);
+    const reportEvent = {
+      name: event.name,
+      date: event.date ? new Date(`${event.date}T00:00:00`).toLocaleDateString('pt-BR') : null,
+      location: event.location,
+    };
+    generatePsConfirmationReportPdf(reportEvent, rows, filters)
+      .save(`confirmacoes-${String(event.name || 'evento').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
+    toast.success(`PDF gerado com ${rows.length} pessoa(s) filtrada(s).`);
   };
 
   const copyConfirmationMessage = async (link: any) => {
@@ -1314,7 +1368,7 @@ export default function PsEventDetail() {
                 </Card>
               ))}
             </div>
-            <div className="grid gap-2 md:grid-cols-4">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(180px,.7fr))_auto]">
               <Input value={confirmationSearch} onChange={(e) => setConfirmationSearch(e.target.value)} placeholder="Buscar por nome, cargo, unidade ou sala" />
               <Select value={confirmationStatus} onValueChange={setConfirmationStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
                 <SelectItem value="all">Todos os status</SelectItem><SelectItem value="pending_confirmation">Aguardando</SelectItem><SelectItem value="confirmed">Confirmados</SelectItem><SelectItem value="declined">Recusaram</SelectItem><SelectItem value="replaced">Substituídos</SelectItem>
@@ -1325,6 +1379,9 @@ export default function PsEventDetail() {
               <Select value={confirmationUnit} onValueChange={setConfirmationUnit}><SelectTrigger><SelectValue placeholder="Unidade" /></SelectTrigger><SelectContent><SelectItem value="all">Todas as unidades</SelectItem>
                 {[...new Set(links.map((link: any) => link.unit || 'Sem unidade'))].map((unit: any) => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
               </SelectContent></Select>
+              <Button type="button" variant="outline" onClick={exportFilteredConfirmationsPdf} disabled={!confirmationRows.length}>
+                <Download className="mr-2 h-4 w-4" />PDF filtrado
+              </Button>
             </div>
             <Card className="rounded-2xl">
               <CardContent className="p-0">
