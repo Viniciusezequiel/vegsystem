@@ -1212,6 +1212,7 @@ export type Database = {
       ps_candidates: {
         Row: {
           barcode: string | null
+          building: string | null
           campus: string | null
           cpf: string | null
           created_at: string
@@ -1229,6 +1230,7 @@ export type Database = {
         }
         Insert: {
           barcode?: string | null
+          building?: string | null
           campus?: string | null
           cpf?: string | null
           created_at?: string
@@ -1246,6 +1248,7 @@ export type Database = {
         }
         Update: {
           barcode?: string | null
+          building?: string | null
           campus?: string | null
           cpf?: string | null
           created_at?: string

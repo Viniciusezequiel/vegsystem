@@ -3,7 +3,6 @@ import jsPDF from 'jspdf';
 export interface PsTrainingAttendanceEvent {
   name: string;
   date?: string | null;
-  location?: string | null;
 }
 
 export interface PsTrainingAttendanceGroup {
@@ -93,18 +92,18 @@ export function generatePsTrainingAttendancePdf(
     doc.setTextColor(45, 50, 58);
     doc.text('TREINAMENTO', ML + 4, y + 5);
     doc.text('DATA / HORÁRIO', ML + 104, y + 5);
-    doc.text('CAMPUS / LOCAL', ML + 181, y + 5);
+    doc.text('LOCAL DO TREINAMENTO', ML + 181, y + 5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     const when = session.ends_at
       ? `${formatDateTime(session.starts_at)} a ${formatDateTime(session.ends_at)}`
       : formatDateTime(session.starts_at);
-    const location = [
+    const location = [...new Set([
       session.campus,
-      session.location || event.location,
-      session.room ? `Sala ${session.room}` : null,
-    ].filter(Boolean).join(' - ') || '-';
+      session.location,
+      session.room,
+    ].map((value) => String(value || '').trim()).filter(Boolean))].join(' - ') || '-';
 
     doc.text(truncate(doc, group.name || '-', 92), ML + 4, y + 12);
     doc.text(truncate(doc, when, 69), ML + 104, y + 12);

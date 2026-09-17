@@ -16,7 +16,10 @@ export interface PsBadgeRow {
 export interface PsCandidateBadgeRow {
   full_name: string;
   cpf?: string | null;
+  rg?: string | null;
+  exam_type?: string | null;
   campus?: string | null;
+  building?: string | null;
   room?: string | null;
   seat_number?: string | null;
   registration_number?: string | null;
@@ -182,85 +185,43 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
 }
 
 function drawCandidateBadge(doc: jsPDF, event: PsEventInfo, row: PsCandidateBadgeRow, x: number, y: number, w: number, h: number) {
-  const paddingX = 3.5;
-  const paddingY = 2.5;
+  const paddingX = 3.2;
+  const paddingY = 1.8;
   const maxTextWidth = w - (paddingX * 2);
-  const eventName = truncate(doc, event.name || '', maxTextWidth - 10);
+  const eventName = String(event.name || '').toUpperCase();
 
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(255, 255, 255);
   doc.rect(x, y, w, h, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.2);
-  doc.setTextColor(70, 77, 86);
-  doc.text(eventName, x + paddingX, y + paddingY + 4.5);
+  fit(doc, eventName, maxTextWidth, 6.2, 4.8);
+  doc.setTextColor(20, 20, 20);
+  doc.text(truncate(doc, eventName, maxTextWidth), x + paddingX, y + paddingY + 3.2);
 
-  const pcdType = (row.pcd_type || '').trim();
-  const shouldDisplayPcd = !!pcdType && pcdType !== 'NORMAL' && pcdType !== 'normal';
-  if (shouldDisplayPcd) {
-    const label = pcdType.length > 12 ? 'PCD' : pcdType;
-    const width = doc.getTextWidth(label) + 2;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(5.5);
-    doc.setTextColor(118, 58, 22);
-    doc.text(label, x + w - paddingX - width, y + paddingY + 4.8);
-  }
+  const drawField = (label: string, value: unknown, fieldX: number, fieldY: number, fieldWidth: number) => {
+    const safeValue = String(value || '-').trim() || '-';
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(235, 38, 38);
+    doc.text(label, fieldX, fieldY);
+    const valueX = fieldX + doc.getTextWidth(label) + 1;
+    doc.setTextColor(18, 18, 18);
+    doc.text(truncate(doc, safeValue, Math.max(4, fieldWidth - (valueX - fieldX))), valueX, fieldY);
+  };
 
-  const name = row.full_name || 'Sem nome';
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(18, 24, 35);
-  const nameSize = fit(doc, name, maxTextWidth, 10.5, 7.2);
-  doc.setFontSize(nameSize);
-  doc.text(truncate(doc, name, maxTextWidth), x + w / 2, y + 12.8, { align: 'center' });
+  drawField('Nome:', row.full_name || 'Sem nome', x + paddingX, y + 9.2, maxTextWidth);
+  drawField('RG:', row.rg, x + paddingX, y + 13.7, maxTextWidth);
+  drawField('CPF:', row.cpf, x + paddingX, y + 18.2, maxTextWidth);
 
-  const infoLines: string[] = [];
-  const registration = row.registration_number ? `Inscrição: ${row.registration_number}` : null;
-  const cpf = row.cpf ? `CPF: ${row.cpf}` : null;
-  if (registration) infoLines.push(registration);
-  if (cpf) infoLines.push(cpf);
-
-  const campusValue = String(row.campus || '').trim();
-  const campusLabel = campusValue
-    ? /^campus\b/i.test(campusValue)
-      ? campusValue
-      : `Campus ${campusValue}`
-    : null;
-
-  const locationParts = [
-    campusLabel,
-    row.room ? `Sala ${row.room}` : null,
-    row.seat_number ? `Carteira ${row.seat_number}` : null,
-  ].filter(Boolean);
-  if (locationParts.length) {
-    infoLines.push(locationParts.join(' · '));
-  }
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.2);
-  doc.setTextColor(50, 58, 66);
-
-  const firstLineY = y + 18.5;
-  const lineGap = 4.2;
-  infoLines.slice(0, 2).forEach((line, index) => {
-    const rendered = truncate(doc, line, maxTextWidth);
-    doc.text(rendered, x + paddingX, firstLineY + index * lineGap);
-  });
-
-  if (infoLines[2]) {
-    const rendered = truncate(doc, infoLines[2], maxTextWidth);
-    doc.text(rendered, x + paddingX, firstLineY + 8.4);
-  }
-
-  doc.setDrawColor(230, 233, 237);
-  doc.setLineWidth(0.25);
-  doc.line(x + paddingX, y + h - 4.8, x + w - paddingX, y + h - 4.8);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(5.8);
-  doc.setTextColor(128, 136, 146);
-  doc.text(BRAND, x + paddingX, y + h - 1.7);
+  const halfGap = 3;
+  const halfWidth = (maxTextWidth - halfGap) / 2;
+  const examWidth = maxTextWidth * 0.64;
+  const roomX = x + paddingX + examWidth + halfGap;
+  drawField('Prova:', row.exam_type, x + paddingX, y + 24.4, examWidth);
+  drawField('Sala:', row.room, roomX, y + 24.4, maxTextWidth - examWidth - halfGap);
+  drawField('Campus:', row.campus, x + paddingX, y + 29.6, halfWidth);
+  drawField('Prédio:', row.building, x + paddingX + halfWidth + halfGap, y + 29.6, halfWidth);
 }
 
 export interface PsAttendanceRow extends PsBadgeRow {

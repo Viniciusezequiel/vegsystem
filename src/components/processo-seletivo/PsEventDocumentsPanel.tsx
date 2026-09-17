@@ -30,7 +30,10 @@ export function PsEventDocumentsPanel({ event }: Props) {
     const rows = candidates.map((candidate: any) => ({
       full_name: candidate.full_name,
       cpf: candidate.cpf,
+      rg: candidate.rg,
+      exam_type: candidate.exam_type,
       campus: candidate.campus,
+      building: candidate.building,
       room: candidate.room,
       seat_number: candidate.seat_number || candidate.seat,
       registration_number: candidate.registration_number,
