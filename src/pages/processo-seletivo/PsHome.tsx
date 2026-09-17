@@ -74,7 +74,7 @@ export default function PsHome() {
         <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_300px]">
           <div className="space-y-5">
             <section>
-              <div className="mb-2.5 flex items-center justify-between">
+              <div className="mb-2.5 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Acessos principais</h2>
                 <span className="text-[11px] text-muted-foreground">As rotinas específicas ficam dentro de cada evento</span>
               </div>

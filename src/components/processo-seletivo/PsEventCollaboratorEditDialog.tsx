@@ -235,7 +235,7 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
               </TabsList>
             </div>
 
-            <div className="max-h-[calc(92vh-225px)] min-h-[360px] overflow-y-auto px-6 py-5">
+            <div className="max-h-[calc(92dvh-225px)] min-h-0 overflow-y-auto px-4 py-4 sm:min-h-[360px] sm:px-6 sm:py-5">
               <TabsContent value="assignment" className="m-0 space-y-4">
                 <div>
                   <h3 className="flex items-center gap-2 font-semibold"><CircleDollarSign className="h-4 w-4 text-primary" />Funções e jornada</h3>
