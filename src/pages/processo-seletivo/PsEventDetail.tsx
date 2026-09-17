@@ -13,6 +13,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PsCriteriaFields, emptyCriteria } from '@/components/processo-seletivo/PsCriteriaFields';
 import { PsEventTeamImportDialog } from '@/components/processo-seletivo/PsEventTeamImportDialog';
@@ -32,7 +34,7 @@ import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psCon
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, FileSpreadsheet, ChevronDown, FileText } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, FileSpreadsheet, ChevronDown, FileText, Check, ChevronsUpDown } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -88,6 +90,7 @@ export default function PsEventDetail() {
   const [confirmationUnit, setConfirmationUnit] = useState('all');
   const [replacementTarget, setReplacementTarget] = useState<any>(null);
   const [replacementFiscalId, setReplacementFiscalId] = useState('');
+  const [replacementPickerOpen, setReplacementPickerOpen] = useState(false);
   const [replacementData, setReplacementData] = useState<any>(null);
   const [presenceSearch, setPresenceSearch] = useState('');
   const [presenceListOpen, setPresenceListOpen] = useState(false);
@@ -566,7 +569,7 @@ export default function PsEventDetail() {
   };
 
   const openReplacement = (link: any) => {
-    setReplacementTarget(link); setReplacementFiscalId(''); setReplacementData(replacementAssignment(link));
+    setReplacementTarget(link); setReplacementFiscalId(''); setReplacementPickerOpen(false); setReplacementData(replacementAssignment(link));
   };
 
   const submitReplacement = async () => {
@@ -2556,13 +2559,51 @@ export default function PsEventDetail() {
 
       {/* Avaliar */}
 
-      <Dialog open={!!replacementTarget} onOpenChange={(open) => !open && setReplacementTarget(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+      <Dialog open={!!replacementTarget} onOpenChange={(open) => { if (!open) { setReplacementTarget(null); setReplacementPickerOpen(false); } }}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader><DialogTitle>Substituir {replacementTarget?.collaborator_name}</DialogTitle></DialogHeader>
           {replacementData && <div className="space-y-3">
-            <div><Label>Novo fiscal ativo</Label><Select value={replacementFiscalId} onValueChange={setReplacementFiscalId}><SelectTrigger><SelectValue placeholder="Buscar por nome, e-mail, instituição ou setor" /></SelectTrigger><SelectContent>
-              {replacementCandidates.map((candidate: any) => <SelectItem key={candidate.id} value={candidate.id}>{candidate.full_name} · {[candidate.email, candidate.institution, candidate.sector].filter(Boolean).join(' · ')}</SelectItem>)}
-            </SelectContent></Select></div>
+            <div className="space-y-2">
+              <Label>Novo fiscal ativo</Label>
+              <Popover open={replacementPickerOpen} onOpenChange={setReplacementPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" role="combobox" aria-expanded={replacementPickerOpen} className="h-auto min-h-10 w-full justify-between py-2 text-left font-normal">
+                    <span className="min-w-0 truncate">
+                      {replacementFiscalId
+                        ? (replacementCandidates as any[]).find((candidate: any) => candidate.id === replacementFiscalId)?.full_name
+                        : 'Pesquisar e selecionar um fiscal ativo...'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+                  <Command>
+                    <CommandInput placeholder="Buscar por nome, e-mail, instituição, unidade ou setor..." />
+                    <CommandList className="max-h-72">
+                      <CommandEmpty>Nenhum fiscal ativo encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {replacementCandidates.map((candidate: any) => (
+                          <CommandItem
+                            key={candidate.id}
+                            value={[candidate.full_name, candidate.email, candidate.institution, candidate.unit, candidate.sector].filter(Boolean).join(' ')}
+                            onSelect={() => { setReplacementFiscalId(candidate.id); setReplacementPickerOpen(false); }}
+                            className="items-start gap-2 py-2"
+                          >
+                            <Check className={`mt-0.5 h-4 w-4 shrink-0 ${replacementFiscalId === candidate.id ? 'opacity-100' : 'opacity-0'}`} />
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">{candidate.full_name}</span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {[candidate.email, candidate.institution || candidate.unit, candidate.sector].filter(Boolean).join(' · ') || 'Sem informações complementares'}
+                              </span>
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="grid grid-cols-2 gap-3"><div><Label>Cargo</Label><Input value={replacementData.role_name || ''} onChange={(e) => setReplacementData({ ...replacementData, role_name: e.target.value })} /></div><div><Label>Horário</Label><Input value={replacementData.work_schedule || ''} onChange={(e) => setReplacementData({ ...replacementData, work_schedule: e.target.value })} /></div></div>
             <div className="grid grid-cols-3 gap-3"><div><Label>Unidade</Label><Input value={replacementData.unit || ''} onChange={(e) => setReplacementData({ ...replacementData, unit: e.target.value })} /></div><div><Label>Andar</Label><Input value={replacementData.floor || ''} onChange={(e) => setReplacementData({ ...replacementData, floor: e.target.value })} /></div><div><Label>Sala</Label><Input value={replacementData.room || ''} onChange={(e) => setReplacementData({ ...replacementData, room: e.target.value })} /></div></div>
           </div>}
