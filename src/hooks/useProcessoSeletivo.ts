@@ -909,10 +909,62 @@ export function usePsCandidateMutations() {
 
   const addMany = useMutation({
     mutationFn: async (rows: any[]) => {
-      const { error } = await supabase.from('ps_candidates').insert(rows);
-      if (error) throw error;
+      const eventIds = [...new Set(rows.map((row) => row.event_id).filter(Boolean))];
+      if (eventIds.length !== 1) throw new Error('A importação deve pertencer a um único evento.');
+
+      const { data: current, error: currentError } = await supabase
+        .from('ps_candidates')
+        .select('*')
+        .eq('event_id', eventIds[0]);
+      if (currentError) throw currentError;
+
+      const normalizeText = (value: unknown) => String(value ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase();
+      const digits = (value: unknown) => String(value ?? '').replace(/\D/g, '');
+      const keysFor = (row: any) => [
+        row.registration_number && `registration:${normalizeText(row.registration_number)}`,
+        row.cpf && `cpf:${digits(row.cpf)}`,
+        row.full_name && `name:${normalizeText(row.full_name)}|room:${normalizeText(row.room)}`,
+      ].filter(Boolean) as string[];
+
+      const existingByKey = new Map<string, any>();
+      (current || []).forEach((row: any) => keysFor(row).forEach((key) => existingByKey.set(key, row)));
+
+      const updates: any[] = [];
+      const inserts: any[] = [];
+      rows.forEach((row) => {
+        const existing = keysFor(row).map((key) => existingByKey.get(key)).find(Boolean);
+        if (!existing) {
+          inserts.push(row);
+          return;
+        }
+        updates.push({
+          ...existing,
+          ...Object.fromEntries(
+            Object.entries(row).filter(([, value]) => value !== null && value !== ''),
+          ),
+          id: existing.id,
+        });
+      });
+
+      if (updates.length) {
+        const { error } = await supabase.from('ps_candidates').upsert(updates);
+        if (error) throw error;
+      }
+      if (inserts.length) {
+        const { error } = await supabase.from('ps_candidates').insert(inserts);
+        if (error) throw error;
+      }
+      return { inserted: inserts.length, updated: updates.length };
     },
-    onSuccess: () => { invalidate(); toast.success('Candidatos importados!'); },
+    onSuccess: ({ inserted, updated }) => {
+      invalidate();
+      toast.success(`${inserted} candidato(s) incluído(s) e ${updated} atualizado(s).`);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
