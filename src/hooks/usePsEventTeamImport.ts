@@ -49,12 +49,14 @@ export type PsTeamImportPreview = {
   alreadyLinked: number;
   inconsistent: number;
   ignored: number;
+  inactiveCount: number;
+  inactiveMatches: { rowIndex: number; sheetName: string; registeredName: string }[];
   nameMatches: PsNameMatchSuggestion[];
 };
 
 async function loadPsImportContext(eventId: string) {
   const [{ data: existing, error: existingError }, { data: links, error: linksError }] = await Promise.all([
-    supabase.from('ps_collaborators').select('id,full_name,cpf,email,email_normalized,matricula,institution'),
+    supabase.from('ps_collaborators').select('id,full_name,cpf,email,email_normalized,matricula,institution,active'),
     supabase.from('ps_event_collaborators').select('collaborator_id').eq('event_id', eventId),
   ]);
   if (existingError) throw existingError;
@@ -68,14 +70,26 @@ async function loadPsImportContext(eventId: string) {
 export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImportRow[]): Promise<PsTeamImportPreview> {
   const { existing, linked } = await loadPsImportContext(eventId);
   const decisions = planPsFiscalReconciliation(existing, rows);
+  const collaboratorById = new Map(existing.map((item: any) => [item.id, item]));
   let found = 0;
   let newCount = 0;
   let alreadyLinked = 0;
   let inconsistent = 0;
   let ignored = 0;
+  const inactiveMatches: PsTeamImportPreview['inactiveMatches'] = [];
   const nameMatches: PsNameMatchSuggestion[] = [];
 
   for (const decision of decisions) {
+    const matchedCollaborator: any = decision.status === 'matched' ? collaboratorById.get(decision.collaboratorId) : null;
+    if (matchedCollaborator?.active === false) {
+      inactiveMatches.push({
+        rowIndex: decision.rowIndex,
+        sheetName: rows[decision.rowIndex].full_name,
+        registeredName: matchedCollaborator.full_name,
+      });
+      ignored += 1;
+      continue;
+    }
     if (decision.status === 'ambiguous' || decision.status === 'inconsistent') inconsistent += 1;
     else if (decision.status === 'new') newCount += 1;
     else if (decision.collaboratorId.startsWith('__new_fiscal_')) ignored += 1;
@@ -86,7 +100,10 @@ export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImpo
       const row = rows[decision.rowIndex];
       const role = classifyEvaluatorRole(row.assigned_role || row.role_name);
       if (role) {
-        const candidate: PsNameMatchCandidate | null = findPossibleNameMatch(row.full_name, existing);
+        const candidate: PsNameMatchCandidate | null = findPossibleNameMatch(
+          row.full_name,
+          existing.filter((item: any) => item.active !== false),
+        );
         if (candidate) {
           nameMatches.push({
             rowIndex: decision.rowIndex,
@@ -101,7 +118,17 @@ export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImpo
     }
   }
 
-  return { decisions, found, newCount, alreadyLinked, inconsistent, ignored, nameMatches };
+  return {
+    decisions,
+    found,
+    newCount,
+    alreadyLinked,
+    inconsistent,
+    ignored,
+    inactiveCount: inactiveMatches.length,
+    inactiveMatches,
+    nameMatches,
+  };
 }
 
 export function usePsImportEventTeam() {
@@ -115,6 +142,17 @@ export function usePsImportEventTeam() {
     }) => {
       const { existing } = await loadPsImportContext(eventId);
       const decisions = planPsFiscalReconciliation(existing, rows);
+      const collaboratorById = new Map(existing.map((item: any) => [item.id, item]));
+      const inactiveDecision = decisions.find((decision) =>
+        decision.status === 'matched' && (collaboratorById.get(decision.collaboratorId) as any)?.active === false);
+      if (inactiveDecision) {
+        throw new Error(`Importação interrompida na linha ${inactiveDecision.rowIndex + 2}: este colaborador está inativo e não pode ser vinculado ao evento.`);
+      }
+      const inactiveOverride = Object.entries(nameOverrides).find(([, collaboratorId]) =>
+        (collaboratorById.get(collaboratorId) as any)?.active === false);
+      if (inactiveOverride) {
+        throw new Error(`Importação interrompida na linha ${Number(inactiveOverride[0]) + 2}: o cadastro selecionado está inativo.`);
+      }
       const unsafe = decisions.find((decision) =>
         (decision.status === 'ambiguous' || decision.status === 'inconsistent') && !nameOverrides[decision.rowIndex]);
       if (unsafe) {

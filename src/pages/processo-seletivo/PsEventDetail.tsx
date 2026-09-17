@@ -609,12 +609,22 @@ export default function PsEventDetail() {
   const linkFiscals = async () => {
     if (!selected.length || !roleValue || !campusValue.trim()) return;
 
-    const selectedCollaborators = selected
-      .map((cid) => collaborators.find((x: any) => x.id === cid))
-      .filter(Boolean) as any[];
+    const { data: activeSelected, error: activeSelectedError } = await supabase
+      .from('ps_collaborators')
+      .select('*')
+      .in('id', selected)
+      .eq('active', true);
+    if (activeSelectedError) {
+      toast.error('Não foi possível validar os fiscais selecionados. Tente novamente.');
+      return;
+    }
+    const activeById = new Map((activeSelected || []).map((item: any) => [item.id, item]));
+    const selectedCollaborators = selected.map((cid) => activeById.get(cid)).filter(Boolean) as any[];
 
     if (selectedCollaborators.length !== selected.length) {
-      toast.error('Seleção de fiscais desatualizada. Selecione novamente.');
+      setSelected(selected.filter((cid) => activeById.has(cid)));
+      void queryClient.invalidateQueries({ queryKey: ['ps_collaborators'] });
+      toast.error('Um ou mais fiscais foram inativados e não podem ser vinculados ao evento.');
       return;
     }
     let pixPlan;
