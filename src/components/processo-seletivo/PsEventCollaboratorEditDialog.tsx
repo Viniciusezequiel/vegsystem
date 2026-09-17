@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizePix } from '@/lib/psPixPlan';
+import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
 import {
   PS_JOURNEY_OPTIONS,
   buildLegacyAssignment,
@@ -162,7 +163,7 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
 
       const patch = {
         collaborator_name: form.collaborator_name,
-        building: form.building || null,
+        building: normalizePsLocation(form.building, { building: true }) || null,
         floor: form.floor || null,
         room: form.room || null,
         campus: form.campus || null,
