@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   canTransitionPsConfirmation, getPsConfirmationSummary, replacementAssignment,
 } from '../../src/lib/psConfirmationState.mjs';
-import { buildPsConfirmationNotice, createPsConfirmationDeliveryRequest, getPsContactPhone, getPsWhatsAppUrl } from '../../src/lib/psConfirmationNotice.mjs';
+import { buildPsConfirmationNotice, createPsConfirmationDeliveryRequest, getPsContactPhone } from '../../src/lib/psConfirmationNotice.mjs';
 
 const sql = fs.readFileSync(new URL('../../supabase/migrations/20260902050000_ps_confirmation_flow_base.sql', import.meta.url), 'utf8');
 const page = fs.readFileSync(new URL('../../src/pages/processo-seletivo/public/PsPublicConfirmation.tsx', import.meta.url), 'utf8');
@@ -66,9 +66,7 @@ test('contrato de aviso não realiza envio real', () => {
   assert.match(notice.text, /Consulte o valor, cargo e área de atuação através da Intranet\./);
 });
 
-test('telefone do evento prioriza celular e gera link seguro do WhatsApp', () => {
+test('telefone do evento prioriza o celular cadastrado', () => {
   assert.equal(getPsContactPhone({ mobile: '(31) 99876-4321', phone: '3133334444' }), '(31) 99876-4321');
   assert.equal(getPsContactPhone({ phone: '3133334444' }), '3133334444');
-  assert.equal(getPsWhatsAppUrl('(31) 99876-4321'), 'https://wa.me/5531998764321');
-  assert.equal(getPsWhatsAppUrl(''), null);
 });

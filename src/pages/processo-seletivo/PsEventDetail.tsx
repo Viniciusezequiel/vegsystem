@@ -27,10 +27,10 @@ import {
   usePsCandidateMutations, usePsSelfEvaluations, usePsClearEventTeam, usePsEventConfirmationSummary, usePsConfirmationActions,
 } from '@/hooks/useProcessoSeletivo';
 import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psConfirmationState.mjs';
-import { buildPsConfirmationNotice, getPsContactPhone, getPsWhatsAppUrl } from '@/lib/psConfirmationNotice.mjs';
+import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, MessageCircle, Phone } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -1346,9 +1346,6 @@ export default function PsEventDetail() {
                         {getPsContactPhone(l) ? <>
                           <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => copyPhone(l)} title="Copiar celular">
                             <Phone className="mr-1 h-3.5 w-3.5" />{getPsContactPhone(l)}<Copy className="ml-1 h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="sm" variant="outline" className="h-8 border-emerald-500/50 px-2 text-xs text-emerald-400 hover:text-emerald-300" asChild>
-                            <a href={getPsWhatsAppUrl(getPsContactPhone(l)) || '#'} target="_blank" rel="noreferrer"><MessageCircle className="mr-1 h-3.5 w-3.5" />WhatsApp</a>
                           </Button>
                         </> : <span className="text-xs text-muted-foreground">Celular não informado</span>}
                         {['pending_confirmation', 'declined'].includes(l.participation_status) && (

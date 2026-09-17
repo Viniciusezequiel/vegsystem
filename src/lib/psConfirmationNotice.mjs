@@ -14,13 +14,6 @@ export function getPsContactPhone(person = {}) {
   return String(person.mobile || person.phone || '').trim();
 }
 
-export function getPsWhatsAppUrl(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (!digits) return null;
-  const international = digits.length === 10 || digits.length === 11 ? `55${digits}` : digits;
-  return `https://wa.me/${international}`;
-}
-
 // Contrato para um provedor futuro. Esta fase deliberadamente não envia mensagens.
 export function createPsConfirmationDeliveryRequest({ channel = 'copy_link', recipient, notice }) {
   if (!PS_CONFIRMATION_NOTICE_CHANNELS.includes(channel)) throw new Error('unsupported_confirmation_channel');
