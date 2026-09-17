@@ -27,9 +27,10 @@ import {
   usePsCandidateMutations, usePsSelfEvaluations, usePsClearEventTeam, usePsEventConfirmationSummary, usePsConfirmationActions,
 } from '@/hooks/useProcessoSeletivo';
 import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psConfirmationState.mjs';
+import { buildPsConfirmationNotice, getPsContactPhone, getPsWhatsAppUrl } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, MessageCircle, Phone } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -438,6 +439,32 @@ export default function PsEventDetail() {
       });
       copy(`${publicBase}/confirmacao/${id}/${result.token}`);
     } catch { /* mutation already reports a safe error */ }
+  };
+
+  const copyConfirmationMessage = async (link: any) => {
+    try {
+      const result = await confirmationActions.request.mutateAsync({
+        linkId: link.id,
+        rotate: !!link.public_confirmation_token_expires_at,
+      });
+      const confirmationUrl = `${publicBase}/confirmacao/${id}/${result.token}`;
+      const notice = buildPsConfirmationNotice({
+        collaboratorName: link.collaborator_name || 'fiscal',
+        eventName: event?.name || 'processo seletivo',
+        eventDate: event?.date ? new Date(`${event.date}T00:00:00`).toLocaleDateString('pt-BR') : undefined,
+        confirmationUrl,
+        expiresAt: result.expires_at ? new Date(result.expires_at).toLocaleString('pt-BR') : undefined,
+      });
+      await navigator.clipboard.writeText(notice.text);
+      toast.success(`Mensagem de ${link.collaborator_name} copiada!`);
+    } catch { /* mutation already reports a safe error */ }
+  };
+
+  const copyPhone = async (link: any) => {
+    const phone = getPsContactPhone(link);
+    if (!phone) return;
+    await navigator.clipboard.writeText(phone);
+    toast.success('Celular copiado!');
   };
 
   const openReplacement = (link: any) => {
@@ -1225,6 +1252,11 @@ export default function PsEventDetail() {
                       {[l.role_name, `R$ ${Number(l.pay_value || 0).toFixed(2)}`, l.building, l.floor, l.room && `Sala ${l.room}`]
                         .filter(Boolean).join(' · ')}
                     </p>
+                    {getPsContactPhone(l) ? (
+                      <button type="button" className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground" onClick={() => copyPhone(l)} title="Copiar celular">
+                        <Phone className="h-3 w-3" />{getPsContactPhone(l)}<Copy className="h-3 w-3" />
+                      </button>
+                    ) : <p className="mt-1 text-[11px] text-muted-foreground/70">Celular não informado</p>}
                   </div>
 
                   <div className="flex min-h-6 flex-wrap items-center gap-1">
@@ -1298,28 +1330,36 @@ export default function PsEventDetail() {
               <CardContent className="p-0">
                 <div className="divide-y">
                   {confirmationRows.map((l: any) => (
-                    <div key={l.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
+                    <div key={l.id} className="grid gap-3 p-4 lg:grid-cols-[minmax(240px,1fr)_minmax(180px,auto)_minmax(280px,auto)] lg:items-center">
+                      <div className="min-w-0">
                         <p className="font-medium">{l.collaborator_name}</p>
                         <p className="text-xs text-muted-foreground">{l.role_name || l.assigned_role || 'Sem função'} · {l.unit || 'Unidade não informada'} · {l.room || 'Sala não informada'}</p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground lg:justify-end">
                         <Badge variant={l.participation_status === 'confirmed' ? 'default' : l.participation_status === 'declined' ? 'destructive' : l.participation_status === 'replaced' ? 'secondary' : 'outline'}>
                           {getPsConfirmationStatusLabel(l.participation_status)}
                         </Badge>
                         <span>{l.confirmation_requested_at ? new Date(l.confirmation_requested_at).toLocaleDateString('pt-BR') : '—'}</span>
                         <span>{l.confirmed_at ? new Date(l.confirmed_at).toLocaleDateString('pt-BR') : '—'}</span>
-                        {['pending_confirmation', 'declined'].includes(l.participation_status) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => requestConfirmation(l)}
-                            disabled={confirmationActions.request.isPending}
-                          >
-                            {l.public_confirmation_token_expires_at
-                              ? 'Gerar novo link'
-                              : 'Gerar link'}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                        {getPsContactPhone(l) ? <>
+                          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => copyPhone(l)} title="Copiar celular">
+                            <Phone className="mr-1 h-3.5 w-3.5" />{getPsContactPhone(l)}<Copy className="ml-1 h-3.5 w-3.5" />
                           </Button>
+                          <Button size="sm" variant="outline" className="h-8 border-emerald-500/50 px-2 text-xs text-emerald-400 hover:text-emerald-300" asChild>
+                            <a href={getPsWhatsAppUrl(getPsContactPhone(l)) || '#'} target="_blank" rel="noreferrer"><MessageCircle className="mr-1 h-3.5 w-3.5" />WhatsApp</a>
+                          </Button>
+                        </> : <span className="text-xs text-muted-foreground">Celular não informado</span>}
+                        {['pending_confirmation', 'declined'].includes(l.participation_status) && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => requestConfirmation(l)} disabled={confirmationActions.request.isPending}>
+                              {l.public_confirmation_token_expires_at ? 'Gerar novo link' : 'Gerar link'}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => copyConfirmationMessage(l)} disabled={confirmationActions.request.isPending}>
+                              <Copy className="mr-1 h-3.5 w-3.5" />Copiar mensagem
+                            </Button>
+                          </>
                         )}
                         {l.participation_status !== 'replaced' && <Button size="sm" variant="outline" onClick={() => openReplacement(l)}>Substituir fiscal</Button>}
                       </div>

@@ -170,6 +170,7 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
         sector: form.sector || null,
         email: form.email || null,
         phone: form.phone || null,
+        mobile: form.mobile || null,
         pix: normalizedPix,
         deposit_info: form.deposit_info || null,
       };
@@ -310,9 +311,10 @@ export function PsEventCollaboratorEditDialog({ eventId, link, roles, open, onOp
                   <Label>Nome</Label>
                   <Input value={form.collaborator_name || ''} onChange={event => setForm({ ...form, collaborator_name: event.target.value })} />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="space-y-1.5"><Label>E-mail</Label><Input type="email" value={form.email || ''} onChange={event => setForm({ ...form, email: event.target.value })} /></div>
                   <div className="space-y-1.5"><Label>Telefone</Label><Input value={form.phone || ''} onChange={event => setForm({ ...form, phone: event.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>Celular / WhatsApp</Label><Input inputMode="tel" value={form.mobile || ''} onChange={event => setForm({ ...form, mobile: event.target.value })} placeholder="(31) 99999-9999" /></div>
                 </div>
               </TabsContent>
 
