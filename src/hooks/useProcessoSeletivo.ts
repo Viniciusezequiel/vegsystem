@@ -285,7 +285,21 @@ export function usePsSendEventCommunication() {
     mutationFn: async ({ eventId, eventCollaboratorIds, communicationType, subject, template, requestKey }: { eventId: string; eventCollaboratorIds: string[]; communicationType: string; subject: string; template: string; requestKey: string;}) => {
       if (!eventCollaboratorIds.length) throw new Error('Selecione ao menos um fiscal.');
       const { data, error } = await supabase.functions.invoke('ps-event-communications', { body: { action: 'enqueue', eventId, eventCollaboratorIds, communicationType, subject, template, requestKey } });
-      if (error) throw error;
+      if (error) {
+        const response = (error as any)?.context;
+        const payload = response instanceof Response
+          ? await response.clone().json().catch(() => null)
+          : null;
+        const code = String(payload?.error || '');
+        const messages: Record<string, string> = {
+          confirmation_recipient_not_pending: 'A solicitação de confirmação só pode ser enviada para quem ainda está aguardando confirmação.',
+          inactive_recipients: 'O lote contém pessoas recusadas ou substituídas. Atualize a seleção e tente novamente.',
+          recipient_scope_mismatch: 'Alguns destinatários não pertencem mais a este evento. Atualize a página e tente novamente.',
+          production_email_disabled: 'O envio de e-mails em produção está desativado.',
+          email_provider_not_configured: 'O provedor de e-mail não está configurado.',
+        };
+        throw new Error(messages[code] || payload?.message || error.message);
+      }
       if (data?.error) throw new Error(data.error);
       return data;
     },
