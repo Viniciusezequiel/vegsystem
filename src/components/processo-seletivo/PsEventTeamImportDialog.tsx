@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Upload, Download, FileSpreadsheet } from 'lucide-react';
+import { Upload, Download, FileSpreadsheet, UserX } from 'lucide-react';
 import {
   previewPsEventTeamImport, usePsImportEventTeam, type PsTeamImportPreview, type PsTeamImportRow,
 } from '@/hooks/usePsEventTeamImport';
@@ -134,22 +134,32 @@ export function PsEventTeamImportDialog({
     });
   };
 
+  const inactiveRowIndexes = new Set(plan?.inactiveMatches.map((inactive) => inactive.rowIndex) || []);
   const unresolvedUnsafeCount = plan
-    ? plan.decisions.filter((d) => (d.status === 'ambiguous' || d.status === 'inconsistent') && !confirmedNames[d.rowIndex]).length
+    ? plan.decisions.filter((d) =>
+      !inactiveRowIndexes.has(d.rowIndex)
+      && (d.status === 'ambiguous' || d.status === 'inconsistent')
+      && !confirmedNames[d.rowIndex]).length
     : 0;
+  const importableCount = plan ? Math.max(0, preview.length - plan.inactiveCount) : 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setPreview([]); setFileName(''); setPlan(null); setConfirmedNames({}); } }}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle>Importar colaboradores do evento</DialogTitle>
-          <DialogDescription>
-            Use a planilha oficial de pagamento (CandidatosPagamento). Colunas aceitas:{' '}
-            {PS_TEAM_COLUMNS.join(', ')}.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className="flex max-h-[90dvh] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100vw-2rem)]"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <div className="border-b px-4 py-4 sm:px-6">
+          <DialogHeader>
+            <DialogTitle>Importar colaboradores do evento</DialogTitle>
+            <DialogDescription>
+              Use a planilha oficial de pagamento (CandidatosPagamento). Colunas aceitas:{' '}
+              {PS_TEAM_COLUMNS.join(', ')}.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-3">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6">
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={downloadTeamTemplate}>
               <Download className="mr-2 h-4 w-4" />Baixar modelo da planilha
@@ -175,23 +185,28 @@ export function PsEventTeamImportDialog({
           {preview.length > 0 && (
             <Card className="rounded-xl">
               <CardContent className="p-0">
-                <div className="flex items-center gap-2 border-b p-3 text-sm">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 border-b p-3 text-sm">
                   <FileSpreadsheet className="h-4 w-4 text-primary" />
-                  <span className="font-medium">{fileName}</span>
+                  <span className="min-w-0 break-all font-medium">{fileName}</span>
                   <span className="text-muted-foreground">· {preview.length} colaboradores</span>
                 </div>
-                <div className="max-h-72 divide-y overflow-y-auto">
-                  {preview.map((r, i) => (
-                    <div key={i} className="p-3 text-sm">
-                      <p className="font-medium">{r.full_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {[r.role_name, r.sector, r.building, r.floor, r.room && `Sala ${r.room}`,
-                          r.pay_value ? `R$ ${Number(r.pay_value).toFixed(2)}` : null]
-                          .filter(Boolean).join(' · ')}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <details>
+                  <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-primary">
+                    Ver prévia dos registros
+                  </summary>
+                  <div className="max-h-56 divide-y overflow-y-auto border-t">
+                    {preview.map((r, i) => (
+                      <div key={i} className="min-w-0 p-3 text-sm">
+                        <p className="break-words font-medium">{r.full_name}</p>
+                        <p className="break-words text-xs text-muted-foreground">
+                          {[r.role_name, r.sector, r.unit, r.building, r.floor, r.room && `Sala ${r.room}`,
+                            r.pay_value ? `R$ ${Number(r.pay_value).toFixed(2)}` : null]
+                            .filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               </CardContent>
             </Card>
           )}
@@ -203,22 +218,28 @@ export function PsEventTeamImportDialog({
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Já vinculados</p><p className="text-xl font-bold">{plan.alreadyLinked}</p></CardContent></Card>
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Inconsistentes</p><p className="text-xl font-bold">{plan.inconsistent}</p></CardContent></Card>
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Ignorados</p><p className="text-xl font-bold">{plan.ignored}</p></CardContent></Card>
-              <Card className={plan.inactiveCount ? 'border-destructive/50 bg-destructive/5' : ''}><CardContent className="p-3"><p className="text-muted-foreground">Inativos bloqueados</p><p className="text-xl font-bold">{plan.inactiveCount}</p></CardContent></Card>
+              <Card className={plan.inactiveCount ? 'border-amber-500/40 bg-amber-500/5' : ''}><CardContent className="p-3"><p className="text-muted-foreground">Inativos ignorados</p><p className="text-xl font-bold">{plan.inactiveCount}</p></CardContent></Card>
             </div>
           )}
 
           {plan && plan.inactiveMatches.length > 0 && (
-            <Card className="rounded-xl border-destructive/50 bg-destructive/5">
+            <Card className="rounded-xl border-amber-500/40 bg-amber-500/5">
               <CardContent className="space-y-2 p-4">
-                <p className="text-sm font-semibold text-destructive">
-                  A importação foi bloqueada porque a planilha contém colaborador(es) inativo(s).
+                <p className="flex items-center gap-2 text-sm font-semibold text-amber-600">
+                  <UserX className="h-4 w-4" />
+                  Estes colaboradores estão inativos e não entrarão no evento
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Ative o cadastro antes de vinculá-lo ou remova estas linhas da planilha:
+                  Os demais registros válidos poderão ser importados normalmente. Para incluir alguém desta lista, ative primeiro o cadastro no Banco de Fiscais.
                 </p>
-                <ul className="space-y-1 text-sm">
+                <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-amber-500/20 bg-background/40 p-3 text-sm">
                   {plan.inactiveMatches.map((match) => (
-                    <li key={match.rowIndex}>Linha {match.rowIndex + 2}: {match.sheetName} ({match.registeredName})</li>
+                    <li key={match.rowIndex} className="break-words">
+                      <span className="font-medium">Linha {match.rowIndex + 2}: {match.sheetName}</span>
+                      {match.sheetName.trim().toLocaleLowerCase('pt-BR') !== match.registeredName.trim().toLocaleLowerCase('pt-BR') && (
+                        <span className="text-muted-foreground"> · cadastro: {match.registeredName}</span>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </CardContent>
@@ -273,10 +294,10 @@ export function PsEventTeamImportDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t px-4 py-4 sm:px-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={confirm} disabled={!preview.length || !plan || planning || plan.inactiveCount > 0 || unresolvedUnsafeCount > 0 || importTeam.isPending}>
-            Importar {preview.length || ''}
+          <Button onClick={confirm} disabled={!importableCount || !plan || planning || unresolvedUnsafeCount > 0 || importTeam.isPending}>
+            {importTeam.isPending ? 'Importando...' : `Importar ${importableCount || ''}`}
           </Button>
         </DialogFooter>
       </DialogContent>

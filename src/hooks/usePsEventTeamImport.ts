@@ -87,7 +87,6 @@ export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImpo
         sheetName: rows[decision.rowIndex].full_name,
         registeredName: matchedCollaborator.full_name,
       });
-      ignored += 1;
       continue;
     }
     if (decision.status === 'ambiguous' || decision.status === 'inconsistent') inconsistent += 1;
@@ -143,18 +142,19 @@ export function usePsImportEventTeam() {
       const { existing } = await loadPsImportContext(eventId);
       const decisions = planPsFiscalReconciliation(existing, rows);
       const collaboratorById = new Map(existing.map((item: any) => [item.id, item]));
-      const inactiveDecision = decisions.find((decision) =>
-        decision.status === 'matched' && (collaboratorById.get(decision.collaboratorId) as any)?.active === false);
-      if (inactiveDecision) {
-        throw new Error(`Importação interrompida na linha ${inactiveDecision.rowIndex + 2}: este colaborador está inativo e não pode ser vinculado ao evento.`);
-      }
+      const inactiveRows = new Set(decisions
+        .filter((decision) => decision.status === 'matched'
+          && (collaboratorById.get(decision.collaboratorId) as any)?.active === false)
+        .map((decision) => decision.rowIndex));
       const inactiveOverride = Object.entries(nameOverrides).find(([, collaboratorId]) =>
         (collaboratorById.get(collaboratorId) as any)?.active === false);
       if (inactiveOverride) {
         throw new Error(`Importação interrompida na linha ${Number(inactiveOverride[0]) + 2}: o cadastro selecionado está inativo.`);
       }
       const unsafe = decisions.find((decision) =>
-        (decision.status === 'ambiguous' || decision.status === 'inconsistent') && !nameOverrides[decision.rowIndex]);
+        !inactiveRows.has(decision.rowIndex)
+        && (decision.status === 'ambiguous' || decision.status === 'inconsistent')
+        && !nameOverrides[decision.rowIndex]);
       if (unsafe) {
         throw new Error(`Importação interrompida na linha ${unsafe.rowIndex + 2}: os identificadores estão ausentes, duplicados ou apontam para cadastros diferentes.`);
       }
@@ -165,6 +165,8 @@ export function usePsImportEventTeam() {
       const resolved: { row: PsTeamImportRow; collaboratorId: string }[] = [];
 
       for (const decision of decisions) {
+        if (inactiveRows.has(decision.rowIndex)) continue;
+
         const row = rows[decision.rowIndex];
         let id: string;
         const override = nameOverrides[decision.rowIndex];
@@ -210,6 +212,10 @@ export function usePsImportEventTeam() {
         }
 
         resolved.push({ row, collaboratorId: id });
+      }
+
+      if (!resolved.length) {
+        throw new Error('Nenhum colaborador ativo desta planilha pode ser importado. Os cadastros inativos foram ignorados.');
       }
 
       const importTag = `import-${Date.now()}`;
@@ -315,6 +321,7 @@ export function usePsImportEventTeam() {
         importTag,
         evaluatorSync: evaluatorSync?.[0] || null,
         nameAdjustments,
+        inactiveSkipped: inactiveRows.size,
       };
     },
     onSuccess: (result) => {
@@ -327,7 +334,10 @@ export function usePsImportEventTeam() {
       const nameAdjustmentMessage = result.nameAdjustments
         ? ` ${result.nameAdjustments} nome(s) de avaliador ajustado(s) manualmente.`
         : '';
-      toast.success(`${result.linked} vinculados ao evento (${result.created} novos colaboradores, ${result.skipped} já estavam no evento, ${result.updated} atualizados).${evaluatorMessage}${nameAdjustmentMessage}`);
+      const inactiveMessage = result.inactiveSkipped
+        ? ` ${result.inactiveSkipped} colaborador(es) inativo(s) foram ignorados.`
+        : '';
+      toast.success(`${result.linked} vinculados ao evento (${result.created} novos colaboradores, ${result.skipped} já estavam no evento, ${result.updated} atualizados).${inactiveMessage}${evaluatorMessage}${nameAdjustmentMessage}`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
