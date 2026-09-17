@@ -197,13 +197,32 @@ export function PsEventTeamImportDialog({
           )}
 
           {plan && (
-            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 xl:grid-cols-6">
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Encontrados</p><p className="text-xl font-bold">{plan.found}</p></CardContent></Card>
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Novos</p><p className="text-xl font-bold">{plan.newCount}</p></CardContent></Card>
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Já vinculados</p><p className="text-xl font-bold">{plan.alreadyLinked}</p></CardContent></Card>
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Inconsistentes</p><p className="text-xl font-bold">{plan.inconsistent}</p></CardContent></Card>
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Ignorados</p><p className="text-xl font-bold">{plan.ignored}</p></CardContent></Card>
+              <Card className={plan.inactiveCount ? 'border-destructive/50 bg-destructive/5' : ''}><CardContent className="p-3"><p className="text-muted-foreground">Inativos bloqueados</p><p className="text-xl font-bold">{plan.inactiveCount}</p></CardContent></Card>
             </div>
+          )}
+
+          {plan && plan.inactiveMatches.length > 0 && (
+            <Card className="rounded-xl border-destructive/50 bg-destructive/5">
+              <CardContent className="space-y-2 p-4">
+                <p className="text-sm font-semibold text-destructive">
+                  A importação foi bloqueada porque a planilha contém colaborador(es) inativo(s).
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Ative o cadastro antes de vinculá-lo ou remova estas linhas da planilha:
+                </p>
+                <ul className="space-y-1 text-sm">
+                  {plan.inactiveMatches.map((match) => (
+                    <li key={match.rowIndex}>Linha {match.rowIndex + 2}: {match.sheetName} ({match.registeredName})</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           )}
 
           {plan && plan.nameMatches.length > 0 && (
@@ -256,7 +275,7 @@ export function PsEventTeamImportDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={confirm} disabled={!preview.length || !plan || planning || unresolvedUnsafeCount > 0 || importTeam.isPending}>
+          <Button onClick={confirm} disabled={!preview.length || !plan || planning || plan.inactiveCount > 0 || unresolvedUnsafeCount > 0 || importTeam.isPending}>
             Importar {preview.length || ''}
           </Button>
         </DialogFooter>
