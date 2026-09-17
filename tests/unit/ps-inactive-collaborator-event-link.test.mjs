@@ -7,12 +7,15 @@ const importDialog = fs.readFileSync(new URL('../../src/components/processo-sele
 const eventDetail = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
 const migration = fs.readFileSync(new URL('../../supabase/migrations/20260917210432_block_inactive_ps_collaborator_event_links.sql', import.meta.url), 'utf8');
 
-test('event import identifies inactive collaborators and blocks confirmation', () => {
+test('event import identifies, displays and skips inactive collaborators without blocking valid rows', () => {
   assert.match(importHook, /email_normalized,matricula,institution,active/);
   assert.match(importHook, /matchedCollaborator\?\.active === false/);
-  assert.match(importHook, /este colaborador está inativo e não pode ser vinculado ao evento/);
-  assert.match(importDialog, /Inativos bloqueados/);
-  assert.match(importDialog, /plan\.inactiveCount > 0/);
+  assert.match(importHook, /if \(inactiveRows\.has\(decision\.rowIndex\)\) continue/);
+  assert.match(importHook, /inactiveSkipped: inactiveRows\.size/);
+  assert.match(importDialog, /Estes colaboradores estão inativos e não entrarão no evento/);
+  assert.match(importDialog, /Inativos ignorados/);
+  assert.match(importDialog, /preview\.length - plan\.inactiveCount/);
+  assert.doesNotMatch(importDialog, /plan\.inactiveCount > 0/);
 });
 
 test('manual event linking revalidates active collaborators before writing', () => {
