@@ -458,7 +458,6 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     const eventInfo = {
       name: String((data.event as any)?.name || 'Processo Seletivo'),
       date: (data.event as any)?.date || null,
-      location: (data.event as any)?.location || null,
     };
     const pdf = generatePsTrainingAttendancePdf(eventInfo, { name: String(group.name || 'Treinamento') }, session, rows);
     const slug = String(group.name || 'treinamento')

@@ -559,6 +559,7 @@ export default function PsEventDetail() {
       cpf: pick(r, ['CPF', 'DOCUMENTO']) || null,
       exam_type: pick(r, ['TIPO DE PROVA', 'TIPO']) || null,
       campus: pick(r, ['LOCAL DE PROVA', 'CAMPUS', 'LOCAL']) || null,
+      building: pick(r, ['PRÉDIO', 'PREDIO', 'EDIFÍCIO', 'EDIFICIO']) || null,
       room: pick(r, ['SALA']) || null,
       barcode: pick(r, ['CÓD DE BARRAS', 'COD DE BARRAS', 'CODIGO DE BARRAS']) || null,
       seat_number: pick(r, ['CARTEIRA', 'ASSENTO']) || null,
@@ -891,7 +892,10 @@ export default function PsEventDetail() {
     const rows = candidates.map((c: any) => ({
       full_name: c.full_name,
       cpf: c.cpf,
+      rg: c.rg,
+      exam_type: c.exam_type,
       campus: c.campus,
+      building: c.building,
       room: c.room,
       seat_number: c.seat_number || c.seat,
       registration_number: c.registration_number,
@@ -2097,7 +2101,7 @@ export default function PsEventDetail() {
                     <div>
                       <p className="font-medium">{c.full_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {[c.campus, c.room && `Sala ${c.room}`, c.seat_number && `Carteira ${c.seat_number}`, c.seat && `Carteira ${c.seat}`].filter(Boolean).join(' · ')}
+                        {[c.campus, c.building, c.room && `Sala ${c.room}`, c.seat_number && `Carteira ${c.seat_number}`, c.seat && `Carteira ${c.seat}`].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                     {c.pcd_type && c.pcd_type !== 'NORMAL' && <Badge variant="secondary">{c.pcd_type}</Badge>}

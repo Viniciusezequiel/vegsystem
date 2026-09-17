@@ -58,10 +58,20 @@ test('CC182 physical page size is compatible with jsPDF', () => {
   assert.match(sourcePdf, /full_name/i);
   assert.match(sourcePdf, /registration_number/i);
   assert.match(sourcePdf, /cpf/i);
+  assert.match(sourcePdf, /rg/i);
+  assert.match(sourcePdf, /exam_type/i);
   assert.match(sourcePdf, /campus/i);
+  assert.match(sourcePdf, /building/i);
   assert.match(sourcePdf, /room/i);
   assert.match(sourcePdf, /seat_number/i);
   assert.match(sourcePdf, /pcd_type/i);
+  assert.match(sourcePdf, /drawField\('Nome:'/i);
+  assert.match(sourcePdf, /drawField\('RG:'/i);
+  assert.match(sourcePdf, /drawField\('CPF:'/i);
+  assert.match(sourcePdf, /drawField\('Prova:'/i);
+  assert.match(sourcePdf, /drawField\('Sala:'/i);
+  assert.match(sourcePdf, /drawField\('Campus:'/i);
+  assert.match(sourcePdf, /drawField\('Prédio:'/i);
 });
 
 test('process selection uses contextual navigation without a horizontal scrolling tab bar', () => {

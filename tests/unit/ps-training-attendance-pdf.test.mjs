@@ -41,6 +41,10 @@ test('PDF possui identificação do treinamento e espaço para assinatura manual
   assert.match(pdf, /CARGO\(S\)/);
   assert.match(pdf, /ASSINATURA/);
   assert.match(pdf, /Participantes inscritos nesta turma/);
+  assert.match(pdf, /LOCAL DO TREINAMENTO/);
+  assert.doesNotMatch(pdf, /session\.location \|\| event\.location/);
+  assert.match(pdf, /session\.campus,[\s\S]*session\.location,[\s\S]*session\.room/);
+  assert.doesNotMatch(pdf, /`Sala \$\{session\.room\}`/);
 });
 
 test('lista é ordenada alfabeticamente e paginada', () => {
