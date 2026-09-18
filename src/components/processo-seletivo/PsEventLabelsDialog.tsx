@@ -16,11 +16,12 @@ type Props = {
   event: { name?: string | null; date?: string | null; location?: string | null };
   team: Array<{ campus?: string | null; building?: string | null }>;
   candidates: Array<{ campus?: string | null; building?: string | null }>;
-  onExportTeam: (filters: LocationFilters) => void;
-  onExportCandidates: (filters: LocationFilters) => void;
+  onExportTeam: (filters: LocationFilters, format: LabelExportFormat) => void;
+  onExportCandidates: (filters: LocationFilters, format: LabelExportFormat) => void;
 };
 
 export type LocationFilters = { campus: string; building: string };
+export type LabelExportFormat = 'pdf' | 'word';
 
 const cleanLocation = (value?: string | null) => String(value || '').trim();
 
@@ -98,7 +99,7 @@ export function PsEventLabelsDialog({
     }
   };
 
-  const exportExamLabels = () => {
+  const exportExamLabels = async (format: LabelExportFormat) => {
     if (!examRows.length) return toast.error('Importe a planilha de etiquetas de provas.');
     const eventInfo = {
       name: event.name || '',
@@ -106,6 +107,11 @@ export function PsEventLabelsDialog({
       location: event.location || '',
     };
     const slug = String(event.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (format === 'word') {
+      const { generatePsExamLabelsWord, saveWordBlob } = await import('@/lib/psEventWord');
+      saveWordBlob(await generatePsExamLabelsWord(eventInfo, examRows), `etiquetas-provas-${slug || 'evento'}.docx`);
+      return;
+    }
     generatePsExamLabelsPdf(eventInfo, examRows).save(`etiquetas-provas-${slug || 'evento'}.pdf`);
   };
 
@@ -125,7 +131,10 @@ export function PsEventLabelsDialog({
                 <div><p className="font-semibold">Equipe do evento</p><p className="text-xs text-muted-foreground">{filteredTeamCount} de {team.length} colaborador(es)</p></div>
               </div>
               {locationSelectors(teamOptions, teamFilters, setTeamFilters)}
-              <Button variant="outline" className="mt-auto" onClick={() => onExportTeam(teamFilters)} disabled={!filteredTeamCount}><IdCard className="mr-2 h-4 w-4" />Gerar etiquetas da equipe</Button>
+              <div className="mt-auto grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={() => onExportTeam(teamFilters, 'pdf')} disabled={!filteredTeamCount}><IdCard className="mr-2 h-4 w-4" />PDF</Button>
+                <Button variant="outline" onClick={() => onExportTeam(teamFilters, 'word')} disabled={!filteredTeamCount}><FileText className="mr-2 h-4 w-4" />Word</Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -136,7 +145,10 @@ export function PsEventLabelsDialog({
                 <div><p className="font-semibold">Candidatos</p><p className="text-xs text-muted-foreground">{filteredCandidateCount} de {candidates.length} candidato(s)</p></div>
               </div>
               {locationSelectors(candidateOptions, candidateFilters, setCandidateFilters)}
-              <Button variant="outline" className="mt-auto" onClick={() => onExportCandidates(candidateFilters)} disabled={!filteredCandidateCount}><IdCard className="mr-2 h-4 w-4" />Gerar etiquetas dos candidatos</Button>
+              <div className="mt-auto grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={() => onExportCandidates(candidateFilters, 'pdf')} disabled={!filteredCandidateCount}><IdCard className="mr-2 h-4 w-4" />PDF</Button>
+                <Button variant="outline" onClick={() => onExportCandidates(candidateFilters, 'word')} disabled={!filteredCandidateCount}><FileText className="mr-2 h-4 w-4" />Word</Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -180,7 +192,10 @@ export function PsEventLabelsDialog({
                     ))}
                   </div>
                 </div>
-                <Button className="w-full ps-gradient-button" onClick={exportExamLabels}><Printer className="mr-2 h-4 w-4" />Gerar PDF com {examRows.length} etiquetas</Button>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button className="ps-gradient-button" onClick={() => void exportExamLabels('pdf')}><Printer className="mr-2 h-4 w-4" />Gerar PDF ({examRows.length})</Button>
+                  <Button variant="outline" onClick={() => void exportExamLabels('word')}><FileText className="mr-2 h-4 w-4" />Gerar Word ({examRows.length})</Button>
+                </div>
               </>
             ) : (
               <div className="rounded-xl border border-dashed border-border/70 px-4 py-7 text-center text-sm text-muted-foreground">
