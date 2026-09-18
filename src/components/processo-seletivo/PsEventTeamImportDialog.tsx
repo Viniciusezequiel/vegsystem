@@ -11,7 +11,7 @@ import * as XLSX from 'xlsx';
 
 /** Colunas da planilha oficial "CandidatosPagamento" */
 export const PS_TEAM_COLUMNS = [
-  'NOME', 'IDENTIDADE', 'CPF', 'MATRICULA', 'EMAIL', 'TELEFONE', 'CELULAR', 'UNIDADE', 'SETOR',
+  'STATUS DE SELEÇÃO', 'NOME', 'IDENTIDADE', 'CPF', 'MATRICULA', 'EMAIL', 'TELEFONE', 'CELULAR', 'UNIDADE', 'SETOR',
   'INSTITUICAO', 'FUNCAO', 'PREDIO', 'ANDAR', 'SALA', 'HORARIO', 'ATRIBUICAO', 'VALOR', 'DEPOSITO', 'PIX',
 ];
 
@@ -28,8 +28,62 @@ const pick = (row: any, ...names: string[]) => {
   return '';
 };
 
+const normalizeSelectionStatus = (value: unknown) => String(value ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
+const SELECTION_STATUS_COLUMNS = [
+  'STATUS DE SELEÇÃO', 'STATUS DE SELECAO', 'STATUS SELEÇÃO', 'STATUS SELECAO',
+  'STATUS DA SELEÇÃO', 'STATUS DA SELECAO', 'SELECIONADO', 'SELECIONADA',
+];
+
+const SELECTED_STATUSES = new Set(['sim', 'selecionado', 'selecionada', 'selecionado a', 'x', '1', 'true']);
+
+export function parsePsEventTeamSpreadsheetRows(raw: any[]) {
+  const hasSelectionColumn = raw.some((row) => Object.keys(row).some((key) =>
+    SELECTION_STATUS_COLUMNS.some((column) => key.trim().localeCompare(column, 'pt-BR', { sensitivity: 'base' }) === 0)));
+  let excludedBySelection = 0;
+
+  const rows: PsTeamImportRow[] = raw
+    .filter((row) => {
+      if (!hasSelectionColumn) return true;
+      const selected = SELECTED_STATUSES.has(normalizeSelectionStatus(pick(row, ...SELECTION_STATUS_COLUMNS)));
+      if (!selected && pick(row, 'NOME', 'Nome', 'NOME COMPLETO')) excludedBySelection += 1;
+      return selected;
+    })
+    .map((r) => ({
+      full_name: pick(r, 'NOME', 'Nome', 'NOME COMPLETO'),
+      identity_doc: pick(r, 'IDENTIDADE', 'RG') || null,
+      cpf: pick(r, 'CPF') || null,
+      matricula: pick(r, 'MATRICULA', 'MATRÍCULA') || null,
+      email: pick(r, 'EMAIL', 'E-MAIL') || null,
+      phone: pick(r, 'TELEFONE') || null,
+      mobile: pick(r, 'CELULAR') || null,
+      unit: pick(r, 'UNIDADE') || null,
+      sector: pick(r, 'SETOR') || null,
+      institution: pick(r, 'INSTITUICAO', 'INSTITUIÇÃO') || null,
+      role_name: pick(r, 'FUNCAO', 'FUNÇÃO') || null,
+      building: pick(r, 'PREDIO', 'PRÉDIO') || null,
+      floor: pick(r, 'ANDAR') || null,
+      room: (pick(r, 'SALA') || '').replace(/^-$/, '') || null,
+      work_schedule: pick(r, 'HORARIO', 'HORÁRIO', 'HORA', 'TURNO', 'HORÁRIO DE ATUAÇÃO', 'HORARIO DE ATUACAO') || null,
+      assigned_role: pick(r, 'ATRIBUICAO', 'ATRIBUIÇÃO', 'ATRIBUICAO OPERACIONAL', 'ATRIBUIÇÃO OPERACIONAL') || null,
+      pay_value: Number(String(pick(r, 'VALOR')).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
+      deposit_info: pick(r, 'DEPOSITO', 'DEPÓSITO') || null,
+      pix: pick(r, 'PIX') || null,
+    }))
+    .filter((row) => row.full_name);
+
+  return { rows, hasSelectionColumn, excludedBySelection };
+}
+
 export function downloadTeamTemplate() {
   const example: Record<string, string> = {
+    'STATUS DE SELEÇÃO': 'SIM',
     NOME: 'Maria Silva Souza',
     IDENTIDADE: 'MG-15.930.225',
     CPF: '125.404.086-21',
@@ -70,40 +124,23 @@ export function PsEventTeamImportDialog({
   const [plan, setPlan] = useState<PsTeamImportPreview | null>(null);
   const [planning, setPlanning] = useState(false);
   const [confirmedNames, setConfirmedNames] = useState<Record<number, string>>({});
+  const [excludedBySelection, setExcludedBySelection] = useState(0);
 
   const readFile = async (file: File) => {
     try {
       const wb = XLSX.read(await file.arrayBuffer());
       const raw: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-      const rows: PsTeamImportRow[] = raw
-        .map((r) => ({
-          full_name: pick(r, 'NOME', 'Nome', 'NOME COMPLETO'),
-          identity_doc: pick(r, 'IDENTIDADE', 'RG') || null,
-          cpf: pick(r, 'CPF') || null,
-          matricula: pick(r, 'MATRICULA', 'MATRÍCULA') || null,
-          email: pick(r, 'EMAIL', 'E-MAIL') || null,
-          phone: pick(r, 'TELEFONE') || null,
-          mobile: pick(r, 'CELULAR') || null,
-          unit: pick(r, 'UNIDADE') || null,
-          sector: pick(r, 'SETOR') || null,
-          institution: pick(r, 'INSTITUICAO', 'INSTITUIÇÃO') || null,
-          role_name: pick(r, 'FUNCAO', 'FUNÇÃO') || null,
-          building: pick(r, 'PREDIO', 'PRÉDIO') || null,
-          floor: pick(r, 'ANDAR') || null,
-          room: (pick(r, 'SALA') || '').replace(/^-$/, '') || null,
-          work_schedule: pick(r, 'HORARIO', 'HORÁRIO', 'HORA', 'TURNO', 'HORÁRIO DE ATUAÇÃO', 'HORARIO DE ATUACAO') || null,
-          assigned_role: pick(r, 'ATRIBUICAO', 'ATRIBUIÇÃO', 'ATRIBUICAO OPERACIONAL', 'ATRIBUIÇÃO OPERACIONAL') || null,
-          pay_value: Number(String(pick(r, 'VALOR')).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0,
-          deposit_info: pick(r, 'DEPOSITO', 'DEPÓSITO') || null,
-          pix: pick(r, 'PIX') || null,
-        }))
-        .filter((r) => r.full_name);
+      const parsed = parsePsEventTeamSpreadsheetRows(raw);
+      const rows = parsed.rows;
       if (!rows.length) {
-        toast.error('Nenhuma linha válida encontrada. Verifique a coluna NOME.');
+        toast.error(parsed.hasSelectionColumn
+          ? 'Nenhum colaborador selecionado foi encontrado. Confira a coluna Status de Seleção.'
+          : 'Nenhuma linha válida encontrada. Verifique a coluna NOME.');
         return;
       }
       setFileName(file.name);
       setPreview(rows);
+      setExcludedBySelection(parsed.excludedBySelection);
       setPlanning(true);
       setConfirmedNames({});
       setPlan(await previewPsEventTeamImport(eventId, rows));
@@ -120,6 +157,7 @@ export function PsEventTeamImportDialog({
     setFileName('');
     setPlan(null);
     setConfirmedNames({});
+    setExcludedBySelection(0);
     onOpenChange(false);
   };
 
@@ -144,7 +182,7 @@ export function PsEventTeamImportDialog({
   const importableCount = plan ? Math.max(0, preview.length - plan.inactiveCount) : 0;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setPreview([]); setFileName(''); setPlan(null); setConfirmedNames({}); } }}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setPreview([]); setFileName(''); setPlan(null); setConfirmedNames({}); setExcludedBySelection(0); } }}>
       <DialogContent
         className="flex max-h-[90dvh] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100vw-2rem)]"
         onInteractOutside={(e) => e.preventDefault()}
@@ -178,6 +216,8 @@ export function PsEventTeamImportDialog({
           </div>
 
           <p className="text-sm text-muted-foreground">
+            Quando existir a coluna Status de Seleção, somente linhas marcadas como SIM ou Selecionado(a) serão consideradas.
+            Reservas, cancelados, dispensados e demais status serão ignorados.{' '}
             A conciliação usa e-mail normalizado, CPF e, como fallback, matrícula + instituição. O nome não provoca
             merge automático. Se os identificadores apontarem para pessoas diferentes, a linha é bloqueada para revisão.
           </p>
@@ -189,6 +229,7 @@ export function PsEventTeamImportDialog({
                   <FileSpreadsheet className="h-4 w-4 text-primary" />
                   <span className="min-w-0 break-all font-medium">{fileName}</span>
                   <span className="text-muted-foreground">· {preview.length} colaboradores</span>
+                  {excludedBySelection > 0 && <span className="text-amber-600">· {excludedBySelection} não selecionado(s) ignorado(s)</span>}
                 </div>
                 <details>
                   <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-primary">

@@ -21,6 +21,14 @@ test('event import identifies, displays and skips inactive collaborators without
   assert.doesNotMatch(importDialog, /plan\.inactiveCount > 0/);
 });
 
+test('event import only previews selected rows when the spreadsheet has selection status', () => {
+  assert.match(importDialog, /STATUS DE SELEÇÃO/);
+  assert.match(importDialog, /SELECTED_STATUSES/);
+  assert.match(importDialog, /sim.*selecionado.*selecionada.*selecionado a/);
+  assert.match(importDialog, /excludedBySelection/);
+  assert.match(importDialog, /não selecionado\(s\) ignorado\(s\)/);
+});
+
 test('manual event linking revalidates active collaborators before writing', () => {
   assert.match(eventDetail, /\.in\('id', selected\)/);
   assert.match(eventDetail, /\.eq\('active', true\)/);
