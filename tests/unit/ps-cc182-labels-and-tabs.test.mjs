@@ -84,12 +84,19 @@ test('process selection uses contextual navigation without a horizontal scrollin
   assert.match(sourceEventNav, /className="ps-event-nav__list"/);
   assert.match(sourceEventNav, /value: 'auto', label: 'Autoavaliações'/);
   assert.match(sourceEventNav, /value: 'fiscais', label: 'Equipe'/);
-  assert.match(sourceEventNav, /value: 'confirmacoes', label: 'Confirmações'/);
+  assert.match(sourceEventNav, /value: 'comunicacao', label: 'Comunicação'/);
+  assert.doesNotMatch(sourceEventNav, /value: 'confirmacoes'/);
   assert.doesNotMatch(sourceTabs, /overflow-x-auto overflow-y-hidden scrollbar-none/);
 
   assert.doesNotMatch(sourceGlobalTabs, /overflow-x-auto/i);
   assert.doesNotMatch(sourceGlobalTabs, /scrollbar-none/i);
   assert.doesNotMatch(sourceGlobalTabs, /w-max\s+min-w-full/i);
+});
+
+test('central de etiquetas agrupa variações equivalentes de campus e prédio', () => {
+  assert.match(sourceLabelsDialog, /normalizePsLocation\(value, \{ building \}\)/);
+  assert.match(sourceLabelsDialog, /locationKey\(row\.building, true\)/);
+  assert.match(sourceLabelsDialog, /locationKey\(row\.campus\)/);
 });
 
 test('planilha de materiais preserva abas, repetições, prédio, andar e sala', () => {

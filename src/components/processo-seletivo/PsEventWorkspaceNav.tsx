@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   BarChart3,
   CalendarCheck2,
-  CheckCircle2,
   ClipboardCheck,
   GraduationCap,
   LayoutDashboard,
@@ -68,8 +67,7 @@ export function PsEventWorkspaceNav({
     {
       label: 'Comunicação',
       items: [
-        { value: 'confirmacoes', label: 'Confirmações', icon: CheckCircle2, count: pendingConfirmationCount },
-        { value: 'comunicacao', label: 'Envios', icon: Mail },
+        { value: 'comunicacao', label: 'Comunicação', icon: Mail, count: pendingConfirmationCount },
       ],
     },
     {
