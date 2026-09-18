@@ -122,7 +122,7 @@ export function PsEventCommunicationTab({
   requestingConfirmation = false,
 }: Props) {
   const { data: history = [] } = usePsEventCommunications(event?.id);
-  const tracking = usePsEmailTrackingSync(event?.id);
+  usePsEmailTrackingSync(event?.id);
   const { data: config, error: configError } = usePsCommunicationConfig(event?.id);
   const send = usePsSendEventCommunication();
   const retry = usePsRetryEventCommunications();
@@ -372,18 +372,9 @@ export function PsEventCommunicationTab({
   };
 
   return <div className="space-y-3">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div>
-        <h2 className="text-base font-semibold">Comunicação</h2>
-        <p className="text-xs text-muted-foreground">Mensagens, confirmações e acompanhamento dos envios.</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-        <Badge variant={config?.mode === 'test' ? 'secondary' : 'outline'}>
-          {config?.mode === 'test' ? 'Modo teste' : config?.mode === 'production' ? 'Produção' : 'Verificando'}
-        </Badge>
-        <Badge variant="outline">{String(config?.provider || 'brevo').toUpperCase()}</Badge>
-        {config && <Badge variant="outline">{config.dailyLimit}/dia · lote {config.batchLimit}</Badge>}
-      </div>
+    <div>
+      <h2 className="text-base font-semibold">Comunicação</h2>
+      <p className="text-xs text-muted-foreground">Mensagens, confirmações e acompanhamento dos envios.</p>
     </div>
 
     {(configError || config?.mode === 'test' || (config && !config.providerConfigured)) && (
@@ -398,19 +389,6 @@ export function PsEventCommunicationTab({
     )}
 
     {quotaWaiting > 0 && <p className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">{quotaWaiting} mensagens aguardando a renovação da cota diária do provedor.</p>}
-
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-1.5 text-[11px] text-muted-foreground">
-      <span>
-        {tracking.isFetching
-          ? 'Sincronizando entrega e abertura com a Brevo...'
-          : tracking.isError
-            ? 'Não foi possível sincronizar os eventos da Brevo agora. Os envios continuam funcionando normalmente.'
-            : 'Status de entrega e abertura sincronizados automaticamente com a Brevo.'}
-      </span>
-      <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" disabled={tracking.isFetching} onClick={() => void tracking.refetch()}>
-        Atualizar status
-      </Button>
-    </div>
 
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome" />

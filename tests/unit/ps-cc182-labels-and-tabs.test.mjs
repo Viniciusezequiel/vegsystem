@@ -127,7 +127,9 @@ test('central de etiquetas integra materiais de prova ao mesmo modelo CC182', ()
   assert.match(sourceTabs, /PsEventLabelsDialog/);
   assert.match(sourceLabelsDialog, /Importar planilha/);
   assert.match(sourceLabelsDialog, /Gerar PDF/);
-  assert.match(sourceLabelsDialog, /14 etiquetas por página/);
+  assert.match(sourceLabelsDialog, /14 etiquetas por folha Carta/);
+  assert.match(sourceLabelsDialog, /Tamanho real \/ 100%/);
+  assert.match(sourcePdf, /viewerPreferences\(\{ PrintScaling: 'None' \}\)/);
   assert.match(sourcePdf, /export function generatePsExamLabelsPdf/);
   assert.match(sourcePdf, /const sheet = PS_CANDIDATE_LABEL_SHEET/);
   assert.match(sourcePdf, /question_booklet/);
