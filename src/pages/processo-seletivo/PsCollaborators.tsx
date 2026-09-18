@@ -55,6 +55,17 @@ const empty = {
   preferred_role: '', notes: '', active: true,
 };
 
+const INACTIVE_REASON_OPTIONS = [
+  { value: 'medical_leave', label: 'Atestado ou afastamento' },
+  { value: 'terminated', label: 'Desligamento da empresa' },
+  { value: 'unavailable', label: 'Indisponibilidade' },
+  { value: 'duplicate_or_incorrect', label: 'Cadastro duplicado ou incorreto' },
+  { value: 'other', label: 'Outro motivo' },
+];
+
+const inactiveReasonLabel = (value?: string | null) =>
+  INACTIVE_REASON_OPTIONS.find((option) => option.value === value)?.label || 'Motivo não registrado';
+
 function formatFiscalCpf(value: string | null | undefined) {
   const digits = String(value ?? '').replace(/\D/g, '');
   if (digits.length !== 11) return 'Não informado';
@@ -65,7 +76,7 @@ export default function PsCollaborators() {
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: roles = [] } = usePsRoles();
   const { data: evaluations = [] } = usePsEvaluations();
-  const { save } = usePsCollaboratorMutations();
+  const { save, setActive } = usePsCollaboratorMutations();
   const { data: participations = [] } = usePsCollaboratorParticipations();
   const { data: applications = [] } = usePsFiscalBankApplications();
   const { data: config } = usePsFiscalBankConfig();
@@ -83,6 +94,9 @@ export default function PsCollaborators() {
   const [fiscalImportRows, setFiscalImportRows] = useState<any[]>([]);
   const [fiscalImportPreview, setFiscalImportPreview] = useState<any>(null);
   const [profileFiscal, setProfileFiscal] = useState<any>(null);
+  const [statusTarget, setStatusTarget] = useState<any>(null);
+  const [inactiveReasonCategory, setInactiveReasonCategory] = useState('');
+  const [inactiveReason, setInactiveReason] = useState('');
 
   const dates: string[] = (config as any)?.datas || [];
   const label = (config as any)?.data_indisponivel_label || 'Não tenho disponibilidade';
@@ -432,7 +446,15 @@ export default function PsCollaborators() {
                       <Button size="sm" variant="outline" onClick={() => setHistoryFiscal(c)}>
                         <History className="mr-1.5 h-3.5 w-3.5" />Histórico
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => save.mutate({ id: c.id, active: !c.active })}>
+                      <Button size="sm" variant="ghost" onClick={() => {
+                        if (c.active) {
+                          setStatusTarget(c);
+                          setInactiveReasonCategory('');
+                          setInactiveReason('');
+                        } else if (confirm(`Reativar ${c.full_name}?`)) {
+                          setActive.mutate({ id: c.id, active: true });
+                        }
+                      }} disabled={setActive.isPending}>
                         {c.active ? 'Inativar' : 'Ativar'}
                       </Button>
                     </div>
@@ -533,6 +555,56 @@ export default function PsCollaborators() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!statusTarget} onOpenChange={(value) => { if (!value) setStatusTarget(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Inativar colaborador</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm">
+              <p className="font-medium">{statusTarget?.full_name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                A pessoa ficará impedida de novas importações e vínculos. Se já estiver em eventos, será separada da equipe operacional para substituição ou remoção.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Motivo</Label>
+              <Select value={inactiveReasonCategory} onValueChange={setInactiveReasonCategory}>
+                <SelectTrigger><SelectValue placeholder="Selecione o motivo" /></SelectTrigger>
+                <SelectContent>
+                  {INACTIVE_REASON_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Justificativa</Label>
+              <Textarea
+                value={inactiveReason}
+                onChange={(event) => setInactiveReason(event.target.value)}
+                placeholder="Ex.: afastado por atestado até 30/09 ou desligado em 18/09."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusTarget(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={!inactiveReasonCategory || inactiveReason.trim().length < 3 || setActive.isPending}
+              onClick={async () => {
+                await setActive.mutateAsync({
+                  id: statusTarget.id,
+                  active: false,
+                  reasonCategory: inactiveReasonCategory,
+                  reason: inactiveReason,
+                });
+                setStatusTarget(null);
+              }}
+            >Confirmar inativação</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={importFiscalOpen} onOpenChange={(value) => {
         setImportFiscalOpen(value);
@@ -658,6 +730,16 @@ export default function PsCollaborators() {
                     <span>{profileFiscal.sector || 'Sem setor'}</span>
                     <span>{profileFiscal.active ? 'Ativo' : 'Inativo'}</span>
                   </div>
+                  {!profileFiscal.active && (
+                    <div className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-xs">
+                      <p className="font-medium text-foreground">{inactiveReasonLabel(profileFiscal.inactive_reason_category)}</p>
+                      <p className="mt-1 text-muted-foreground">{profileFiscal.inactive_reason || 'Este cadastro foi inativado antes do registro obrigatório de justificativa.'}</p>
+                      <p className="mt-2 text-[10px] text-muted-foreground">
+                        {profileFiscal.inactivated_at ? new Date(profileFiscal.inactivated_at).toLocaleString('pt-BR') : 'Data não registrada'}
+                        {profileFiscal.inactivated_by_name ? ` · por ${profileFiscal.inactivated_by_name}` : ''}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-xl border border-border/60 p-4">

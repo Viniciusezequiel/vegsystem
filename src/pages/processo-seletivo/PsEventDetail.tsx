@@ -23,18 +23,19 @@ import { PsEventCollaboratorEditDialog } from '@/components/processo-seletivo/Ps
 import { PsEventWorkspaceNav } from '@/components/processo-seletivo/PsEventWorkspaceNav';
 import { PsEventTrainingTab } from '@/components/processo-seletivo/PsEventTrainingTab';
 import { PsEventPaymentsPanel } from '@/components/processo-seletivo/PsEventPaymentsPanel';
+import { PsEventLabelsDialog } from '@/components/processo-seletivo/PsEventLabelsDialog';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
   usePsCollaborators, usePsRoles, usePsEvaluations, usePsSaveEvaluation, usePsCandidates,
-  usePsCandidateMutations, usePsSelfEvaluations, usePsClearEventTeam, usePsEventConfirmationSummary, usePsConfirmationActions,
+  usePsCandidateMutations, usePsSelfEvaluations, usePsClearEventTeam, usePsConfirmationActions,
   usePsEventCommunications,
 } from '@/hooks/useProcessoSeletivo';
 import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psConfirmationState.mjs';
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, FileSpreadsheet, ChevronDown, FileText, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, FileSpreadsheet, ChevronDown, FileText, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -56,7 +57,7 @@ export default function PsEventDetail() {
   const queryClient = useQueryClient();
   const { data: event } = usePsEvent(id);
   const { finalize, save } = usePsEventMutations();
-  const { data: links = [] } = usePsEventCollaborators(id);
+  const { data: allLinks = [] } = usePsEventCollaborators(id);
   const { add, update, updateState, remove } = usePsEventCollaboratorMutations(id);
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: roles = [] } = usePsRoles();
@@ -67,7 +68,6 @@ export default function PsEventDetail() {
   const { addMany, removeAll } = usePsCandidateMutations();
   const { profile } = useAuth();
   const clearTeam = usePsClearEventTeam();
-  const { data: confirmationSummary = {} } = usePsEventConfirmationSummary(id);
   const confirmationActions = usePsConfirmationActions(id);
   const { data: eventCommunications = [] } = usePsEventCommunications(id);
 
@@ -94,6 +94,7 @@ export default function PsEventDetail() {
   const [replacementData, setReplacementData] = useState<any>(null);
   const [presenceSearch, setPresenceSearch] = useState('');
   const [presenceListOpen, setPresenceListOpen] = useState(false);
+  const [labelsOpen, setLabelsOpen] = useState(false);
 
   const [selfEvaluationSearch, setSelfEvaluationSearch] = useState('');
   const [selfEvaluationRole, setSelfEvaluationRole] = useState('all');
@@ -111,6 +112,27 @@ export default function PsEventDetail() {
   const [closureSaving, setClosureSaving] = useState(false);
 
   const publicBase = `${window.location.origin}/ps`;
+
+  const collaboratorById = useMemo(
+    () => new Map(collaborators.map((collaborator: any) => [collaborator.id, collaborator])),
+    [collaborators]
+  );
+  const inactiveEventLinks = useMemo(
+    () => allLinks.filter((link: any) => collaboratorById.get(link.collaborator_id)?.active === false),
+    [allLinks, collaboratorById]
+  );
+  const links = useMemo(
+    () => allLinks.filter((link: any) => collaboratorById.get(link.collaborator_id)?.active !== false),
+    [allLinks, collaboratorById]
+  );
+  const confirmationSummary = useMemo(
+    () => links.reduce((summary: Record<string, number>, link: any) => {
+      const key = link.participation_status || 'pending_confirmation';
+      summary[key] = (summary[key] || 0) + 1;
+      return summary;
+    }, {}),
+    [links]
+  );
 
   const { data: attendanceClosures = [] } = useQuery({
     queryKey: ['ps-attendance-closures', id],
@@ -1240,7 +1262,7 @@ export default function PsEventDetail() {
             </div>
 
             <div className="ps-event-hero__actions">
-              <Button variant="outline" onClick={exportBadges}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
+              <Button variant="outline" onClick={() => setLabelsOpen(true)}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
               <Button asChild variant="outline"><Link to={`/admin-module/processo-seletivo/eventos/${id}/avaliadores`}><ShieldCheck className="mr-2 h-4 w-4" />Equipe de avaliação</Link></Button>
               <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
               <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />XLSX</Button>
@@ -1324,6 +1346,53 @@ export default function PsEventDetail() {
           </TabsContent>
 
           <TabsContent value="fiscais" className="space-y-3 pt-4">
+            {inactiveEventLinks.length > 0 && (
+              <Card className="overflow-hidden rounded-2xl border-amber-500/30 bg-amber-500/[0.06]">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-amber-500/15 p-2 text-amber-400"><AlertTriangle className="h-5 w-5" /></div>
+                    <div>
+                      <CardTitle className="text-base">{inactiveEventLinks.length} colaborador(es) inativo(s) vinculado(s)</CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Estes vínculos permanecem no histórico, mas não entram nas contagens, comunicações, presença, pagamentos ou avaliações. Substitua ou remova cada vínculo.
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="divide-y divide-amber-500/15 p-0">
+                  {inactiveEventLinks.map((link: any) => {
+                    const collaborator: any = collaboratorById.get(link.collaborator_id);
+                    const reasonLabels: Record<string, string> = {
+                      medical_leave: 'Atestado ou afastamento',
+                      terminated: 'Desligamento da empresa',
+                      unavailable: 'Indisponibilidade',
+                      duplicate_or_incorrect: 'Cadastro duplicado ou incorreto',
+                      other: 'Outro motivo',
+                    };
+                    return (
+                      <div key={link.id} className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{link.collaborator_name}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {[link.role_name || link.assigned_role, link.building, link.floor, link.room && `Sala ${link.room}`].filter(Boolean).join(' · ')}
+                          </p>
+                          <p className="mt-1 text-xs text-amber-300/90">
+                            {reasonLabels[collaborator?.inactive_reason_category] || 'Motivo não registrado'}
+                            {collaborator?.inactive_reason ? ` — ${collaborator.inactive_reason}` : ' — inativação anterior ao histórico obrigatório'}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openReplacement(link)}>Substituir fiscal</Button>
+                          <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => {
+                            if (confirm(`Remover ${link.collaborator_name} deste evento? O cadastro e o histórico serão mantidos.`)) remove.mutate(link.id);
+                          }}><Trash2 className="mr-1.5 h-3.5 w-3.5" />Remover vínculo</Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="relative w-full xl:max-w-xl">
                 <Input
@@ -2294,6 +2363,16 @@ export default function PsEventDetail() {
           </div>
         </div>
       </Tabs>
+
+      <PsEventLabelsDialog
+        open={labelsOpen}
+        onOpenChange={setLabelsOpen}
+        event={event}
+        teamCount={links.length}
+        candidateCount={candidates.length}
+        onExportTeam={exportBadges}
+        onExportCandidates={exportCandidateBadges}
+      />
 
       {/* Fechamento de presença por prédio */}
       <Dialog

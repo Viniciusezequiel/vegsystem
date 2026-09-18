@@ -70,6 +70,7 @@ export function usePsCollaborators() {
         'role', 'unit', 'sector', 'position', 'journey', 'pcd', 'city', 'state', 'pix',
         'total_events', 'average_rating', 'identity_doc', 'institution', 'preferred_role',
         'notes', 'imported_selection_count', 'imported_participation_count', 'active',
+        'inactive_reason_category', 'inactive_reason', 'inactivated_at', 'inactivated_by_name',
         'created_at', 'updated_at',
       ].join(',')).order('full_name');
       if (error) throw error;
@@ -96,7 +97,7 @@ export function usePsCollaboratorMutations() {
 
   const save = useMutation({
     mutationFn: async (c: any) => {
-      const { id, email_normalized, matricula_normalized, institution_normalized, ...values } = c;
+      const { id, email_normalized, matricula_normalized, institution_normalized, active, ...values } = c;
       const record = { ...values };
       if ('email' in values) record.email = values.email?.trim() || null;
       if ('matricula' in values) record.matricula = values.matricula?.trim() || null;
@@ -105,7 +106,7 @@ export function usePsCollaboratorMutations() {
         const { error } = await supabase.from('ps_collaborators').update(record).eq('id', id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('ps_collaborators').insert(record);
+        const { error } = await supabase.from('ps_collaborators').insert({ ...record, active: active ?? true });
         if (error) throw error;
       }
     },
@@ -122,7 +123,24 @@ export function usePsCollaboratorMutations() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return { save, remove };
+  const setActive = useMutation({
+    mutationFn: async ({ id, active, reasonCategory, reason }: { id: string; active: boolean; reasonCategory?: string; reason?: string }) => {
+      const { error } = await (supabase as any).rpc('ps_set_collaborator_active', {
+        p_collaborator_id: id,
+        p_active: active,
+        p_reason_category: reasonCategory || null,
+        p_reason: reason?.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      invalidate();
+      toast.success(variables.active ? 'Colaborador reativado!' : 'Colaborador inativado!');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return { save, remove, setActive };
 }
 
 export function usePsCollaboratorParticipations() {

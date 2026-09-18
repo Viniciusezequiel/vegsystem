@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { jsPDF } from 'jspdf';
+import * as XLSX from 'xlsx';
+import { parsePsExamLabelWorkbook } from '../../src/lib/psExamLabelSpreadsheet.mjs';
 
 const EVENT = { name: 'Processo Seletivo 2026 - Campus Central', date: '2026-09-15', location: 'Auditório principal' };
 
@@ -9,6 +11,7 @@ const sourcePdf = fs.readFileSync(new URL('../../src/lib/psEventPdf.ts', import.
 const sourceTabs = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
 const sourceEventNav = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventWorkspaceNav.tsx', import.meta.url), 'utf8');
 const sourceGlobalTabs = fs.readFileSync(new URL('../../src/components/ui/tabs.tsx', import.meta.url), 'utf8');
+const sourceLabelsDialog = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventLabelsDialog.tsx', import.meta.url), 'utf8');
 
 const sheet = {
   labelWidth: 101.6,
@@ -86,4 +89,41 @@ test('process selection uses contextual navigation without a horizontal scrollin
   assert.doesNotMatch(sourceGlobalTabs, /overflow-x-auto/i);
   assert.doesNotMatch(sourceGlobalTabs, /scrollbar-none/i);
   assert.doesNotMatch(sourceGlobalTabs, /w-max\s+min-w-full/i);
+});
+
+test('planilha de materiais preserva abas, repetições, prédio, andar e sala', () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['Processo Seletivo', 'Nome ', 'Prédio', 'Andar ', 'Sala '],
+    ['PROCESSO SELETIVO 2027', 'CADERNO DE QUESTÕES', 'FEA - BLOCO F', 'ANDAR: 1º', 'F101'],
+    ['PROCESSO SELETIVO 2027', 'CADERNO DE QUESTÕES', 'FEA - BLOCO F', 'ANDAR: 1º', 'F101'],
+  ]), 'CADERNO DE QUESTÕES');
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['Processo Seletivo', 'Nome ', 'Prédio', 'Andar ', 'Sala '],
+    ['PROCESSO SELETIVO 2027', 'FOLHA DE RESPOSTAS', 'FACE II - BLOCO E', 'ANDAR: 3º', 'E301'],
+  ]), 'FOLHA DE RESPOSTAS');
+
+  const bytes = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+  const parsed = parsePsExamLabelWorkbook(bytes);
+  assert.equal(parsed.rows.length, 3);
+  assert.deepEqual(parsed.sheets.map((sheet) => sheet.count), [2, 1]);
+  assert.equal(parsed.rows[0].label_type, 'question_booklet');
+  assert.equal(parsed.rows[0].floor, '1º');
+  assert.equal(parsed.rows[1].room, 'F101');
+  assert.equal(parsed.rows[2].label_type, 'answer_sheet');
+  assert.equal(parsed.rows[2].building, 'FACE II - BLOCO E');
+});
+
+test('central de etiquetas integra materiais de prova ao mesmo modelo CC182', () => {
+  assert.match(sourceTabs, /setLabelsOpen\(true\)/);
+  assert.match(sourceTabs, /PsEventLabelsDialog/);
+  assert.match(sourceLabelsDialog, /Importar planilha/);
+  assert.match(sourceLabelsDialog, /Gerar PDF com/);
+  assert.match(sourceLabelsDialog, /14 etiquetas por página/);
+  assert.match(sourcePdf, /export function generatePsExamLabelsPdf/);
+  assert.match(sourcePdf, /const sheet = PS_CANDIDATE_LABEL_SHEET/);
+  assert.match(sourcePdf, /question_booklet/);
+  assert.match(sourcePdf, /answer_sheet/);
+  assert.match(sourcePdf, /235, 38, 38/);
+  assert.match(sourcePdf, /135, 169, 80/);
 });
