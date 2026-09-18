@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FileSpreadsheet, FileText, IdCard, Printer, Upload, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parsePsExamLabelWorkbook } from '@/lib/psExamLabelSpreadsheet.mjs';
 import { generatePsExamLabelsPdf } from '@/lib/psEventPdf';
 
@@ -13,18 +14,36 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event: { name?: string | null; date?: string | null; location?: string | null };
-  teamCount: number;
-  candidateCount: number;
-  onExportTeam: () => void;
-  onExportCandidates: () => void;
+  team: Array<{ campus?: string | null; building?: string | null }>;
+  candidates: Array<{ campus?: string | null; building?: string | null }>;
+  onExportTeam: (filters: LocationFilters) => void;
+  onExportCandidates: (filters: LocationFilters) => void;
 };
+
+export type LocationFilters = { campus: string; building: string };
+
+const cleanLocation = (value?: string | null) => String(value || '').trim();
+
+const filterByLocation = <T extends { campus?: string | null; building?: string | null }>(
+  rows: T[],
+  filters: LocationFilters,
+) => rows.filter((row) =>
+  (filters.campus === 'all' || cleanLocation(row.campus) === filters.campus)
+  && (filters.building === 'all' || cleanLocation(row.building) === filters.building));
+
+const locationOptions = (rows: Array<{ campus?: string | null; building?: string | null }>, campus: string) => ({
+  campuses: [...new Set(rows.map((row) => cleanLocation(row.campus)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+  buildings: [...new Set(rows
+    .filter((row) => campus === 'all' || cleanLocation(row.campus) === campus)
+    .map((row) => cleanLocation(row.building)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+});
 
 export function PsEventLabelsDialog({
   open,
   onOpenChange,
   event,
-  teamCount,
-  candidateCount,
+  team,
+  candidates,
   onExportTeam,
   onExportCandidates,
 }: Props) {
@@ -32,6 +51,34 @@ export function PsEventLabelsDialog({
   const [examRows, setExamRows] = useState<any[]>([]);
   const [sheetCounts, setSheetCounts] = useState<Array<{ name: string; count: number }>>([]);
   const [reading, setReading] = useState(false);
+  const [teamFilters, setTeamFilters] = useState<LocationFilters>({ campus: 'all', building: 'all' });
+  const [candidateFilters, setCandidateFilters] = useState<LocationFilters>({ campus: 'all', building: 'all' });
+
+  const teamOptions = useMemo(() => locationOptions(team, teamFilters.campus), [team, teamFilters.campus]);
+  const candidateOptions = useMemo(() => locationOptions(candidates, candidateFilters.campus), [candidates, candidateFilters.campus]);
+  const filteredTeamCount = useMemo(() => filterByLocation(team, teamFilters).length, [team, teamFilters]);
+  const filteredCandidateCount = useMemo(() => filterByLocation(candidates, candidateFilters).length, [candidates, candidateFilters]);
+
+  const locationSelectors = (
+    options: { campuses: string[]; buildings: string[] },
+    filters: LocationFilters,
+    setFilters: (filters: LocationFilters) => void,
+  ) => (options.campuses.length || options.buildings.length) ? (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {options.campuses.length > 0 && (
+        <Select value={filters.campus} onValueChange={(campus) => setFilters({ campus, building: 'all' })}>
+          <SelectTrigger className="h-9"><SelectValue placeholder="Todos os campus" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">Todos os campus</SelectItem>{options.campuses.map((campus) => <SelectItem key={campus} value={campus}>{campus}</SelectItem>)}</SelectContent>
+        </Select>
+      )}
+      {options.buildings.length > 0 && (
+        <Select value={filters.building} onValueChange={(building) => setFilters({ ...filters, building })}>
+          <SelectTrigger className="h-9"><SelectValue placeholder="Todos os prédios" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">Todos os prédios</SelectItem>{options.buildings.map((building) => <SelectItem key={building} value={building}>{building}</SelectItem>)}</SelectContent>
+        </Select>
+      )}
+    </div>
+  ) : null;
 
   const importSpreadsheet = async (file: File) => {
     setReading(true);
@@ -75,9 +122,10 @@ export function PsEventLabelsDialog({
             <CardContent className="flex h-full flex-col gap-3 p-4">
               <div className="flex items-start gap-3">
                 <div className="rounded-xl bg-primary/10 p-2 text-primary"><Users className="h-4 w-4" /></div>
-                <div><p className="font-semibold">Equipe do evento</p><p className="text-xs text-muted-foreground">{teamCount} colaborador(es)</p></div>
+                <div><p className="font-semibold">Equipe do evento</p><p className="text-xs text-muted-foreground">{filteredTeamCount} de {team.length} colaborador(es)</p></div>
               </div>
-              <Button variant="outline" className="mt-auto" onClick={onExportTeam} disabled={!teamCount}><IdCard className="mr-2 h-4 w-4" />Gerar etiquetas da equipe</Button>
+              {locationSelectors(teamOptions, teamFilters, setTeamFilters)}
+              <Button variant="outline" className="mt-auto" onClick={() => onExportTeam(teamFilters)} disabled={!filteredTeamCount}><IdCard className="mr-2 h-4 w-4" />Gerar etiquetas da equipe</Button>
             </CardContent>
           </Card>
 
@@ -85,9 +133,10 @@ export function PsEventLabelsDialog({
             <CardContent className="flex h-full flex-col gap-3 p-4">
               <div className="flex items-start gap-3">
                 <div className="rounded-xl bg-primary/10 p-2 text-primary"><FileText className="h-4 w-4" /></div>
-                <div><p className="font-semibold">Candidatos</p><p className="text-xs text-muted-foreground">{candidateCount} candidato(s)</p></div>
+                <div><p className="font-semibold">Candidatos</p><p className="text-xs text-muted-foreground">{filteredCandidateCount} de {candidates.length} candidato(s)</p></div>
               </div>
-              <Button variant="outline" className="mt-auto" onClick={onExportCandidates} disabled={!candidateCount}><IdCard className="mr-2 h-4 w-4" />Gerar etiquetas dos candidatos</Button>
+              {locationSelectors(candidateOptions, candidateFilters, setCandidateFilters)}
+              <Button variant="outline" className="mt-auto" onClick={() => onExportCandidates(candidateFilters)} disabled={!filteredCandidateCount}><IdCard className="mr-2 h-4 w-4" />Gerar etiquetas dos candidatos</Button>
             </CardContent>
           </Card>
         </div>
@@ -144,4 +193,3 @@ export function PsEventLabelsDialog({
     </Dialog>
   );
 }
-
