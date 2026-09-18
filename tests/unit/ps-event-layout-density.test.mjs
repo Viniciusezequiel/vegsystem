@@ -55,9 +55,9 @@ test('confirmation report exports only filtered people with delivery status', ()
 test('confirmation and email operations share one communication workspace', () => {
   assert.match(detail, /<TabsContent value="comunicacao"/);
   assert.doesNotMatch(detail, /<TabsContent value="confirmacoes"/);
-  assert.match(communication, /Mensagem \+ link/);
-  assert.match(communication, />Substituir</);
-  assert.match(communication, /E-mail de confirmação/);
+  assert.match(communication, /Copiar mensagem \+ link/);
+  assert.match(communication, /Substituir fiscal/);
+  assert.match(communication, /Envio por e-mail/);
   assert.doesNotMatch(communication, /Enviar WhatsApp|WATI|WhatsApp Provider/);
 });
 
