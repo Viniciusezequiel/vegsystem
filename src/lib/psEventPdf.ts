@@ -26,6 +26,15 @@ export interface PsCandidateBadgeRow {
   pcd_type?: string | null;
 }
 
+export interface PsExamLabelRow {
+  process_name?: string | null;
+  label_name: string;
+  label_type: 'question_booklet' | 'answer_sheet' | 'other';
+  building: string;
+  floor?: string | null;
+  room: string;
+}
+
 export interface PsEventInfo {
   name: string;
   date?: string | null;
@@ -223,6 +232,71 @@ export function generatePsCandidateBadgesPdf(event: PsEventInfo, rows: PsCandida
     }
   }
   return doc;
+}
+
+/** Etiquetas de materiais de prova no mesmo gabarito físico CC182 dos candidatos. */
+export function generatePsExamLabelsPdf(event: PsEventInfo, rows: PsExamLabelRow[]): jsPDF {
+  const sheet = PS_CANDIDATE_LABEL_SHEET;
+  const doc = new jsPDF({ unit: 'mm', format: [sheet.pageWidth, sheet.pageHeight], orientation: 'portrait' });
+  const pages = Math.max(1, Math.ceil(rows.length / sheet.perPage));
+
+  for (let page = 0; page < pages; page += 1) {
+    if (page > 0) doc.addPage([sheet.pageWidth, sheet.pageHeight], 'portrait');
+    for (let rowIndex = 0; rowIndex < sheet.rows; rowIndex += 1) {
+      for (let columnIndex = 0; columnIndex < sheet.columns; columnIndex += 1) {
+        const index = page * sheet.perPage + rowIndex * sheet.columns + columnIndex;
+        if (index >= rows.length) break;
+        drawExamLabel(
+          doc,
+          event,
+          rows[index],
+          sheet.leftMargin + columnIndex * (sheet.labelWidth + sheet.horizontalGap),
+          sheet.topMargin + rowIndex * sheet.labelHeight,
+          sheet.labelWidth,
+          sheet.labelHeight,
+        );
+      }
+    }
+  }
+
+  return doc;
+}
+
+function drawExamLabel(doc: jsPDF, event: PsEventInfo, row: PsExamLabelRow, x: number, y: number, w: number, h: number) {
+  const centerX = x + w / 2;
+  const maxWidth = w - 8;
+  const processName = String(row.process_name || event.name || '').trim().toUpperCase();
+  const labelName = String(row.label_name || '').trim().toUpperCase();
+  const floor = String(row.floor || '').trim();
+
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(255, 255, 255);
+  doc.rect(x, y, w, h, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(18, 18, 18);
+  doc.setFontSize(6.7);
+  const titleLines = doc.splitTextToSize(processName, maxWidth).slice(0, 2);
+  const titleStartY = y + (titleLines.length > 1 ? 4.8 : 7);
+  doc.text(titleLines, centerX, titleStartY, { align: 'center', lineHeightFactor: 1.05 });
+
+  const typeY = y + 16.4;
+  doc.setFontSize(8.2);
+  fit(doc, labelName, maxWidth, 8.2, 6.2);
+  if (row.label_type === 'question_booklet') doc.setTextColor(235, 38, 38);
+  else if (row.label_type === 'answer_sheet') doc.setTextColor(135, 169, 80);
+  else doc.setTextColor(90, 90, 90);
+  doc.text(truncate(doc, labelName, maxWidth), centerX, typeY, { align: 'center' });
+
+  doc.setTextColor(18, 18, 18);
+  doc.setFontSize(7.2);
+  fit(doc, row.building.toUpperCase(), maxWidth, 7.2, 5.8);
+  doc.text(truncate(doc, row.building.toUpperCase(), maxWidth), centerX, y + 23.5, { align: 'center' });
+
+  const location = [floor ? `${floor} ANDAR` : '', `SALA: ${String(row.room).toUpperCase()}`].filter(Boolean).join(' · ');
+  doc.setFontSize(7.2);
+  fit(doc, location, maxWidth, 7.2, 5.8);
+  doc.text(truncate(doc, location, maxWidth), centerX, y + h - 4.2, { align: 'center' });
 }
 
 function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y: number, w: number, h: number) {
