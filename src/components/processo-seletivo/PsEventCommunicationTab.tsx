@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PsEmailTrackingDashboard } from '@/components/processo-seletivo/PsEmailTrackingDashboard';
 import {
   usePsCommunicationConfig,
   usePsEmailTrackingSync,
@@ -35,7 +34,8 @@ import {
 } from '@/lib/psCommunicationCore.mjs';
 import { getPsConfirmationStatusLabel } from '@/lib/psConfirmationState.mjs';
 import { getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
-import { ChevronDown, Copy, Download, FileSpreadsheet, FileText, Phone } from 'lucide-react';
+import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
+import { ChevronDown, Copy, Download, FileSpreadsheet, FileText, MoreHorizontal, Phone, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
 const statusLabel: Record<string, string> = {
@@ -132,7 +132,7 @@ export function PsEventCommunicationTab({
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [roles, setRoles] = useState<string[]>([]);
-  const [unit, setUnit] = useState('all');
+  const [building, setBuilding] = useState('all');
   const [room, setRoom] = useState('all');
   const [delivery, setDelivery] = useState('all');
   const [dialog, setDialog] = useState(false);
@@ -147,6 +147,12 @@ export function PsEventCommunicationTab({
 
   const roleOptions = useMemo(
     () => [...new Set(links.map((link) => link.role_name || link.assigned_role || 'Sem função'))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [links],
+  );
+
+  const buildingOptions = useMemo(
+    () => [...new Set(links.map((link) => normalizePsLocation(link.building, { building: true })).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [links],
   );
 
@@ -187,14 +193,15 @@ export function PsEventCommunicationTab({
   }, [history, links]);
 
   const filtered = useMemo(() => {
-    const base = filterPsCommunicationRecipients(links, { search, status, unit, room });
+    const base = filterPsCommunicationRecipients(links, { search, status, unit: 'all', room });
     return base.filter((link: any) => {
       const roleName = link.role_name || link.assigned_role || 'Sem função';
       if (roles.length && !roles.includes(roleName)) return false;
+      if (building !== 'all' && normalizePsLocation(link.building, { building: true }) !== building) return false;
       if (delivery !== 'all' && confirmationDelivery.state.get(String(link.id)) !== delivery) return false;
       return true;
     });
-  }, [links, search, status, unit, room, roles, delivery, confirmationDelivery]);
+  }, [links, search, status, building, room, roles, delivery, confirmationDelivery]);
 
   const selectedLinks = useMemo(
     () => selected.map((id) => links.find((link) => String(link.id) === id)).filter(Boolean),
@@ -348,20 +355,11 @@ export function PsEventCommunicationTab({
   const quotaWaiting = history.filter((job: any) => job.status === 'waiting_provider_quota').length;
 
   const selectAllFiltered = () => setSelected((current) => [...new Set([...current, ...filtered.map((link: any) => link.id)])]);
-  const selectUnsentFiltered = () => setSelected((current) => [
-    ...new Set([
-      ...current,
-      ...filtered
-        .filter((link: any) => confirmationDelivery.state.get(String(link.id)) === 'not_sent')
-        .map((link: any) => link.id),
-    ]),
-  ]);
-
   const appliedFilterLabels = [
     search.trim() ? `Busca: ${search.trim()}` : '',
     status !== 'all' ? `Situação: ${getPsConfirmationStatusLabel(status)}` : '',
     roles.length ? `Cargo(s): ${roles.join(', ')}` : '',
-    unit !== 'all' ? `Unidade: ${unit}` : '',
+    building !== 'all' ? `Prédio: ${building}` : '',
     room !== 'all' ? `Sala: ${room}` : '',
     delivery !== 'all' ? `Envio: ${deliveryLabel[delivery] || delivery}` : '',
   ].filter(Boolean);
@@ -401,7 +399,6 @@ export function PsEventCommunicationTab({
 
     {quotaWaiting > 0 && <p className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">{quotaWaiting} mensagens aguardando a renovação da cota diária do provedor.</p>}
 
-    <PsEmailTrackingDashboard communications={history} />
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-1.5 text-[11px] text-muted-foreground">
       <span>
         {tracking.isFetching
@@ -415,14 +412,14 @@ export function PsEventCommunicationTab({
       </Button>
     </div>
 
-    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome" />
 
       <Select value={status} onValueChange={setStatus}>
         <SelectTrigger><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Todos os status</SelectItem>
-          {['pending_confirmation', 'confirmed', 'declined', 'replaced'].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+          {['pending_confirmation', 'confirmed', 'declined', 'replaced'].map((value) => <SelectItem key={value} value={value}>{getPsConfirmationStatusLabel(value)}</SelectItem>)}
         </SelectContent>
       </Select>
 
@@ -455,11 +452,11 @@ export function PsEventCommunicationTab({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Select value={unit} onValueChange={setUnit}>
-        <SelectTrigger><SelectValue placeholder="Unidade" /></SelectTrigger>
+      <Select value={building} onValueChange={setBuilding}>
+        <SelectTrigger><SelectValue placeholder="Prédio" /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos: Unidade</SelectItem>
-          {[...new Set(links.map((link) => link.unit || 'Sem unidade'))].map((option: string) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+          <SelectItem value="all">Todos os prédios</SelectItem>
+          {buildingOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
         </SelectContent>
       </Select>
 
@@ -502,43 +499,44 @@ export function PsEventCommunicationTab({
       </DropdownMenu>
     </div>
 
-    <div className="flex flex-wrap items-center gap-2">
-      <Button variant="outline" onClick={selectAllFiltered}>Selecionar todos filtrados</Button>
-      <Button variant="outline" onClick={selectUnsentFiltered}>Selecionar não enviados filtrados</Button>
-      <Button variant="outline" onClick={() => setSelected([])}>Limpar seleção</Button>
-      <Button onClick={() => openMessage('event_message')} disabled={!selected.length}>Nova mensagem</Button>
-      <Button onClick={() => openMessage('confirmation_request')} disabled={!selected.length}>Solicitar confirmação</Button>
-      <Button
-        variant="outline"
-        disabled={!failedJobs.length || retry.isPending}
-        onClick={() => retry.mutate({ eventId: event.id, jobIds: failedJobs.map((job: any) => job.id) })}
-      >
-        Reenviar falhas
-      </Button>
-      <Button
-        variant="outline"
-        disabled={!canSend || processQueue.isPending}
-        onClick={() => processQueue.mutate({ eventId: event.id })}
-      >
-        Processar fila
-      </Button>
-      <strong className="ml-auto text-sm">{selected.length} destinatários selecionados</strong>
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-card/30 p-2">
+      <Button variant="outline" size="sm" onClick={selectAllFiltered}>Selecionar filtrados</Button>
+      <Button variant="ghost" size="sm" onClick={() => setSelected([])} disabled={!selected.length}>Limpar seleção</Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" disabled={!selected.length} className="ps-gradient-button">
+            <Send className="mr-2 h-4 w-4" />Enviar comunicação<ChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-56">
+          <DropdownMenuItem onSelect={() => openMessage('event_message')}>Nova mensagem por e-mail</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openMessage('confirmation_request')}>Solicitar confirmação</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {!!failedJobs.length && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={retry.isPending}
+          onClick={() => retry.mutate({ eventId: event.id, jobIds: failedJobs.map((job: any) => job.id) })}
+        >
+          Reenviar {failedJobs.length} falha(s)
+        </Button>
+      )}
+      <strong className="ml-auto text-xs text-muted-foreground">{selected.length} selecionado(s) · {filtered.length} resultado(s)</strong>
     </div>
 
-    <Card>
+    <Card className="overflow-hidden">
       <CardContent className="overflow-x-auto p-0">
-        <table className="w-full min-w-[1180px] text-sm">
+        <table className="w-full min-w-[880px] table-fixed text-sm">
           <thead>
-            <tr className="border-b text-left">
-              <th className="p-3" />
-              <th>Nome</th>
-              <th>Cargo</th>
-              <th>Unidade/Sala</th>
-              <th>Confirmação</th>
-              <th>E-mail</th>
-              <th>E-mail de confirmação</th>
-              <th>Celular</th>
-              <th className="text-right">Ações</th>
+            <tr className="border-b bg-muted/20 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+              <th className="w-11 p-3" />
+              <th className="w-[34%] py-3 pr-3">Pessoa</th>
+              <th className="w-[16%] py-3 pr-3">Confirmação</th>
+              <th className="w-[20%] py-3 pr-3">Envio por e-mail</th>
+              <th className="w-[21%] py-3 pr-3">Contato</th>
+              <th className="w-14 py-3 pr-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -551,7 +549,7 @@ export function PsEventCommunicationTab({
                 || latestConfirmation?.delivered_at
                 || latestConfirmation?.sent_at;
               const providerStatus = String(latestConfirmation?.delivery_status || '');
-              return <tr key={link.id} className="border-b">
+              return <tr key={link.id} className="border-b align-middle transition-colors hover:bg-muted/15">
                 <td className="p-3">
                   <Checkbox
                     checked={selected.includes(link.id)}
@@ -560,12 +558,15 @@ export function PsEventCommunicationTab({
                       : selected.filter((id) => id !== link.id))}
                   />
                 </td>
-                <td>{link.collaborator_name}</td>
-                <td>{link.role_name || link.assigned_role || '—'}</td>
-                <td>{link.unit || '—'} / {link.room || '—'}</td>
-                <td><Badge variant={link.participation_status === 'confirmed' ? 'default' : link.participation_status === 'declined' ? 'destructive' : 'outline'}>{getPsConfirmationStatusLabel(link.participation_status)}</Badge></td>
-                <td>{link.email || <span className="text-destructive">Sem e-mail</span>}</td>
-                <td>
+                <td className="py-3 pr-3">
+                  <p className="truncate font-semibold">{link.collaborator_name}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{link.role_name || link.assigned_role || 'Sem função'}</p>
+                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    {[normalizePsLocation(link.building, { building: true }), link.floor, link.room && `Sala ${link.room}`].filter(Boolean).join(' · ') || 'Local não informado'}
+                  </p>
+                </td>
+                <td className="py-3 pr-3"><Badge variant={link.participation_status === 'confirmed' ? 'default' : link.participation_status === 'declined' ? 'destructive' : 'outline'}>{getPsConfirmationStatusLabel(link.participation_status)}</Badge></td>
+                <td className="py-3 pr-3">
                   {['sent', 'delivered', 'opened', 'clicked'].includes(deliveryState) && (
                     <Badge className={deliveryState === 'opened' || deliveryState === 'clicked' ? 'bg-violet-600 hover:bg-violet-600' : deliveryState === 'delivered' ? 'bg-emerald-600 hover:bg-emerald-600' : ''}>
                       {deliveryLabel[providerStatus] || deliveryLabel[deliveryState] || 'Enviado'}{statusTimestamp ? ` · ${formatSentAt(statusTimestamp)}` : ''}
@@ -574,29 +575,31 @@ export function PsEventCommunicationTab({
                   {deliveryState === 'queued' && <Badge variant="secondary">Na fila</Badge>}
                   {deliveryState === 'failed' && <Badge variant="destructive">{latestConfirmation?.status === 'failed_missing_recipient' ? 'Sem e-mail' : deliveryLabel[providerStatus] || 'Falhou'}</Badge>}
                   {deliveryState === 'not_sent' && <Badge variant="outline">Não enviado</Badge>}
+                  <p className="mt-1 truncate text-[11px] text-muted-foreground">{link.email || <span className="text-destructive">Sem e-mail</span>}</p>
                 </td>
-                <td>
+                <td className="py-3 pr-3">
                   {getPsContactPhone(link) ? (
                     <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => void copyPhone(link)} title="Copiar celular">
                       <Phone className="mr-1 h-3.5 w-3.5" />{getPsContactPhone(link)}<Copy className="ml-1 h-3.5 w-3.5" />
                     </Button>
                   ) : <span className="text-xs text-muted-foreground">Não informado</span>}
                 </td>
-                <td>
-                  <div className="flex justify-end gap-1">
-                    {['pending_confirmation', 'declined'].includes(link.participation_status) && (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => onRequestConfirmation(link)} disabled={requestingConfirmation}>
-                          {link.public_confirmation_token_expires_at ? 'Novo link' : 'Gerar link'}
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => onCopyConfirmationMessage(link)} disabled={requestingConfirmation}>
-                          <Copy className="mr-1 h-3.5 w-3.5" />Mensagem + link
-                        </Button>
-                      </>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => openMessage('event_message', link.id)}>E-mail</Button>
-                    {link.participation_status !== 'replaced' && <Button size="sm" variant="outline" onClick={() => onReplace(link)}>Substituir</Button>}
-                  </div>
+                <td className="py-3 pr-3 text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Ações de ${link.collaborator_name}`}><MoreHorizontal className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-56">
+                      {['pending_confirmation', 'declined'].includes(link.participation_status) && (
+                        <>
+                          <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onRequestConfirmation(link)}>{link.public_confirmation_token_expires_at ? 'Gerar novo link' : 'Gerar link'}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onCopyConfirmationMessage(link)}>Copiar mensagem + link</DropdownMenuItem>
+                        </>
+                      )}
+                      <DropdownMenuItem onSelect={() => openMessage('event_message', link.id)}>Enviar mensagem por e-mail</DropdownMenuItem>
+                      {link.participation_status !== 'replaced' && <DropdownMenuItem onSelect={() => onReplace(link)}>Substituir fiscal</DropdownMenuItem>}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </td>
               </tr>;
             })}
