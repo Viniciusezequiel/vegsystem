@@ -37,7 +37,8 @@ test('comunicação mostra status real e sincroniza sem armazenar chave no naveg
     assert.match(communication, new RegExp(label));
   }
   assert.doesNotMatch(communication, /PsEmailTrackingDashboard/);
-  assert.match(communication, /Atualizar status/);
+  assert.match(communication, /usePsEmailTrackingSync\(event\?\.id\)/);
+  assert.doesNotMatch(communication, /Atualizar status|Produção.*BREVO|300\/dia/);
   assert.match(hook, /functions\.invoke\('ps-email-webhook'/);
   assert.doesNotMatch(`${communication}\n${hook}`, /VITE_.*BREVO/i);
 });

@@ -122,7 +122,10 @@ export function PsEventLabelsDialog({
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Central de etiquetas</DialogTitle>
-          <p className="text-sm text-muted-foreground">Todos os PDFs usam o modelo Colacril CC182, com 14 etiquetas por página.</p>
+          <p className="text-sm text-muted-foreground">Todos os PDFs usam o modelo Colacril CC182, com 14 etiquetas por folha Carta.</p>
+          <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2 text-xs text-amber-100/90">
+            Na impressão, selecione <strong>Papel Carta</strong> e <strong>Tamanho real / 100%</strong>. Não use “Ajustar”, “Redimensionar” ou papel A4, pois isso reduz o espaçamento a cada linha.
+          </div>
         </DialogHeader>
 
         <div className="grid gap-3 sm:grid-cols-2">

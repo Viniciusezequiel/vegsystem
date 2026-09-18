@@ -208,6 +208,8 @@ export function generatePsBadgesPdf(event: PsEventInfo, rows: PsBadgeRow[]): jsP
 export function generatePsCandidateBadgesPdf(event: PsEventInfo, rows: PsCandidateBadgeRow[]): jsPDF {
   const sheet = PS_CANDIDATE_LABEL_SHEET;
   const doc = new jsPDF({ unit: 'mm', format: [sheet.pageWidth, sheet.pageHeight], orientation: 'portrait' });
+  doc.viewerPreferences({ PrintScaling: 'None' });
+  doc.setProperties({ title: `Etiquetas de candidatos - ${event.name}`, subject: 'Colacril CC182 - imprimir em Papel Carta, tamanho real (100%)' });
   const pages = Math.max(1, Math.ceil(rows.length / sheet.perPage));
 
   const ensurePhysicalSize = () => {
@@ -238,6 +240,8 @@ export function generatePsCandidateBadgesPdf(event: PsEventInfo, rows: PsCandida
 export function generatePsExamLabelsPdf(event: PsEventInfo, rows: PsExamLabelRow[]): jsPDF {
   const sheet = PS_CANDIDATE_LABEL_SHEET;
   const doc = new jsPDF({ unit: 'mm', format: [sheet.pageWidth, sheet.pageHeight], orientation: 'portrait' });
+  doc.viewerPreferences({ PrintScaling: 'None' });
+  doc.setProperties({ title: `Etiquetas de materiais - ${event.name}`, subject: 'Colacril CC182 - imprimir em Papel Carta, tamanho real (100%)' });
   const pages = Math.max(1, Math.ceil(rows.length / sheet.perPage));
 
   for (let page = 0; page < pages; page += 1) {
