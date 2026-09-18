@@ -23,7 +23,7 @@ import { PsEventCollaboratorEditDialog } from '@/components/processo-seletivo/Ps
 import { PsEventWorkspaceNav } from '@/components/processo-seletivo/PsEventWorkspaceNav';
 import { PsEventTrainingTab } from '@/components/processo-seletivo/PsEventTrainingTab';
 import { PsEventPaymentsPanel } from '@/components/processo-seletivo/PsEventPaymentsPanel';
-import { PsEventLabelsDialog, type LocationFilters } from '@/components/processo-seletivo/PsEventLabelsDialog';
+import { PsEventLabelsDialog, type LabelExportFormat, type LocationFilters } from '@/components/processo-seletivo/PsEventLabelsDialog';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
@@ -1053,15 +1053,20 @@ export default function PsEventDetail() {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-  const exportBadges = (filters: LocationFilters = { campus: 'all', building: 'all' }) => {
+  const exportBadges = async (filters: LocationFilters = { campus: 'all', building: 'all' }, format: LabelExportFormat = 'pdf') => {
     if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
     const filtered = links.filter((row: any) => matchesLabelLocation(row, filters));
     if (!filtered.length) { toast.error('Nenhum colaborador encontrado para o campus e prédio selecionados.'); return; }
     const locationSuffix = labelLocationSuffix(filters);
+    if (format === 'word') {
+      const { generatePsTeamLabelsWord, saveWordBlob } = await import('@/lib/psEventWord');
+      saveWordBlob(await generatePsTeamLabelsWord(eventInfo(), filtered as any), `etiquetas-${slug}${locationSuffix ? `-${locationSuffix}` : ''}.docx`);
+      return;
+    }
     generatePsBadgesPdf(eventInfo(), filtered as any).save(`etiquetas-${slug}${locationSuffix ? `-${locationSuffix}` : ''}.pdf`);
   };
 
-  const exportCandidateBadges = (filters: LocationFilters = { campus: 'all', building: 'all' }) => {
+  const exportCandidateBadges = async (filters: LocationFilters = { campus: 'all', building: 'all' }, format: LabelExportFormat = 'pdf') => {
     if (!candidates.length) {
       toast.error('Nenhum candidato disponível para geração de etiquetas.');
       return;
@@ -1080,6 +1085,11 @@ export default function PsEventDetail() {
     }));
     if (!rows.length) { toast.error('Nenhum candidato encontrado para o campus e prédio selecionados.'); return; }
     const locationSuffix = labelLocationSuffix(filters);
+    if (format === 'word') {
+      const { generatePsCandidateLabelsWord, saveWordBlob } = await import('@/lib/psEventWord');
+      saveWordBlob(await generatePsCandidateLabelsWord(eventInfo(), rows), `etiquetas-candidatos-${slug}${locationSuffix ? `-${locationSuffix}` : ''}.docx`);
+      return;
+    }
     generatePsCandidateBadgesPdf(eventInfo(), rows).save(`etiquetas-candidatos-${slug}${locationSuffix ? `-${locationSuffix}` : ''}.pdf`);
   };
 

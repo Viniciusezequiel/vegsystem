@@ -12,6 +12,7 @@ const sourceTabs = fs.readFileSync(new URL('../../src/pages/processo-seletivo/Ps
 const sourceEventNav = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventWorkspaceNav.tsx', import.meta.url), 'utf8');
 const sourceGlobalTabs = fs.readFileSync(new URL('../../src/components/ui/tabs.tsx', import.meta.url), 'utf8');
 const sourceLabelsDialog = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventLabelsDialog.tsx', import.meta.url), 'utf8');
+const sourceWord = fs.readFileSync(new URL('../../src/lib/psEventWord.ts', import.meta.url), 'utf8');
 
 const sheet = {
   labelWidth: 101.6,
@@ -118,7 +119,7 @@ test('central de etiquetas integra materiais de prova ao mesmo modelo CC182', ()
   assert.match(sourceTabs, /setLabelsOpen\(true\)/);
   assert.match(sourceTabs, /PsEventLabelsDialog/);
   assert.match(sourceLabelsDialog, /Importar planilha/);
-  assert.match(sourceLabelsDialog, /Gerar PDF com/);
+  assert.match(sourceLabelsDialog, /Gerar PDF/);
   assert.match(sourceLabelsDialog, /14 etiquetas por página/);
   assert.match(sourcePdf, /export function generatePsExamLabelsPdf/);
   assert.match(sourcePdf, /const sheet = PS_CANDIDATE_LABEL_SHEET/);
@@ -134,4 +135,16 @@ test('central de etiquetas filtra equipe e candidatos por campus e prédio', () 
   assert.match(sourceLabelsDialog, /filterByLocation/);
   assert.match(sourceTabs, /matchesLabelLocation/);
   assert.match(sourceTabs, /labelLocationSuffix/);
+});
+
+test('central de etiquetas exporta equipe, candidatos e materiais em PDF ou Word', () => {
+  assert.match(sourceLabelsDialog, /LabelExportFormat = 'pdf' \| 'word'/);
+  assert.match(sourceLabelsDialog, /Gerar Word/);
+  assert.match(sourceTabs, /generatePsTeamLabelsWord/);
+  assert.match(sourceTabs, /generatePsCandidateLabelsWord/);
+  assert.match(sourceWord, /generatePsExamLabelsWord/);
+  assert.match(sourceWord, /Packer\.toBlob/);
+  assert.match(sourceWord, /length: 7/);
+  assert.match(sourceWord, /mm\(101\.6\).*mm\(4\.7\).*mm\(101\.6\)/);
+  assert.match(sourceWord, /top: 21\.05, right: 4, bottom: 21\.05, left: 4/);
 });
