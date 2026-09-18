@@ -23,7 +23,7 @@ import { PsEventCollaboratorEditDialog } from '@/components/processo-seletivo/Ps
 import { PsEventWorkspaceNav } from '@/components/processo-seletivo/PsEventWorkspaceNav';
 import { PsEventTrainingTab } from '@/components/processo-seletivo/PsEventTrainingTab';
 import { PsEventPaymentsPanel } from '@/components/processo-seletivo/PsEventPaymentsPanel';
-import { PsEventLabelsDialog } from '@/components/processo-seletivo/PsEventLabelsDialog';
+import { PsEventLabelsDialog, type LocationFilters } from '@/components/processo-seletivo/PsEventLabelsDialog';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import {
   usePsEvent, usePsEventMutations, usePsEventCollaborators, usePsEventCollaboratorMutations,
@@ -1040,17 +1040,33 @@ export default function PsEventDetail() {
     location: event?.location || '',
   });
 
-  const exportBadges = () => {
+  const matchesLabelLocation = (row: any, filters: LocationFilters) =>
+    (filters.campus === 'all' || String(row.campus || '').trim() === filters.campus)
+    && (filters.building === 'all' || String(row.building || '').trim() === filters.building);
+
+  const labelLocationSuffix = (filters: LocationFilters) => [filters.campus, filters.building]
+    .filter((value) => value !== 'all')
+    .join('-')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const exportBadges = (filters: LocationFilters = { campus: 'all', building: 'all' }) => {
     if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
-    generatePsBadgesPdf(eventInfo(), links as any).save(`etiquetas-${slug}.pdf`);
+    const filtered = links.filter((row: any) => matchesLabelLocation(row, filters));
+    if (!filtered.length) { toast.error('Nenhum colaborador encontrado para o campus e prédio selecionados.'); return; }
+    const locationSuffix = labelLocationSuffix(filters);
+    generatePsBadgesPdf(eventInfo(), filtered as any).save(`etiquetas-${slug}${locationSuffix ? `-${locationSuffix}` : ''}.pdf`);
   };
 
-  const exportCandidateBadges = () => {
+  const exportCandidateBadges = (filters: LocationFilters = { campus: 'all', building: 'all' }) => {
     if (!candidates.length) {
       toast.error('Nenhum candidato disponível para geração de etiquetas.');
       return;
     }
-    const rows = candidates.map((c: any) => ({
+    const rows = candidates.filter((candidate: any) => matchesLabelLocation(candidate, filters)).map((c: any) => ({
       full_name: c.full_name,
       cpf: c.cpf,
       rg: c.rg,
@@ -1062,7 +1078,9 @@ export default function PsEventDetail() {
       registration_number: c.registration_number,
       pcd_type: c.pcd_type,
     }));
-    generatePsCandidateBadgesPdf(eventInfo(), rows).save(`etiquetas-candidatos-${slug}.pdf`);
+    if (!rows.length) { toast.error('Nenhum candidato encontrado para o campus e prédio selecionados.'); return; }
+    const locationSuffix = labelLocationSuffix(filters);
+    generatePsCandidateBadgesPdf(eventInfo(), rows).save(`etiquetas-candidatos-${slug}${locationSuffix ? `-${locationSuffix}` : ''}.pdf`);
   };
 
   const exportAttendancePdf = async () => {
@@ -2326,7 +2344,7 @@ export default function PsEventDetail() {
                   }} />
                 </label>
               </Button>
-              <Button variant="outline" onClick={exportCandidateBadges} disabled={candidates.length === 0}>
+              <Button variant="outline" onClick={() => exportCandidateBadges()} disabled={candidates.length === 0}>
                 <IdCard className="mr-2 h-4 w-4" />Gerar etiquetas (PDF)
               </Button>
               {candidates.length > 0 && (
@@ -2368,8 +2386,8 @@ export default function PsEventDetail() {
         open={labelsOpen}
         onOpenChange={setLabelsOpen}
         event={event}
-        teamCount={links.length}
-        candidateCount={candidates.length}
+        team={links}
+        candidates={candidates}
         onExportTeam={exportBadges}
         onExportCandidates={exportCandidateBadges}
       />

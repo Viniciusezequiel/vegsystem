@@ -127,3 +127,11 @@ test('central de etiquetas integra materiais de prova ao mesmo modelo CC182', ()
   assert.match(sourcePdf, /235, 38, 38/);
   assert.match(sourcePdf, /135, 169, 80/);
 });
+
+test('central de etiquetas filtra equipe e candidatos por campus e prédio', () => {
+  assert.match(sourceLabelsDialog, /Todos os campus/);
+  assert.match(sourceLabelsDialog, /Todos os prédios/);
+  assert.match(sourceLabelsDialog, /filterByLocation/);
+  assert.match(sourceTabs, /matchesLabelLocation/);
+  assert.match(sourceTabs, /labelLocationSuffix/);
+});
