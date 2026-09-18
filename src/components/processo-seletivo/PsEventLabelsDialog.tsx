@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parsePsExamLabelWorkbook } from '@/lib/psExamLabelSpreadsheet.mjs';
 import { generatePsExamLabelsPdf } from '@/lib/psEventPdf';
+import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
 
 type Props = {
   open: boolean;
@@ -23,20 +24,21 @@ type Props = {
 export type LocationFilters = { campus: string; building: string };
 export type LabelExportFormat = 'pdf' | 'word';
 
-const cleanLocation = (value?: string | null) => String(value || '').trim();
+const locationKey = (value?: string | null, building = false) =>
+  normalizePsLocation(value, { building });
 
 const filterByLocation = <T extends { campus?: string | null; building?: string | null }>(
   rows: T[],
   filters: LocationFilters,
 ) => rows.filter((row) =>
-  (filters.campus === 'all' || cleanLocation(row.campus) === filters.campus)
-  && (filters.building === 'all' || cleanLocation(row.building) === filters.building));
+  (filters.campus === 'all' || locationKey(row.campus) === filters.campus)
+  && (filters.building === 'all' || locationKey(row.building, true) === filters.building));
 
 const locationOptions = (rows: Array<{ campus?: string | null; building?: string | null }>, campus: string) => ({
-  campuses: [...new Set(rows.map((row) => cleanLocation(row.campus)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+  campuses: [...new Set(rows.map((row) => locationKey(row.campus)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
   buildings: [...new Set(rows
-    .filter((row) => campus === 'all' || cleanLocation(row.campus) === campus)
-    .map((row) => cleanLocation(row.building)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    .filter((row) => campus === 'all' || locationKey(row.campus) === campus)
+    .map((row) => locationKey(row.building, true)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
 });
 
 export function PsEventLabelsDialog({

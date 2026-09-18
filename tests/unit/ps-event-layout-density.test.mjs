@@ -38,9 +38,9 @@ test('communication metrics use one compact dashboard surface', () => {
 });
 
 test('confirmation report exports only filtered people with delivery status', () => {
-  assert.match(detail, /Exportar filtrados/);
-  assert.match(detail, /Exportar em PDF/);
-  assert.match(detail, /Exportar em Excel/);
+  assert.match(communication, /Exportar filtrados/);
+  assert.match(communication, /Exportar em PDF/);
+  assert.match(communication, /Exportar em Excel/);
   assert.match(detail, /generatePsConfirmationReportPdf\(report\.reportEvent, report\.rows, report\.filters\)/);
   assert.match(detail, /XLSX\.utils\.json_to_sheet\(rows\)/);
   assert.match(detail, /Confirmações filtradas/);
@@ -50,6 +50,15 @@ test('confirmation report exports only filtered people with delivery status', ()
   assert.match(eventPdf, /RELATÓRIO DE CONFIRMAÇÕES/);
   assert.match(eventPdf, /email_status_label/);
   assert.match(eventPdf, /Filtros:/);
+});
+
+test('confirmation and email operations share one communication workspace', () => {
+  assert.match(detail, /<TabsContent value="comunicacao"/);
+  assert.doesNotMatch(detail, /<TabsContent value="confirmacoes"/);
+  assert.match(communication, /Mensagem \+ link/);
+  assert.match(communication, />Substituir</);
+  assert.match(communication, /E-mail de confirmação/);
+  assert.doesNotMatch(communication, /Enviar WhatsApp|WATI|WhatsApp Provider/);
 });
 
 test('process selection uses the available width and events fill their grid', () => {

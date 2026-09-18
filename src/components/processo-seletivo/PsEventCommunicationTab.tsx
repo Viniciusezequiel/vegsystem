@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,10 @@ import {
   formatPsEventDateBR,
   renderPsCommunicationTemplate,
 } from '@/lib/psCommunicationCore.mjs';
+import { getPsConfirmationStatusLabel } from '@/lib/psConfirmationState.mjs';
+import { getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
+import { ChevronDown, Copy, Download, FileSpreadsheet, FileText, Phone } from 'lucide-react';
+import { toast } from 'sonner';
 
 const statusLabel: Record<string, string> = {
   pending: 'Pendente',
@@ -97,7 +102,25 @@ function formatSentAt(value?: string | null) {
   }).format(date);
 }
 
-export function PsEventCommunicationTab({ event, links }: { event: any; links: any[] }) {
+type Props = {
+  event: any;
+  links: any[];
+  onRequestConfirmation: (link: any) => void;
+  onCopyConfirmationMessage: (link: any) => void;
+  onReplace: (link: any) => void;
+  onExportFiltered: (rows: any[], format: 'pdf' | 'excel', filters: string[]) => void;
+  requestingConfirmation?: boolean;
+};
+
+export function PsEventCommunicationTab({
+  event,
+  links,
+  onRequestConfirmation,
+  onCopyConfirmationMessage,
+  onReplace,
+  onExportFiltered,
+  requestingConfirmation = false,
+}: Props) {
   const { data: history = [] } = usePsEventCommunications(event?.id);
   const tracking = usePsEmailTrackingSync(event?.id);
   const { data: config, error: configError } = usePsCommunicationConfig(event?.id);
@@ -334,6 +357,22 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
     ]),
   ]);
 
+  const appliedFilterLabels = [
+    search.trim() ? `Busca: ${search.trim()}` : '',
+    status !== 'all' ? `Situação: ${getPsConfirmationStatusLabel(status)}` : '',
+    roles.length ? `Cargo(s): ${roles.join(', ')}` : '',
+    unit !== 'all' ? `Unidade: ${unit}` : '',
+    room !== 'all' ? `Sala: ${room}` : '',
+    delivery !== 'all' ? `Envio: ${deliveryLabel[delivery] || delivery}` : '',
+  ].filter(Boolean);
+
+  const copyPhone = async (link: any) => {
+    const phone = getPsContactPhone(link);
+    if (!phone) return;
+    await navigator.clipboard.writeText(phone);
+    toast.success('Celular copiado.');
+  };
+
   return <div className="space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div>
@@ -376,7 +415,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
       </Button>
     </div>
 
-    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome" />
 
       <Select value={status} onValueChange={setStatus}>
@@ -445,6 +484,22 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
           <SelectItem value="queued">Na fila</SelectItem>
         </SelectContent>
       </Select>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="outline" disabled={!filtered.length}>
+            <Download className="mr-2 h-4 w-4" />Exportar filtrados<ChevronDown className="ml-auto h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-52">
+          <DropdownMenuItem onSelect={() => onExportFiltered(filtered, 'pdf', appliedFilterLabels)}>
+            <FileText className="mr-2 h-4 w-4" />Exportar em PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onExportFiltered(filtered, 'excel', appliedFilterLabels)}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />Exportar em Excel
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
 
     <div className="flex flex-wrap items-center gap-2">
@@ -472,7 +527,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
 
     <Card>
       <CardContent className="overflow-x-auto p-0">
-        <table className="w-full min-w-[920px] text-sm">
+        <table className="w-full min-w-[1180px] text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="p-3" />
@@ -482,7 +537,8 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
               <th>Confirmação</th>
               <th>E-mail</th>
               <th>E-mail de confirmação</th>
-              <th />
+              <th>Celular</th>
+              <th className="text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -507,7 +563,7 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
                 <td>{link.collaborator_name}</td>
                 <td>{link.role_name || link.assigned_role || '—'}</td>
                 <td>{link.unit || '—'} / {link.room || '—'}</td>
-                <td><Badge variant="outline">{link.participation_status}</Badge></td>
+                <td><Badge variant={link.participation_status === 'confirmed' ? 'default' : link.participation_status === 'declined' ? 'destructive' : 'outline'}>{getPsConfirmationStatusLabel(link.participation_status)}</Badge></td>
                 <td>{link.email || <span className="text-destructive">Sem e-mail</span>}</td>
                 <td>
                   {['sent', 'delivered', 'opened', 'clicked'].includes(deliveryState) && (
@@ -519,7 +575,29 @@ export function PsEventCommunicationTab({ event, links }: { event: any; links: a
                   {deliveryState === 'failed' && <Badge variant="destructive">{latestConfirmation?.status === 'failed_missing_recipient' ? 'Sem e-mail' : deliveryLabel[providerStatus] || 'Falhou'}</Badge>}
                   {deliveryState === 'not_sent' && <Badge variant="outline">Não enviado</Badge>}
                 </td>
-                <td><Button size="sm" variant="ghost" onClick={() => openMessage('event_message', link.id)}>Mensagem</Button></td>
+                <td>
+                  {getPsContactPhone(link) ? (
+                    <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => void copyPhone(link)} title="Copiar celular">
+                      <Phone className="mr-1 h-3.5 w-3.5" />{getPsContactPhone(link)}<Copy className="ml-1 h-3.5 w-3.5" />
+                    </Button>
+                  ) : <span className="text-xs text-muted-foreground">Não informado</span>}
+                </td>
+                <td>
+                  <div className="flex justify-end gap-1">
+                    {['pending_confirmation', 'declined'].includes(link.participation_status) && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => onRequestConfirmation(link)} disabled={requestingConfirmation}>
+                          {link.public_confirmation_token_expires_at ? 'Novo link' : 'Gerar link'}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => onCopyConfirmationMessage(link)} disabled={requestingConfirmation}>
+                          <Copy className="mr-1 h-3.5 w-3.5" />Mensagem + link
+                        </Button>
+                      </>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => openMessage('event_message', link.id)}>E-mail</Button>
+                    {link.participation_status !== 'replaced' && <Button size="sm" variant="outline" onClick={() => onReplace(link)}>Substituir</Button>}
+                  </div>
+                </td>
               </tr>;
             })}
           </tbody>

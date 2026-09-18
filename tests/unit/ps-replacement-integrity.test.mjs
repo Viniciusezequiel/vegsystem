@@ -81,7 +81,7 @@ test('interface usa apenas equipe operacional para responsável de ausência', (
   );
 
   assert.match(
-    eventDetail,
-    /\['pending_confirmation', 'declined'\]\.includes\(l\.participation_status\)/
+    fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventCommunicationTab.tsx', import.meta.url), 'utf8'),
+    /\['pending_confirmation', 'declined'\]\.includes\(link\.participation_status\)/
   );
 });
