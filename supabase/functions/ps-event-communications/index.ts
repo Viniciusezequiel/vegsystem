@@ -95,8 +95,6 @@ serve(async req=>{
 
   try {
     const auth=req.headers.get('authorization');
-    if(!auth?.startsWith('Bearer ')) return json({error:'unauthorized'},401);
-
     const url=Deno.env.get('SUPABASE_URL')!;
     const anonKey=Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceRoleKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -113,6 +111,7 @@ serve(async req=>{
     if(cronAuthorized){
       if(action!=='process_queue_worker') return json({error:'forbidden'},403);
     }else{
+      if(!auth?.startsWith('Bearer ')) return json({error:'unauthorized'},401);
       const userClient=createClient(url,anonKey,{global:{headers:{Authorization:auth}}});
       const {data:claims,error:claimsError}=await userClient.auth.getClaims(auth.slice(7));
       userId=claims?.claims?.sub as string|undefined;
