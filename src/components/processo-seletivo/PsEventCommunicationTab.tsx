@@ -156,24 +156,19 @@ export function PsEventCommunicationTab({
     [links],
   );
 
-  const latestByLink = useMemo(() => {
-    const map = new Map<string, any>();
-    for (const job of history) {
-      if (!map.has(job.event_collaborator_id)) map.set(job.event_collaborator_id, job);
-    }
-    return map;
-  }, [history]);
-
-  const confirmationDelivery = useMemo(() => {
+  const emailDelivery = useMemo(() => {
     const latest = new Map<string, any>();
-    const sent = new Map<string, any>();
+    const sentConfirmation = new Map<string, any>();
 
     for (const job of history) {
-      if (job.communication_type !== 'confirmation_request') continue;
       const linkId = String(job.event_collaborator_id || '');
       if (!linkId) continue;
       if (!latest.has(linkId)) latest.set(linkId, job);
-      if (job.status === 'sent' && !sent.has(linkId)) sent.set(linkId, job);
+      if (
+        job.communication_type === 'confirmation_request'
+        && job.status === 'sent'
+        && !sentConfirmation.has(linkId)
+      ) sentConfirmation.set(linkId, job);
     }
 
     const state = new Map<string, ConfirmationDeliveryState>();
@@ -189,7 +184,7 @@ export function PsEventCommunicationTab({
       else state.set(linkId, 'not_sent');
     }
 
-    return { latest, sent, state };
+    return { latest, sentConfirmation, state };
   }, [history, links]);
 
   const filtered = useMemo(() => {
@@ -198,10 +193,10 @@ export function PsEventCommunicationTab({
       const roleName = link.role_name || link.assigned_role || 'Sem função';
       if (roles.length && !roles.includes(roleName)) return false;
       if (building !== 'all' && normalizePsLocation(link.building, { building: true }) !== building) return false;
-      if (delivery !== 'all' && confirmationDelivery.state.get(String(link.id)) !== delivery) return false;
+      if (delivery !== 'all' && emailDelivery.state.get(String(link.id)) !== delivery) return false;
       return true;
     });
-  }, [links, search, status, building, room, roles, delivery, confirmationDelivery]);
+  }, [links, search, status, building, room, roles, delivery, emailDelivery]);
 
   const selectedLinks = useMemo(
     () => selected.map((id) => links.find((link) => String(link.id) === id)).filter(Boolean),
@@ -228,12 +223,12 @@ export function PsEventCommunicationTab({
     [selectedLinks],
   );
   const selectedAlreadySent = useMemo(
-    () => pendingConfirmationSelected.filter((id) => confirmationDelivery.sent.has(id)),
-    [pendingConfirmationSelected, confirmationDelivery],
+    () => pendingConfirmationSelected.filter((id) => emailDelivery.sentConfirmation.has(id)),
+    [pendingConfirmationSelected, emailDelivery],
   );
   const selectedNotPreviouslySent = useMemo(
-    () => pendingConfirmationSelected.filter((id) => !confirmationDelivery.sent.has(id)),
-    [pendingConfirmationSelected, confirmationDelivery],
+    () => pendingConfirmationSelected.filter((id) => !emailDelivery.sentConfirmation.has(id)),
+    [pendingConfirmationSelected, emailDelivery],
   );
   const effectiveSelected = type === 'confirmation_request'
     ? (allowConfirmationResend ? pendingConfirmationSelected : selectedNotPreviouslySent)
@@ -520,13 +515,13 @@ export function PsEventCommunicationTab({
           <tbody>
             {filtered.map((link: any) => {
               const linkId = String(link.id);
-              const deliveryState = confirmationDelivery.state.get(linkId) || 'not_sent';
-              const latestConfirmation = confirmationDelivery.latest.get(linkId);
-              const statusTimestamp = latestConfirmation?.clicked_at
-                || latestConfirmation?.opened_at
-                || latestConfirmation?.delivered_at
-                || latestConfirmation?.sent_at;
-              const providerStatus = String(latestConfirmation?.delivery_status || '');
+              const deliveryState = emailDelivery.state.get(linkId) || 'not_sent';
+              const latestEmail = emailDelivery.latest.get(linkId);
+              const statusTimestamp = latestEmail?.clicked_at
+                || latestEmail?.opened_at
+                || latestEmail?.delivered_at
+                || latestEmail?.sent_at;
+              const providerStatus = String(latestEmail?.delivery_status || '');
               return <tr key={link.id} className="border-b align-middle transition-colors hover:bg-muted/15">
                 <td className="p-3">
                   <Checkbox
@@ -551,8 +546,9 @@ export function PsEventCommunicationTab({
                     </Badge>
                   )}
                   {deliveryState === 'queued' && <Badge variant="secondary">Na fila</Badge>}
-                  {deliveryState === 'failed' && <Badge variant="destructive">{latestConfirmation?.status === 'failed_missing_recipient' ? 'Sem e-mail' : deliveryLabel[providerStatus] || 'Falhou'}</Badge>}
+                  {deliveryState === 'failed' && <Badge variant="destructive">{latestEmail?.status === 'failed_missing_recipient' ? 'Sem e-mail' : deliveryLabel[providerStatus] || 'Falhou'}</Badge>}
                   {deliveryState === 'not_sent' && <Badge variant="outline">Não enviado</Badge>}
+                  {latestEmail && <p className="mt-1 truncate text-[10px] text-muted-foreground">{communicationTypeLabel[latestEmail.communication_type] || 'Comunicação por e-mail'}</p>}
                   <p className="mt-1 truncate text-[11px] text-muted-foreground">{link.email || <span className="text-destructive">Sem e-mail</span>}</p>
                 </td>
                 <td className="py-3 pr-3">

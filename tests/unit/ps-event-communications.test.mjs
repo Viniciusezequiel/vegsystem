@@ -47,6 +47,14 @@ test('solicitação de confirmação exclui confirmados, recusados e substituíd
   assert.match(ui,/não estão aguardando confirmação e não receberão esta solicitação/);
 });
 
+test('painel de envio considera a comunicação mais recente de qualquer tipo sem perder a trava de confirmação duplicada',()=>{
+  assert.match(ui,/const emailDelivery = useMemo/);
+  assert.doesNotMatch(ui,/if \(job\.communication_type !== 'confirmation_request'\) continue/);
+  assert.match(ui,/job\.communication_type === 'confirmation_request'[\s\S]*job\.status === 'sent'[\s\S]*sentConfirmation/);
+  assert.match(ui,/emailDelivery\.state\.get\(String\(link\.id\)\)/);
+  assert.match(ui,/communicationTypeLabel\[latestEmail\.communication_type\]/);
+});
+
 test('template resolve variáveis, URL correta e campos opcionais vazios',()=>{
   const rendered=renderPsCommunicationTemplate(DEFAULT_CONFIRMATION_TEMPLATE,{nome:'Ana',evento:'Evento',cargo:'Fiscal',data_evento:'02/09/2026',horario:'08h-12h',campus:'Centro',unidade:'Bloco A',predio:'A',andar:'2',sala:'201',link_confirmacao:'https://www.vegsystem.site/ps/confirmacao/e/t'});
   assert.match(rendered,/Olá, Ana/); assert.match(rendered,/https:\/\/www\.vegsystem\.site\/ps\/confirmacao/); assert.doesNotMatch(rendered,/undefined|null/);
