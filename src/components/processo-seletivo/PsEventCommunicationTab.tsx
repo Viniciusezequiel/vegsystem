@@ -424,9 +424,15 @@ export function PsEventCommunicationTab({
   };
 
   return <div className="space-y-3">
-    <div>
-      <h2 className="text-base font-semibold">Comunicação</h2>
-      <p className="text-xs text-muted-foreground">Mensagens, confirmações e acompanhamento dos envios.</p>
+    <div className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/[0.10] via-indigo-500/[0.06] to-transparent px-4 py-3 shadow-[0_0_35px_rgba(124,58,237,0.08)]">
+      <div className="pointer-events-none absolute -right-20 -top-24 h-44 w-44 rounded-full bg-violet-500/10 blur-3xl" />
+      <div className="relative flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Comunicação</h2>
+          <p className="text-xs text-muted-foreground">Mensagens, confirmações e acompanhamento dos envios.</p>
+        </div>
+        <span className="hidden rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-violet-200 sm:inline-flex">Produção</span>
+      </div>
     </div>
 
     {(configError || config?.mode === 'test' || (config && !config.providerConfigured)) && (
@@ -442,7 +448,8 @@ export function PsEventCommunicationTab({
 
     {quotaWaiting > 0 && <p className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">{quotaWaiting} mensagens aguardando a renovação da cota diária do provedor.</p>}
 
-    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-card/70 via-card/45 to-violet-500/[0.035] p-2 shadow-sm">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome" />
 
       <Select value={status} onValueChange={setStatus}>
@@ -527,9 +534,10 @@ export function PsEventCommunicationTab({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
     </div>
 
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-card/30 p-2">
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-violet-500/15 bg-gradient-to-r from-card/70 via-card/50 to-violet-500/[0.035] p-2 shadow-sm">
       <Button variant="outline" size="sm" onClick={selectAllFiltered}>Selecionar filtrados</Button>
       <Button variant="ghost" size="sm" onClick={() => setSelected([])} disabled={!selected.length}>Limpar seleção</Button>
       <DropdownMenu>
@@ -556,11 +564,11 @@ export function PsEventCommunicationTab({
       <strong className="ml-auto text-xs text-muted-foreground">{selected.length} selecionado(s) · {filtered.length} resultado(s)</strong>
     </div>
 
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden border-violet-500/15 bg-gradient-to-b from-card/80 via-card/60 to-violet-500/[0.025] shadow-[0_8px_35px_rgba(0,0,0,0.12)]">
       <CardContent className="overflow-x-auto p-0">
         <table className="w-full min-w-[880px] table-fixed text-sm">
           <thead>
-            <tr className="border-b bg-muted/20 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b border-violet-500/10 bg-gradient-to-r from-violet-500/[0.055] to-transparent text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <th className="w-11 p-3" />
               <th className="w-[34%] py-3 pr-3">Pessoa</th>
               <th className="w-[16%] py-3 pr-3">Confirmação</th>
@@ -669,7 +677,7 @@ export function PsEventCommunicationTab({
     </Card>
 
     {backgroundProgress && !backgroundHidden && (
-      <div className="fixed inset-x-4 bottom-4 z-[80] mx-auto max-w-5xl rounded-2xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur-xl">
+      <div className="fixed inset-x-4 bottom-4 z-[80] mx-auto max-w-5xl rounded-2xl border border-violet-400/20 bg-gradient-to-r from-background/98 via-background/96 to-violet-950/30 p-3 shadow-[0_12px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
             <Send className="h-5 w-5" />
@@ -688,7 +696,7 @@ export function PsEventCommunicationTab({
               <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setBackgroundHidden(true)}>Ocultar</Button>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted/60">
-              <div className="h-full rounded-full bg-violet-500 transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, ((backgroundProgress.sent + backgroundProgress.failed + backgroundProgress.missingRecipient) / Math.max(1, backgroundProgress.total)) * 100))}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-400 transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, ((backgroundProgress.sent + backgroundProgress.failed + backgroundProgress.missingRecipient) / Math.max(1, backgroundProgress.total)) * 100))}%` }} />
             </div>
             {backgroundProgress.error && <p className="mt-1 text-[11px] text-destructive">{backgroundProgress.error}</p>}
           </div>
