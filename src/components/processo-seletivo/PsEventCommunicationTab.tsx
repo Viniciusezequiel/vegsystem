@@ -553,7 +553,12 @@ export function PsEventCommunicationTab({
                   {deliveryState === 'queued' && <Badge variant="secondary">Na fila</Badge>}
                   {deliveryState === 'failed' && <Badge variant="destructive">{latestConfirmation?.status === 'failed_missing_recipient' ? 'Sem e-mail' : deliveryLabel[providerStatus] || 'Falhou'}</Badge>}
                   {deliveryState === 'not_sent' && <Badge variant="outline">Não enviado</Badge>}
-                  <p className="mt-1 truncate text-[11px] text-muted-foreground">{link.email || <span className="text-destructive">Sem e-mail</span>}</p>
+                  {latestByLink.get(linkId) && (
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground" title={communicationTypeLabel[latestByLink.get(linkId)?.communication_type] || latestByLink.get(linkId)?.communication_type}>
+                      <span className="font-medium text-foreground/70">Tipo:</span> {communicationTypeLabel[latestByLink.get(linkId)?.communication_type] || latestByLink.get(linkId)?.communication_type || 'E-mail'}
+                    </p>
+                  )}
+                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{link.email || <span className="text-destructive">Sem e-mail</span>}</p>
                 </td>
                 <td className="py-3 pr-3">
                   {getPsContactPhone(link) ? (
