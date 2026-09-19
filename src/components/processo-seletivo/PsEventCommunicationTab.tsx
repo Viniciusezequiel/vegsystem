@@ -143,6 +143,8 @@ export function PsEventCommunicationTab({
   const [result, setResult] = useState<any>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [allowConfirmationResend, setAllowConfirmationResend] = useState(false);
+  const [backgroundProgress, setBackgroundProgress] = useState<any>(null);
+  const [backgroundHidden, setBackgroundHidden] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement>(null);
 
   const roleOptions = useMemo(
@@ -303,52 +305,102 @@ export function PsEventCommunicationTab({
       requestKey,
     });
 
-    const totalResult = {
+    const initialTotal = Number(first.total || recipients.length);
+    const initialSent = Number(first.sent || 0);
+    const initialFailed = Number(first.failed || 0);
+    const initialMissing = Number(first.missingRecipient || 0);
+    const initialPending = Number(first.pending || 0);
+    const initialQuotaWaiting = Number(first.quotaWaiting || 0);
+
+    setResult({
       ...first,
-      sent: Number(first.sent || 0),
-      failed: Number(first.failed || 0),
-      missingRecipient: Number(first.missingRecipient || 0),
-      quotaWaiting: Number(first.quotaWaiting || 0),
-      pending: Number(first.pending || 0),
-    };
+      total: initialTotal,
+      sent: initialSent,
+      failed: initialFailed,
+      missingRecipient: initialMissing,
+      pending: initialPending,
+      quotaWaiting: initialQuotaWaiting,
+    });
+    setBackgroundHidden(false);
+    setBackgroundProgress({
+      total: initialTotal,
+      sent: initialSent,
+      failed: initialFailed,
+      missingRecipient: initialMissing,
+      pending: initialPending,
+      quotaWaiting: initialQuotaWaiting,
+      active: initialPending > 0 && initialQuotaWaiting === 0,
+      completed: initialPending === 0 && initialQuotaWaiting === 0,
+    });
 
-    setResult(totalResult);
+    setDialog(false);
+    setSelected([]);
+    toast.success(initialPending > 0 ? 'Envio iniciado. Você pode continuar usando o sistema.' : 'Envio concluído.');
 
-    const batchSize = Math.max(1, Number(config?.batchLimit || 5));
-    const extraRuns = Math.ceil(Number(first.pending || 0) / batchSize);
+    if (initialPending <= 0 || initialQuotaWaiting > 0) return;
 
-    for (let i = 0; i < extraRuns; i += 1) {
-      if (totalResult.quotaWaiting > 0) break;
+    void (async () => {
+      let sentCount = initialSent;
+      let failedCount = initialFailed;
+      let missingCount = initialMissing;
+      let pendingCount = initialPending;
+      let quotaCount = initialQuotaWaiting;
+      const batchSize = Math.max(1, Number(config?.batchLimit || 5));
+      const maxRuns = Math.max(1, Math.ceil(initialPending / batchSize) + 2);
 
-      const next = await processQueue.mutateAsync({ eventId: event.id, silent: true });
-      totalResult.sent += Number(next.sent || 0);
-      totalResult.failed += Number(next.failed || 0);
-      totalResult.missingRecipient += Number(next.missingRecipient || 0);
-      totalResult.quotaWaiting += Number(next.quotaWaiting || 0);
-      totalResult.pending = Math.max(
-        0,
-        Number(first.total || recipients.length)
-          - totalResult.sent
-          - totalResult.failed
-          - totalResult.missingRecipient
-          - totalResult.quotaWaiting,
-      );
-      setResult({ ...totalResult });
-      if (Number(next.total || 0) === 0) break;
-    }
+      for (let i = 0; i < maxRuns && pendingCount > 0 && quotaCount === 0; i += 1) {
+        try {
+          const next = await processQueue.mutateAsync({ eventId: event.id, silent: true });
+          sentCount += Number(next.sent || 0);
+          failedCount += Number(next.failed || 0);
+          missingCount += Number(next.missingRecipient || 0);
+          quotaCount += Number(next.quotaWaiting || 0);
+          pendingCount = Math.max(0, initialTotal - sentCount - failedCount - missingCount - quotaCount);
 
-    setResult({ ...totalResult });
-    if (
-      totalResult.pending === 0
-      && totalResult.quotaWaiting === 0
-      && totalResult.failed === 0
-      && totalResult.missingRecipient === 0
-    ) {
-      setDialog(false);
-      setSelected([]);
-    }
+          setBackgroundProgress({
+            total: initialTotal,
+            sent: sentCount,
+            failed: failedCount,
+            missingRecipient: missingCount,
+            pending: pendingCount,
+            quotaWaiting: quotaCount,
+            active: pendingCount > 0 && quotaCount === 0,
+            completed: pendingCount === 0 && quotaCount === 0,
+          });
+          setResult((current: any) => ({
+            ...(current || {}),
+            total: initialTotal,
+            sent: sentCount,
+            failed: failedCount,
+            missingRecipient: missingCount,
+            pending: pendingCount,
+            quotaWaiting: quotaCount,
+          }));
+
+          if (Number(next.total || 0) === 0) break;
+        } catch (error) {
+          setBackgroundProgress((current: any) => current ? {
+            ...current,
+            active: false,
+            completed: false,
+            error: error instanceof Error ? error.message : 'Erro ao processar a fila.',
+          } : current);
+          return;
+        }
+      }
+
+      setBackgroundProgress((current: any) => current ? {
+        ...current,
+        sent: sentCount,
+        failed: failedCount,
+        missingRecipient: missingCount,
+        pending: pendingCount,
+        quotaWaiting: quotaCount,
+        active: false,
+        completed: pendingCount === 0 && quotaCount === 0,
+      } : current);
+    })();
   };
-
   const failedJobs = history.filter(
     (job: any) => ['failed', 'failed_missing_recipient'].includes(job.status) && selected.includes(job.event_collaborator_id),
   );
@@ -615,6 +667,34 @@ export function PsEventCommunicationTab({
         </CardContent>
       )}
     </Card>
+
+    {backgroundProgress && !backgroundHidden && (
+      <div className="fixed inset-x-4 bottom-4 z-[80] mx-auto max-w-5xl rounded-2xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
+            <Send className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">{backgroundProgress.completed ? 'Envio concluído' : backgroundProgress.error ? 'Processamento interrompido' : backgroundProgress.quotaWaiting > 0 ? 'Aguardando cota do provedor' : 'Enviando e-mails...'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {backgroundProgress.sent} de {backgroundProgress.total} enviados
+                  {backgroundProgress.failed ? ` · ${backgroundProgress.failed} falharam` : ''}
+                  {backgroundProgress.missingRecipient ? ` · ${backgroundProgress.missingRecipient} sem e-mail` : ''}
+                  {backgroundProgress.quotaWaiting ? ` · ${backgroundProgress.quotaWaiting} aguardando cota` : ''}
+                </p>
+              </div>
+              <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setBackgroundHidden(true)}>Ocultar</Button>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted/60">
+              <div className="h-full rounded-full bg-violet-500 transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, ((backgroundProgress.sent + backgroundProgress.failed + backgroundProgress.missingRecipient) / Math.max(1, backgroundProgress.total)) * 100))}%` }} />
+            </div>
+            {backgroundProgress.error && <p className="mt-1 text-[11px] text-destructive">{backgroundProgress.error}</p>}
+          </div>
+        </div>
+      </div>
+    )}
 
     <Dialog open={dialog} onOpenChange={setDialog}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
