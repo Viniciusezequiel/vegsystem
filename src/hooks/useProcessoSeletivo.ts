@@ -261,6 +261,9 @@ export function usePsEventCommunications(eventId?: string) {
   const query = useQuery({
     queryKey: ['ps_event_communications', eventId],
     enabled: !!eventId,
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: async () => {
       const { data, error } = await (supabase as any).from('ps_event_communications').select('id,batch_id,event_id,event_collaborator_id,communication_type,logical_recipient,actual_recipient,subject,status,provider,provider_message_id,delivery_status,delivered_at,opened_at,clicked_at,provider_last_event,provider_last_event_at,attempt_count,requested_at,sent_at,failed_at,last_error,created_at').eq('event_id', eventId!).order('requested_at', { ascending: false });
       if (error) throw error;
@@ -271,7 +274,9 @@ export function usePsEventCommunications(eventId?: string) {
     if (!eventId) return;
     const channel = supabase.channel(`ps:event:${eventId}`)
       .on('broadcast', { event: 'communications_changed' }, payload => {
-        if (payload?.payload?.event_id === eventId) qc.invalidateQueries({ queryKey: ['ps_event_communications', eventId] });
+        if (payload?.payload?.event_id === eventId) {
+          qc.invalidateQueries({ queryKey: ['ps_event_communications', eventId] });
+        }
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [eventId, qc]);
@@ -557,6 +562,10 @@ export function usePsEventCollaborators(eventId?: string) {
   const query = useQuery({
     queryKey: ['ps_event_collaborators', eventId],
     enabled: !!eventId,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ps_event_collaborators')
@@ -569,17 +578,6 @@ export function usePsEventCollaborators(eventId?: string) {
       return (data || []) as unknown as Array<Record<string, any>>;
     },
   });
-  useEffect(() => {
-    if (!eventId) return;
-    const channel = supabase.channel(`ps-event-${eventId}-${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
-          queryClient.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
-        })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [eventId, queryClient]);
   return query;
 }
 
