@@ -438,36 +438,6 @@ export function PsEventCommunicationTab({
   };
 
   return <div className="space-y-3">
-    <div className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/[0.10] via-indigo-500/[0.06] to-transparent px-4 py-3 shadow-[0_0_35px_rgba(124,58,237,0.08)]">
-      <div className="pointer-events-none absolute -right-20 -top-24 h-44 w-44 rounded-full bg-violet-500/10 blur-3xl" />
-      <div className="relative flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">Equipe e comunicação</h2>
-            <Badge variant="outline" className="border-violet-400/20 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-200">{links.length} na equipe</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">Confirmações, envios e gestão dos fiscais em um só lugar.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="hidden rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-violet-200 sm:inline-flex">Produção</span>
-          {onImportTeam && <Button size="sm" className="ps-gradient-button h-8" onClick={onImportTeam}><Upload className="mr-2 h-3.5 w-3.5" />Importar planilha</Button>}
-          {onAddTeamMember && <Button size="sm" variant="outline" className="h-8" onClick={onAddTeamMember}><Plus className="mr-2 h-3.5 w-3.5" />Vincular fiscal</Button>}
-          {onClearTeam && links.length > 0 && <Button size="sm" variant="outline" className="h-8 text-destructive hover:text-destructive" onClick={onClearTeam}><Trash2 className="mr-2 h-3.5 w-3.5" />Limpar equipe</Button>}
-        </div>
-      </div>
-    </div>
-
-    <div className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/[0.10] via-indigo-500/[0.06] to-transparent px-4 py-3 shadow-[0_0_35px_rgba(124,58,237,0.08)]">
-      <div className="pointer-events-none absolute -right-20 -top-24 h-44 w-44 rounded-full bg-violet-500/10 blur-3xl" />
-      <div className="relative flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold">Comunicação</h2>
-          <p className="text-xs text-muted-foreground">Mensagens, confirmações e acompanhamento dos envios.</p>
-        </div>
-        <span className="hidden rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-violet-200 sm:inline-flex">Produção</span>
-      </div>
-    </div>
-
     {(configError || config?.mode === 'test' || (config && !config.providerConfigured)) && (
       <div className={`rounded-xl border px-3 py-2 text-xs ${config?.mode === 'test' ? 'border-amber-400/50 bg-amber-500/10 text-amber-200' : 'bg-muted/30 text-muted-foreground'}`}>
         {config?.mode === 'test'
