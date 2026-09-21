@@ -635,7 +635,7 @@ export function PsEventCommunicationTab({
                     <DropdownMenuContent align="end" className="min-w-56">
                       {['pending_confirmation', 'declined'].includes(link.participation_status) && (
                         <>
-                          <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onRequestConfirmation(link)}>{link.public_confirmation_token_expires_at ? 'Gerar novo link' : 'Gerar link'}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onRequestConfirmation(link)}>{link.public_confirmation_token_hash ? 'Gerar novo link' : 'Gerar link'}</DropdownMenuItem>
                           <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onCopyConfirmationMessage(link)}>Copiar mensagem + link</DropdownMenuItem>
                         </>
                       )}
