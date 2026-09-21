@@ -1302,8 +1302,7 @@ export default function PsEventDetail() {
               <SelectTrigger id="ps-event-section"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="visao-geral">Visão geral</SelectItem>
-                <SelectItem value="fiscais">Equipe</SelectItem>
-                <SelectItem value="comunicacao">Comunicação</SelectItem>
+                <SelectItem value="equipe-comunicacao">Equipe e Comunicação</SelectItem>
                 <SelectItem value="candidatos">Candidatos</SelectItem>
                 <SelectItem value="presenca">Presença</SelectItem>
                 <SelectItem value="treinamentos">Treinamentos</SelectItem>
@@ -1357,145 +1356,9 @@ export default function PsEventDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="fiscais" className="space-y-3 pt-4">
-            {inactiveEventLinks.length > 0 && (
-              <Card className="overflow-hidden rounded-2xl border-amber-500/30 bg-amber-500/[0.06]">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-xl bg-amber-500/15 p-2 text-amber-400"><AlertTriangle className="h-5 w-5" /></div>
-                    <div>
-                      <CardTitle className="text-base">{inactiveEventLinks.length} colaborador(es) inativo(s) vinculado(s)</CardTitle>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Estes vínculos permanecem no histórico, mas não entram nas contagens, comunicações, presença, pagamentos ou avaliações. Substitua ou remova cada vínculo.
-                      </p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="divide-y divide-amber-500/15 p-0">
-                  {inactiveEventLinks.map((link: any) => {
-                    const collaborator: any = collaboratorById.get(link.collaborator_id);
-                    const reasonLabels: Record<string, string> = {
-                      medical_leave: 'Atestado ou afastamento',
-                      terminated: 'Desligamento da empresa',
-                      unavailable: 'Indisponibilidade',
-                      duplicate_or_incorrect: 'Cadastro duplicado ou incorreto',
-                      other: 'Outro motivo',
-                    };
-                    return (
-                      <div key={link.id} className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{link.collaborator_name}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {[link.role_name || link.assigned_role, link.building, link.floor, link.room && `Sala ${link.room}`].filter(Boolean).join(' · ')}
-                          </p>
-                          <p className="mt-1 text-xs text-amber-300/90">
-                            {reasonLabels[collaborator?.inactive_reason_category] || 'Motivo não registrado'}
-                            {collaborator?.inactive_reason ? ` — ${collaborator.inactive_reason}` : ' — inativação anterior ao histórico obrigatório'}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openReplacement(link)}>Substituir fiscal</Button>
-                          <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => {
-                            if (confirm(`Remover ${link.collaborator_name} deste evento? O cadastro e o histórico serão mantidos.`)) remove.mutate(link.id);
-                          }}><Trash2 className="mr-1.5 h-3.5 w-3.5" />Remover vínculo</Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="relative w-full xl:max-w-xl">
-                <Input
-                  value={teamSearch}
-                  onChange={(event) => setTeamSearch(event.target.value)}
-                  placeholder="Buscar na equipe por nome, e-mail, cargo, prédio ou sala..."
-                  className="h-10 bg-background/70 pr-24"
-                  aria-label="Buscar colaborador na equipe"
-                />
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                  {teamRows.length}/{links.length}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Importar planilha</Button>
-                <Button variant="outline" onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" />Vincular manualmente</Button>
-                {links.length > 0 && (
-                  <Button variant="outline" onClick={() => { if (confirm('Remover toda a equipe deste evento? Os cadastros e as avaliações dos colaboradores são mantidos.')) clearTeam.mutate(id!); }}>
-                    <Trash2 className="mr-2 h-4 w-4" />Limpar equipe
-                  </Button>
-                )}
-              </div>
-            </div>
-            <Card className="overflow-hidden rounded-2xl">
-              <div className="hidden grid-cols-[minmax(230px,1.4fr)_minmax(210px,1fr)_auto_auto] items-center gap-4 border-b bg-muted/20 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground xl:grid">
-                <span>Fiscal</span>
-                <span>Situação</span>
-                <span>Presença</span>
-                <span className="text-right">Ações</span>
-              </div>
-              <CardContent className="divide-y p-0">
-              {teamRows.map((l: any) => (
-                <div key={l.id} className="grid gap-3 px-4 py-3 transition-colors hover:bg-muted/15 xl:grid-cols-[minmax(230px,1.4fr)_minmax(210px,1fr)_auto_auto] xl:items-center xl:gap-4">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{l.collaborator_name}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {[l.role_name, `R$ ${Number(l.pay_value || 0).toFixed(2)}`, l.building, l.floor, l.room && `Sala ${l.room}`]
-                        .filter(Boolean).join(' · ')}
-                    </p>
-                    {getPsContactPhone(l) ? (
-                      <button type="button" className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground" onClick={() => copyPhone(l)} title="Copiar celular">
-                        <Phone className="h-3 w-3" />{getPsContactPhone(l)}<Copy className="h-3 w-3" />
-                      </button>
-                    ) : <p className="mt-1 text-[11px] text-muted-foreground/70">Celular não informado</p>}
-                  </div>
+          
 
-                  <div className="flex min-h-6 flex-wrap items-center gap-1">
-                    {l.signed_at && <Badge className="h-5 text-[10px]">Assinado</Badge>}
-                    {l.departed_at && <Badge variant="outline" className="h-5 text-[10px]">Saiu</Badge>}
-                    {l.evaluated && <Badge variant="secondary" className="h-5 text-[10px]">Avaliado</Badge>}
-                    {!l.signed_at && !l.departed_at && !l.evaluated && <span className="text-[11px] text-muted-foreground">Sem registros</span>}
-                  </div>
-
-                  <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/35 px-2.5 py-1.5">
-                    <div className="flex items-center gap-1.5 text-[11px]">
-                      <Switch aria-label={`Marcar ${l.collaborator_name} como presente`} checked={!!l.present} onCheckedChange={(v) => setParticipantState(l, psPresencePatch('present', v))} />
-                      <span>Presente</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px]">
-                      <Switch aria-label={`Marcar ${l.collaborator_name} como ausente`} checked={!!l.absent} onCheckedChange={(v) => setParticipantState(l, psPresencePatch('absent', v))} />
-                      <span>Ausente</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
-                    <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setParticipantState(l, {
-                      departed_at: l.departed_at ? null : new Date().toISOString(),
-                    })} disabled={updateState.isPending}>
-                      {l.departed_at ? 'Cancelar saída' : 'Registrar saída'}
-                    </Button>
-                    <Button size="sm" className="h-8 px-2.5 text-xs" onClick={() => { setEvalTarget(l); setCriteria(emptyCriteria()); }}>
-                      <Star className="mr-1 h-3.5 w-3.5" />Avaliar
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Editar ${l.collaborator_name}`} title="Editar fiscal" onClick={() => setEditLink(l)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" aria-label={`Remover ${l.collaborator_name}`} title="Remover fiscal" onClick={() => { if (confirm('Remover vínculo?')) remove.mutate(l.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </div>
-                </div>
-              ))}
-              {links.length === 0 && <p className="p-6 text-center text-muted-foreground">Nenhum fiscal vinculado.</p>}
-              {links.length > 0 && teamRows.length === 0 && (
-                <div className="p-8 text-center">
-                  <p className="font-medium">Nenhuma pessoa encontrada</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Tente outro nome, e-mail, cargo, prédio ou sala.</p>
-                  <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={() => setTeamSearch('')}>Limpar busca</Button>
-                </div>
-              )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="comunicacao" className="space-y-4 pt-4">
+          <TabsContent value="equipe-comunicacao" className="space-y-4 pt-4">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {[['pending_confirmation', 'Aguardando confirmação'], ['confirmed', 'Confirmados'], ['declined', 'Recusaram'], ['replaced', 'Substituídos']].map(([key, label]) => (
                 <Card key={key} className="rounded-2xl">
@@ -1516,6 +1379,22 @@ export default function PsEventDetail() {
               onExportFiltered={(rows, format, filters) => {
                 if (format === 'pdf') exportFilteredConfirmationsPdf(rows, filters);
                 else exportFilteredConfirmationsExcel(rows, filters);
+              }}
+              onImportTeam={() => setImportOpen(true)}
+              onAddTeamMember={() => setAddOpen(true)}
+              onClearTeam={() => {
+                if (confirm('Remover toda a equipe deste evento? Os cadastros e as avaliações dos colaboradores são mantidos.')) clearTeam.mutate(id!);
+              }}
+              onEditMember={(link) => setEditLink(link)}
+              onRemoveMember={(link) => {
+                if (confirm('Remover vínculo de ' + link.collaborator_name + '?')) remove.mutate(link.id);
+              }}
+              onEvaluateMember={(link) => {
+                setEvalTarget(link);
+                setCriteria(emptyCriteria());
+              }}
+              onTogglePresence={(link, field, value) => {
+                void setParticipantState(link, psPresencePatch(field, value));
               }}
             />
 
