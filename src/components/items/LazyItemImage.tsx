@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface LazyItemImageProps {
-  itemId?: string;
   storedUrl?: string | null;
   alt: string;
   className?: string;
@@ -13,10 +12,9 @@ interface LazyItemImageProps {
 /**
  * Lazy-loading image component for lost items.
  * Uses IntersectionObserver to only fetch images when they enter the viewport.
- * Images are fetched separately to avoid database timeouts from large base64 data.
+ * The image locator comes with the list row; only the object URL is resolved lazily.
  */
 export const LazyItemImage = memo(function LazyItemImage({ 
-  itemId,
   storedUrl,
   alt, 
   className 
@@ -56,7 +54,7 @@ export const LazyItemImage = memo(function LazyItemImage({
   // The locator now arrives with the paginated item query; only resolve the
   // actual object URL once the card is near the viewport.
   const { url: imageUrl, isResolving } = useSignedImageUrl(isVisible ? storedUrl : null);
-  const isLoading = isVisible && !storedUrl && !imageUrl;
+  const isLoading = isVisible && storedUrl === undefined && !imageUrl;
 
   // Show image if we have a valid URL (HTTP or base64)
   const showImage = imageUrl && !hasError && (
