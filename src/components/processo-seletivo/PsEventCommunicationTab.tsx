@@ -452,6 +452,20 @@ export function PsEventCommunicationTab({
     {quotaWaiting > 0 && <p className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">{quotaWaiting} mensagens aguardando a renovação da cota diária do provedor.</p>}
 
     <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-card/70 via-card/45 to-violet-500/[0.035] p-1.5 shadow-sm">
+      <div className="flex items-center justify-end px-1 pb-1">
+        {onAddTeamMember && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 border-violet-400/30 bg-violet-500/10 hover:bg-violet-500/20"
+            onClick={onAddTeamMember}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Vincular fiscal
+          </Button>
+        )}
+      </div>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome" />
 
