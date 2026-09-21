@@ -551,11 +551,37 @@ export default function PsEventDetail() {
     toast.success(`Excel gerado com ${rows.length} pessoa(s) filtrada(s).`);
   };
 
+  const copyText = async (value: string) => {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return;
+      } catch {
+        // Safari/iOS pode negar Clipboard API mesmo em HTTPS; usa fallback abaixo.
+      }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (!copied) throw new Error('clipboard_unavailable');
+  };
+
   const copyConfirmationMessage = async (link: any) => {
     try {
       const result = await confirmationActions.request.mutateAsync({
         linkId: link.id,
-        rotate: !!link.public_confirmation_token_expires_at,
+        // Mensagem + link também precisa rotacionar o token quando já existe um ativo.
+        // Os links não expiram mais, então não podemos usar expires_at para decidir isso.
+        rotate: true,
       });
       const confirmationUrl = `${publicBase}/confirmacao/${id}/${result.token}`;
       const notice = buildPsConfirmationNotice({
@@ -565,7 +591,7 @@ export default function PsEventDetail() {
         confirmationUrl,
         expiresAt: result.expires_at ? new Date(result.expires_at).toLocaleString('pt-BR') : undefined,
       });
-      await navigator.clipboard.writeText(notice.text);
+      await copyText(notice.text);
       toast.success(`Mensagem de ${link.collaborator_name} copiada!`);
     } catch { /* mutation already reports a safe error */ }
   };
@@ -573,7 +599,7 @@ export default function PsEventDetail() {
   const copyPhone = async (link: any) => {
     const phone = getPsContactPhone(link);
     if (!phone) return;
-    await navigator.clipboard.writeText(phone);
+    await copyText(phone);
     toast.success('Celular copiado!');
   };
 
@@ -598,8 +624,7 @@ export default function PsEventDetail() {
   };
 
   const copy = (url: string) => {
-    navigator.clipboard.writeText(url);
-    toast.success('Link copiado!');
+    void copyText(url).then(() => toast.success('Link copiado!')).catch(() => toast.error('Não foi possível copiar o link.'));
   };
 
   const rolePay = (slug?: string | null) => {
