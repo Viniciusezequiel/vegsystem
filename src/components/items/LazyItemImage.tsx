@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useLostItemImage } from '@/hooks/useLostItemImage';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface LazyItemImageProps {
-  itemId: string;
+  itemId?: string;
+  storedUrl?: string | null;
   alt: string;
   className?: string;
 }
@@ -17,6 +17,7 @@ interface LazyItemImageProps {
  */
 export const LazyItemImage = memo(function LazyItemImage({ 
   itemId,
+  storedUrl,
   alt, 
   className 
 }: LazyItemImageProps) {
@@ -52,9 +53,10 @@ export const LazyItemImage = memo(function LazyItemImage({
     return () => observer.disconnect();
   }, []);
 
-  // Only fetch image when visible
-  const { data: storedUrl, isLoading } = useLostItemImage(itemId, isVisible);
-  const { url: imageUrl, isResolving } = useSignedImageUrl(storedUrl);
+  // The locator now arrives with the paginated item query; only resolve the
+  // actual object URL once the card is near the viewport.
+  const { url: imageUrl, isResolving } = useSignedImageUrl(isVisible ? storedUrl : null);
+  const isLoading = isVisible && !storedUrl && !imageUrl;
 
   // Show image if we have a valid URL (HTTP or base64)
   const showImage = imageUrl && !hasError && (
