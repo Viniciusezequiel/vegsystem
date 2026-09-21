@@ -450,7 +450,7 @@ export default function PsEventDetail() {
     try {
       const result = await confirmationActions.request.mutateAsync({
         linkId: link.id,
-        rotate: !!link.public_confirmation_token_expires_at,
+        rotate: !!link.public_confirmation_token_hash,
       });
       copy(`${publicBase}/confirmacao/${id}/${result.token}`);
     } catch { /* mutation already reports a safe error */ }
