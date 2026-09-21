@@ -1255,7 +1255,6 @@ export default function PsEventDetail() {
         <PsEventWorkspaceNav
           teamCount={links.length}
           candidateCount={candidates.length}
-          pendingConfirmationCount={links.filter((link: any) => link.participation_status === 'pending_confirmation').length}
           selfEvaluationCount={selfEvaluations.length}
         />
 
