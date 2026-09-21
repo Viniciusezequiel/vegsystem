@@ -1358,14 +1358,12 @@ export default function PsEventDetail() {
           
 
           <TabsContent value="equipe-comunicacao" className="space-y-4 pt-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {[['pending_confirmation', 'Aguardando confirmação'], ['confirmed', 'Confirmados'], ['declined', 'Recusaram'], ['replaced', 'Substituídos']].map(([key, label]) => (
-                <Card key={key} className="rounded-2xl">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                    <p className="mt-2 text-2xl font-bold">{Number(confirmationSummary[key] || 0)}</p>
-                  </CardContent>
-                </Card>
+            <div className="grid grid-cols-4 overflow-hidden rounded-2xl border border-violet-500/15 bg-gradient-to-r from-card/75 via-card/60 to-violet-500/[0.035]">
+              {[['pending_confirmation', 'Aguardando'], ['confirmed', 'Confirmados'], ['declined', 'Recusaram'], ['replaced', 'Substituídos']].map(([key, label], index) => (
+                <div key={key} className={`flex h-14 items-center justify-between gap-2 px-4 ${index > 0 ? 'border-l border-violet-500/10' : ''}`}>
+                  <span className="text-xs text-muted-foreground">{label}</span>
+                  <span className="text-xl font-bold">{Number(confirmationSummary[key] || 0)}</span>
+                </div>
               ))}
             </div>
             <PsEventCommunicationTab
