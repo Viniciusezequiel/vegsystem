@@ -60,14 +60,8 @@ export function PsEventWorkspaceNav({
     {
       label: 'Pessoas',
       items: [
-        { value: 'fiscais', label: 'Equipe', icon: Users, count: teamCount },
+        { value: 'fiscais', label: 'Equipe e Comunicação', icon: Users, count: teamCount },
         { value: 'candidatos', label: 'Candidatos', icon: UserRoundCheck, count: candidateCount },
-      ],
-    },
-    {
-      label: 'Comunicação',
-      items: [
-        { value: 'comunicacao', label: 'Comunicação', icon: Mail, count: pendingConfirmationCount },
       ],
     },
     {
