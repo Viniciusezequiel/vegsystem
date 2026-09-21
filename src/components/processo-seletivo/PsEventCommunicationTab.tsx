@@ -438,15 +438,22 @@ export function PsEventCommunicationTab({
   };
 
   return <div className="space-y-3">
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-violet-500/15 bg-gradient-to-r from-card/70 via-card/50 to-violet-500/[0.035] p-2 shadow-sm">
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="border-violet-400/20 bg-violet-500/10 text-violet-200">{links.length} na equipe</Badge>
-        <span className="text-xs text-muted-foreground">Gestão da equipe e comunicação no mesmo lugar</span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {onImportTeam && <Button size="sm" className="ps-gradient-button" onClick={onImportTeam}><Upload className="mr-2 h-3.5 w-3.5" />Importar planilha</Button>}
-        {onAddTeamMember && <Button size="sm" variant="outline" onClick={onAddTeamMember}><Plus className="mr-2 h-3.5 w-3.5" />Vincular fiscal</Button>}
-        {onClearTeam && links.length > 0 && <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={onClearTeam}><Trash2 className="mr-2 h-3.5 w-3.5" />Limpar equipe</Button>}
+    <div className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/[0.10] via-indigo-500/[0.06] to-transparent px-4 py-3 shadow-[0_0_35px_rgba(124,58,237,0.08)]">
+      <div className="pointer-events-none absolute -right-20 -top-24 h-44 w-44 rounded-full bg-violet-500/10 blur-3xl" />
+      <div className="relative flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">Equipe e comunicação</h2>
+            <Badge variant="outline" className="border-violet-400/20 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-200">{links.length} na equipe</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">Confirmações, envios e gestão dos fiscais em um só lugar.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="hidden rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-violet-200 sm:inline-flex">Produção</span>
+          {onImportTeam && <Button size="sm" className="ps-gradient-button h-8" onClick={onImportTeam}><Upload className="mr-2 h-3.5 w-3.5" />Importar planilha</Button>}
+          {onAddTeamMember && <Button size="sm" variant="outline" className="h-8" onClick={onAddTeamMember}><Plus className="mr-2 h-3.5 w-3.5" />Vincular fiscal</Button>}
+          {onClearTeam && links.length > 0 && <Button size="sm" variant="outline" className="h-8 text-destructive hover:text-destructive" onClick={onClearTeam}><Trash2 className="mr-2 h-3.5 w-3.5" />Limpar equipe</Button>}
+        </div>
       </div>
     </div>
 
@@ -474,8 +481,8 @@ export function PsEventCommunicationTab({
 
     {quotaWaiting > 0 && <p className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">{quotaWaiting} mensagens aguardando a renovação da cota diária do provedor.</p>}
 
-    <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-card/70 via-card/45 to-violet-500/[0.035] p-2 shadow-sm">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-card/70 via-card/45 to-violet-500/[0.035] p-1.5 shadow-sm">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
       <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome" />
 
       <Select value={status} onValueChange={setStatus}>
@@ -563,7 +570,7 @@ export function PsEventCommunicationTab({
       </div>
     </div>
 
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-violet-500/15 bg-gradient-to-r from-card/70 via-card/50 to-violet-500/[0.035] p-2 shadow-sm">
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-violet-500/15 bg-gradient-to-r from-card/70 via-card/50 to-violet-500/[0.035] px-2 py-1.5 shadow-sm">
       <Checkbox
         checked={filtered.length > 0 && filtered.every((link: any) => selected.includes(link.id))}
         onCheckedChange={(checked) => {
@@ -573,7 +580,7 @@ export function PsEventCommunicationTab({
         aria-label="Selecionar todos os resultados filtrados"
       />
       <span className="text-xs text-muted-foreground">{selected.length > 0 ? selected.length + ' selecionado(s)' : filtered.length + ' resultado(s)'}</span>
-      <Button variant="ghost" size="sm" onClick={() => setSelected([])} disabled={!selected.length}>Limpar seleção</Button>
+      {!!selected.length && <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelected([])}>Limpar seleção</Button>}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button size="sm" disabled={!selected.length} className="ps-gradient-button">
@@ -669,10 +676,6 @@ export function PsEventCommunicationTab({
                     <DropdownMenuContent align="end" className="min-w-60">
                       {onEditMember && <DropdownMenuItem onSelect={() => onEditMember(link)}><Pencil className="mr-2 h-4 w-4" />Editar fiscal</DropdownMenuItem>}
                       {onEvaluateMember && <DropdownMenuItem onSelect={() => onEvaluateMember(link)}><Star className="mr-2 h-4 w-4" />Avaliar fiscal</DropdownMenuItem>}
-                      {onTogglePresence && <>
-                        <DropdownMenuItem onSelect={() => onTogglePresence(link, 'present', !link.present)}><UserCheck className="mr-2 h-4 w-4" />{link.present ? 'Desmarcar presente' : 'Marcar presente'}</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => onTogglePresence(link, 'absent', !link.absent)}><UserCheck className="mr-2 h-4 w-4" />{link.absent ? 'Desmarcar ausente' : 'Marcar ausente'}</DropdownMenuItem>
-                      </>}
                       {['pending_confirmation', 'declined'].includes(link.participation_status) && (
                         <>
                           <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onRequestConfirmation(link)}>{link.public_confirmation_token_hash ? 'Gerar novo link' : 'Gerar link'}</DropdownMenuItem>
