@@ -47,7 +47,6 @@ function CountBadge({ value }: { value?: number }) {
 export function PsEventWorkspaceNav({
   teamCount,
   candidateCount,
-  pendingConfirmationCount,
   selfEvaluationCount,
 }: PsEventWorkspaceNavProps) {
   const groups: EventNavGroup[] = [
@@ -58,7 +57,7 @@ export function PsEventWorkspaceNav({
     {
       label: 'Pessoas',
       items: [
-        { value: 'fiscais', label: 'Equipe e Comunicação', icon: Users, count: teamCount },
+        { value: 'equipe-comunicacao', label: 'Equipe e Comunicação', icon: Users, count: teamCount },
         { value: 'candidatos', label: 'Candidatos', icon: UserRoundCheck, count: candidateCount },
       ],
     },
