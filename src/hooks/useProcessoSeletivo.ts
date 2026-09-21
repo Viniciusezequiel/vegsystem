@@ -7,6 +7,12 @@ import { planPsFiscalReconciliation, classifyEvaluatorRole, findPossibleNameMatc
 import { normalizeFiscalEmail, normalizeFiscalInstitution, normalizeFiscalMatricula, dedupeFiscalRows, normalizeFiscalImportNote } from '@/lib/psFiscalBank.mjs';
 import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
 
+const psEventCollaboratorRealtime = new Map<string, {
+  channel: ReturnType<typeof supabase.channel>;
+  refs: number;
+  timer: ReturnType<typeof setTimeout> | null;
+}>();
+
 const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'id', 'event_id', 'collaborator_id', 'collaborator_name', 'role_value', 'role_name',
   'assigned_role', 'sector', 'unit', 'institution', 'building', 'floor', 'room', 'work_schedule',
@@ -581,11 +587,56 @@ export function usePsEventCollaborators(eventId?: string) {
         .eq('event_id', eventId!)
         .order('collaborator_name');
       if (error) throw error;
-      // This select is intentionally assembled from a fixed field list. The PostgREST
-      // type parser cannot infer dynamic select strings, so narrow at this boundary.
       return (data || []) as unknown as Array<Record<string, any>>;
     },
   });
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    const existing = psEventCollaboratorRealtime.get(eventId);
+    if (existing) {
+      existing.refs += 1;
+      return () => {
+        existing.refs -= 1;
+        if (existing.refs > 0) return;
+        if (existing.timer) clearTimeout(existing.timer);
+        void supabase.removeChannel(existing.channel);
+        psEventCollaboratorRealtime.delete(eventId);
+      };
+    }
+
+    const channel = supabase.channel(`ps-event-collaborators-${eventId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'ps_event_collaborators',
+        filter: `event_id=eq.${eventId}`,
+      }, () => {
+        const state = psEventCollaboratorRealtime.get(eventId);
+        if (!state) return;
+        if (state.timer) clearTimeout(state.timer);
+        state.timer = setTimeout(() => {
+          state.timer = null;
+          queryClient.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
+          queryClient.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
+        }, 1500);
+      })
+      .subscribe();
+
+    psEventCollaboratorRealtime.set(eventId, { channel, refs: 1, timer: null });
+
+    return () => {
+      const state = psEventCollaboratorRealtime.get(eventId);
+      if (!state) return;
+      state.refs -= 1;
+      if (state.refs > 0) return;
+      if (state.timer) clearTimeout(state.timer);
+      void supabase.removeChannel(state.channel);
+      psEventCollaboratorRealtime.delete(eventId);
+    };
+  }, [eventId, queryClient]);
+
   return query;
 }
 
