@@ -246,22 +246,6 @@ export function usePsImportFiscalBank() {
   });
 }
 
-export function usePsEventCollaborationStatus(eventId?: string) {
-  return useQuery({
-    queryKey: ['ps_event_collaboration_status', eventId],
-    enabled: !!eventId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ps_event_collaborators')
-        .select('*')
-        .eq('event_id', eventId!)
-        .order('collaborator_name');
-      if (error) throw error;
-      return data || [];
-    },
-  });
-}
-
 export function usePsEventCommunications(eventId?: string) {
   const qc = useQueryClient();
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
