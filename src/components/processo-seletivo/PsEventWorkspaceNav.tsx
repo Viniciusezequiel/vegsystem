@@ -7,7 +7,6 @@ import {
   ClipboardCheck,
   GraduationCap,
   LayoutDashboard,
-  Mail,
   Settings,
   UserRoundCheck,
   Users,
@@ -32,7 +31,6 @@ type EventNavGroup = {
 interface PsEventWorkspaceNavProps {
   teamCount: number;
   candidateCount: number;
-  pendingConfirmationCount: number;
   selfEvaluationCount: number;
 }
 
