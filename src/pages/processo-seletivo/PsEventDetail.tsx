@@ -450,7 +450,9 @@ export default function PsEventDetail() {
     try {
       const result = await confirmationActions.request.mutateAsync({
         linkId: link.id,
-        rotate: !!link.public_confirmation_token_hash,
+        // Ao solicitar manualmente o link, sempre rotacionamos o token.
+        // Isso também funciona quando o hash ativo não é exposto na consulta da lista.
+        rotate: true,
       });
       copy(`${publicBase}/confirmacao/${id}/${result.token}`);
     } catch { /* mutation already reports a safe error */ }
