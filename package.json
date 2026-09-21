@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:storage": "node --test tests/unit/*.test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "storage:cleanup-orphans": "node scripts/cleanup-orphaned-lost-item-storage.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
