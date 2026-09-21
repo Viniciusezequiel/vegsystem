@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -258,6 +258,7 @@ export function usePsEventCollaborationStatus(eventId?: string) {
 
 export function usePsEventCommunications(eventId?: string) {
   const qc = useQueryClient();
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const query = useQuery({
     queryKey: ['ps_event_communications', eventId],
     enabled: !!eventId,
@@ -274,11 +275,18 @@ export function usePsEventCommunications(eventId?: string) {
     if (!eventId) return;
     const channel = supabase.channel(`ps:event:${eventId}`)
       .on('broadcast', { event: 'communications_changed' }, payload => {
-        if (payload?.payload?.event_id === eventId) {
+        if (payload?.payload?.event_id !== eventId) return;
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+        refreshTimer.current = setTimeout(() => {
+          refreshTimer.current = null;
           qc.invalidateQueries({ queryKey: ['ps_event_communications', eventId] });
-        }
+        }, 2000);
       }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = null;
+      void supabase.removeChannel(channel);
+    };
   }, [eventId, qc]);
   return query;
 }
