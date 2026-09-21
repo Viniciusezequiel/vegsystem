@@ -35,7 +35,7 @@ import {
 import { getPsConfirmationStatusLabel } from '@/lib/psConfirmationState.mjs';
 import { getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
-import { ChevronDown, Copy, Download, FileSpreadsheet, FileText, MoreHorizontal, Phone, Send } from 'lucide-react';
+import { ChevronDown, Copy, Download, FileSpreadsheet, FileText, MoreHorizontal, Phone, Send, Upload, Plus, Trash2, Pencil, Star, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 const statusLabel: Record<string, string> = {
@@ -110,6 +110,13 @@ type Props = {
   onReplace: (link: any) => void;
   onExportFiltered: (rows: any[], format: 'pdf' | 'excel', filters: string[]) => void;
   requestingConfirmation?: boolean;
+  onImportTeam?: () => void;
+  onAddTeamMember?: () => void;
+  onClearTeam?: () => void;
+  onEditMember?: (link: any) => void;
+  onRemoveMember?: (link: any) => void;
+  onEvaluateMember?: (link: any) => void;
+  onTogglePresence?: (link: any, field: 'present' | 'absent', value: boolean) => void;
 };
 
 export function PsEventCommunicationTab({
@@ -120,6 +127,13 @@ export function PsEventCommunicationTab({
   onReplace,
   onExportFiltered,
   requestingConfirmation = false,
+  onImportTeam,
+  onAddTeamMember,
+  onClearTeam,
+  onEditMember,
+  onRemoveMember,
+  onEvaluateMember,
+  onTogglePresence,
 }: Props) {
   const { data: history = [] } = usePsEventCommunications(event?.id);
   usePsEmailTrackingSync(event?.id);
@@ -424,6 +438,18 @@ export function PsEventCommunicationTab({
   };
 
   return <div className="space-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-violet-500/15 bg-gradient-to-r from-card/70 via-card/50 to-violet-500/[0.035] p-2 shadow-sm">
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="border-violet-400/20 bg-violet-500/10 text-violet-200">{links.length} na equipe</Badge>
+        <span className="text-xs text-muted-foreground">Gestão da equipe e comunicação no mesmo lugar</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {onImportTeam && <Button size="sm" className="ps-gradient-button" onClick={onImportTeam}><Upload className="mr-2 h-3.5 w-3.5" />Importar planilha</Button>}
+        {onAddTeamMember && <Button size="sm" variant="outline" onClick={onAddTeamMember}><Plus className="mr-2 h-3.5 w-3.5" />Vincular fiscal</Button>}
+        {onClearTeam && links.length > 0 && <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={onClearTeam}><Trash2 className="mr-2 h-3.5 w-3.5" />Limpar equipe</Button>}
+      </div>
+    </div>
+
     <div className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/[0.10] via-indigo-500/[0.06] to-transparent px-4 py-3 shadow-[0_0_35px_rgba(124,58,237,0.08)]">
       <div className="pointer-events-none absolute -right-20 -top-24 h-44 w-44 rounded-full bg-violet-500/10 blur-3xl" />
       <div className="relative flex items-center justify-between gap-3">
@@ -538,7 +564,15 @@ export function PsEventCommunicationTab({
     </div>
 
     <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-violet-500/15 bg-gradient-to-r from-card/70 via-card/50 to-violet-500/[0.035] p-2 shadow-sm">
-      <Button variant="outline" size="sm" onClick={selectAllFiltered}>Selecionar filtrados</Button>
+      <Checkbox
+        checked={filtered.length > 0 && filtered.every((link: any) => selected.includes(link.id))}
+        onCheckedChange={(checked) => {
+          if (checked) selectAllFiltered();
+          else setSelected((current) => current.filter((id) => !filtered.some((link: any) => String(link.id) === String(id))));
+        }}
+        aria-label="Selecionar todos os resultados filtrados"
+      />
+      <span className="text-xs text-muted-foreground">{selected.length > 0 ? selected.length + ' selecionado(s)' : filtered.length + ' resultado(s)'}</span>
       <Button variant="ghost" size="sm" onClick={() => setSelected([])} disabled={!selected.length}>Limpar seleção</Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -632,7 +666,13 @@ export function PsEventCommunicationTab({
                     <DropdownMenuTrigger asChild>
                       <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Ações de ${link.collaborator_name}`}><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-56">
+                    <DropdownMenuContent align="end" className="min-w-60">
+                      {onEditMember && <DropdownMenuItem onSelect={() => onEditMember(link)}><Pencil className="mr-2 h-4 w-4" />Editar fiscal</DropdownMenuItem>}
+                      {onEvaluateMember && <DropdownMenuItem onSelect={() => onEvaluateMember(link)}><Star className="mr-2 h-4 w-4" />Avaliar fiscal</DropdownMenuItem>}
+                      {onTogglePresence && <>
+                        <DropdownMenuItem onSelect={() => onTogglePresence(link, 'present', !link.present)}><UserCheck className="mr-2 h-4 w-4" />{link.present ? 'Desmarcar presente' : 'Marcar presente'}</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => onTogglePresence(link, 'absent', !link.absent)}><UserCheck className="mr-2 h-4 w-4" />{link.absent ? 'Desmarcar ausente' : 'Marcar ausente'}</DropdownMenuItem>
+                      </>}
                       {['pending_confirmation', 'declined'].includes(link.participation_status) && (
                         <>
                           <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onRequestConfirmation(link)}>{link.public_confirmation_token_hash ? 'Gerar novo link' : 'Gerar link'}</DropdownMenuItem>
@@ -641,6 +681,7 @@ export function PsEventCommunicationTab({
                       )}
                       <DropdownMenuItem onSelect={() => openMessage('event_message', link.id)}>Enviar mensagem por e-mail</DropdownMenuItem>
                       {link.participation_status !== 'replaced' && <DropdownMenuItem onSelect={() => onReplace(link)}>Substituir fiscal</DropdownMenuItem>}
+                      {onRemoveMember && <DropdownMenuItem onSelect={() => onRemoveMember(link)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" />Remover vínculo</DropdownMenuItem>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </td>
