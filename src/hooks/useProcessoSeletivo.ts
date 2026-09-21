@@ -607,12 +607,7 @@ export function usePsEventCollaborators(eventId?: string) {
     }
 
     const channel = supabase.channel(`ps-event-collaborators-${eventId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'ps_event_collaborators',
-        filter: `event_id=eq.${eventId}`,
-      }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` }, () => {
         const state = psEventCollaboratorRealtime.get(eventId);
         if (!state) return;
         if (state.timer) clearTimeout(state.timer);
