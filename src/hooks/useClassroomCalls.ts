@@ -52,7 +52,7 @@ export function useClassroomCalls(status?: string, campus?: string) {
     queryFn: async () => {
       let query = supabase
         .from('classroom_calls')
-        .select('*')
+        .select('id,room_name,reason,status,campus,accepted_by,accepted_by_name,accepted_at,created_at,resolved_at,is_valid,validation_reason,treatment,response_message')
         .order('created_at', { ascending: false });
       
       if (status) {
@@ -113,9 +113,10 @@ export function usePendingCallsCount(campus?: string) {
       if (error) throw error;
       return count || 0;
     },
-    staleTime: 10_000,
-    // Realtime já invalida na hora; o polling é apenas rede de segurança
-    refetchInterval: 20_000,
+    staleTime: 60_000,
+    // Realtime já invalida na hora; polling longo é apenas rede de segurança.
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
     refetchIntervalInBackground: false,
 
   });

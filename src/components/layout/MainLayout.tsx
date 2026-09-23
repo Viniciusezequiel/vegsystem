@@ -22,7 +22,6 @@ import { OnlineUsersIndicator } from './OnlineUsersIndicator';
 import { ImagePrefetchIndicator } from './ImagePrefetchIndicator';
 import { LostFoundModernShell } from '@/components/lost-found/LostFoundModernShell';
 import { cn } from '@/lib/utils';
-import { useGlobalRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { usePendingCallsCount } from '@/hooks/useClassroomCalls';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { Button } from '@/components/ui/button';
@@ -108,7 +107,6 @@ function PendingShortcut({
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  useGlobalRealtimeSubscription();
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();

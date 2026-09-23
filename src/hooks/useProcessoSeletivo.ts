@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -6,6 +6,12 @@ import { psFinalScore, psClassification } from '@/lib/psConstants';
 import { planPsFiscalReconciliation, classifyEvaluatorRole, findPossibleNameMatch, type PsFiscalDecision, type PsNameMatchCandidate } from '@/lib/psFiscalFoundation';
 import { normalizeFiscalEmail, normalizeFiscalInstitution, normalizeFiscalMatricula, dedupeFiscalRows, normalizeFiscalImportNote } from '@/lib/psFiscalBank.mjs';
 import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
+
+const psEventCollaboratorRealtime = new Map<string, {
+  channel: ReturnType<typeof supabase.channel>;
+  refs: number;
+  timer: ReturnType<typeof setTimeout> | null;
+}>();
 
 const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'id', 'event_id', 'collaborator_id', 'collaborator_name', 'role_value', 'role_name',
@@ -241,27 +247,15 @@ export function usePsImportFiscalBank() {
   });
 }
 
-export function usePsEventCollaborationStatus(eventId?: string) {
-  return useQuery({
-    queryKey: ['ps_event_collaboration_status', eventId],
-    enabled: !!eventId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ps_event_collaborators')
-        .select('*')
-        .eq('event_id', eventId!)
-        .order('collaborator_name');
-      if (error) throw error;
-      return data || [];
-    },
-  });
-}
-
 export function usePsEventCommunications(eventId?: string) {
   const qc = useQueryClient();
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const query = useQuery({
     queryKey: ['ps_event_communications', eventId],
     enabled: !!eventId,
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: async () => {
       const { data, error } = await (supabase as any).from('ps_event_communications').select('id,batch_id,event_id,event_collaborator_id,communication_type,logical_recipient,actual_recipient,subject,status,provider,provider_message_id,delivery_status,delivered_at,opened_at,clicked_at,provider_last_event,provider_last_event_at,attempt_count,requested_at,sent_at,failed_at,last_error,created_at').eq('event_id', eventId!).order('requested_at', { ascending: false });
       if (error) throw error;
@@ -272,9 +266,18 @@ export function usePsEventCommunications(eventId?: string) {
     if (!eventId) return;
     const channel = supabase.channel(`ps:event:${eventId}`)
       .on('broadcast', { event: 'communications_changed' }, payload => {
-        if (payload?.payload?.event_id === eventId) qc.invalidateQueries({ queryKey: ['ps_event_communications', eventId] });
+        if (payload?.payload?.event_id !== eventId) return;
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+        refreshTimer.current = setTimeout(() => {
+          refreshTimer.current = null;
+          qc.invalidateQueries({ queryKey: ['ps_event_communications', eventId] });
+        }, 2000);
       }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = null;
+      void supabase.removeChannel(channel);
+    };
   }, [eventId, qc]);
   return query;
 }
@@ -566,6 +569,10 @@ export function usePsEventCollaborators(eventId?: string) {
   const query = useQuery({
     queryKey: ['ps_event_collaborators', eventId],
     enabled: !!eventId,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ps_event_collaborators')
@@ -573,22 +580,51 @@ export function usePsEventCollaborators(eventId?: string) {
         .eq('event_id', eventId!)
         .order('collaborator_name');
       if (error) throw error;
-      // This select is intentionally assembled from a fixed field list. The PostgREST
-      // type parser cannot infer dynamic select strings, so narrow at this boundary.
       return (data || []) as unknown as Array<Record<string, any>>;
     },
   });
+
   useEffect(() => {
     if (!eventId) return;
-    const channel = supabase.channel(`ps-event-${eventId}-${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` },
-        () => {
+
+    const existing = psEventCollaboratorRealtime.get(eventId);
+    if (existing) {
+      existing.refs += 1;
+      return () => {
+        existing.refs -= 1;
+        if (existing.refs > 0) return;
+        if (existing.timer) clearTimeout(existing.timer);
+        void supabase.removeChannel(existing.channel);
+        psEventCollaboratorRealtime.delete(eventId);
+      };
+    }
+
+    const channel = supabase.channel(`ps-event-collaborators-${eventId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` }, () => {
+        const state = psEventCollaboratorRealtime.get(eventId);
+        if (!state) return;
+        if (state.timer) clearTimeout(state.timer);
+        state.timer = setTimeout(() => {
+          state.timer = null;
           queryClient.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
           queryClient.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
-        })
+        }, 1500);
+      })
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+
+    psEventCollaboratorRealtime.set(eventId, { channel, refs: 1, timer: null });
+
+    return () => {
+      const state = psEventCollaboratorRealtime.get(eventId);
+      if (!state) return;
+      state.refs -= 1;
+      if (state.refs > 0) return;
+      if (state.timer) clearTimeout(state.timer);
+      void supabase.removeChannel(state.channel);
+      psEventCollaboratorRealtime.delete(eventId);
+    };
   }, [eventId, queryClient]);
+
   return query;
 }
 

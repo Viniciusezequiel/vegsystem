@@ -63,7 +63,7 @@ const ItemCard = memo(function ItemCard({
 
       <div className="relative z-10 flex h-full gap-3">
         <LazyItemImage
-          itemId={item.id}
+          storedUrl={item.image_url}
           alt={item.description}
           className="h-[86px] w-[86px] shrink-0 rounded-xl border border-border/30 object-cover shadow-sm"
         />

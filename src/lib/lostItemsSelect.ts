@@ -5,6 +5,7 @@
 export const LOST_ITEMS_LIST_SELECT = [
   'id',
   'code',
+  'image_url',
   'description',
   'campus',
   'found_location',

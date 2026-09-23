@@ -477,7 +477,7 @@ async function resolveFiles(request, env, _context, auth, deps) {
     catch { return json({ error: 'reference_check_unavailable' }, 503, corsHeaders(request, env)); }
     if (!referenced) return json({ error: 'forbidden' }, 403, corsHeaders(request, env));
   }
-  const ttl = Math.min(900, Math.max(30, Number(env.FILE_URL_TTL_SECONDS ?? 300)));
+  const ttl = Math.min(900, Math.max(30, Number(env.FILE_URL_TTL_SECONDS ?? 1800)));
   const expiresAt = Math.floor(Date.now() / 1000) + ttl;
   const origin = new URL(request.url).origin;
   const files = await Promise.all(parsed.map(async item => {
@@ -504,7 +504,7 @@ async function readObject(request, env, route) {
   object.writeHttpMetadata?.(headers);
   headers.set('etag', object.httpEtag ?? `"${object.etag}"`);
   headers.set('content-length', String(object.size));
-  headers.set('cache-control', 'private, max-age=300');
+  headers.set('cache-control', 'private, max-age=1800');
   headers.set('x-content-type-options', 'nosniff');
   headers.set('content-security-policy', "default-src 'none'; sandbox");
   if (route.scope === 'lost-items' || route.scope === 'signatures') headers.set('content-disposition', 'inline');
@@ -529,7 +529,7 @@ async function uploadFile(request, env, _context, auth, scope, module = null) {
   const bucket = bucketFor(env, scope);
   if (await bucket.head(storageKey)) return json({ error: 'key_collision' }, 409, corsHeaders(request, env));
   await bucket.put(storageKey, bytes, {
-    httpMetadata: { contentType, cacheControl: 'private, max-age=300' },
+    httpMetadata: { contentType, cacheControl: 'private, max-age=1800' },
     customMetadata: { sha256_short: checksum },
   });
   const stored = await bucket.head(storageKey);
