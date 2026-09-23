@@ -133,6 +133,34 @@ export default function PsEventDetail() {
     [links]
   );
 
+  const { data: requiredTrainingGroups = [] } = useQuery({
+    queryKey: ['ps-event-required-training-groups', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_event_training_groups')
+        .select('id,name,required')
+        .eq('event_id', id!)
+        .eq('active', true)
+        .eq('required', true);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: trainingChoices = [] } = useQuery({
+    queryKey: ['ps-event-training-choices', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_event_training_choices')
+        .select('event_collaborator_id,training_group_id,training_session_id')
+        .eq('event_id', id!);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const operationalChecklist = useMemo(() => {
     const confirmed = Number(confirmationSummary.confirmed || 0);
     const pending = Number(confirmationSummary.pending_confirmation || 0);
@@ -220,34 +248,6 @@ export default function PsEventDetail() {
         .neq('event_id', id!)
         .eq('ps_events.date', event!.date)
         .in('participation_status', ['pending_confirmation', 'confirmed']);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const { data: requiredTrainingGroups = [] } = useQuery({
-    queryKey: ['ps-event-required-training-groups', id],
-    enabled: !!id,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('ps_event_training_groups')
-        .select('id,name,required')
-        .eq('event_id', id!)
-        .eq('active', true)
-        .eq('required', true);
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const { data: trainingChoices = [] } = useQuery({
-    queryKey: ['ps-event-training-choices', id],
-    enabled: !!id,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('ps_event_training_choices')
-        .select('event_collaborator_id,training_group_id,training_session_id')
-        .eq('event_id', id!);
       if (error) throw error;
       return data || [];
     },
