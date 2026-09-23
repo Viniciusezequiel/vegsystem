@@ -133,6 +133,30 @@ export default function PsEventDetail() {
     [links]
   );
 
+  const operationalChecklist = useMemo(() => {
+    const confirmed = Number(confirmationSummary.confirmed || 0);
+    const pending = Number(confirmationSummary.pending_confirmation || 0);
+    const declined = Number(confirmationSummary.declined || 0);
+    const replaced = Number(confirmationSummary.replaced || 0);
+    const activeCount = links.length;
+    const conflicts = new Set(
+      (sameDayAssignments as any[]).map((item: any) => item.collaborator_id).filter(Boolean)
+    );
+    const assignedConflictCount = links.filter((link: any) => conflicts.has(link.collaborator_id)).length;
+
+    return {
+      total: activeCount,
+      confirmed,
+      pending,
+      declined,
+      replaced,
+      excluded: excludedEventLinks.length,
+      inactive: inactiveEventLinks.length,
+      sameDayConflicts: assignedConflictCount,
+      ready: activeCount > 0 && pending === 0 && declined === 0 && assignedConflictCount === 0,
+    };
+  }, [confirmationSummary, links, excludedEventLinks, inactiveEventLinks, sameDayAssignments]);
+
   const { data: attendanceClosures = [] } = useQuery({
     queryKey: ['ps-attendance-closures', id],
     enabled: !!id,
@@ -1668,6 +1692,37 @@ export default function PsEventDetail() {
                     {eventReadiness.inactive > 0 && <Badge variant="outline">⚠ {eventReadiness.inactive} fiscal(is) inativo(s)</Badge>}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-primary/20 bg-background">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base">Checklist operacional</CardTitle>
+                    <p className="text-xs text-muted-foreground">Resumo automático para saber o que ainda falta antes de fechar a equipe.</p>
+                  </div>
+                  <Badge variant={operationalChecklist.ready ? 'default' : 'outline'}>
+                    {operationalChecklist.ready ? 'Pronto para fechamento' : 'Ação necessária'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-8">
+                {[
+                  ['Total', operationalChecklist.total, ''],
+                  ['Confirmados', operationalChecklist.confirmed, ''],
+                  ['Aguardando', operationalChecklist.pending, operationalChecklist.pending ? 'warning' : 'ok'],
+                  ['Recusaram', operationalChecklist.declined, operationalChecklist.declined ? 'danger' : 'ok'],
+                  ['Substituídos', operationalChecklist.replaced, ''],
+                  ['Excluídos', operationalChecklist.excluded, ''],
+                  ['Inativos', operationalChecklist.inactive, operationalChecklist.inactive ? 'warning' : 'ok'],
+                  ['Conflitos', operationalChecklist.sameDayConflicts, operationalChecklist.sameDayConflicts ? 'danger' : 'ok'],
+                ].map(([label, value, state]) => (
+                  <div key={label} className="rounded-xl border bg-muted/20 p-3">
+                    <p className="text-[11px] text-muted-foreground">{label}</p>
+                    <p className="mt-1 text-xl font-semibold">{value}</p>
+                  </div>
+                ))}
               </CardContent>
             </Card>
 
