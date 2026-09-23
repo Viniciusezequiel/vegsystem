@@ -232,6 +232,22 @@ export default function PsEventDetail() {
     [links]
   );
 
+  const eventReadiness = useMemo(() => {
+    const declined = links.filter((link: any) => link.participation_status === 'declined').length;
+    const pending = links.filter((link: any) => link.participation_status === 'pending_confirmation').length;
+    const inactive = inactiveEventLinks.length;
+    const excluded = excludedEventLinks.length;
+    const openSlots = declined + inactive;
+    return {
+      declined,
+      pending,
+      inactive,
+      excluded,
+      openSlots,
+      ready: openSlots === 0 && pending === 0,
+    };
+  }, [links, inactiveEventLinks, excludedEventLinks]);
+
   const presenceRows = useMemo(() => {
     const query = presenceSearch.trim().toLowerCase();
 
@@ -1608,6 +1624,49 @@ export default function PsEventDetail() {
                 </div>
               ))}
             </div>
+            <Card className={`rounded-2xl ${eventReadiness.ready ? 'border-emerald-300/60 bg-emerald-50/40 dark:bg-emerald-950/10' : 'border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/10'}`}>
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">Prontidão do evento</p>
+                      <Badge variant={eventReadiness.ready ? 'default' : 'outline'}>
+                        {eventReadiness.ready ? 'Pronto para fechamento' : 'Pendências'}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Conferência automática da equipe antes do fechamento.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded-lg border bg-background/70 px-3 py-2 text-center">
+                      <p className="text-[11px] text-muted-foreground">Confirmados</p>
+                      <p className="text-lg font-bold">{Number(confirmationSummary.confirmed || 0)}</p>
+                    </div>
+                    <div className="rounded-lg border bg-background/70 px-3 py-2 text-center">
+                      <p className="text-[11px] text-muted-foreground">Aguardando</p>
+                      <p className="text-lg font-bold">{eventReadiness.pending}</p>
+                    </div>
+                    <div className="rounded-lg border bg-background/70 px-3 py-2 text-center">
+                      <p className="text-[11px] text-muted-foreground">Substituições</p>
+                      <p className="text-lg font-bold">{eventReadiness.declined}</p>
+                    </div>
+                    <div className="rounded-lg border bg-background/70 px-3 py-2 text-center">
+                      <p className="text-[11px] text-muted-foreground">Inativos</p>
+                      <p className="text-lg font-bold">{eventReadiness.inactive}</p>
+                    </div>
+                  </div>
+                </div>
+                {!eventReadiness.ready && (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    {eventReadiness.declined > 0 && <Badge variant="outline">⚠ {eventReadiness.declined} recusa(s) precisam de substituição</Badge>}
+                    {eventReadiness.pending > 0 && <Badge variant="outline">⚠ {eventReadiness.pending} confirmação(ões) pendente(s)</Badge>}
+                    {eventReadiness.inactive > 0 && <Badge variant="outline">⚠ {eventReadiness.inactive} fiscal(is) inativo(s)</Badge>}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {replacementNeededLinks.length > 0 && (
               <Card className="rounded-2xl border-amber-300/60 bg-amber-50/50 dark:bg-amber-950/10">
                 <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
