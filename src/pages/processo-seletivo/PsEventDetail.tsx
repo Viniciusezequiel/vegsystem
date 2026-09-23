@@ -143,6 +143,21 @@ export default function PsEventDetail() {
       (sameDayAssignments as any[]).map((item: any) => item.collaborator_id).filter(Boolean)
     );
     const assignedConflictCount = links.filter((link: any) => conflicts.has(link.collaborator_id)).length;
+    const requiredGroupIds = new Set((requiredTrainingGroups as any[]).map((group) => group.id));
+    const trainingByCollaborator = new Map<string, Set<string>>();
+    for (const choice of trainingChoices as any[]) {
+      if (!choice.event_collaborator_id || !choice.training_group_id) continue;
+      if (!trainingByCollaborator.has(choice.event_collaborator_id)) {
+        trainingByCollaborator.set(choice.event_collaborator_id, new Set());
+      }
+      trainingByCollaborator.get(choice.event_collaborator_id)!.add(choice.training_group_id);
+    }
+    const trainingPending = links.filter((link: any) => {
+      if (!['pending_confirmation', 'confirmed'].includes(link.participation_status)) return false;
+      if (!requiredGroupIds.size) return false;
+      const selected = trainingByCollaborator.get(link.id) || new Set();
+      return [...requiredGroupIds].some((groupId) => !selected.has(groupId));
+    }).length;
 
     return {
       total: activeCount,
@@ -153,9 +168,10 @@ export default function PsEventDetail() {
       excluded: excludedEventLinks.length,
       inactive: inactiveEventLinks.length,
       sameDayConflicts: assignedConflictCount,
-      ready: activeCount > 0 && pending === 0 && declined === 0 && assignedConflictCount === 0,
+      trainingPending,
+      ready: activeCount > 0 && pending === 0 && declined === 0 && assignedConflictCount === 0 && trainingPending === 0,
     };
-  }, [confirmationSummary, links, excludedEventLinks, inactiveEventLinks, sameDayAssignments]);
+  }, [confirmationSummary, links, excludedEventLinks, inactiveEventLinks, sameDayAssignments, requiredTrainingGroups, trainingChoices]);
 
   const { data: attendanceClosures = [] } = useQuery({
     queryKey: ['ps-attendance-closures', id],
@@ -204,6 +220,34 @@ export default function PsEventDetail() {
         .neq('event_id', id!)
         .eq('ps_events.date', event!.date)
         .in('participation_status', ['pending_confirmation', 'confirmed']);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: requiredTrainingGroups = [] } = useQuery({
+    queryKey: ['ps-event-required-training-groups', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_event_training_groups')
+        .select('id,name,required')
+        .eq('event_id', id!)
+        .eq('active', true)
+        .eq('required', true);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: trainingChoices = [] } = useQuery({
+    queryKey: ['ps-event-training-choices', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_event_training_choices')
+        .select('event_collaborator_id,training_group_id,training_session_id')
+        .eq('event_id', id!);
       if (error) throw error;
       return data || [];
     },
@@ -1746,7 +1790,7 @@ export default function PsEventDetail() {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-8">
+              <CardContent className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-9">
                 {[
                   ['Total', operationalChecklist.total, ''],
                   ['Confirmados', operationalChecklist.confirmed, ''],
@@ -1756,6 +1800,7 @@ export default function PsEventDetail() {
                   ['Excluídos', operationalChecklist.excluded, ''],
                   ['Inativos', operationalChecklist.inactive, operationalChecklist.inactive ? 'warning' : 'ok'],
                   ['Conflitos', operationalChecklist.sameDayConflicts, operationalChecklist.sameDayConflicts ? 'danger' : 'ok'],
+                  ['Treinamento', operationalChecklist.trainingPending, operationalChecklist.trainingPending ? 'warning' : 'ok'],
                 ].map(([label, value, state]) => (
                   <div key={label} className="rounded-xl border bg-muted/20 p-3">
                     <p className="text-[11px] text-muted-foreground">{label}</p>
