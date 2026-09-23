@@ -57,7 +57,7 @@ export default function PsEventDetail() {
   const { data: event } = usePsEvent(id);
   const { finalize, save } = usePsEventMutations();
   const { data: allLinks = [] } = usePsEventCollaborators(id);
-  const { add, update, updateState, remove } = usePsEventCollaboratorMutations(id);
+  const { add, update, updateState, remove, reinclude } = usePsEventCollaboratorMutations(id);
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: roles = [] } = usePsRoles();
   const { data: evaluations = [] } = usePsEvaluations(id);
@@ -443,8 +443,29 @@ export default function PsEventDetail() {
 
   const replacementCandidates = useMemo(() => {
     const currentIds = new Set(links.map((link: any) => link.collaborator_id));
-    return collaborators.filter((candidate: any) => candidate.active && !currentIds.has(candidate.id));
-  }, [collaborators, links]);
+    const targetRole = String(replacementTarget?.role_name || replacementTarget?.assigned_role || replacementTarget?.role_value || '').trim().toLowerCase();
+    const targetUnit = String(replacementTarget?.unit || '').trim().toLowerCase();
+    return collaborators
+      .filter((candidate: any) => candidate.active && !currentIds.has(candidate.id))
+      .map((candidate: any) => {
+        const candidateRole = String(candidate.preferred_role || '').trim().toLowerCase();
+        const candidateUnit = String(candidate.unit || '').trim().toLowerCase();
+        let score = 0;
+        const reasons: string[] = [];
+        if (targetRole && candidateRole && (candidateRole === targetRole || candidateRole.includes(targetRole) || targetRole.includes(candidateRole))) {
+          score += 45; reasons.push('função compatível');
+        }
+        if (targetUnit && candidateUnit && candidateUnit === targetUnit) {
+          score += 15; reasons.push('mesma unidade');
+        }
+        const rating = Number(candidate.average_rating || 0);
+        if (rating > 0) { score += Math.min(25, rating * 5); reasons.push('avaliação ' + rating.toFixed(2)); }
+        const events = Number(candidate.total_events || 0);
+        if (events > 0) { score += Math.min(10, events / 5); reasons.push(events + ' atuações'); }
+        return { ...candidate, replacementScore: Math.min(100, Math.round(score)), replacementReasons: reasons };
+      })
+      .sort((a: any, b: any) => b.replacementScore - a.replacementScore || Number(b.average_rating || 0) - Number(a.average_rating || 0) || String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR'));
+  }, [collaborators, links, replacementTarget]);
 
   const requestConfirmation = async (link: any) => {
     try {
@@ -1411,7 +1432,7 @@ export default function PsEventDetail() {
               }}
               onEditMember={(link) => setEditLink(link)}
               onRemoveMember={(link) => {
-                if (confirm('Remover vínculo de ' + link.collaborator_name + '?')) remove.mutate(link.id);
+                if (confirm('Excluir ' + link.collaborator_name + ' deste evento? Ele permanecerá no histórico e não voltará automaticamente em uma nova importação.')) remove.mutate({ id: link.id });
               }}
               onEvaluateMember={(link) => {
                 setEvalTarget(link);
@@ -2516,7 +2537,7 @@ export default function PsEventDetail() {
                     <CommandList className="max-h-72">
                       <CommandEmpty>Nenhum fiscal ativo encontrado.</CommandEmpty>
                       <CommandGroup>
-                        {replacementCandidates.map((candidate: any) => (
+                        {replacementCandidates.slice(0, 10).map((candidate: any) => (
                           <CommandItem
                             key={candidate.id}
                             value={[candidate.full_name, candidate.email, candidate.institution, candidate.unit, candidate.sector].filter(Boolean).join(' ')}
@@ -2528,6 +2549,9 @@ export default function PsEventDetail() {
                               <span className="block truncate font-medium">{candidate.full_name}</span>
                               <span className="block truncate text-xs text-muted-foreground">
                                 {[candidate.email, candidate.institution || candidate.unit, candidate.sector].filter(Boolean).join(' · ') || 'Sem informações complementares'}
+                              </span>
+                              <span className="mt-1 block text-[10px] text-primary">
+                                {candidate.replacementScore}% compatível · {(candidate.replacementReasons || []).slice(0, 2).join(' · ')}
                               </span>
                             </span>
                           </CommandItem>
