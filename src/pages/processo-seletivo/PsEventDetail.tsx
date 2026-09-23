@@ -1425,6 +1425,7 @@ export default function PsEventDetail() {
                 if (format === 'pdf') exportFilteredConfirmationsPdf(rows, filters);
                 else exportFilteredConfirmationsExcel(rows, filters);
               }}
+              excludedLinks={excludedEventLinks as any[]}
               onImportTeam={() => setImportOpen(true)}
               onAddTeamMember={() => setAddOpen(true)}
               onClearTeam={() => {
@@ -1434,6 +1435,7 @@ export default function PsEventDetail() {
               onRemoveMember={(link) => {
                 if (confirm('Excluir ' + link.collaborator_name + ' deste evento? Ele permanecerá no histórico e não voltará automaticamente em uma nova importação.')) remove.mutate({ id: link.id });
               }}
+              onReincludeMember={(link) => { reinclude.mutate(link.id); }}
               onEvaluateMember={(link) => {
                 setEvalTarget(link);
                 setCriteria(emptyCriteria());
