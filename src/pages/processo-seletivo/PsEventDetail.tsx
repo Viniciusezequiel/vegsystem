@@ -222,26 +222,6 @@ export default function PsEventDetail() {
     [links]
   );
 
-  const eventReadiness = useMemo(() => {
-    const confirmed = links.filter((l: any) => l.participation_status === 'confirmed').length;
-    const pending = links.filter((l: any) => l.participation_status === 'pending_confirmation').length;
-    const declined = links.filter((l: any) => l.participation_status === 'declined').length;
-    const replaced = links.filter((l: any) => l.participation_status === 'replaced').length;
-    const operational = links.filter((l: any) =>
-      ['confirmed', 'pending_confirmation'].includes(l.participation_status)
-    ).length;
-    const activeLinks = links.filter((l: any) => l.participation_status !== 'replaced').length;
-    return {
-      total: activeLinks,
-      confirmed,
-      pending,
-      declined,
-      replaced,
-      operational,
-      ready: declined === 0 && pending === 0 && operational > 0,
-    };
-  }, [links]);
-
   const operationalLinks = useMemo(
     () =>
       links.filter((link: any) =>
