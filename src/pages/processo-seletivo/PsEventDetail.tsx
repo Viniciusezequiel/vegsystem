@@ -2847,177 +2847,333 @@ export default function PsEventDetail() {
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-3xl" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader className="border-b px-6 py-5"><div className="flex items-start justify-between gap-3 pr-5"><div><DialogTitle className="text-lg">Vincular fiscais ao evento</DialogTitle><p className="mt-1 text-sm text-muted-foreground">Escolha a função, o campus e depois selecione um ou vários fiscais.</p></div><Badge variant="secondary" className="shrink-0">{selected.length} selecionado{selected.length === 1 ? '' : 's'}</Badge></div></DialogHeader>
-          <div className="max-h-[calc(90vh-150px)] space-y-5 overflow-y-auto px-6 py-5">
-            <div>
-              <Label>Função *</Label>
-              <Select value={roleValue} onValueChange={setRoleValue}>
-                <SelectTrigger className="h-11"><SelectValue placeholder="Selecione a função" /></SelectTrigger>
-                <SelectContent>
-                  {roles.map((r: any) => <SelectItem key={r.id} value={r.value}>{r.name} — R$ {Number(r.pay_value).toFixed(2)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>Campus do evento *</Label>
-                {eventCampusOptions.length > 0 && (
-                  <span className="text-[11px] text-muted-foreground">
-                    {eventCampusOptions.length === 1 ? 'Preenchido automaticamente' : 'Campi já usados no evento'}
-                  </span>
-                )}
-              </div>
-
-              {eventCampusOptions.length > 0 ? (
-                <>
-                  <Select
-                    value={eventCampusOptions.includes(campusValue.trim()) ? campusValue.trim() : ''}
-                    onValueChange={setCampusValue}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Selecione o campus" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {eventCampusOptions.map((campus) => (
-                        <SelectItem key={campus} value={campus}>{campus}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {eventCampusOptions.length > 1 && (
-                    <Input
-                      value={campusValue}
-                      onChange={(e) => setCampusValue(e.target.value)}
-                      placeholder="Ou digite outro campus..."
-                      className="h-10"
-                    />
+        <DialogContent
+          className="flex h-[92vh] max-h-[900px] w-[calc(100vw-1rem)] max-w-7xl flex-col overflow-hidden p-0 sm:w-[calc(100vw-2rem)]"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="shrink-0 border-b bg-gradient-to-r from-background via-background to-primary/[0.045] px-5 py-4 sm:px-7 sm:py-5">
+            <div className="flex items-start justify-between gap-4 pr-5">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle className="text-xl sm:text-2xl">Vincular fiscais ao evento</DialogTitle>
+                  {selected.length > 0 && (
+                    <Badge className="rounded-full px-3 py-1">
+                      {selected.length} selecionado{selected.length === 1 ? '' : 's'}
+                    </Badge>
                   )}
-                </>
-              ) : (
-                <Input
-                  value={campusValue}
-                  onChange={(e) => setCampusValue(e.target.value)}
-                  placeholder="Ex.: Campus Fumec"
-                  className="h-11"
-                />
-              )}
-
-              {eventCampusOptions.length === 1 && (
-                <p className="text-xs text-muted-foreground">
-                  O sistema encontrou apenas um campus já utilizado neste evento e o preencheu para você.
+                </div>
+                <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  Configure a função e o campus uma vez. Depois, escolha os fiscais disponíveis — o sistema já prioriza quem tem maior compatibilidade.
                 </p>
-              )}
-            </div>
-            <div className="rounded-xl border bg-muted/20 p-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold">Selecionar fiscais</p>
-                  <p className="text-xs text-muted-foreground">Somente fiscais ativos, livres no dia e ainda não vinculados a este evento.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="w-fit">{visibleCollaborators.length} disponíveis</Badge>
-                  {selected.length > 0 && <Badge className="w-fit">{selected.length} selecionado(s)</Badge>}
-                </div>
               </div>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row"><Input
-                value={searchFiscal}
-                onChange={(e) => setSearchFiscal(e.target.value)}
-                placeholder="Buscar nome, e-mail, matrícula, instituição ou unidade..."
-              />{visibleCollaborators.length > 0 && (<Button type="button" variant="outline" className="h-10 shrink-0" onClick={() => { const ids = visibleCollaborators.map((c: any) => c.id); const allSelected = ids.every((cid: string) => selected.includes(cid)); setSelected(allSelected ? selected.filter((cid) => !ids.includes(cid)) : Array.from(new Set([...selected, ...ids]))); }}>{visibleCollaborators.every((c: any) => selected.includes(c.id)) ? 'Desmarcar todos' : 'Selecionar todos'}</Button>)}</div></div>{selected.length > 0 && (<div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3"><div className="flex items-center justify-between gap-2"><div><p className="text-sm font-semibold">Fiscais selecionados</p><p className="text-xs text-muted-foreground">Clique no nome para remover da seleção.</p></div><Button type="button" variant="ghost" size="sm" onClick={() => setSelected([])}>Limpar</Button></div><div className="mt-2 flex flex-wrap gap-1.5">{selected.map((cid) => { const person = collaborators.find((c: any) => c.id === cid) as any; return person ? (<button key={cid} type="button" onClick={() => setSelected(selected.filter((x) => x !== cid))} className="rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted">{person.full_name}</button>) : null; })}</div></div>)}<div className="max-h-[42vh] space-y-2 overflow-y-auto overflow-x-hidden rounded-xl border p-2">
-              {visibleCollaborators.length === 0 ? (
-                <p className="p-2 text-sm text-muted-foreground">Nenhum fiscal encontrado.</p>
-              ) : visibleCollaborators.map((c: any) => {
-                const emailText = c.email ? String(c.email).trim() : '';
-                const matriculaText = c.matricula ? `Matrícula ${String(c.matricula).trim()}` : '';
-                const institutionText = c.institution ? String(c.institution).trim() : '';
-                const unitText = c.unit ? String(c.unit).trim() : '';
-                const collaboratorPix = typeof c?.pix === 'string' ? c.pix : '';
-                const resolvedPix = (pixOverrideById[c.id] ?? collaboratorPix ?? '').trim();
+            </div>
+          </DialogHeader>
 
-                return (
-                  <div key={c.id} className="space-y-2 rounded-xl border bg-background p-2 transition hover:border-primary/40">
-                    <Button
-                      type="button"
-                      variant={selected.includes(c.id) ? 'default' : 'ghost'}
-                      className="w-full h-auto min-h-0 justify-start whitespace-normal overflow-hidden px-3 py-2"
-                      onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
-                    >
-                      <span className="w-full min-w-0 flex flex-col items-start text-left">
-                        <span className="flex w-full items-center justify-between gap-2">
-                          <span className="max-w-full font-medium break-words whitespace-normal text-left">{c.full_name || 'Sem nome'}</span>
-                          {c.compatibilityScore > 0 && (
-                            <Badge variant={c.compatibilityScore >= 70 ? 'default' : 'secondary'} className="shrink-0 text-[10px]">
-                              <Check className="mr-1 h-3 w-3" />{c.compatibilityScore}% encaixe
-                            </Badge>
-                          )}
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <div className="grid h-full min-h-0 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <aside className="min-h-0 overflow-y-auto border-b bg-muted/[0.08] p-4 sm:p-5 lg:border-b-0 lg:border-r lg:p-6">
+                <div className="space-y-5">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Configuração</p>
+                      <p className="text-[11px] text-muted-foreground">Aplicada aos fiscais escolhidos</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Função *</Label>
+                    <Select value={roleValue} onValueChange={setRoleValue}>
+                      <SelectTrigger className="h-11 w-full">
+                        <SelectValue placeholder="Selecione a função" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map((r: any) => (
+                          <SelectItem key={r.id} value={r.value}>
+                            {r.name} — R$ {Number(r.pay_value).toFixed(2)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!roleValue && (
+                      <p className="text-[11px] text-muted-foreground">Escolha o cargo para melhorar o cálculo de compatibilidade.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Campus do evento *</Label>
+                      {eventCampusOptions.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {eventCampusOptions.length === 1 ? 'já utilizado no evento' : 'existentes no evento'}
                         </span>
+                      )}
+                    </div>
 
-                        {(emailText || matriculaText) && (
-                          <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
-                            {emailText && <span className="break-all">{emailText}</span>}
-                            {(emailText && matriculaText) && <span> · </span>}
-                            {matriculaText && <span>{matriculaText}</span>}
-                          </span>
+                    {eventCampusOptions.length > 0 ? (
+                      <>
+                        <Select
+                          value={eventCampusOptions.includes(campusValue.trim()) ? campusValue.trim() : ''}
+                          onValueChange={setCampusValue}
+                        >
+                          <SelectTrigger className="h-11 w-full">
+                            <SelectValue placeholder="Selecione o campus" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {eventCampusOptions.map((campus) => (
+                              <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {eventCampusOptions.length > 1 && (
+                          <Input
+                            value={campusValue}
+                            onChange={(e) => setCampusValue(e.target.value)}
+                            placeholder="Ou digite outro campus..."
+                            className="h-10 w-full"
+                          />
                         )}
+                      </>
+                    ) : (
+                      <Input
+                        value={campusValue}
+                        onChange={(e) => setCampusValue(e.target.value)}
+                        placeholder="Ex.: Campus Fumec"
+                        className="h-11 w-full"
+                      />
+                    )}
+                  </div>
 
-                        {(institutionText || unitText) && (
-                          <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
-                            {institutionText}
-                            {(institutionText && unitText) && <span> · </span>}
-                            {unitText && <span>Unidade de trabalho: {unitText}</span>}
-                          </span>
-                        )}
-                        {c.compatibilityReasons?.length > 0 && (
-                          <span className="max-w-full text-left text-[11px] text-primary/80 whitespace-normal break-words">
-                            {c.compatibilityReasons.join(' · ')}
-                          </span>
-                        )}
-                      </span>
-                    </Button>
+                  <div className="rounded-2xl border bg-background p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold">Resumo da seleção</p>
+                      <Badge variant="secondary">{selected.length}</Badge>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-muted/40 p-3">
+                        <p className="text-lg font-bold">{visibleCollaborators.length}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Disponíveis</p>
+                      </div>
+                      <div className="rounded-xl bg-primary/10 p-3">
+                        <p className="text-lg font-bold text-primary">{selected.length}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Selecionados</p>
+                      </div>
+                    </div>
+                  </div>
 
-                    {selected.includes(c.id) && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">PIX</Label>
-                          <Badge variant={resolvedPix ? 'default' : 'secondary'} className="text-[10px]">
-                            {resolvedPix ? 'PIX cadastrado' : 'Sem PIX'}
-                          </Badge>
+                  <div className="rounded-2xl border border-primary/15 bg-primary/[0.035] p-4">
+                    <p className="text-xs font-semibold">Como o encaixe funciona</p>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                      A lista considera função, preferência cadastrada, unidade, jornada e avaliação. Os melhores encaixes aparecem primeiro.
+                    </p>
+                  </div>
+
+                  {selected.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold">Selecionados</p>
+                        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelected([])}>
+                          Limpar
+                        </Button>
+                      </div>
+                      <div className="max-h-40 space-y-1.5 overflow-y-auto pr-1">
+                        {selected.map((cid) => {
+                          const person = collaborators.find((c: any) => c.id === cid) as any;
+                          return person ? (
+                            <button
+                              key={cid}
+                              type="button"
+                              onClick={() => setSelected(selected.filter((x) => x !== cid))}
+                              className="flex w-full items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-left text-xs transition hover:border-primary/40 hover:bg-muted/30"
+                              title="Remover da seleção"
+                            >
+                              <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                              <span className="min-w-0 truncate font-medium">{person.full_name}</span>
+                            </button>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </aside>
+
+              <section className="min-h-0 overflow-hidden bg-background">
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="shrink-0 border-b px-4 py-4 sm:px-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold">Fiscais disponíveis</p>
+                          <Badge variant="outline">{visibleCollaborators.length}</Badge>
+                          <span className="text-[11px] text-muted-foreground">ordenados por compatibilidade</span>
                         </div>
-                        <Input
-                          value={resolvedPix}
-                          onChange={(event) => setPixOverrideById((prev) => ({ ...prev, [c.id]: event.target.value }))}
-                          placeholder={collaboratorPix ? 'PIX do fiscal' : 'Informe PIX para vincular'}
-                          className={resolvedPix ? '' : 'border-destructive/60'}
-                        />
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Ativos, livres na data e ainda não vinculados a este evento.
+                        </p>
+                      </div>
+                      {visibleCollaborators.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => {
+                            const ids = visibleCollaborators.map((c: any) => c.id);
+                            const allSelected = ids.every((cid: string) => selected.includes(cid));
+                            setSelected(
+                              allSelected
+                                ? selected.filter((cid) => !ids.includes(cid))
+                                : Array.from(new Set([...selected, ...ids]))
+                            );
+                          }}
+                        >
+                          {visibleCollaborators.every((c: any) => selected.includes(c.id)) ? 'Desmarcar todos' : 'Selecionar todos'}
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="mt-3">
+                      <Input
+                        value={searchFiscal}
+                        onChange={(e) => setSearchFiscal(e.target.value)}
+                        placeholder="Buscar por nome, e-mail, matrícula, instituição ou unidade..."
+                        className="h-11 w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                    {visibleCollaborators.length === 0 ? (
+                      <div className="flex min-h-56 items-center justify-center rounded-2xl border border-dashed bg-muted/[0.08]">
+                        <div className="text-center">
+                          <p className="text-sm font-medium">Nenhum fiscal encontrado</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Ajuste a busca ou os dados de configuração.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {visibleCollaborators.map((c: any) => {
+                          const emailText = c.email ? String(c.email).trim() : '';
+                          const matriculaText = c.matricula ? String(c.matricula).trim() : '';
+                          const institutionText = c.institution ? String(c.institution).trim() : '';
+                          const unitText = c.unit ? String(c.unit).trim() : '';
+                          const collaboratorPix = typeof c?.pix === 'string' ? c.pix : '';
+                          const resolvedPix = (pixOverrideById[c.id] ?? collaboratorPix ?? '').trim();
+                          const isSelected = selected.includes(c.id);
+
+                          return (
+                            <div
+                              key={c.id}
+                              className={isSelected ? 'min-w-0 rounded-2xl border border-primary/50 bg-primary/[0.055] p-3.5 shadow-sm ring-1 ring-primary/10' : 'min-w-0 rounded-2xl border bg-background p-3.5 transition-all hover:border-primary/30 hover:shadow-sm'}
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelected(
+                                    isSelected
+                                      ? selected.filter((x) => x !== c.id)
+                                      : [...selected, c.id]
+                                  )
+                                }
+                                className="w-full min-w-0 text-left"
+                              >
+                                <div className="flex min-w-0 items-start gap-2.5">
+                                  <div className={isSelected ? 'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-primary-foreground' : 'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/30'}>
+                                    {isSelected && <Check className="h-3.5 w-3.5" />}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="min-w-0 break-words text-sm font-semibold leading-tight">{c.full_name || 'Sem nome'}</p>
+                                      {c.compatibilityScore > 0 && (
+                                        <Badge variant={c.compatibilityScore >= 70 ? 'default' : 'secondary'} className="shrink-0 text-[10px]">
+                                          {c.compatibilityScore}% encaixe
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                                      {emailText && <p className="break-all">{emailText}</p>}
+                                      {(institutionText || unitText) && <p className="break-words">{[institutionText, unitText].filter(Boolean).join(' · ')}</p>}
+                                      {matriculaText && <p>Matrícula {matriculaText}</p>}
+                                    </div>
+                                    {c.compatibilityReasons?.length > 0 && (
+                                      <p className="mt-2 line-clamp-2 text-[10px] leading-relaxed text-primary/80">
+                                        <Star className="mr-1 inline h-3 w-3" />
+                                        {c.compatibilityReasons.join(' · ')}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+
+                              {isSelected && (
+                                <div className="mt-3 border-t pt-3">
+                                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">PIX para pagamento</Label>
+                                    <Badge variant={resolvedPix ? 'default' : 'secondary'} className="text-[10px]">
+                                      {resolvedPix ? 'Cadastrado' : 'Necessário'}
+                                    </Badge>
+                                  </div>
+                                  <Input
+                                    value={resolvedPix}
+                                    onChange={(event) =>
+                                      setPixOverrideById((prev) => ({
+                                        ...prev,
+                                        [c.id]: event.target.value,
+                                      }))
+                                    }
+                                    placeholder={collaboratorPix ? 'PIX do fiscal' : 'Informe o PIX para vincular'}
+                                    className="h-9 w-full"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
-                );
-              })}
+                </div>
+              </section>
             </div>
           </div>
-          <DialogFooter className="border-t bg-background px-6 py-4">
-            <Button variant="outline" onClick={() => {
-              setAddOpen(false);
-              setSelected([]);
-              setRoleValue('');
-              setCampusValue('');
-              setPixOverrideById({});
-            }}>Cancelar</Button>
+
+          <DialogFooter className="shrink-0 border-t bg-background px-5 py-3 sm:px-7">
+            <div className="mr-auto hidden text-xs text-muted-foreground sm:block">
+              {selected.length > 0 ? selected.length + ' fiscal(is) pronto(s) para vincular.' : 'Selecione pelo menos um fiscal para continuar.'}
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAddOpen(false);
+                setSelected([]);
+                setRoleValue('');
+                setCampusValue('');
+                setPixOverrideById({});
+              }}
+            >
+              Cancelar
+            </Button>
             <Button
               onClick={linkFiscals}
-              disabled={!selected.length || !roleValue || !campusValue.trim() || selected.some((cid) => {
-                const selectedCollaborator = collaborators.find((c: any) => c.id === cid) as any;
-                const collaboratorPix = typeof selectedCollaborator?.pix === 'string' ? selectedCollaborator.pix : '';
-                return !(pixOverrideById[cid] ?? collaboratorPix).trim();
-              })}
+              disabled={
+                !selected.length ||
+                !roleValue ||
+                !campusValue.trim() ||
+                selected.some((cid) => {
+                  const selectedCollaborator = collaborators.find((c: any) => c.id === cid) as any;
+                  const collaboratorPix = typeof selectedCollaborator?.pix === 'string' ? selectedCollaborator.pix : '';
+                  return !(pixOverrideById[cid] ?? collaboratorPix).trim();
+                })
+              }
             >
               Vincular {selected.length || ''}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Avaliar */}
 
       <Dialog open={!!replacementTarget} onOpenChange={(open) => { if (!open) { setReplacementTarget(null); setReplacementPickerOpen(false); } }}>
