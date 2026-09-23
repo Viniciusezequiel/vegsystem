@@ -1,5 +1,5 @@
 import { normalizePix, preparePixPlan, persistPixPlan } from '@/lib/psPixPlan';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -57,7 +57,7 @@ export default function PsEventDetail() {
   const { data: event } = usePsEvent(id);
   const { finalize, save } = usePsEventMutations();
   const { data: allLinks = [] } = usePsEventCollaborators(id);
-  const { add, update, updateState, remove } = usePsEventCollaboratorMutations(id);
+  const { add, update, updateState, remove, reinclude } = usePsEventCollaboratorMutations(id);
   const { data: collaborators = [] } = usePsCollaborators();
   const { data: roles = [] } = usePsRoles();
   const { data: evaluations = [] } = usePsEvaluations(id);
@@ -117,7 +117,11 @@ export default function PsEventDetail() {
     [allLinks, collaboratorById]
   );
   const links = useMemo(
-    () => allLinks.filter((link: any) => collaboratorById.get(link.collaborator_id)?.active !== false),
+    () => allLinks.filter((link: any) => collaboratorById.get(link.collaborator_id)?.active !== false && !link.manually_excluded),
+    [allLinks, collaboratorById]
+  );
+  const excludedEventLinks = useMemo(
+    () => allLinks.filter((link: any) => link.manually_excluded),
     [allLinks, collaboratorById]
   );
   const confirmationSummary = useMemo(
@@ -166,6 +170,21 @@ export default function PsEventDetail() {
     },
   });
 
+  const { data: sameDayAssignments = [] } = useQuery({
+    queryKey: ['ps-fiscal-same-day-conflicts', event?.date, id],
+    enabled: !!event?.date && !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_event_collaborators')
+        .select('collaborator_id,event_id,participation_status,ps_events!inner(id,name,date,status)')
+        .neq('event_id', id!)
+        .eq('ps_events.date', event!.date)
+        .in('participation_status', ['pending_confirmation', 'confirmed']);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const teamRows = useMemo(() => {
     const query = teamSearch.trim().toLocaleLowerCase('pt-BR');
     if (!query) return links;
@@ -189,6 +208,19 @@ export default function PsEventDetail() {
         .includes(query)
     );
   }, [links, teamSearch]);
+
+  const replacementNeededLinks = useMemo(
+    () =>
+      links
+        .filter((link: any) => link.participation_status === 'declined')
+        .sort((a: any, b: any) =>
+          String(a.collaborator_name || '').localeCompare(
+            String(b.collaborator_name || ''),
+            'pt-BR'
+          )
+        ),
+    [links]
+  );
 
   const operationalLinks = useMemo(
     () =>
@@ -442,9 +474,91 @@ export default function PsEventDetail() {
   }, [operationalLinks, absenceTarget?.id]);
 
   const replacementCandidates = useMemo(() => {
-    const currentIds = new Set(links.map((link: any) => link.collaborator_id));
-    return collaborators.filter((candidate: any) => candidate.active && !currentIds.has(candidate.id));
-  }, [collaborators, links]);
+    const currentIds = new Set(allLinks.map((link: any) => link.collaborator_id));
+    const sameDayByCollaborator = new Map<string, any>();
+    for (const item of sameDayAssignments as any[]) {
+      if (item.collaborator_id && !sameDayByCollaborator.has(item.collaborator_id)) {
+        sameDayByCollaborator.set(item.collaborator_id, item);
+      }
+    }
+
+    const normalize = (value: unknown) => String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
+    const targetRole = normalize(replacementTarget?.role_name || replacementTarget?.assigned_role || replacementTarget?.role_value);
+    const targetUnit = normalize(replacementTarget?.unit);
+    const targetBuilding = normalize(replacementTarget?.building);
+    const targetSchedule = normalize(replacementTarget?.work_schedule);
+
+    return collaborators
+      .filter((candidate: any) =>
+        candidate.active &&
+        !currentIds.has(candidate.id) &&
+        !sameDayByCollaborator.has(candidate.id)
+      )
+      .map((candidate: any) => {
+        const roles = [
+          candidate.preferred_role,
+          candidate.role,
+          candidate.position,
+        ].map(normalize).filter(Boolean);
+        const candidateUnit = normalize(candidate.unit);
+        const candidateInstitution = normalize(candidate.institution);
+        const conflict = sameDayByCollaborator.get(candidate.id);
+        let score = 0;
+        const reasons: string[] = [];
+
+        if (targetRole && roles.some((role: string) => role === targetRole || role.includes(targetRole) || targetRole.includes(role))) {
+          score += 50;
+          reasons.push('função compatível');
+        } else if (targetRole && roles.some((role: string) => role.includes(targetRole.split(' ')[0]) || targetRole.includes(role.split(' ')[0]))) {
+          score += 25;
+          reasons.push('função próxima');
+        }
+
+        if (targetUnit && candidateUnit === targetUnit) {
+          score += 15;
+          reasons.push('mesma unidade');
+        }
+
+        if (targetBuilding && candidateInstitution && candidateInstitution.includes(targetBuilding)) {
+          score += 5;
+          reasons.push('instituição compatível');
+        }
+
+        const rating = Number(candidate.average_rating || 0);
+        if (rating > 0) {
+          score += Math.min(20, rating * 4);
+          reasons.push('avaliação ' + rating.toFixed(2));
+        }
+
+        const events = Number(candidate.total_events || 0);
+        if (events > 0) {
+          score += Math.min(10, events / 5);
+          reasons.push(events + ' atuações');
+        }
+
+        if (targetSchedule && normalize(candidate.journey) === targetSchedule) {
+          score += 5;
+          reasons.push('jornada compatível');
+        }
+
+        return {
+          ...candidate,
+          replacementScore: Math.min(100, Math.round(score)),
+          replacementReasons: reasons,
+          sameDayConflict: conflict || null,
+        };
+      })
+      .sort((a: any, b: any) =>
+        b.replacementScore - a.replacementScore ||
+        Number(b.average_rating || 0) - Number(a.average_rating || 0) ||
+        String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
+      );
+  }, [collaborators, links, replacementTarget, sameDayAssignments]);
 
   const requestConfirmation = async (link: any) => {
     try {
@@ -636,12 +750,63 @@ export default function PsEventDetail() {
   };
 
   const totalCost = links.filter((l: any) => !l.absent).reduce((acc: number, l: any) => acc + rolePay(l.role_value), 0);
+  const eventCampusOptions = useMemo(() => {
+    const values = [
+      ...links.map((link: any) => link.campus),
+      ...candidates.map((candidate: any) => candidate.campus),
+    ]
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean);
+
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [links, candidates]);
+
+  useEffect(() => {
+    if (!addOpen || campusValue.trim() || eventCampusOptions.length !== 1) return;
+    setCampusValue(eventCampusOptions[0]);
+  }, [addOpen, campusValue, eventCampusOptions]);
+
+  const sameDayCollaboratorIds = useMemo(
+    () => new Set((sameDayAssignments || []).map((item: any) => item.collaborator_id).filter(Boolean)),
+    [sameDayAssignments]
+  );
+
   const visibleCollaborators = useMemo(() => {
     const q = searchFiscal.trim().toLowerCase();
+    const selectedRole: any = roles.find((role: any) => role.value === roleValue);
+    const normalize = (value: unknown) => String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\\u0300-\\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+    const targetRole = normalize(selectedRole?.name || roleValue);
+
     return collaborators
-      .filter((c: any) => c.active && !links.some((l: any) => l.collaborator_id === c.id))
-      .filter((c: any) => !q || [c.full_name, c.email, c.matricula, c.institution, c.unit, c.role].filter(Boolean).join(' ').toLowerCase().includes(q));
-  }, [collaborators, links, searchFiscal]);
+      .filter((c: any) =>
+        c.active &&
+        !links.some((l: any) => l.collaborator_id === c.id) &&
+        !sameDayCollaboratorIds.has(c.id)
+      )
+      .filter((c: any) =>
+        !q ||
+        [c.full_name, c.email, c.matricula, c.institution, c.unit, c.role, c.position, c.preferred_role]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(q)
+      )
+      .map((c: any) => {
+        const rolesText = [c.preferred_role, c.role, c.position].map(normalize).filter(Boolean);
+        const compatible = !!targetRole && rolesText.some((role: string) =>
+          role === targetRole || role.includes(targetRole) || targetRole.includes(role)
+        );
+        return { ...c, roleCompatible: compatible };
+      })
+      .sort((a: any, b: any) =>
+        Number(b.roleCompatible) - Number(a.roleCompatible) ||
+        String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
+      );
+  }, [collaborators, links, searchFiscal, sameDayCollaboratorIds, roles, roleValue]);
 
   const linkFiscals = async () => {
     if (!selected.length || !roleValue || !campusValue.trim()) return;
@@ -1393,6 +1558,54 @@ export default function PsEventDetail() {
                 </div>
               ))}
             </div>
+            {replacementNeededLinks.length > 0 && (
+              <Card className="rounded-2xl border-amber-300/60 bg-amber-50/50 dark:bg-amber-950/10">
+                <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                      <AlertTriangle className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">
+                          {replacementNeededLinks.length} substituição{replacementNeededLinks.length === 1 ? '' : 'ões'} necessária{replacementNeededLinks.length === 1 ? '' : 's'}
+                        </p>
+                        <Badge variant="outline">Ação pendente</Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Fiscais recusaram o evento e deixaram vagas que precisam ser preenchidas.
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {replacementNeededLinks.slice(0, 4).map((link: any) => (
+                          <div key={link.id} className="flex flex-wrap items-center gap-1.5 rounded-lg border bg-background/70 px-2.5 py-1.5">
+                            <span className="text-xs font-medium">{link.collaborator_name}</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {[link.role_name || link.assigned_role, link.campus, link.building, link.floor, link.room]
+                                .filter(Boolean)
+                                .join(' · ') || 'Local não informado'}
+                            </span>
+                          </div>
+                        ))}
+                        {replacementNeededLinks.length > 4 && (
+                          <Badge variant="secondary" className="font-normal">
+                            +{replacementNeededLinks.length - 4} outro(s)
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    className="shrink-0"
+                    onClick={() => openReplacement(replacementNeededLinks[0])}
+                  >
+                    {replacementNeededLinks.length === 1 ? 'Encontrar substituto' : 'Ver substituições'}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             <PsEventCommunicationTab
               event={event}
               links={links as any[]}
@@ -1404,6 +1617,7 @@ export default function PsEventDetail() {
                 if (format === 'pdf') exportFilteredConfirmationsPdf(rows, filters);
                 else exportFilteredConfirmationsExcel(rows, filters);
               }}
+              excludedLinks={excludedEventLinks as any[]}
               onImportTeam={() => setImportOpen(true)}
               onAddTeamMember={() => setAddOpen(true)}
               onClearTeam={() => {
@@ -1411,8 +1625,9 @@ export default function PsEventDetail() {
               }}
               onEditMember={(link) => setEditLink(link)}
               onRemoveMember={(link) => {
-                if (confirm('Remover vínculo de ' + link.collaborator_name + '?')) remove.mutate(link.id);
+                if (confirm('Excluir ' + link.collaborator_name + ' deste evento? Ele permanecerá no histórico e não voltará automaticamente em uma nova importação.')) remove.mutate({ id: link.id });
               }}
+              onReincludeMember={(link) => { reinclude.mutate(link.id); }}
               onEvaluateMember={(link) => {
                 setEvalTarget(link);
                 setCriteria(emptyCriteria());
@@ -2381,34 +2596,83 @@ export default function PsEventDetail() {
           }
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader><DialogTitle>Vincular fiscais</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+        <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-3xl" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader className="border-b px-6 py-5"><div className="flex items-start justify-between gap-3 pr-5"><div><DialogTitle className="text-lg">Vincular fiscais ao evento</DialogTitle><p className="mt-1 text-sm text-muted-foreground">Escolha a função, o campus e depois selecione um ou vários fiscais.</p></div><Badge variant="secondary" className="shrink-0">{selected.length} selecionado{selected.length === 1 ? '' : 's'}</Badge></div></DialogHeader>
+          <div className="max-h-[calc(90vh-150px)] space-y-5 overflow-y-auto px-6 py-5">
             <div>
               <Label>Função *</Label>
               <Select value={roleValue} onValueChange={setRoleValue}>
-                <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue placeholder="Selecione a função" /></SelectTrigger>
                 <SelectContent>
                   {roles.map((r: any) => <SelectItem key={r.id} value={r.value}>{r.name} — R$ {Number(r.pay_value).toFixed(2)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Campus do evento *</Label>
-              <Input
-                value={campusValue}
-                onChange={(e) => setCampusValue(e.target.value)}
-                placeholder="Campus Fumec"
-              />
+              <div className="flex items-center justify-between gap-2">
+                <Label>Campus do evento *</Label>
+                {eventCampusOptions.length > 0 && (
+                  <span className="text-[11px] text-muted-foreground">
+                    {eventCampusOptions.length === 1 ? 'Preenchido automaticamente' : 'Campi já usados no evento'}
+                  </span>
+                )}
+              </div>
+
+              {eventCampusOptions.length > 0 ? (
+                <>
+                  <Select
+                    value={eventCampusOptions.includes(campusValue.trim()) ? campusValue.trim() : ''}
+                    onValueChange={setCampusValue}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Selecione o campus" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eventCampusOptions.map((campus) => (
+                        <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {eventCampusOptions.length > 1 && (
+                    <Input
+                      value={campusValue}
+                      onChange={(e) => setCampusValue(e.target.value)}
+                      placeholder="Ou digite outro campus..."
+                      className="h-10"
+                    />
+                  )}
+                </>
+              ) : (
+                <Input
+                  value={campusValue}
+                  onChange={(e) => setCampusValue(e.target.value)}
+                  placeholder="Ex.: Campus Fumec"
+                  className="h-11"
+                />
+              )}
+
+              {eventCampusOptions.length === 1 && (
+                <p className="text-xs text-muted-foreground">
+                  O sistema encontrou apenas um campus já utilizado neste evento e o preencheu para você.
+                </p>
+              )}
             </div>
-            <div className="space-y-2">
-              <Input
+            <div className="rounded-xl border bg-muted/20 p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Selecionar fiscais</p>
+                  <p className="text-xs text-muted-foreground">Somente fiscais ativos, livres no dia e ainda não vinculados a este evento.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="w-fit">{visibleCollaborators.length} disponíveis</Badge>
+                  {selected.length > 0 && <Badge className="w-fit">{selected.length} selecionado(s)</Badge>}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row"><Input
                 value={searchFiscal}
                 onChange={(e) => setSearchFiscal(e.target.value)}
-                placeholder="Buscar fiscal..."
-              />
-            </div>
-            <div className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden rounded-lg border p-2">
+                placeholder="Buscar nome, e-mail, matrícula, instituição ou unidade..."
+              />{visibleCollaborators.length > 0 && (<Button type="button" variant="outline" className="h-10 shrink-0" onClick={() => { const ids = visibleCollaborators.map((c: any) => c.id); const allSelected = ids.every((cid: string) => selected.includes(cid)); setSelected(allSelected ? selected.filter((cid) => !ids.includes(cid)) : Array.from(new Set([...selected, ...ids]))); }}>{visibleCollaborators.every((c: any) => selected.includes(c.id)) ? 'Desmarcar todos' : 'Selecionar todos'}</Button>)}</div></div>{selected.length > 0 && (<div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3"><div className="flex items-center justify-between gap-2"><div><p className="text-sm font-semibold">Fiscais selecionados</p><p className="text-xs text-muted-foreground">Clique no nome para remover da seleção.</p></div><Button type="button" variant="ghost" size="sm" onClick={() => setSelected([])}>Limpar</Button></div><div className="mt-2 flex flex-wrap gap-1.5">{selected.map((cid) => { const person = collaborators.find((c: any) => c.id === cid) as any; return person ? (<button key={cid} type="button" onClick={() => setSelected(selected.filter((x) => x !== cid))} className="rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted">{person.full_name}</button>) : null; })}</div></div>)}<div className="max-h-[42vh] space-y-2 overflow-y-auto overflow-x-hidden rounded-xl border p-2">
               {visibleCollaborators.length === 0 ? (
                 <p className="p-2 text-sm text-muted-foreground">Nenhum fiscal encontrado.</p>
               ) : visibleCollaborators.map((c: any) => {
@@ -2420,7 +2684,7 @@ export default function PsEventDetail() {
                 const resolvedPix = (pixOverrideById[c.id] ?? collaboratorPix ?? '').trim();
 
                 return (
-                  <div key={c.id} className="space-y-2 rounded-lg border bg-muted/10 p-2">
+                  <div key={c.id} className="space-y-2 rounded-xl border bg-background p-2 transition hover:border-primary/40">
                     <Button
                       type="button"
                       variant={selected.includes(c.id) ? 'default' : 'ghost'}
@@ -2428,7 +2692,10 @@ export default function PsEventDetail() {
                       onClick={() => setSelected(selected.includes(c.id) ? selected.filter((x) => x !== c.id) : [...selected, c.id])}
                     >
                       <span className="w-full min-w-0 flex flex-col items-start text-left">
-                        <span className="max-w-full font-medium break-words whitespace-normal text-left">{c.full_name || 'Sem nome'}</span>
+                        <span className="flex w-full items-center justify-between gap-2">
+                          <span className="max-w-full font-medium break-words whitespace-normal text-left">{c.full_name || 'Sem nome'}</span>
+                          {c.roleCompatible && <Badge variant="secondary" className="shrink-0 text-[10px]"><Check className="mr-1 h-3 w-3" />Compatível</Badge>}
+                        </span>
 
                         {(emailText || matriculaText) && (
                           <span className="max-w-full text-left text-xs text-muted-foreground whitespace-normal break-words">
@@ -2469,7 +2736,7 @@ export default function PsEventDetail() {
               })}
             </div>
           </div>
-          <DialogFooter className="mt-2">
+          <DialogFooter className="border-t bg-background px-6 py-4">
             <Button variant="outline" onClick={() => {
               setAddOpen(false);
               setSelected([]);
@@ -2497,6 +2764,49 @@ export default function PsEventDetail() {
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader><DialogTitle>Substituir {replacementTarget?.collaborator_name}</DialogTitle></DialogHeader>
           {replacementData && <div className="space-y-3">
+            <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">Sugestão automática</p>
+                  <p className="text-xs text-muted-foreground">Fiscais ativos, sem outro vínculo no mesmo dia e com maior compatibilidade.</p>
+                </div>
+                <Badge variant="secondary">{replacementCandidates.filter((candidate: any) => !candidate.sameDayConflict).length} opções compatíveis</Badge>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {replacementCandidates.filter((candidate: any) => !candidate.sameDayConflict).slice(0, 5).map((candidate: any) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => setReplacementFiscalId(candidate.id)}
+                    className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-left transition hover:bg-muted/60 ${replacementFiscalId === candidate.id ? 'border-primary bg-primary/5 shadow-sm' : 'border-border/60 bg-background/60'}`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold">{candidate.full_name}</span>
+                        {candidate.replacementScore >= 70 && <Badge variant="secondary" className="shrink-0 text-[10px]">Boa compatibilidade</Badge>}
+                      </span>
+                      <span className="mt-1 block truncate text-xs text-muted-foreground">
+                        {[candidate.institution, candidate.unit, candidate.email].filter(Boolean).join(' · ') || 'Sem informações complementares'}
+                      </span>
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        {(candidate.replacementReasons || []).slice(0, 3).map((reason: string) => (
+                          <Badge key={reason} variant="outline" className="text-[10px] font-normal">{reason}</Badge>
+                        ))}
+                      </span>
+                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <Badge variant="outline">{candidate.replacementScore}%</Badge>
+                      {candidate.average_rating && <span className="text-[10px] text-muted-foreground">Nota {Number(candidate.average_rating).toFixed(2)}</span>}
+                    </div>
+                  </button>
+                ))}
+                {!replacementCandidates.some((candidate: any) => !candidate.sameDayConflict) && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    Nenhum fiscal disponível foi encontrado sem conflito de data.
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Novo fiscal ativo</Label>
               <Popover open={replacementPickerOpen} onOpenChange={setReplacementPickerOpen}>
@@ -2512,15 +2822,20 @@ export default function PsEventDetail() {
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
                   <Command>
-                    <CommandInput placeholder="Buscar por nome, e-mail, instituição, unidade ou setor..." />
-                    <CommandList className="max-h-72">
+                    <CommandInput placeholder="Buscar por nome, e-mail, função, instituição ou unidade..." />
+                    <CommandList className="max-h-80">
                       <CommandEmpty>Nenhum fiscal ativo encontrado.</CommandEmpty>
                       <CommandGroup>
-                        {replacementCandidates.map((candidate: any) => (
+                        {replacementCandidates.slice(0, 10).map((candidate: any) => (
                           <CommandItem
                             key={candidate.id}
                             value={[candidate.full_name, candidate.email, candidate.institution, candidate.unit, candidate.sector].filter(Boolean).join(' ')}
-                            onSelect={() => { setReplacementFiscalId(candidate.id); setReplacementPickerOpen(false); }}
+                            disabled={!!candidate.sameDayConflict}
+                            onSelect={() => {
+                              if (candidate.sameDayConflict) return;
+                              setReplacementFiscalId(candidate.id);
+                              setReplacementPickerOpen(false);
+                            }}
                             className="items-start gap-2 py-2"
                           >
                             <Check className={`mt-0.5 h-4 w-4 shrink-0 ${replacementFiscalId === candidate.id ? 'opacity-100' : 'opacity-0'}`} />
@@ -2528,6 +2843,11 @@ export default function PsEventDetail() {
                               <span className="block truncate font-medium">{candidate.full_name}</span>
                               <span className="block truncate text-xs text-muted-foreground">
                                 {[candidate.email, candidate.institution || candidate.unit, candidate.sector].filter(Boolean).join(' · ') || 'Sem informações complementares'}
+                              </span>
+                              <span className={`mt-1 block text-[10px] ${candidate.sameDayConflict ? 'text-destructive' : 'text-primary'}`}>
+                                {candidate.sameDayConflict
+                                  ? `Conflito em ${candidate.sameDayConflict.ps_events?.name || 'outro evento'}`
+                                  : `${candidate.replacementScore}% compatível · ${(candidate.replacementReasons || []).slice(0, 2).join(' · ')}`}
                               </span>
                             </span>
                           </CommandItem>
