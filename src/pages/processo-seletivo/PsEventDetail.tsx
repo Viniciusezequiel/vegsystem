@@ -117,7 +117,11 @@ export default function PsEventDetail() {
     [allLinks, collaboratorById]
   );
   const links = useMemo(
-    () => allLinks.filter((link: any) => collaboratorById.get(link.collaborator_id)?.active !== false),
+    () => allLinks.filter((link: any) => collaboratorById.get(link.collaborator_id)?.active !== false && !link.manually_excluded),
+    [allLinks, collaboratorById]
+  );
+  const excludedEventLinks = useMemo(
+    () => allLinks.filter((link: any) => collaboratorById.get(link.collaborator_id)?.active !== false && link.manually_excluded),
     [allLinks, collaboratorById]
   );
   const confirmationSummary = useMemo(
@@ -1425,6 +1429,7 @@ export default function PsEventDetail() {
                 if (format === 'pdf') exportFilteredConfirmationsPdf(rows, filters);
                 else exportFilteredConfirmationsExcel(rows, filters);
               }}
+              excludedLinks={excludedEventLinks as any[]}
               excludedLinks={excludedEventLinks as any[]}
               onImportTeam={() => setImportOpen(true)}
               onAddTeamMember={() => setAddOpen(true)}
