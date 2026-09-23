@@ -34,7 +34,7 @@ import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psCon
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -2646,127 +2646,164 @@ export default function PsEventDetail() {
         }}
       >
         <DialogContent
-          className="flex h-[88vh] max-h-[760px] w-[min(1180px,calc(100vw-1.5rem))] flex-col overflow-hidden p-0 sm:h-[88vh]"
+          className="flex h-[min(88vh,820px)] w-[calc(100vw-1.5rem)] max-w-[1180px] flex-col gap-0 overflow-hidden rounded-[26px] border border-border/60 bg-background/95 p-0 shadow-2xl backdrop-blur-xl sm:max-w-[1180px]"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="shrink-0 border-b bg-background/95 px-5 py-4 backdrop-blur sm:px-6">
-            <div className="flex items-center justify-between gap-4 pr-5">
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-border/60 px-5 py-5 text-left sm:px-7">
+            <div className="pointer-events-none absolute -right-16 -top-24 h-52 w-52 rounded-full bg-primary/15 blur-3xl" />
+            <div className="pointer-events-none absolute left-1/3 top-0 h-24 w-72 -translate-y-1/2 rounded-full bg-violet-500/10 blur-3xl" />
+
+            <div className="relative flex flex-col gap-4 pr-8 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <DialogTitle className="text-lg font-bold sm:text-xl">Vincular fiscais ao evento</DialogTitle>
-                <p className="mt-1 max-w-3xl text-xs text-muted-foreground sm:text-sm">
-                  Defina a função e o campus. Depois, selecione os fiscais disponíveis.
-                  O sistema prioriza automaticamente os melhores encaixes.
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                    <UserRoundCheck className="h-4.5 w-4.5" />
+                  </div>
+                  <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
+                    Alocação inteligente
+                  </Badge>
+                </div>
+
+                <DialogTitle className="text-xl font-bold tracking-tight sm:text-2xl">
+                  Vincular fiscais ao evento
+                </DialogTitle>
+                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  Configure a atuação e escolha os fiscais. A lista é ordenada automaticamente
+                  pelo melhor encaixe para o evento.
                 </p>
               </div>
-              <Badge variant="secondary" className="shrink-0 rounded-full px-3 py-1.5 text-xs">
-                {selected.length} selecionado{selected.length === 1 ? '' : 's'}
-              </Badge>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <div className="rounded-2xl border border-border/60 bg-card/70 px-4 py-2.5 text-right shadow-sm">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                    Selecionados
+                  </p>
+                  <div className="mt-0.5 flex items-center justify-end gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    <span className="text-xl font-bold leading-none">{selected.length}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </DialogHeader>
 
-          <div className="grid min-h-0 flex-1 lg:grid-cols-[330px_minmax(0,1fr)]">
-            {/* Configuração fixa: evita desperdiçar espaço da lista */}
-            <aside className="min-h-0 overflow-y-auto border-b bg-muted/[0.06] px-5 py-5 lg:border-b-0 lg:border-r sm:px-6">
-              <div className="space-y-5">
-                <div>
-                  <p className="text-sm font-semibold">Configuração</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    Estes dados serão aplicados a todos os fiscais selecionados.
-                  </p>
+          <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)]">
+            <aside className="min-h-0 overflow-y-auto border-b border-border/60 bg-muted/[0.025] lg:border-b-0 lg:border-r">
+              <div className="space-y-4 p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">1. Configure a atuação</p>
+                    <p className="text-[11px] text-muted-foreground">Vale para todos os selecionados.</p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Função *</Label>
-                  <Select value={roleValue} onValueChange={setRoleValue}>
-                    <SelectTrigger className="h-11 w-full">
-                      <SelectValue placeholder="Selecione a função" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((r: any) => (
-                        <SelectItem key={r.id} value={r.value}>
-                          {r.name} — R$ {Number(r.pay_value).toFixed(2)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    A função é usada para calcular o nível de compatibilidade de cada fiscal.
-                  </p>
-                </div>
+                <div className="space-y-4 rounded-2xl border border-border/60 bg-card/60 p-4 shadow-sm">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-xs font-semibold">
+                      <BriefcaseBusiness className="h-3.5 w-3.5 text-primary" />
+                      Função *
+                    </Label>
+                    <Select value={roleValue} onValueChange={setRoleValue}>
+                      <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80">
+                        <SelectValue placeholder="Selecione a função" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map((r: any) => (
+                          <SelectItem key={r.id} value={r.value}>
+                            {r.name} — R$ {Number(r.pay_value).toFixed(2)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] leading-relaxed text-muted-foreground">
+                      A função influencia diretamente a pontuação de compatibilidade.
+                    </p>
+                  </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label>Campus do evento *</Label>
-                    {eventCampusOptions.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground">
-                        {eventCampusOptions.length === 1 ? 'já utilizado' : 'já utilizados'}
-                      </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="flex items-center gap-2 text-xs font-semibold">
+                        <MapPin className="h-3.5 w-3.5 text-primary" />
+                        Campus *
+                      </Label>
+                      {eventCampusOptions.length > 0 && (
+                        <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                          {eventCampusOptions.length === 1 ? 'já usado' : 'já usados'}
+                        </span>
+                      )}
+                    </div>
+
+                    {eventCampusOptions.length > 0 ? (
+                      <>
+                        <Select
+                          value={eventCampusOptions.includes(campusValue.trim()) ? campusValue.trim() : ''}
+                          onValueChange={setCampusValue}
+                        >
+                          <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80">
+                            <SelectValue placeholder="Selecione o campus" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {eventCampusOptions.map((campus) => (
+                              <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {eventCampusOptions.length > 1 && (
+                          <Input
+                            value={campusValue}
+                            onChange={(e) => setCampusValue(e.target.value)}
+                            placeholder="Ou digite outro campus..."
+                            className="h-10 rounded-xl border-border/70 bg-background/80"
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <Input
+                        value={campusValue}
+                        onChange={(e) => setCampusValue(e.target.value)}
+                        placeholder="Ex.: Campus Fumec"
+                        className="h-11 rounded-xl border-border/70 bg-background/80"
+                      />
                     )}
                   </div>
-
-                  {eventCampusOptions.length > 0 ? (
-                    <>
-                      <Select
-                        value={eventCampusOptions.includes(campusValue.trim()) ? campusValue.trim() : ''}
-                        onValueChange={setCampusValue}
-                      >
-                        <SelectTrigger className="h-11 w-full">
-                          <SelectValue placeholder="Selecione o campus" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {eventCampusOptions.map((campus) => (
-                            <SelectItem key={campus} value={campus}>{campus}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {eventCampusOptions.length > 1 && (
-                        <Input
-                          value={campusValue}
-                          onChange={(e) => setCampusValue(e.target.value)}
-                          placeholder="Ou digite outro campus..."
-                          className="h-10 w-full"
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <Input
-                      value={campusValue}
-                      onChange={(e) => setCampusValue(e.target.value)}
-                      placeholder="Ex.: Campus Fumec"
-                      className="h-11 w-full"
-                    />
-                  )}
                 </div>
 
-                <div className="rounded-2xl border bg-background p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold">Resumo</p>
-                    <Badge variant="secondary" className="rounded-full">{selected.length}</Badge>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-border/60 bg-card/60 p-3.5">
+                    <p className="text-2xl font-bold tracking-tight">{visibleCollaborators.length}</p>
+                    <p className="mt-1 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      Disponíveis
+                    </p>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-muted/40 p-3">
-                      <p className="text-lg font-bold">{visibleCollaborators.length}</p>
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Disponíveis</p>
-                    </div>
-                    <div className="rounded-xl bg-primary/[0.08] p-3">
-                      <p className="text-lg font-bold text-primary">{selected.length}</p>
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Selecionados</p>
-                    </div>
+                  <div className="rounded-2xl border border-primary/20 bg-primary/[0.07] p-3.5">
+                    <p className="text-2xl font-bold tracking-tight text-primary">{selected.length}</p>
+                    <p className="mt-1 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      Selecionados
+                    </p>
                   </div>
                 </div>
 
                 {selected.length > 0 && (
-                  <div className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-4">
+                  <div className="rounded-2xl border border-primary/20 bg-primary/[0.035] p-4">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="text-xs font-semibold">Seleção atual</p>
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">Clique para remover.</p>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">Clique em um nome para remover.</p>
                       </div>
-                      <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelected([])}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 rounded-lg px-2 text-[10px]"
+                        onClick={() => setSelected([])}
+                      >
                         Limpar
                       </Button>
                     </div>
-                    <div className="mt-3 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                    <div className="mt-3 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
                       {selected.map((cid) => {
                         const person = collaborators.find((c: any) => c.id === cid) as any;
                         return person ? (
@@ -2774,7 +2811,7 @@ export default function PsEventDetail() {
                             key={cid}
                             type="button"
                             onClick={() => setSelected(selected.filter((x) => x !== cid))}
-                            className="max-w-full truncate rounded-full border bg-background px-2.5 py-1 text-[10px] font-medium hover:bg-muted"
+                            className="max-w-full truncate rounded-full border border-primary/15 bg-background/80 px-2.5 py-1 text-[10px] font-medium transition hover:border-primary/30 hover:bg-primary/5"
                             title={person.full_name}
                           >
                             {person.full_name}
@@ -2785,35 +2822,42 @@ export default function PsEventDetail() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-violet-500/15 bg-violet-500/[0.035] p-4">
-                  <p className="text-xs font-semibold">Como o encaixe funciona</p>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                    Função compatível, preferência, unidade, jornada e avaliação entram no cálculo.
-                    Os maiores percentuais aparecem primeiro.
+                <div className="rounded-2xl border border-violet-500/15 bg-gradient-to-br from-violet-500/[0.07] to-primary/[0.03] p-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                    <p className="text-xs font-semibold">Encaixe inteligente</p>
+                  </div>
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                    Função, preferência, unidade, jornada e avaliação compõem o percentual.
+                    Os melhores candidatos aparecem primeiro.
                   </p>
                 </div>
               </div>
             </aside>
 
-            {/* Lista: esta é a área principal do modal */}
-            <section className="flex min-h-0 flex-col bg-background">
-              <div className="shrink-0 border-b px-5 py-4 sm:px-6">
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <section className="flex min-h-0 min-w-0 flex-col bg-background/40">
+              <div className="shrink-0 border-b border-border/60 px-5 py-4 sm:px-6">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold">Fiscais disponíveis</p>
-                      <Badge variant="outline" className="rounded-full">{visibleCollaborators.length}</Badge>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Users className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">2. Escolha os fiscais</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Ativos, livres no dia e ainda não vinculados a este evento.
+                        </p>
+                      </div>
                     </div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      Ativos, livres no dia e ainda não vinculados a este evento.
-                    </p>
                   </div>
+
                   {visibleCollaborators.length > 0 && (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-9 shrink-0"
+                      className="h-9 shrink-0 rounded-xl border-border/70 bg-background/70"
                       onClick={() => {
                         const ids = visibleCollaborators.map((c: any) => c.id);
                         const allSelected = ids.every((cid: string) => selected.includes(cid));
@@ -2825,32 +2869,38 @@ export default function PsEventDetail() {
                       }}
                     >
                       {visibleCollaborators.every((c: any) => selected.includes(c.id))
-                        ? 'Desmarcar todos'
-                        : 'Selecionar todos'}
+                        ? 'Desmarcar visíveis'
+                        : 'Selecionar visíveis'}
                     </Button>
                   )}
                 </div>
 
-                <div className="relative mt-3">
+                <div className="relative mt-4">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={searchFiscal}
                     onChange={(e) => setSearchFiscal(e.target.value)}
                     placeholder="Buscar por nome, e-mail, matrícula, instituição ou unidade..."
-                    className="h-10 w-full"
+                    className="h-11 rounded-xl border-border/70 bg-card/70 pl-10 pr-4 shadow-sm"
                   />
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+              <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 sm:px-6">
                 {visibleCollaborators.length === 0 ? (
-                  <div className="flex min-h-56 items-center justify-center rounded-2xl border border-dashed">
-                    <div className="text-center">
-                      <p className="text-sm font-medium">Nenhum fiscal encontrado</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Ajuste a função, campus ou busca.</p>
+                  <div className="flex min-h-64 items-center justify-center rounded-3xl border border-dashed border-border/70 bg-muted/[0.025]">
+                    <div className="max-w-xs text-center">
+                      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground">
+                        <Search className="h-5 w-5" />
+                      </div>
+                      <p className="mt-3 text-sm font-semibold">Nenhum fiscal encontrado</p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        Ajuste a função, o campus ou os termos da busca.
+                      </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-3 xl:grid-cols-2">
                     {visibleCollaborators.map((c: any) => {
                       const emailText = c.email ? String(c.email).trim() : '';
                       const matriculaText = c.matricula ? String(c.matricula).trim() : '';
@@ -2863,9 +2913,9 @@ export default function PsEventDetail() {
                       return (
                         <div
                           key={c.id}
-                          className={`min-w-0 rounded-2xl border p-3.5 transition ${isSelected
-                            ? 'border-primary/50 bg-primary/[0.045] shadow-sm'
-                            : 'bg-card/40 hover:border-primary/25 hover:bg-muted/[0.08]'}`}
+                          className={`group min-w-0 rounded-2xl border p-4 transition-all duration-200 ${isSelected
+                            ? 'border-primary/45 bg-gradient-to-br from-primary/[0.09] to-primary/[0.025] shadow-[0_10px_30px_-18px_hsl(var(--primary))]'
+                            : 'border-border/60 bg-card/55 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card/80 hover:shadow-lg'}`}
                         >
                           <button
                             type="button"
@@ -2876,50 +2926,72 @@ export default function PsEventDetail() {
                                   : [...selected, c.id]
                               )
                             }
-                            className="w-full text-left"
+                            className="w-full min-w-0 text-left"
                           >
                             <div className="flex min-w-0 items-start gap-3">
-                              <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30'}`}>
-                                {isSelected && <Check className="h-3.5 w-3.5" />}
+                              <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition ${isSelected
+                                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                                : 'border-border/70 bg-muted/30 text-muted-foreground group-hover:border-primary/25 group-hover:text-primary'}`}>
+                                {isSelected ? <Check className="h-4 w-4" /> : <Users className="h-4 w-4" />}
                               </div>
+
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="min-w-0 break-words text-sm font-semibold leading-tight">
-                                    {c.full_name || 'Sem nome'}
-                                  </p>
+                                <div className="flex min-w-0 items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold leading-tight" title={c.full_name || 'Sem nome'}>
+                                      {c.full_name || 'Sem nome'}
+                                    </p>
+                                    {matriculaText && (
+                                      <p className="mt-1 text-[10px] text-muted-foreground">Matrícula {matriculaText}</p>
+                                    )}
+                                  </div>
+
                                   {c.compatibilityScore > 0 && (
-                                    <Badge
-                                      variant={c.compatibilityScore >= 70 ? 'default' : 'secondary'}
-                                      className="shrink-0 rounded-full px-2 text-[10px]"
-                                    >
-                                      {c.compatibilityScore}%
-                                    </Badge>
+                                    <div className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-right ${c.compatibilityScore >= 70
+                                      ? 'border-primary/20 bg-primary/10 text-primary'
+                                      : 'border-border/60 bg-muted/30 text-muted-foreground'}`}>
+                                      <p className="text-sm font-bold leading-none">{c.compatibilityScore}%</p>
+                                      <p className="mt-1 text-[8px] font-semibold uppercase tracking-wide">encaixe</p>
+                                    </div>
                                   )}
                                 </div>
 
-                                <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
-                                  {emailText && <p className="truncate">{emailText}</p>}
+                                <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                                  {emailText && <p className="truncate" title={emailText}>{emailText}</p>}
                                   {(institutionText || unitText) && (
-                                    <p className="truncate">{[institutionText, unitText].filter(Boolean).join(' · ')}</p>
+                                    <p className="truncate" title={[institutionText, unitText].filter(Boolean).join(' · ')}>
+                                      {[institutionText, unitText].filter(Boolean).join(' · ')}
+                                    </p>
                                   )}
-                                  {matriculaText && <p>Matrícula {matriculaText}</p>}
                                 </div>
 
                                 {c.compatibilityReasons?.length > 0 && (
-                                  <p className="mt-2 line-clamp-1 text-[10px] text-primary/80">
-                                    {c.compatibilityReasons.join(' · ')}
-                                  </p>
+                                  <div className="mt-2.5 flex min-w-0 flex-wrap gap-1">
+                                    {c.compatibilityReasons.slice(0, 3).map((reason: string) => (
+                                      <span
+                                        key={reason}
+                                        className="rounded-full border border-primary/10 bg-primary/[0.055] px-2 py-0.5 text-[9px] font-medium text-primary/90"
+                                      >
+                                        {reason}
+                                      </span>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             </div>
                           </button>
 
                           {isSelected && (
-                            <div className="mt-3 border-t pt-3">
-                              <div className="mb-1.5 flex items-center justify-between gap-2">
-                                <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">PIX</Label>
-                                <Badge variant={resolvedPix ? 'default' : 'secondary'} className="rounded-full text-[10px]">
-                                  {resolvedPix ? 'Cadastrado' : 'Sem PIX'}
+                            <div className="mt-3 border-t border-primary/15 pt-3">
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <Label className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                  Chave PIX
+                                </Label>
+                                <Badge
+                                  variant={resolvedPix ? 'default' : 'secondary'}
+                                  className="rounded-full px-2 text-[9px]"
+                                >
+                                  {resolvedPix ? 'Cadastrado' : 'Pendente'}
                                 </Badge>
                               </div>
                               <Input
@@ -2931,7 +3003,7 @@ export default function PsEventDetail() {
                                   }))
                                 }
                                 placeholder={collaboratorPix ? 'PIX do fiscal' : 'Informe o PIX para vincular'}
-                                className="h-9 w-full"
+                                className="h-9 rounded-xl border-primary/15 bg-background/80"
                               />
                             </div>
                           )}
@@ -2944,14 +3016,21 @@ export default function PsEventDetail() {
             </section>
           </div>
 
-          <DialogFooter className="shrink-0 border-t bg-background px-5 py-3 sm:px-6">
-            <div className="mr-auto hidden text-xs text-muted-foreground sm:block">
-              {selected.length
-                ? `${selected.length} fiscal(is) pronto(s) para vincular.`
-                : 'Selecione pelo menos um fiscal para continuar.'}
+          <DialogFooter className="shrink-0 border-t border-border/60 bg-background/95 px-5 py-3.5 sm:px-7">
+            <div className="mr-auto hidden min-w-0 sm:block">
+              <p className="text-xs font-medium">
+                {selected.length
+                  ? `${selected.length} fiscal(is) pronto(s) para vincular`
+                  : 'Selecione pelo menos um fiscal para continuar'}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                Função e campus são obrigatórios.
+              </p>
             </div>
+
             <Button
-              variant="outline"
+              variant="ghost"
+              className="rounded-xl"
               onClick={() => {
                 setAddOpen(false);
                 setSelected([]);
@@ -2963,10 +3042,15 @@ export default function PsEventDetail() {
               Cancelar
             </Button>
             <Button
+              className="min-w-40 rounded-xl shadow-lg shadow-primary/15"
               onClick={linkFiscals}
               disabled={!selected.length || !roleValue || !campusValue.trim() || add.isPending}
             >
-              {add.isPending ? 'Vinculando...' : `Vincular ${selected.length || ''} fiscal(is)`}
+              {add.isPending
+                ? 'Vinculando...'
+                : selected.length
+                  ? `Vincular ${selected.length} fiscal(is)`
+                  : 'Vincular fiscais'}
             </Button>
           </DialogFooter>
         </DialogContent>
