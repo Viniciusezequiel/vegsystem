@@ -115,6 +115,7 @@ type Props = {
   onClearTeam?: () => void;
   onEditMember?: (link: any) => void;
   onRemoveMember?: (link: any) => void;
+  onReincludeMember?: (link: any) => void;
   onEvaluateMember?: (link: any) => void;
   onTogglePresence?: (link: any, field: 'present' | 'absent', value: boolean) => void;
 };
@@ -132,6 +133,7 @@ export function PsEventCommunicationTab({
   onClearTeam,
   onEditMember,
   onRemoveMember,
+  onReincludeMember,
   onEvaluateMember,
   onTogglePresence,
 }: Props) {
@@ -674,13 +676,13 @@ export function PsEventCommunicationTab({
                       {onEvaluateMember && <DropdownMenuItem onSelect={() => onEvaluateMember(link)}><Star className="mr-2 h-4 w-4" />Avaliar fiscal</DropdownMenuItem>}
                       {['pending_confirmation', 'declined'].includes(link.participation_status) && (
                         <>
-                          <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onRequestConfirmation(link)}>{link.public_confirmation_token_hash ? 'Gerar novo link' : 'Gerar link'}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onRequestConfirmation(link)}>{link.participation_status === 'declined' ? 'Revalidar participação' : (link.public_confirmation_token_hash ? 'Gerar novo link' : 'Gerar link')}</DropdownMenuItem>
                           <DropdownMenuItem disabled={requestingConfirmation} onSelect={() => onCopyConfirmationMessage(link)}>Copiar mensagem + link</DropdownMenuItem>
                         </>
                       )}
                       <DropdownMenuItem onSelect={() => openMessage('event_message', link.id)}>Enviar mensagem por e-mail</DropdownMenuItem>
                       {link.participation_status !== 'replaced' && <DropdownMenuItem onSelect={() => onReplace(link)}>Substituir fiscal</DropdownMenuItem>}
-                      {onRemoveMember && <DropdownMenuItem onSelect={() => onRemoveMember(link)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" />Remover vínculo</DropdownMenuItem>}
+                      {onRemoveMember && <DropdownMenuItem onSelect={() => onRemoveMember(link)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" />Excluir deste evento</DropdownMenuItem>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </td>
