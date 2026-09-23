@@ -16,6 +16,7 @@ const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'participation_status', 'confirmation_requested_at', 'confirmed_at', 'declined_at',
   'decline_reason', 'replacement_for_event_collaborator_id', 'original_event_collaborator_id',
   'public_confirmation_token_expires_at', 'public_confirmation_token_revoked_at',
+  'manually_excluded', 'manually_excluded_at', 'manual_exclusion_reason',
 ].join(',');
 
 /* ---------------- Cargos ---------------- */
@@ -630,16 +631,26 @@ export function usePsEventCollaboratorMutations(eventId?: string) {
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('ps_event_collaborators').delete().eq('id', id);
+    mutationFn: async ({ id, reason = 'Removido manualmente do evento' }: { id: string; reason?: string }) => {
+      const { error } = await supabase.from('ps_event_collaborators').update({ manually_excluded: true, manually_excluded_at: new Date().toISOString(), manual_exclusion_reason: reason, public_confirmation_token_revoked_at: new Date().toISOString() }).eq('id', id);
       if (error) throw error;
       await syncEvaluators();
     },
-    onSuccess: () => { invalidate(); toast.success('Vínculo removido!'); },
+    onSuccess: () => { invalidate(); toast.success('Fiscal excluído deste evento.'); },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return { add, update, updateState, remove };
+  const reinclude = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ps_event_collaborators').update({ manually_excluded: false, manually_excluded_at: null, manual_exclusion_reason: null }).eq('id', id);
+      if (error) throw error;
+      await syncEvaluators();
+    },
+    onSuccess: () => { invalidate(); toast.success('Fiscal reincluído no evento.'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return { add, update, updateState, remove, reinclude };
 }
 
 /* ---------------- Importação da equipe do evento (planilha oficial) ---------------- */
