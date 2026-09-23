@@ -222,6 +222,26 @@ export default function PsEventDetail() {
     [links]
   );
 
+  const eventReadiness = useMemo(() => {
+    const confirmed = links.filter((l: any) => l.participation_status === 'confirmed').length;
+    const pending = links.filter((l: any) => l.participation_status === 'pending_confirmation').length;
+    const declined = links.filter((l: any) => l.participation_status === 'declined').length;
+    const replaced = links.filter((l: any) => l.participation_status === 'replaced').length;
+    const operational = links.filter((l: any) =>
+      ['confirmed', 'pending_confirmation'].includes(l.participation_status)
+    ).length;
+    const activeLinks = links.filter((l: any) => l.participation_status !== 'replaced').length;
+    return {
+      total: activeLinks,
+      confirmed,
+      pending,
+      declined,
+      replaced,
+      operational,
+      ready: declined === 0 && pending === 0 && operational > 0,
+    };
+  }, [links]);
+
   const operationalLinks = useMemo(
     () =>
       links.filter((link: any) =>
@@ -1662,6 +1682,52 @@ export default function PsEventDetail() {
                     {eventReadiness.declined > 0 && <Badge variant="outline">⚠ {eventReadiness.declined} recusa(s) precisam de substituição</Badge>}
                     {eventReadiness.pending > 0 && <Badge variant="outline">⚠ {eventReadiness.pending} confirmação(ões) pendente(s)</Badge>}
                     {eventReadiness.inactive > 0 && <Badge variant="outline">⚠ {eventReadiness.inactive} fiscal(is) inativo(s)</Badge>}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-border/70 bg-background">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">Prontidão do evento</p>
+                      <Badge variant={eventReadiness.ready ? 'default' : 'outline'}>
+                        {eventReadiness.ready ? 'Pronto' : 'Ação necessária'}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Visão rápida das pendências da equipe antes do fechamento.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded-lg border px-3 py-2 text-center">
+                      <p className="text-lg font-semibold">{eventReadiness.confirmed}</p>
+                      <p className="text-[10px] text-muted-foreground">Confirmados</p>
+                    </div>
+                    <div className="rounded-lg border px-3 py-2 text-center">
+                      <p className="text-lg font-semibold">{eventReadiness.pending}</p>
+                      <p className="text-[10px] text-muted-foreground">Aguardando</p>
+                    </div>
+                    <div className="rounded-lg border px-3 py-2 text-center">
+                      <p className="text-lg font-semibold">{eventReadiness.declined}</p>
+                      <p className="text-[10px] text-muted-foreground">Recusaram</p>
+                    </div>
+                    <div className="rounded-lg border px-3 py-2 text-center">
+                      <p className="text-lg font-semibold">{eventReadiness.replaced}</p>
+                      <p className="text-[10px] text-muted-foreground">Substituídos</p>
+                    </div>
+                  </div>
+                </div>
+                {!eventReadiness.ready && (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    {eventReadiness.declined > 0 && (
+                      <Badge variant="outline">🔴 {eventReadiness.declined} substituição(ões) necessária(s)</Badge>
+                    )}
+                    {eventReadiness.pending > 0 && (
+                      <Badge variant="outline">🟡 {eventReadiness.pending} aguardando confirmação</Badge>
+                    )}
                   </div>
                 )}
               </CardContent>
