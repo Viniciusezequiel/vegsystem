@@ -179,7 +179,7 @@ export function PsEventTeamImportDialog({
       && (d.status === 'ambiguous' || d.status === 'inconsistent')
       && !confirmedNames[d.rowIndex]).length
     : 0;
-  const importableCount = plan ? Math.max(0, preview.length - plan.inactiveCount) : 0;
+  const importableCount = plan ? Math.max(0, preview.length - plan.inactiveCount - plan.manuallyExcludedCount) : 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setPreview([]); setFileName(''); setPlan(null); setConfirmedNames({}); setExcludedBySelection(0); } }}>
@@ -261,6 +261,26 @@ export function PsEventTeamImportDialog({
               <Card><CardContent className="p-3"><p className="text-muted-foreground">Ignorados</p><p className="text-xl font-bold">{plan.ignored}</p></CardContent></Card>
               <Card className={plan.inactiveCount ? 'border-amber-500/40 bg-amber-500/5' : ''}><CardContent className="p-3"><p className="text-muted-foreground">Inativos ignorados</p><p className="text-xl font-bold">{plan.inactiveCount}</p></CardContent></Card>
             </div>
+          )}
+
+          {plan && plan.manuallyExcludedCount > 0 && (
+            <Card className="rounded-xl border-slate-400/40 bg-slate-500/5">
+              <CardContent className="space-y-2 p-4">
+                <p className="text-sm font-semibold">Mantidos fora deste evento</p>
+                <p className="text-xs text-muted-foreground">
+                  Estes fiscais já foram excluídos manualmente deste evento e não serão reativados por uma nova importação.
+                  Para voltar a incluí-los, use a opção <strong>Reincluir no evento</strong>.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {plan.manuallyExcludedNames.slice(0, 8).map((name) => (
+                    <Badge key={name} variant="secondary" className="font-normal">{name}</Badge>
+                  ))}
+                  {plan.manuallyExcludedCount > 8 && (
+                    <Badge variant="outline">+{plan.manuallyExcludedCount - 8}</Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {plan && plan.inactiveMatches.length > 0 && (

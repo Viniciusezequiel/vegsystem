@@ -52,23 +52,26 @@ export type PsTeamImportPreview = {
   inactiveCount: number;
   inactiveMatches: { rowIndex: number; sheetName: string; registeredName: string }[];
   nameMatches: PsNameMatchSuggestion[];
+  manuallyExcludedCount: number;
+  manuallyExcludedNames: string[];
 };
 
 async function loadPsImportContext(eventId: string) {
   const [{ data: existing, error: existingError }, { data: links, error: linksError }] = await Promise.all([
     supabase.from('ps_collaborators').select('id,full_name,cpf,email,email_normalized,matricula,institution,active'),
-    supabase.from('ps_event_collaborators').select('collaborator_id').eq('event_id', eventId),
+    supabase.from('ps_event_collaborators').select('collaborator_id,manually_excluded').eq('event_id', eventId),
   ]);
   if (existingError) throw existingError;
   if (linksError) throw linksError;
   return {
     existing: existing || [],
     linked: new Set((links || []).map((item: any) => item.collaborator_id).filter(Boolean)),
+    manuallyExcluded: new Set((links || []).filter((item: any) => item.manually_excluded).map((item: any) => item.collaborator_id).filter(Boolean)),
   };
 }
 
 export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImportRow[]): Promise<PsTeamImportPreview> {
-  const { existing, linked } = await loadPsImportContext(eventId);
+  const { existing, linked, manuallyExcluded } = await loadPsImportContext(eventId);
   const decisions = planPsFiscalReconciliation(existing, rows);
   const collaboratorById = new Map(existing.map((item: any) => [item.id, item]));
   let found = 0;
@@ -78,9 +81,14 @@ export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImpo
   let ignored = 0;
   const inactiveMatches: PsTeamImportPreview['inactiveMatches'] = [];
   const nameMatches: PsNameMatchSuggestion[] = [];
+  const manuallyExcludedNames: string[] = [];
 
   for (const decision of decisions) {
     const matchedCollaborator: any = decision.status === 'matched' ? collaboratorById.get(decision.collaboratorId) : null;
+    if (decision.collaboratorId && manuallyExcluded.has(decision.collaboratorId)) {
+      manuallyExcludedNames.push(rows[decision.rowIndex].full_name);
+      continue;
+    }
     if (matchedCollaborator?.active === false) {
       inactiveMatches.push({
         rowIndex: decision.rowIndex,
@@ -127,6 +135,8 @@ export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImpo
     inactiveCount: inactiveMatches.length,
     inactiveMatches,
     nameMatches,
+    manuallyExcludedCount: manuallyExcludedNames.length,
+    manuallyExcludedNames,
   };
 }
 
@@ -139,7 +149,7 @@ export function usePsImportEventTeam() {
       rows: PsTeamImportRow[];
       nameOverrides?: Record<number, string>;
     }) => {
-      const { existing } = await loadPsImportContext(eventId);
+      const { existing, manuallyExcluded } = await loadPsImportContext(eventId);
       const decisions = planPsFiscalReconciliation(existing, rows);
       const collaboratorById = new Map(existing.map((item: any) => [item.id, item]));
       const inactiveRows = new Set(decisions
@@ -166,6 +176,7 @@ export function usePsImportEventTeam() {
 
       for (const decision of decisions) {
         if (inactiveRows.has(decision.rowIndex)) continue;
+        if (manuallyExcluded.has(decision.collaboratorId)) continue;
 
         const row = rows[decision.rowIndex];
         let id: string;
