@@ -796,13 +796,59 @@ export default function PsEventDetail() {
           .includes(q)
       )
       .map((c: any) => {
+        const preferredRole = normalize(c.preferred_role);
         const rolesText = [c.preferred_role, c.role, c.position].map(normalize).filter(Boolean);
-        const compatible = !!targetRole && rolesText.some((role: string) =>
-          role === targetRole || role.includes(targetRole) || targetRole.includes(role)
+        const exactRole = !!targetRole && rolesText.some((role: string) =>
+          role === targetRole
         );
-        return { ...c, roleCompatible: compatible };
+        const partialRole = !!targetRole && rolesText.some((role: string) =>
+          role.includes(targetRole) || targetRole.includes(role)
+        );
+        const reasons: string[] = [];
+        let score = 0;
+
+        if (exactRole) {
+          score += 70;
+          reasons.push('função exata');
+        } else if (partialRole) {
+          score += 45;
+          reasons.push('função próxima');
+        }
+
+        if (preferredRole && targetRole && preferredRole === targetRole) {
+          score += 10;
+          reasons.push('preferência cadastrada');
+        }
+
+        const targetUnit = normalize(campusValue);
+        const candidateUnit = normalize(c.unit);
+        if (targetUnit && candidateUnit && candidateUnit === targetUnit) {
+          score += 8;
+          reasons.push('mesma unidade');
+        }
+
+        const targetJourney = normalize((selectedRole as any)?.journey || (selectedRole as any)?.work_schedule);
+        const candidateJourney = normalize(c.journey);
+        if (targetJourney && candidateJourney && candidateJourney === targetJourney) {
+          score += 5;
+          reasons.push('jornada compatível');
+        }
+
+        const rating = Number(c.average_rating || 0);
+        if (rating > 0) {
+          score += Math.min(7, rating * 1.4);
+          reasons.push(`avaliação ${rating.toFixed(1)}`);
+        }
+
+        return {
+          ...c,
+          roleCompatible: exactRole || partialRole,
+          compatibilityScore: Math.min(100, Math.round(score)),
+          compatibilityReasons: reasons,
+        };
       })
       .sort((a: any, b: any) =>
+        b.compatibilityScore - a.compatibilityScore ||
         Number(b.roleCompatible) - Number(a.roleCompatible) ||
         String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
       );
@@ -2693,7 +2739,11 @@ export default function PsEventDetail() {
                       <span className="w-full min-w-0 flex flex-col items-start text-left">
                         <span className="flex w-full items-center justify-between gap-2">
                           <span className="max-w-full font-medium break-words whitespace-normal text-left">{c.full_name || 'Sem nome'}</span>
-                          {c.roleCompatible && <Badge variant="secondary" className="shrink-0 text-[10px]"><Check className="mr-1 h-3 w-3" />Compatível</Badge>}
+                          {c.compatibilityScore > 0 && (
+                            <Badge variant={c.compatibilityScore >= 70 ? 'default' : 'secondary'} className="shrink-0 text-[10px]">
+                              <Check className="mr-1 h-3 w-3" />{c.compatibilityScore}% encaixe
+                            </Badge>
+                          )}
                         </span>
 
                         {(emailText || matriculaText) && (
@@ -2709,6 +2759,11 @@ export default function PsEventDetail() {
                             {institutionText}
                             {(institutionText && unitText) && <span> · </span>}
                             {unitText && <span>Unidade de trabalho: {unitText}</span>}
+                          </span>
+                        )}
+                        {c.compatibilityReasons?.length > 0 && (
+                          <span className="max-w-full text-left text-[11px] text-primary/80 whitespace-normal break-words">
+                            {c.compatibilityReasons.join(' · ')}
                           </span>
                         )}
                       </span>
