@@ -1572,14 +1572,53 @@ export default function PsEventDetail() {
             </div>
           </header>
 
-          {activeTab === 'visao-geral' && (
-            <section className="ps-event-stats" aria-label="Resumo do evento">
-              <Card className="ps-event-stat ps-event-stat--violet"><CardContent><p>Equipe</p><strong>{links.length}</strong><span>fiscais vinculados</span></CardContent></Card>
-              <Card className="ps-event-stat ps-event-stat--green"><CardContent><p>Presentes</p><strong>{links.filter((l: any) => l.present).length}</strong><span>presenças registradas</span></CardContent></Card>
-              <Card className="ps-event-stat ps-event-stat--rose"><CardContent><p>Ausentes</p><strong>{links.filter((l: any) => l.absent).length}</strong><span>ausências registradas</span></CardContent></Card>
-              <Card className="ps-event-stat ps-event-stat--blue"><CardContent><p>Avaliações</p><strong>{links.filter((l: any) => l.evaluated).length}</strong><span>avaliações concluídas</span></CardContent></Card>
-            </section>
-          )}
+          {activeTab === 'visao-geral' && (() => {
+            const confirmed = links.filter((l: any) => l.participation_status === 'confirmed').length;
+            const pending = links.filter((l: any) => l.participation_status === 'pending_confirmation').length;
+            const declined = links.filter((l: any) => l.participation_status === 'declined').length;
+            const replaced = links.filter((l: any) => l.participation_status === 'replaced').length;
+            const activeTeam = confirmed + pending;
+            const checklist = [
+              { label: 'Equipe vinculada', value: links.length > 0, detail: `${links.length} fiscal(is) no evento` },
+              { label: 'Confirmações', value: pending === 0 && declined === 0, detail: pending > 0 ? `${pending} aguardando confirmação` : declined > 0 ? `${declined} recusa(s) aguardando substituição` : 'Todos respondidos' },
+              { label: 'Substituições', value: declined === 0, detail: declined > 0 ? `${declined} vaga(s) precisam de substituto` : replaced > 0 ? `${replaced} substituição(ões) registrada(s)` : 'Nenhuma pendência' },
+              { label: 'Equipe operacional', value: activeTeam > 0, detail: `${confirmed} confirmado(s) · ${pending} pendente(s)` },
+            ];
+            const ready = checklist.every((item) => item.value);
+
+            return (
+              <>
+                <section className="ps-event-stats" aria-label="Resumo do evento">
+                  <Card className="ps-event-stat ps-event-stat--violet"><CardContent><p>Equipe</p><strong>{links.length}</strong><span>fiscais vinculados</span></CardContent></Card>
+                  <Card className="ps-event-stat ps-event-stat--green"><CardContent><p>Presentes</p><strong>{links.filter((l: any) => l.present).length}</strong><span>presenças registradas</span></CardContent></Card>
+                  <Card className="ps-event-stat ps-event-stat--rose"><CardContent><p>Ausentes</p><strong>{links.filter((l: any) => l.absent).length}</strong><span>ausências registradas</span></CardContent></Card>
+                  <Card className="ps-event-stat ps-event-stat--blue"><CardContent><p>Avaliações</p><strong>{links.filter((l: any) => l.evaluated).length}</strong><span>avaliações concluídas</span></CardContent></Card>
+                </section>
+                <Card className="mt-4 rounded-2xl border-border/70">
+                  <CardHeader className="pb-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <CardTitle className="text-base">Checklist operacional</CardTitle>
+                        <p className="text-sm text-muted-foreground">Veja rapidamente o que ainda precisa de atenção neste evento.</p>
+                      </div>
+                      <Badge variant={ready ? 'default' : 'secondary'}>{ready ? 'Pronto' : 'Atenção necessária'}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    {checklist.map((item) => (
+                      <div key={item.label} className="rounded-xl border bg-muted/20 p-3">
+                        <div className="flex items-center gap-2">
+                          {item.value ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />}
+                          <span className="text-sm font-medium">{item.label}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
 
           <div className="ps-event-mobile-nav">
             <Label htmlFor="ps-event-section">Área do evento</Label>
