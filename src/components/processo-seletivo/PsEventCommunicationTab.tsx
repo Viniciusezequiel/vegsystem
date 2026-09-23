@@ -105,6 +105,7 @@ function formatSentAt(value?: string | null) {
 type Props = {
   event: any;
   links: any[];
+  excludedLinks?: any[];
   onRequestConfirmation: (link: any) => void;
   onCopyConfirmationMessage: (link: any) => void;
   onReplace: (link: any) => void;
@@ -123,6 +124,7 @@ type Props = {
 export function PsEventCommunicationTab({
   event,
   links,
+  excludedLinks = [],
   onRequestConfirmation,
   onCopyConfirmationMessage,
   onReplace,
@@ -693,6 +695,33 @@ export function PsEventCommunicationTab({
         {!filtered.length && <p className="p-4 text-muted-foreground">Nenhum fiscal corresponde aos filtros.</p>}
       </CardContent>
     </Card>
+
+    {excludedLinks.length > 0 && (
+      <Card className="border-amber-500/20 bg-amber-500/5">
+        <CardHeader>
+          <CardTitle className="text-base">Excluídos deste evento ({excludedLinks.length})</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Esses fiscais permanecem no histórico e não serão recolocados por novas importações. Você pode reincluí-los quando necessário.</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {excludedLinks.map((link: any) => (
+            <div key={link.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/70 p-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{link.collaborator_name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {[link.role_name || link.assigned_role, link.building, link.floor && (link.floor + 'º andar'), link.room && ('Sala ' + link.room)].filter(Boolean).join(' · ') || 'Sem localização'}
+                </p>
+                {link.manual_exclusion_reason && <p className="mt-1 text-[11px] text-muted-foreground">{link.manual_exclusion_reason}</p>}
+              </div>
+              {onReincludeMember && (
+                <Button size="sm" variant="outline" onClick={() => onReincludeMember(link)}>
+                  Reincluir no evento
+                </Button>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )}
 
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
