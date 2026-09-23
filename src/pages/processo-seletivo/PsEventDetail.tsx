@@ -856,7 +856,7 @@ export default function PsEventDetail() {
         Number(b.roleCompatible) - Number(a.roleCompatible) ||
         String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
       );
-  }, [collaborators, links, searchFiscal, sameDayCollaboratorIds, roles, roleValue]);
+  }, [collaborators, links, searchFiscal, sameDayCollaboratorIds, roles, roleValue, campusValue]);
 
   const linkFiscals = async () => {
     if (!selected.length || !roleValue || !campusValue.trim()) return;
@@ -2964,9 +2964,9 @@ export default function PsEventDetail() {
             </Button>
             <Button
               onClick={linkFiscals}
-              disabled={!selected.length || !roleValue || !campusValue.trim() || linking}
+              disabled={!selected.length || !roleValue || !campusValue.trim() || add.isPending}
             >
-              {linking ? 'Vinculando...' : `Vincular ${selected.length || ''} fiscal(is)`}
+              {add.isPending ? 'Vinculando...' : `Vincular ${selected.length || ''} fiscal(is)`}
             </Button>
           </DialogFooter>
         </DialogContent>
