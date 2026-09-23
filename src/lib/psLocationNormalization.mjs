@@ -45,12 +45,18 @@ export function getPsAttendanceLocation(link) {
     .find(isMeaningfulPsLocation) || '';
 
   const campusKey = normalizePsLocation(campusSource);
+  const campusLabel = normalizePsLocation(campusLabelSource);
   const buildingKey = normalizePsLocation(buildingSource, { building: true });
 
+  // Use the same normalized values shown in the UI as the location identity.
+  // This prevents variants coming from campus/unit/building fields from
+  // creating duplicate cards for the same physical building.
+  const locationCampusKey = campusLabel || campusKey;
+
   return {
-    key: `${campusKey}|||${buildingKey || 'SEM PREDIO'}`,
+    key: `${locationCampusKey}|||${buildingKey || 'SEM PREDIO'}`,
     campus: campusKey,
-    campusLabel: normalizePsLocation(campusLabelSource),
+    campusLabel,
     building: buildingKey || 'SEM PRÉDIO DEFINIDO',
   };
 }

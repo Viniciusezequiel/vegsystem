@@ -16,6 +16,7 @@ const PS_EVENT_COLLABORATOR_LIST_SELECT = [
   'participation_status', 'confirmation_requested_at', 'confirmed_at', 'declined_at',
   'decline_reason', 'replacement_for_event_collaborator_id', 'original_event_collaborator_id',
   'public_confirmation_token_expires_at', 'public_confirmation_token_revoked_at',
+  'manually_excluded', 'manually_excluded_at', 'manual_exclusion_reason',
 ].join(',');
 
 /* ---------------- Cargos ---------------- */
@@ -436,7 +437,15 @@ export function usePsConfirmationActions(eventId?: string) {
       return data[0];
     },
     onSuccess: () => { invalidate(); toast.success('Fiscal substituído; novo vínculo aguarda confirmação.'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      const messages: Record<string, string> = {
+        collaborator_has_same_day_assignment: 'Esse fiscal já está alocado em outro processo seletivo no mesmo dia.',
+        collaborator_already_linked: 'Esse fiscal já está vinculado a este evento.',
+        active_replacement_not_found: 'O fiscal selecionado não está mais ativo no banco.',
+        invalid_replacement_source: 'O vínculo original não pode mais ser substituído.',
+      };
+      toast.error(messages[e.message] || e.message);
+    },
   });
   return { request, replace };
 }
@@ -630,16 +639,26 @@ export function usePsEventCollaboratorMutations(eventId?: string) {
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('ps_event_collaborators').delete().eq('id', id);
+    mutationFn: async ({ id, reason = 'Removido manualmente do evento' }: { id: string; reason?: string }) => {
+      const { error } = await supabase.from('ps_event_collaborators').update({ manually_excluded: true, manually_excluded_at: new Date().toISOString(), manual_exclusion_reason: reason, public_confirmation_token_revoked_at: new Date().toISOString() }).eq('id', id);
       if (error) throw error;
       await syncEvaluators();
     },
-    onSuccess: () => { invalidate(); toast.success('Vínculo removido!'); },
+    onSuccess: () => { invalidate(); toast.success('Fiscal excluído deste evento.'); },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return { add, update, updateState, remove };
+  const reinclude = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ps_event_collaborators').update({ manually_excluded: false, manually_excluded_at: null, manual_exclusion_reason: null }).eq('id', id);
+      if (error) throw error;
+      await syncEvaluators();
+    },
+    onSuccess: () => { invalidate(); toast.success('Fiscal reincluído no evento.'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return { add, update, updateState, remove, reinclude };
 }
 
 /* ---------------- Importação da equipe do evento (planilha oficial) ---------------- */

@@ -1291,6 +1291,9 @@ export type Database = {
           journey: string | null
           matricula: string | null
           mobile: string | null
+          manually_excluded: boolean
+          manually_excluded_at: string | null
+          manual_exclusion_reason: string | null
           notes: string | null
           pcd: string
           phone: string | null
@@ -1320,6 +1323,9 @@ export type Database = {
           journey?: string | null
           matricula?: string | null
           mobile?: string | null
+          manually_excluded?: boolean
+          manually_excluded_at?: string | null
+          manual_exclusion_reason?: string | null
           notes?: string | null
           pcd?: string
           phone?: string | null
@@ -1349,6 +1355,9 @@ export type Database = {
           journey?: string | null
           matricula?: string | null
           mobile?: string | null
+          manually_excluded?: boolean
+          manually_excluded_at?: string | null
+          manual_exclusion_reason?: string | null
           notes?: string | null
           pcd?: string
           phone?: string | null
@@ -1538,6 +1547,9 @@ export type Database = {
           import_tag: string | null
           institution: string | null
           mobile: string | null
+          manually_excluded: boolean
+          manually_excluded_at: string | null
+          manual_exclusion_reason: string | null
           notes: string | null
           pay_value: number
           phone: string | null
@@ -1573,6 +1585,9 @@ export type Database = {
           import_tag?: string | null
           institution?: string | null
           mobile?: string | null
+          manually_excluded?: boolean
+          manually_excluded_at?: string | null
+          manual_exclusion_reason?: string | null
           notes?: string | null
           pay_value?: number
           phone?: string | null
@@ -1608,6 +1623,9 @@ export type Database = {
           import_tag?: string | null
           institution?: string | null
           mobile?: string | null
+          manually_excluded?: boolean
+          manually_excluded_at?: string | null
+          manual_exclusion_reason?: string | null
           notes?: string | null
           pay_value?: number
           phone?: string | null
