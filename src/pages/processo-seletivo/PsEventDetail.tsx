@@ -2646,15 +2646,15 @@ export default function PsEventDetail() {
         }}
       >
         <DialogContent
-          className="flex h-[88vh] max-h-[88vh] w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden p-0 sm:w-[calc(100vw-3rem)]"
+          className="flex h-[90vh] max-h-[90vh] w-[calc(100vw-1rem)] max-w-6xl flex-col overflow-hidden p-0 sm:w-[calc(100vw-2rem)]"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="shrink-0 border-b bg-background px-6 py-5">
-            <div className="flex items-start justify-between gap-4 pr-6">
+          <DialogHeader className="shrink-0 border-b bg-background px-5 py-4 sm:px-6">
+            <div className="flex items-start justify-between gap-4 pr-5">
               <div className="min-w-0">
-                <DialogTitle className="text-xl">Vincular fiscais ao evento</DialogTitle>
-                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                  Defina a função e o campus. Depois escolha os fiscais disponíveis para este evento.
+                <DialogTitle className="text-lg sm:text-xl">Vincular fiscais ao evento</DialogTitle>
+                <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  Configure a função e o campus. Em seguida, pesquise e selecione um ou vários fiscais disponíveis.
                 </p>
               </div>
               <Badge variant="secondary" className="shrink-0 px-3 py-1">
@@ -2663,21 +2663,21 @@ export default function PsEventDetail() {
             </div>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <div className="grid h-full min-h-0 grid-cols-1 gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
-              <aside className="min-h-0 overflow-y-auto border-b bg-muted/10 p-5 lg:border-b-0 lg:border-r">
-                <div className="space-y-5">
-                  <div>
-                    <p className="text-sm font-semibold">Configuração</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Esses dados serão aplicados aos fiscais selecionados.
-                    </p>
-                  </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="space-y-5 p-4 sm:p-6">
+              <section className="rounded-2xl border bg-muted/[0.12] p-4 sm:p-5">
+                <div className="mb-4">
+                  <p className="text-sm font-semibold">Configuração da vinculação</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Esses dados serão aplicados a todos os fiscais selecionados.
+                  </p>
+                </div>
 
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px]">
                   <div className="space-y-2">
                     <Label>Função *</Label>
                     <Select value={roleValue} onValueChange={setRoleValue}>
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className="h-11 w-full">
                         <SelectValue placeholder="Selecione a função" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2695,7 +2695,7 @@ export default function PsEventDetail() {
                       <Label>Campus do evento *</Label>
                       {eventCampusOptions.length > 0 && (
                         <span className="text-[10px] text-muted-foreground">
-                          {eventCampusOptions.length === 1 ? 'automático' : 'já utilizado'}
+                          {eventCampusOptions.length === 1 ? 'já utilizado' : 'existentes no evento'}
                         </span>
                       )}
                     </div>
@@ -2706,7 +2706,7 @@ export default function PsEventDetail() {
                           value={eventCampusOptions.includes(campusValue.trim()) ? campusValue.trim() : ''}
                           onValueChange={setCampusValue}
                         >
-                          <SelectTrigger className="h-11">
+                          <SelectTrigger className="h-11 w-full">
                             <SelectValue placeholder="Selecione o campus" />
                           </SelectTrigger>
                           <SelectContent>
@@ -2720,7 +2720,7 @@ export default function PsEventDetail() {
                             value={campusValue}
                             onChange={(e) => setCampusValue(e.target.value)}
                             placeholder="Ou digite outro campus..."
-                            className="h-10"
+                            className="h-10 w-full"
                           />
                         )}
                       </>
@@ -2729,84 +2729,80 @@ export default function PsEventDetail() {
                         value={campusValue}
                         onChange={(e) => setCampusValue(e.target.value)}
                         placeholder="Ex.: Campus Fumec"
-                        className="h-11"
+                        className="h-11 w-full"
                       />
-                    )}
-
-                    {eventCampusOptions.length === 1 && (
-                      <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        Campus preenchido a partir dos vínculos já existentes neste evento.
-                      </p>
                     )}
                   </div>
 
                   <div className="rounded-xl border bg-background p-3">
                     <p className="text-xs font-semibold">Resumo</p>
-                    <div className="mt-3 space-y-2 text-xs">
-                      <div className="flex items-center justify-between gap-2">
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between gap-2 text-xs">
                         <span className="text-muted-foreground">Disponíveis</span>
                         <Badge variant="outline">{visibleCollaborators.length}</Badge>
                       </div>
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 text-xs">
                         <span className="text-muted-foreground">Selecionados</span>
                         <Badge>{selected.length}</Badge>
                       </div>
                     </div>
                   </div>
                 </div>
-              </aside>
+              </section>
 
-              <section className="flex min-h-0 flex-col p-5">
-                <div className="shrink-0 rounded-xl border bg-background p-4">
-                  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">Fiscais disponíveis</p>
+              <section className="rounded-2xl border bg-background">
+                <div className="border-b p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold">Fiscais disponíveis</p>
+                        <Badge variant="outline">{visibleCollaborators.length}</Badge>
+                      </div>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Somente fiscais ativos, livres no dia e ainda não vinculados a este evento.
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge variant="outline">{visibleCollaborators.length} disponíveis</Badge>
-                      {visibleCollaborators.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const ids = visibleCollaborators.map((c: any) => c.id);
-                            const allSelected = ids.every((cid: string) => selected.includes(cid));
-                            setSelected(
-                              allSelected
-                                ? selected.filter((cid) => !ids.includes(cid))
-                                : Array.from(new Set([...selected, ...ids]))
-                            );
-                          }}
-                        >
-                          {visibleCollaborators.every((c: any) => selected.includes(c.id))
-                            ? 'Desmarcar todos'
-                            : 'Selecionar todos'}
-                        </Button>
-                      )}
-                    </div>
+
+                    {visibleCollaborators.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => {
+                          const ids = visibleCollaborators.map((c: any) => c.id);
+                          const allSelected = ids.every((cid: string) => selected.includes(cid));
+                          setSelected(
+                            allSelected
+                              ? selected.filter((cid) => !ids.includes(cid))
+                              : Array.from(new Set([...selected, ...ids]))
+                          );
+                        }}
+                      >
+                        {visibleCollaborators.every((c: any) => selected.includes(c.id))
+                          ? 'Desmarcar todos'
+                          : 'Selecionar todos'}
+                      </Button>
+                    )}
                   </div>
 
-                  <div className="mt-3">
+                  <div className="mt-4">
                     <Input
                       value={searchFiscal}
                       onChange={(e) => setSearchFiscal(e.target.value)}
                       placeholder="Buscar por nome, e-mail, matrícula, instituição ou unidade..."
-                      className="h-10"
+                      className="h-11 w-full"
                     />
                   </div>
                 </div>
 
                 {selected.length > 0 && (
-                  <div className="mt-3 shrink-0 rounded-xl border border-primary/20 bg-primary/[0.04] p-3">
+                  <div className="border-b bg-primary/[0.025] p-4 sm:p-5">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold">Selecionados</p>
+                      <div>
+                        <p className="text-xs font-semibold">Fiscais selecionados</p>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          Clique em um nome para remover.
+                          Clique em um nome para remover da seleção.
                         </p>
                       </div>
                       <Button type="button" variant="ghost" size="sm" onClick={() => setSelected([])}>
@@ -2821,7 +2817,8 @@ export default function PsEventDetail() {
                             key={cid}
                             type="button"
                             onClick={() => setSelected(selected.filter((x) => x !== cid))}
-                            className="rounded-full border bg-background px-2.5 py-1 text-[11px] font-medium transition hover:bg-muted"
+                            className="max-w-full truncate rounded-full border bg-background px-2.5 py-1 text-[11px] font-medium transition hover:bg-muted"
+                            title={person.full_name}
                           >
                             {person.full_name}
                           </button>
@@ -2831,13 +2828,13 @@ export default function PsEventDetail() {
                   </div>
                 )}
 
-                <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="p-3 sm:p-4">
                   {visibleCollaborators.length === 0 ? (
-                    <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed">
+                    <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed">
                       <p className="text-sm text-muted-foreground">Nenhum fiscal encontrado.</p>
                     </div>
                   ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {visibleCollaborators.map((c: any) => {
                         const emailText = c.email ? String(c.email).trim() : '';
                         const matriculaText = c.matricula ? String(c.matricula).trim() : '';
@@ -2850,7 +2847,7 @@ export default function PsEventDetail() {
                         return (
                           <div
                             key={c.id}
-                            className={`rounded-xl border p-3 transition ${isSelected ? 'border-primary/50 bg-primary/[0.035] shadow-sm' : 'bg-background hover:border-primary/30'}`}
+                            className={`min-w-0 rounded-xl border p-3 transition ${isSelected ? 'border-primary/50 bg-primary/[0.035] shadow-sm' : 'bg-background hover:border-primary/30'}`}
                           >
                             <button
                               type="button"
@@ -2861,14 +2858,14 @@ export default function PsEventDetail() {
                                     : [...selected, c.id]
                                 )
                               }
-                              className="w-full text-left"
+                              className="w-full min-w-0 text-left"
                             >
-                              <div className="flex items-start gap-3">
+                              <div className="flex min-w-0 items-start gap-3">
                                 <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30'}`}>
                                   {isSelected && <Check className="h-3.5 w-3.5" />}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <div className="flex items-start justify-between gap-2">
+                                  <div className="flex min-w-0 items-start justify-between gap-2">
                                     <p className="min-w-0 break-words text-sm font-semibold leading-tight">
                                       {c.full_name || 'Sem nome'}
                                     </p>
@@ -2889,11 +2886,11 @@ export default function PsEventDetail() {
                                         {[institutionText, unitText].filter(Boolean).join(' · ')}
                                       </p>
                                     )}
-                                    {matriculaText && <p>Matrícula {matriculaText}</p>}
+                                    {matriculaText && <p className="break-words">Matrícula {matriculaText}</p>}
                                   </div>
 
                                   {c.compatibilityReasons?.length > 0 && (
-                                    <p className="mt-2 line-clamp-2 text-[10px] leading-relaxed text-primary/80">
+                                    <p className="mt-2 line-clamp-2 break-words text-[10px] leading-relaxed text-primary/80">
                                       {c.compatibilityReasons.join(' · ')}
                                     </p>
                                   )}
@@ -2904,9 +2901,7 @@ export default function PsEventDetail() {
                             {isSelected && (
                               <div className="mt-3 border-t pt-3">
                                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                    PIX
-                                  </Label>
+                                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">PIX</Label>
                                   <Badge variant={resolvedPix ? 'default' : 'secondary'} className="text-[10px]">
                                     {resolvedPix ? 'PIX cadastrado' : 'Sem PIX'}
                                   </Badge>
@@ -2920,7 +2915,7 @@ export default function PsEventDetail() {
                                     }))
                                   }
                                   placeholder={collaboratorPix ? 'PIX do fiscal' : 'Informe PIX para vincular'}
-                                  className={resolvedPix ? 'h-9' : 'h-9 border-destructive/60'}
+                                  className={resolvedPix ? 'h-9 w-full' : 'h-9 w-full border-destructive/60'}
                                 />
                               </div>
                             )}
@@ -2934,7 +2929,7 @@ export default function PsEventDetail() {
             </div>
           </div>
 
-          <DialogFooter className="shrink-0 border-t bg-background px-6 py-4">
+          <DialogFooter className="shrink-0 border-t bg-background px-5 py-3 sm:px-6">
             <Button
               variant="outline"
               onClick={() => {
