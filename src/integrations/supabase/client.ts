@@ -27,6 +27,7 @@ type Table<Row extends Record<string, unknown>> = {
 };
 
 type EventCollaboratorExtra = {
+  manually_excluded: boolean;
   attendance_pix_confirmed_at: string | null;
   attendance_pix_snapshot: string | null;
   attendance_role_snapshot: string | null;
