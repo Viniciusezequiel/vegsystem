@@ -161,6 +161,21 @@ export default function PsEventDetail() {
     },
   });
 
+  const { data: sameDayAssignments = [] } = useQuery({
+    queryKey: ['ps-fiscal-same-day-conflicts', event?.date, id],
+    enabled: !!event?.date && !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_event_collaborators')
+        .select('collaborator_id,event_id,participation_status,ps_events!inner(id,name,date,status)')
+        .neq('event_id', id!)
+        .eq('ps_events.date', event!.date)
+        .in('participation_status', ['pending_confirmation', 'confirmed']);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const operationalChecklist = useMemo(() => {
     const confirmed = Number(confirmationSummary.confirmed || 0);
     const pending = Number(confirmationSummary.pending_confirmation || 0);
@@ -234,21 +249,6 @@ export default function PsEventDetail() {
 
       if (error) throw error;
 
-      return data || [];
-    },
-  });
-
-  const { data: sameDayAssignments = [] } = useQuery({
-    queryKey: ['ps-fiscal-same-day-conflicts', event?.date, id],
-    enabled: !!event?.date && !!id,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('ps_event_collaborators')
-        .select('collaborator_id,event_id,participation_status,ps_events!inner(id,name,date,status)')
-        .neq('event_id', id!)
-        .eq('ps_events.date', event!.date)
-        .in('participation_status', ['pending_confirmation', 'confirmed']);
-      if (error) throw error;
       return data || [];
     },
   });
