@@ -496,8 +496,7 @@ export default function PsEventDetail() {
     return collaborators
       .filter((candidate: any) =>
         candidate.active &&
-        !currentIds.has(candidate.id) &&
-        !sameDayByCollaborator.has(candidate.id)
+        !currentIds.has(candidate.id)
       )
       .map((candidate: any) => {
         const roles = [
@@ -554,6 +553,7 @@ export default function PsEventDetail() {
         };
       })
       .sort((a: any, b: any) =>
+        Number(!!a.sameDayConflict) - Number(!!b.sameDayConflict) ||
         b.replacementScore - a.replacementScore ||
         Number(b.average_rating || 0) - Number(a.average_rating || 0) ||
         String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
@@ -718,7 +718,11 @@ export default function PsEventDetail() {
   };
 
   const openReplacement = (link: any) => {
-    setReplacementTarget(link); setReplacementFiscalId(''); setReplacementPickerOpen(false); setReplacementData(replacementAssignment(link));
+    const bestAvailable = replacementCandidates.find((candidate: any) => !candidate.sameDayConflict);
+    setReplacementTarget(link);
+    setReplacementFiscalId(bestAvailable?.id || '');
+    setReplacementPickerOpen(false);
+    setReplacementData(replacementAssignment(link));
   };
 
   const submitReplacement = async () => {
@@ -2824,20 +2828,36 @@ export default function PsEventDetail() {
                   <p className="text-sm font-semibold">Sugestão automática</p>
                   <p className="text-xs text-muted-foreground">Fiscais ativos, sem outro vínculo no mesmo dia e com maior compatibilidade.</p>
                 </div>
-                <Badge variant="secondary">{replacementCandidates.filter((candidate: any) => !candidate.sameDayConflict).length} opções compatíveis</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">
+                    {replacementCandidates.filter((candidate: any) => !candidate.sameDayConflict).length} disponíveis
+                  </Badge>
+                  {replacementCandidates.filter((candidate: any) => !!candidate.sameDayConflict).length > 0 && (
+                    <Badge variant="outline">
+                      {replacementCandidates.filter((candidate: any) => !!candidate.sameDayConflict).length} com conflito
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="mt-3 grid gap-2">
                 {replacementCandidates.filter((candidate: any) => !candidate.sameDayConflict).slice(0, 5).map((candidate: any) => (
                   <button
                     key={candidate.id}
                     type="button"
-                    onClick={() => setReplacementFiscalId(candidate.id)}
+                    onClick={() => {
+                      if (candidate.sameDayConflict) return;
+                      setReplacementFiscalId(candidate.id);
+                    }}
                     className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-left transition hover:bg-muted/60 ${replacementFiscalId === candidate.id ? 'border-primary bg-primary/5 shadow-sm' : 'border-border/60 bg-background/60'}`}
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
                         <span className="truncate text-sm font-semibold">{candidate.full_name}</span>
-                        {candidate.replacementScore >= 70 && <Badge variant="secondary" className="shrink-0 text-[10px]">Boa compatibilidade</Badge>}
+                        {candidate.id === replacementCandidates.find((item: any) => !item.sameDayConflict)?.id ? (
+                          <Badge variant="default" className="shrink-0 text-[10px]">Sugestão principal</Badge>
+                        ) : candidate.replacementScore >= 70 ? (
+                          <Badge variant="secondary" className="shrink-0 text-[10px]">Boa compatibilidade</Badge>
+                        ) : null}
                       </span>
                       <span className="mt-1 block truncate text-xs text-muted-foreground">
                         {[candidate.institution, candidate.unit, candidate.email].filter(Boolean).join(' · ') || 'Sem informações complementares'}
