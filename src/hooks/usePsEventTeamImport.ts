@@ -85,7 +85,7 @@ export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImpo
 
   for (const decision of decisions) {
     const matchedCollaborator: any = decision.status === 'matched' ? collaboratorById.get(decision.collaboratorId) : null;
-    if (decision.collaboratorId && manuallyExcluded.has(decision.collaboratorId)) {
+    if (decision.status === 'matched' && manuallyExcluded.has(decision.collaboratorId)) {
       manuallyExcludedNames.push(rows[decision.rowIndex].full_name);
       continue;
     }
@@ -99,8 +99,8 @@ export async function previewPsEventTeamImport(eventId: string, rows: PsTeamImpo
     }
     if (decision.status === 'ambiguous' || decision.status === 'inconsistent') inconsistent += 1;
     else if (decision.status === 'new') newCount += 1;
-    else if (decision.collaboratorId.startsWith('__new_fiscal_')) ignored += 1;
-    else if (linked.has(decision.collaboratorId)) alreadyLinked += 1;
+    else if (decision.status === 'matched' && decision.collaboratorId.startsWith('__new_fiscal_')) ignored += 1;
+    else if (decision.status === 'matched' && linked.has(decision.collaboratorId)) alreadyLinked += 1;
     else found += 1;
 
     if (decision.status === 'new' || decision.status === 'inconsistent') {
@@ -176,7 +176,7 @@ export function usePsImportEventTeam() {
 
       for (const decision of decisions) {
         if (inactiveRows.has(decision.rowIndex)) continue;
-        if (manuallyExcluded.has(decision.collaboratorId)) continue;
+        if (decision.status === 'matched' && manuallyExcluded.has(decision.collaboratorId)) continue;
 
         const row = rows[decision.rowIndex];
         let id: string;
