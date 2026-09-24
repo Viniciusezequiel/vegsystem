@@ -71,9 +71,11 @@ test('modal manual do fiscal usa campus obrigatório e mantém responsividade mu
   const source = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
   assert.match(source, /campusValue/i);
   assert.match(source, /Campus \*/i);
-  assert.match(source, /whitespace-normal/i);
+  assert.match(source, /w-\[calc\(100vw-1\.5rem\)\]/i);
+  assert.match(source, /max-w-\[1180px\]/i);
   assert.match(source, /overflow-hidden/i);
   assert.match(source, /min-w-0/i);
+  assert.match(source, /lg:flex-row/i);
   assert.doesNotMatch(source, /editLink\.unit/i);
   assert.doesNotMatch(source, /className="w-full justify-start"/i);
 });

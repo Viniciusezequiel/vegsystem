@@ -55,12 +55,16 @@ test('detalhe do evento mantém candidatos na navegação contextual', () => {
 test('comunicação unificada e rota pública de confirmação ficam preparadas no contrato do módulo', () => {
   const eventDetailSource = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
   const eventNavSource = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventWorkspaceNav.tsx', import.meta.url), 'utf8');
+  const communicationSource = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventCommunicationTab.tsx', import.meta.url), 'utf8');
   const appSource = fs.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 
   assert.match(eventNavSource, /value: 'equipe-comunicacao', label: 'Equipe e Comunicação'/);
   assert.doesNotMatch(eventNavSource, /value: 'confirmacoes'/);
-  assert.match(eventDetailSource, /Aguardando confirma[çc]ã?o/);
-  assert.match(eventDetailSource, /Confirmados|Recusaram|Substituídos/);
+  assert.match(eventDetailSource, /<TabsContent value="equipe-comunicacao"/);
+  assert.match(communicationSource, /Aguardando/);
+  assert.match(communicationSource, /Confirmados/);
+  assert.match(communicationSource, /Recusaram/);
+  assert.match(communicationSource, /Substituídos/);
   assert.match(appSource, /\/ps\/confirmacao/);
   assert.match(appSource, /PsPublicConfirmation/);
 });
