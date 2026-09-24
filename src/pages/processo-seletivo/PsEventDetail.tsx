@@ -105,6 +105,8 @@ export default function PsEventDetail() {
   const [selfEvaluationSearch, setSelfEvaluationSearch] = useState('');
   const [selfEvaluationRole, setSelfEvaluationRole] = useState('all');
   const [selfEvaluationCampus, setSelfEvaluationCampus] = useState('all');
+  const [eventSettings, setEventSettings] = useState<any>(null);
+  const [savingEventSettings, setSavingEventSettings] = useState(false);
 
   const [absenceTarget, setAbsenceTarget] = useState<any>(null);
   const [absenceResponsibleId, setAbsenceResponsibleId] = useState('');
@@ -118,6 +120,52 @@ export default function PsEventDetail() {
   const [closureSaving, setClosureSaving] = useState(false);
 
   const publicBase = `${window.location.origin}/ps`;
+
+  useEffect(() => {
+    if (!event) return;
+    setEventSettings({
+      name: event.name || '',
+      date: event.date || '',
+      location: event.location || '',
+      description: event.description || '',
+      coordinator_name: event.coordinator_name || '',
+      notes: event.notes || '',
+      self_evaluation_enabled: !!event.self_evaluation_enabled,
+      hidden_from_evaluation: !!event.hidden_from_evaluation,
+    });
+  }, [event]);
+
+  const saveEventSettings = async () => {
+    if (!event || !eventSettings) return;
+
+    if (!String(eventSettings.name || '').trim()) {
+      toast.error('Informe o nome do evento.');
+      return;
+    }
+
+    if (!eventSettings.date) {
+      toast.error('Informe a data do evento.');
+      return;
+    }
+
+    setSavingEventSettings(true);
+    try {
+      await save.mutateAsync({
+        ...event,
+        name: String(eventSettings.name || '').trim(),
+        date: eventSettings.date,
+        location: String(eventSettings.location || '').trim() || null,
+        description: String(eventSettings.description || '').trim() || null,
+        coordinator_name: String(eventSettings.coordinator_name || '').trim() || null,
+        notes: String(eventSettings.notes || '').trim() || null,
+        self_evaluation_enabled: !!eventSettings.self_evaluation_enabled,
+        hidden_from_evaluation: !!eventSettings.hidden_from_evaluation,
+      });
+      toast.success('Configurações do evento atualizadas.');
+    } finally {
+      setSavingEventSettings(false);
+    }
+  };
 
   const collaboratorById = useMemo(
     () => new Map(collaborators.map((collaborator: any) => [collaborator.id, collaborator])),
@@ -2716,29 +2764,253 @@ export default function PsEventDetail() {
           </TabsContent>
 
           <TabsContent value="configuracoes" className="space-y-4 pt-4">
-            <Card className="rounded-2xl">
-              <CardHeader><CardTitle className="text-base">Autoavaliação</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium">Permitir autoavaliação deste evento</p>
-                    <p className="text-sm text-muted-foreground">Quando habilitada, este evento ficará disponível para os fiscais realizarem a autoavaliação.</p>
-                  </div>
-                  <Switch
-                    checked={!!event.self_evaluation_enabled}
-                    onCheckedChange={async (checked) => {
-                      await save.mutateAsync({ ...event, self_evaluation_enabled: checked });
-                    }}
-                  />
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
-                  {event.self_evaluation_enabled ? 'Status: Aberta' : 'Status: Fechada'}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+            {eventSettings && (
+              <>
+                <Card className="overflow-hidden rounded-2xl border-primary/20 bg-gradient-to-r from-card/80 via-card/70 to-primary/[0.04]">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base font-semibold">Central de configurações do evento</p>
+                          <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
+                            {PS_EVENT_STATUS[event.status]}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                          Organize os dados institucionais e as regras que realmente são persistidas pelo sistema.
+                          Configurações operacionais específicas continuam sendo geridas nos respectivos módulos.
+                        </p>
+                      </div>
 
-          
+                      <Button
+                        type="button"
+                        className="shrink-0 rounded-xl"
+                        disabled={savingEventSettings || save.isPending}
+                        onClick={() => void saveEventSettings()}
+                      >
+                        {savingEventSettings || save.isPending ? 'Salvando...' : 'Salvar configurações'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+                  <Card className="rounded-2xl">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Dados do evento</CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        Informações usadas nos relatórios, telas públicas e rotinas operacionais.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label>Nome do evento *</Label>
+                          <Input
+                            value={eventSettings.name}
+                            onChange={(e) => setEventSettings({ ...eventSettings, name: e.target.value })}
+                            className="rounded-xl"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Data *</Label>
+                          <Input
+                            type="date"
+                            value={eventSettings.date}
+                            onChange={(e) => setEventSettings({ ...eventSettings, date: e.target.value })}
+                            className="rounded-xl"
+                          />
+                          {eventSettings.date !== event.date && (
+                            <p className="text-[10px] leading-relaxed text-amber-500">
+                              Alterar a data pode afetar validações de conflito de fiscais e a fase operacional do evento.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label>Coordenador responsável</Label>
+                          <Input
+                            value={eventSettings.coordinator_name}
+                            onChange={(e) => setEventSettings({ ...eventSettings, coordinator_name: e.target.value })}
+                            placeholder="Nome do coordenador"
+                            className="rounded-xl"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label>Local geral</Label>
+                          <Input
+                            value={eventSettings.location}
+                            onChange={(e) => setEventSettings({ ...eventSettings, location: e.target.value })}
+                            placeholder="Ex.: FUMEC - Campus principal"
+                            className="rounded-xl"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label>Descrição</Label>
+                          <Textarea
+                            rows={3}
+                            value={eventSettings.description}
+                            onChange={(e) => setEventSettings({ ...eventSettings, description: e.target.value })}
+                            placeholder="Descrição institucional ou orientações gerais."
+                            className="rounded-xl"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label>Observações internas</Label>
+                          <Textarea
+                            rows={3}
+                            value={eventSettings.notes}
+                            onChange={(e) => setEventSettings({ ...eventSettings, notes: e.target.value })}
+                            placeholder="Anotações administrativas que não precisam aparecer ao público."
+                            className="rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="space-y-4">
+                    <Card className="rounded-2xl">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">Avaliações</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          Controle o que fica disponível para os fiscais e para o fluxo de avaliação.
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 p-4">
+                          <div>
+                            <p className="text-sm font-medium">Permitir autoavaliação</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                              Quando ativa, o evento aparece para preenchimento da autoavaliação.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={!!eventSettings.self_evaluation_enabled}
+                            onCheckedChange={(checked) =>
+                              setEventSettings({ ...eventSettings, self_evaluation_enabled: checked })
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 p-4">
+                          <div>
+                            <p className="text-sm font-medium">Ocultar da avaliação</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                              Impede que este evento apareça nos fluxos públicos de avaliação quando habilitado.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={!!eventSettings.hidden_from_evaluation}
+                            onCheckedChange={(checked) =>
+                              setEventSettings({ ...eventSettings, hidden_from_evaluation: checked })
+                            }
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-2xl">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">Status das regras operacionais</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          Estas regras são configuradas nos módulos especializados.
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {[
+                          {
+                            label: 'Confirmações',
+                            detail: `${Number(confirmationSummary.confirmed || 0)} confirmados · ${Number(confirmationSummary.pending_confirmation || 0)} aguardando`,
+                            tab: 'equipe-comunicacao',
+                            status: Number(confirmationSummary.pending_confirmation || 0) ? 'warning' : 'ready',
+                          },
+                          {
+                            label: 'Treinamentos obrigatórios',
+                            detail: trainingOverview.configured
+                              ? trainingOverview.pendingPeople
+                                ? `${trainingOverview.pendingPeople} pendente(s)`
+                                : 'sem pendências obrigatórias'
+                              : 'nenhum obrigatório configurado',
+                            tab: 'treinamentos',
+                            status: trainingOverview.pendingPeople ? 'warning' : 'ready',
+                          },
+                          {
+                            label: 'Presença e fechamento',
+                            detail: eventPhase === 'preparacao'
+                              ? 'será executado no dia do evento'
+                              : `${attendancePendingCount} pendente(s) · ${openAttendanceLocations} local(is) aberto(s)`,
+                            tab: 'presenca',
+                            status: eventPhase !== 'preparacao' && (attendancePendingCount || openAttendanceLocations) ? 'warning' : 'ready',
+                          },
+                          {
+                            label: 'Pagamentos',
+                            detail: paymentOverview.missingPix
+                              ? `${paymentOverview.missingPix} fiscal(is) sem PIX`
+                              : 'dados de PIX completos para os ativos',
+                            tab: 'pagamentos',
+                            status: paymentOverview.missingPix ? 'warning' : 'ready',
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => setActiveTab(item.tab)}
+                            className="group flex w-full items-center justify-between gap-3 rounded-xl border border-border/60 p-3 text-left transition hover:border-primary/20 hover:bg-primary/[0.02]"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold">{item.label}</p>
+                              <p className="mt-1 truncate text-[10px] text-muted-foreground">{item.detail}</p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={`rounded-full text-[8px] ${item.status === 'warning' ? 'border-amber-500/25 text-amber-500' : 'border-emerald-500/20 text-emerald-500'}`}
+                              >
+                                {item.status === 'warning' ? 'Atenção' : 'OK'}
+                              </Badge>
+                              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
+                            </div>
+                          </button>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+
+                <Card className="rounded-2xl">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Links públicos do evento</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Acesse rapidamente as páginas que dependem das regras acima.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="grid gap-2 md:grid-cols-3">
+                    {[
+                      { label: 'Avaliação de fiscais', url: `${publicBase}/avaliacao/${event.id}` },
+                      { label: 'Autoavaliação', url: `${publicBase}/autoavaliacao/${event.id}` },
+                      { label: 'Presença / assinatura', url: `${publicBase}/presenca/${event.id}` },
+                    ].map((link) => (
+                      <Button
+                        key={link.url}
+                        type="button"
+                        variant="outline"
+                        className="justify-between rounded-xl"
+                        onClick={() => copy(link.url)}
+                      >
+                        {link.label}
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    ))}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
 
           <TabsContent value="equipe-comunicacao" className="space-y-4 pt-4">
             <div className="grid grid-cols-4 overflow-hidden rounded-2xl border border-violet-500/15 bg-gradient-to-r from-card/75 via-card/60 to-violet-500/[0.035]">
