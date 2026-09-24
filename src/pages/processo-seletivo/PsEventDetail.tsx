@@ -33,7 +33,7 @@ import {
 import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psConfirmationState.mjs';
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
-import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
+import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS, PS_CRITERIA } from '@/lib/psConstants';
 import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft, GraduationCap, MailWarning, ArrowRight, WalletCards, ListChecks, CalendarDays, Building2, DoorOpen, Rows3, List, FilterX } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
@@ -102,6 +102,10 @@ export default function PsEventDetail() {
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [finalizeAcknowledged, setFinalizeAcknowledged] = useState(false);
 
+  const [evaluationSearch, setEvaluationSearch] = useState('');
+  const [evaluationClassification, setEvaluationClassification] = useState('all');
+  const [evaluationRole, setEvaluationRole] = useState('all');
+  const [evaluationEvaluator, setEvaluationEvaluator] = useState('all');
   const [selfEvaluationSearch, setSelfEvaluationSearch] = useState('');
   const [selfEvaluationRole, setSelfEvaluationRole] = useState('all');
   const [selfEvaluationCampus, setSelfEvaluationCampus] = useState('all');
@@ -1202,6 +1206,123 @@ export default function PsEventDetail() {
     candidateOverview,
     paymentOverview,
   ]);
+
+  const evaluationSummary = useMemo(() => {
+    const scores = evaluations
+      .map((evaluation: any) => Number(evaluation.final_score || 0))
+      .filter((score) => score > 0);
+
+    const criterionAverages = PS_CRITERIA.map((criterion) => {
+      const values = evaluations
+        .map((evaluation: any) => Number(evaluation[criterion.key] || 0))
+        .filter((value) => value > 0);
+
+      return {
+        key: criterion.key,
+        label: criterion.label,
+        average: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0,
+        responses: values.length,
+      };
+    });
+
+    const ratedCriteria = criterionAverages.filter((criterion) => criterion.responses > 0);
+
+    return {
+      total: evaluations.length,
+      people: new Set(evaluations.map((evaluation: any) => evaluation.collaborator_id).filter(Boolean)).size,
+      average: scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0,
+      excellent: evaluations.filter((evaluation: any) => evaluation.classification === 'excelente').length,
+      good: evaluations.filter((evaluation: any) => evaluation.classification === 'bom').length,
+      attention: evaluations.filter((evaluation: any) =>
+        ['regular', 'insuficiente', 'critico'].includes(String(evaluation.classification || ''))
+      ).length,
+      roleChanges: evaluations.filter((evaluation: any) => !!evaluation.role_changed).length,
+      criteria: criterionAverages,
+      weakestCriterion: ratedCriteria.length
+        ? [...ratedCriteria].sort((a, b) => a.average - b.average)[0]
+        : null,
+      strongestCriterion: ratedCriteria.length
+        ? [...ratedCriteria].sort((a, b) => b.average - a.average)[0]
+        : null,
+    };
+  }, [evaluations]);
+
+  const evaluationRoleOptions = useMemo(
+    () => [...new Set(evaluations
+      .map((evaluation: any) => String(evaluation.assigned_role || '').trim())
+      .filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [evaluations]
+  );
+
+  const evaluationEvaluatorOptions = useMemo(
+    () => [...new Set(evaluations
+      .map((evaluation: any) => String(evaluation.evaluator_name || '').trim())
+      .filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [evaluations]
+  );
+
+  const evaluationRows = useMemo(() => {
+    const query = evaluationSearch
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    return [...evaluations]
+      .filter((evaluation: any) => {
+        if (
+          evaluationClassification !== 'all' &&
+          evaluation.classification !== evaluationClassification
+        ) return false;
+
+        if (
+          evaluationRole !== 'all' &&
+          String(evaluation.assigned_role || '') !== evaluationRole
+        ) return false;
+
+        if (
+          evaluationEvaluator !== 'all' &&
+          String(evaluation.evaluator_name || '') !== evaluationEvaluator
+        ) return false;
+
+        if (!query) return true;
+
+        const haystack = [
+          evaluation.collaborator_name,
+          evaluation.assigned_role,
+          evaluation.evaluator_name,
+          evaluation.observations,
+          evaluation.reported_role,
+          evaluation.role_change_justification,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+
+        return haystack.includes(query);
+      })
+      .sort((a: any, b: any) =>
+        Number(a.final_score || 0) - Number(b.final_score || 0) ||
+        String(a.collaborator_name || '').localeCompare(String(b.collaborator_name || ''), 'pt-BR')
+      );
+  }, [
+    evaluations,
+    evaluationSearch,
+    evaluationClassification,
+    evaluationRole,
+    evaluationEvaluator,
+  ]);
+
+  const clearEvaluationFilters = () => {
+    setEvaluationSearch('');
+    setEvaluationClassification('all');
+    setEvaluationRole('all');
+    setEvaluationEvaluator('all');
+  };
 
   const selfEvaluationRows = useMemo(() => {
     const query = selfEvaluationSearch.trim().toLowerCase();
@@ -3777,23 +3898,255 @@ export default function PsEventDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="avaliacoes" className="pt-4">
+          <TabsContent value="avaliacoes" className="space-y-4 pt-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Avaliações registradas</p>
+                  <p className="mt-1 text-2xl font-bold">{evaluationSummary.total}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {evaluationSummary.people} fiscal(is) diferente(s)
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Média geral</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {evaluationSummary.average ? evaluationSummary.average.toFixed(2) : '—'}
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">escala de 1 a 5</p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-emerald-500/20 bg-emerald-500/[0.025]">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Excelente / Bom</p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-500">
+                    {evaluationSummary.excellent + evaluationSummary.good}
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {evaluationSummary.excellent} excelente(s) · {evaluationSummary.good} bom(ns)
+                  </p>
+                </CardContent>
+              </Card>
+
+              <button
+                type="button"
+                className="text-left"
+                onClick={() => setEvaluationClassification(evaluationClassification === 'regular' ? 'all' : 'regular')}
+              >
+                <Card className={`h-full rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md ${evaluationSummary.attention
+                  ? 'border-amber-500/25 bg-amber-500/[0.035]'
+                  : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">Desempenho a revisar</p>
+                    <p className={`mt-1 text-2xl font-bold ${evaluationSummary.attention ? 'text-amber-500' : 'text-emerald-500'}`}>
+                      {evaluationSummary.attention}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      regular, insuficiente ou crítico
+                    </p>
+                  </CardContent>
+                </Card>
+              </button>
+            </div>
+
             <Card className="rounded-2xl">
-              <CardContent className="divide-y p-0">
-                {evaluations.map((e: any) => (
-                  <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
-                    <div>
-                      <p className="font-medium">{e.collaborator_name}</p>
-                      <p className="text-xs text-muted-foreground">{e.assigned_role || '-'} · por {e.evaluator_name || 'anônimo'}</p>
-                      {e.observations && <p className="mt-1 text-sm text-muted-foreground">{e.observations}</p>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{PS_CLASSIFICATION_LABEL[e.classification] || e.classification}</Badge>
-                      <Badge>{Number(e.final_score).toFixed(2)}</Badge>
-                    </div>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <CardTitle className="text-base">Desempenho por critério</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Consolidação das notas dadas pelos avaliadores neste evento.
+                    </p>
                   </div>
-                ))}
-                {evaluations.length === 0 && <p className="p-4 text-muted-foreground">Nenhuma avaliação registrada.</p>}
+
+                  <div className="flex flex-wrap gap-2">
+                    {evaluationSummary.weakestCriterion && (
+                      <Badge variant="outline" className="rounded-full border-amber-500/20 text-[9px] text-amber-500">
+                        Menor média: {evaluationSummary.weakestCriterion.label} · {evaluationSummary.weakestCriterion.average.toFixed(2)}
+                      </Badge>
+                    )}
+                    {evaluationSummary.strongestCriterion && (
+                      <Badge variant="outline" className="rounded-full border-emerald-500/20 text-[9px] text-emerald-500">
+                        Maior média: {evaluationSummary.strongestCriterion.label} · {evaluationSummary.strongestCriterion.average.toFixed(2)}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  {evaluationSummary.criteria.map((criterion) => (
+                    <div key={criterion.key} className="rounded-xl border border-border/60 bg-muted/[0.08] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-[10px] font-semibold" title={criterion.label}>{criterion.label}</p>
+                        <span className={`text-xs font-bold tabular-nums ${criterion.responses && criterion.average < 3 ? 'text-amber-500' : 'text-foreground'}`}>
+                          {criterion.responses ? criterion.average.toFixed(2) : '—'}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${criterion.responses ? Math.min(100, (criterion.average / 5) * 100) : 0}%` }}
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[9px] text-muted-foreground">
+                        {criterion.responses} nota(s)
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl">
+              <CardHeader className="pb-3">
+                <div>
+                  <CardTitle className="text-base">Avaliações individuais</CardTitle>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    As menores notas aparecem primeiro para facilitar a conferência.
+                  </p>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                <div className="grid gap-2 xl:grid-cols-[minmax(280px,1fr)_190px_220px_220px_auto]">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={evaluationSearch}
+                      onChange={(event) => setEvaluationSearch(event.target.value)}
+                      placeholder="Buscar fiscal, avaliador, cargo ou observação..."
+                      className="h-10 rounded-xl pl-10"
+                    />
+                  </div>
+
+                  <Select value={evaluationClassification} onValueChange={setEvaluationClassification}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Classificação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {Object.entries(PS_CLASSIFICATION_LABEL).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={evaluationRole} onValueChange={setEvaluationRole}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Cargo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os cargos</SelectItem>
+                      {evaluationRoleOptions.map((role) => (
+                        <SelectItem key={role} value={role}>{role}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={evaluationEvaluator} onValueChange={setEvaluationEvaluator}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Avaliador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os avaliadores</SelectItem>
+                      {evaluationEvaluatorOptions.map((evaluator) => (
+                        <SelectItem key={evaluator} value={evaluator}>{evaluator}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 rounded-xl"
+                    disabled={
+                      !evaluationSearch &&
+                      evaluationClassification === 'all' &&
+                      evaluationRole === 'all' &&
+                      evaluationEvaluator === 'all'
+                    }
+                    onClick={clearEvaluationFilters}
+                  >
+                    Limpar
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                  <span><strong className="text-foreground">{evaluationRows.length}</strong> avaliação(ões) na visualização</span>
+                  {evaluationSummary.roleChanges > 0 && (
+                    <span>{evaluationSummary.roleChanges} avaliação(ões) registraram alteração de cargo</span>
+                  )}
+                </div>
+
+                <div className="divide-y rounded-2xl border border-border/60">
+                  {evaluationRows.map((evaluation: any) => (
+                    <div
+                      key={evaluation.id}
+                      className={`flex flex-col gap-3 p-4 lg:flex-row lg:items-start lg:justify-between ${['regular', 'insuficiente', 'critico'].includes(String(evaluation.classification || ''))
+                        ? 'bg-amber-500/[0.018]'
+                        : ''}`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold">{evaluation.collaborator_name}</p>
+                          <Badge variant="secondary">
+                            {PS_CLASSIFICATION_LABEL[evaluation.classification] || evaluation.classification}
+                          </Badge>
+                          {evaluation.role_changed && (
+                            <Badge variant="outline" className="border-primary/20 text-primary">Cargo alterado</Badge>
+                          )}
+                        </div>
+
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {evaluation.assigned_role || 'Cargo não informado'} · por {evaluation.evaluator_name || 'avaliador não identificado'}
+                        </p>
+
+                        {evaluation.observations && (
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                            {evaluation.observations}
+                          </p>
+                        )}
+
+                        {evaluation.role_changed && (
+                          <p className="mt-2 text-[10px] text-muted-foreground">
+                            {[
+                              evaluation.original_role && `Original: ${evaluation.original_role}`,
+                              evaluation.reported_role && `Informado: ${evaluation.reported_role}`,
+                              evaluation.role_change_justification,
+                            ].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <div className="text-right">
+                          <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Nota final</p>
+                          <p className={`text-2xl font-bold tabular-nums ${Number(evaluation.final_score || 0) < 3 ? 'text-amber-500' : 'text-foreground'}`}>
+                            {Number(evaluation.final_score || 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {!evaluationRows.length && (
+                    <div className="p-8 text-center">
+                      <Star className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                      <p className="mt-2 text-sm font-semibold">
+                        {evaluations.length ? 'Nenhuma avaliação encontrada' : 'Nenhuma avaliação registrada'}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {evaluations.length ? 'Ajuste os filtros para continuar.' : 'As avaliações deste evento aparecerão aqui.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
