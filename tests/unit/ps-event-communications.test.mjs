@@ -42,6 +42,12 @@ test('seleção suporta individual, múltiplos, todos filtrados e filtros combin
   assert.match(ui,/selecionado\(s\)/);
 });
 
+test('menu de ações do fiscal não propaga clique para detalhes do colaborador',()=>{
+  assert.match(ui,/aria-label=\{`Ações de \$\{link\.collaborator_name\}`\}/);
+  assert.match(ui,/type="button"[\s\S]*onClick=\{\(event\) => event\.stopPropagation\(\)\}[\s\S]*onPointerDown=\{\(event\) => event\.stopPropagation\(\)\}/);
+  assert.match(ui,/<DropdownMenuContent[\s\S]*onClick=\{\(event\) => event\.stopPropagation\(\)\}[\s\S]*onPointerDown=\{\(event\) => event\.stopPropagation\(\)\}/);
+});
+
 test('solicitação de confirmação exclui confirmados, recusados e substituídos antes de chamar a Edge Function',()=>{
   assert.match(ui,/pendingConfirmationSelected/);
   assert.match(ui,/link\.participation_status === 'pending_confirmation'/);

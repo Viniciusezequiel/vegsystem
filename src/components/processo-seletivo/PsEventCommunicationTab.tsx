@@ -880,9 +880,24 @@ export function PsEventCommunicationTab({
                 <td className="py-3 pr-3 text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Ações de ${link.collaborator_name}`}><MoreHorizontal className="h-4 w-4" /></Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        aria-label={`Ações de ${link.collaborator_name}`}
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-60">
+                    <DropdownMenuContent
+                      align="end"
+                      className="min-w-60"
+                      onClick={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
+                    >
                       {onEditMember && <DropdownMenuItem onSelect={() => onEditMember(link)}><Pencil className="mr-2 h-4 w-4" />Editar fiscal</DropdownMenuItem>}
                       {onEvaluateMember && <DropdownMenuItem onSelect={() => onEvaluateMember(link)}><Star className="mr-2 h-4 w-4" />Avaliar fiscal</DropdownMenuItem>}
                       {['pending_confirmation', 'declined'].includes(link.participation_status) && (
