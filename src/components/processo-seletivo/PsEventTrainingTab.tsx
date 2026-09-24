@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRightLeft, CalendarClock, CalendarX2, FileDown, Loader2, Mail, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, CalendarClock, CalendarX2, CheckCircle2, FileDown, Loader2, Mail, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -71,6 +71,8 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
   const [trainingSearch, setTrainingSearch] = useState('');
   const [participantsDialog, setParticipantsDialog] = useState<any>(null);
   const [participantsSearch, setParticipantsSearch] = useState('');
+  const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState('');
 
   const query = useQuery({
     queryKey: ['ps_event_trainings', eventId],
@@ -83,7 +85,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
         ids.length ? (supabase as any).from('ps_event_training_group_roles').select('*').in('training_group_id', ids) : Promise.resolve({ data: [], error: null }),
         (supabase as any).from('ps_event_training_sessions').select('*').eq('event_id', eventId).order('starts_at'),
         (supabase as any).from('ps_event_training_choices').select('*').eq('event_id', eventId),
-        (supabase as any).from('ps_event_collaborators').select('id,collaborator_name,role_name,assigned_role').eq('event_id', eventId),
+        (supabase as any).from('ps_event_collaborators').select('id,collaborator_name,role_value,role_name,assigned_role,participation_status,manually_excluded').eq('event_id', eventId),
         (supabase as any).from('ps_event_collaborator_assignments').select('event_collaborator_id,role_value,role_name,is_primary').eq('event_id', eventId),
         (supabase as any).from('ps_events').select('id,name,date,location').eq('id', eventId).maybeSingle(),
         (supabase as any).from('ps_training_reselection_requests').select('id,event_id,event_collaborator_id,training_group_id,cancelled_session_id,replacement_session_id,status,reason,created_at,used_at').eq('event_id', eventId),
@@ -127,6 +129,127 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     }
     return map;
   }, [data.assignments]);
+
+  const trainingOperationalLinks = useMemo(
+    () => data.links.filter((link: any) =>
+      !link.manually_excluded &&
+      String(link.participation_status || 'pending_confirmation') !== 'replaced'
+    ),
+    [data.links]
+  );
+
+  const trainingOverview = useMemo(() => {
+    const activeRequiredGroups = data.groups.filter((group: any) =>
+      group.active !== false && group.required !== false
+    );
+
+    const activeSessionIds = new Set(
+      data.sessions
+        .filter((session: any) => session.active !== false && !session.cancelled_at)
+        .map((session: any) => String(session.id))
+    );
+
+    const rolesByGroup = new Map<string, Set<string>>();
+    for (const row of data.groupRoles) {
+      const groupId = String(row.training_group_id || '');
+      const current = rolesByGroup.get(groupId) || new Set<string>();
+      if (row.role_value) current.add(String(row.role_value));
+      rolesByGroup.set(groupId, current);
+    }
+
+    const primaryRoleByLink = new Map<string, string>();
+    for (const assignment of data.assignments) {
+      if (assignment.is_primary !== true) continue;
+      const linkId = String(assignment.event_collaborator_id || '');
+      const roleValue = String(assignment.role_value || '');
+      if (linkId && roleValue && !primaryRoleByLink.has(linkId)) {
+        primaryRoleByLink.set(linkId, roleValue);
+      }
+    }
+
+    const validChoiceKeys = new Set(
+      data.choices
+        .filter((choice: any) => activeSessionIds.has(String(choice.training_session_id)))
+        .map((choice: any) => `${choice.event_collaborator_id}|${choice.training_group_id}`)
+    );
+
+    const pendingPeople: Array<any> = [];
+    let requiredPeople = 0;
+    let completedPeople = 0;
+
+    for (const link of trainingOperationalLinks) {
+      const roleValue =
+        primaryRoleByLink.get(String(link.id)) ||
+        String(link.role_value || '');
+
+      if (!roleValue) continue;
+
+      const requiredGroups = activeRequiredGroups.filter((group: any) =>
+        rolesByGroup.get(String(group.id))?.has(roleValue)
+      );
+
+      if (!requiredGroups.length) continue;
+      requiredPeople += 1;
+
+      const missingGroups = requiredGroups.filter((group: any) =>
+        !validChoiceKeys.has(`${link.id}|${group.id}`)
+      );
+
+      if (!missingGroups.length) {
+        completedPeople += 1;
+      } else {
+        pendingPeople.push({
+          ...link,
+          roleValue,
+          missingGroups,
+        });
+      }
+    }
+
+    const pendingReselections = data.reselections.filter((request: any) =>
+      String(request.status || '').toLowerCase() === 'pending'
+    ).length;
+
+    const activeSessions = data.sessions.filter((session: any) =>
+      session.active !== false && !session.cancelled_at
+    );
+    const fullSessions = activeSessions.filter((session: any) => {
+      if (!session.capacity) return false;
+      const count = data.choices.filter((choice: any) =>
+        String(choice.training_session_id) === String(session.id)
+      ).length;
+      return count >= Number(session.capacity);
+    }).length;
+
+    return {
+      requiredPeople,
+      completedPeople,
+      pendingPeople,
+      pendingCount: pendingPeople.length,
+      pendingReselections,
+      activeSessions: activeSessions.length,
+      fullSessions,
+    };
+  }, [data.groups, data.groupRoles, data.sessions, data.choices, data.assignments, data.reselections, trainingOperationalLinks]);
+
+  const pendingTrainingRows = useMemo(() => {
+    const query = normalizeSearch(pendingSearch);
+    return [...trainingOverview.pendingPeople]
+      .filter((person: any) => {
+        if (!query) return true;
+        const groupNames = person.missingGroups.map((group: any) => group.name).join(' ');
+        return normalizeSearch([
+          person.collaborator_name,
+          person.role_name,
+          person.assigned_role,
+          groupNames,
+        ].filter(Boolean).join(' ')).includes(query);
+      })
+      .sort((a: any, b: any) =>
+        String(a.collaborator_name || '').localeCompare(String(b.collaborator_name || ''), 'pt-BR')
+      );
+  }, [trainingOverview.pendingPeople, pendingSearch]);
+
   const normalizedTrainingSearch = useMemo(() => normalizeSearch(trainingSearch), [trainingSearch]);
   const matchingChoices = useMemo(() => {
     if (!normalizedTrainingSearch) return data.choices;
@@ -537,43 +660,145 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 className="text-base font-semibold">Treinamentos do evento</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Defina cargos, datas, campi e vagas para escolha no link de confirmação.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Acompanhe somente os cargos que realmente exigem treinamento e resolva exceções antes do evento.
+        </p>
       </div>
       <Button onClick={openNewGroup}><Plus className="mr-2 h-4 w-4" />Novo treinamento</Button>
     </div>
 
     {!!data.groups.length && (
-      <div className="rounded-2xl border border-primary/20 bg-card/70 p-3 shadow-sm backdrop-blur-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={trainingSearch}
-              onChange={(event) => setTrainingSearch(event.target.value)}
-              placeholder="Buscar pessoa por nome para localizar o treinamento..."
-              aria-label="Buscar pessoa nos treinamentos"
-              className="h-11 bg-background/80 pl-10 pr-10"
-            />
-            {trainingSearch && (
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
-                onClick={() => setTrainingSearch('')}
-                aria-label="Limpar busca"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-          <div className="shrink-0 text-xs text-muted-foreground sm:px-2">
-            {normalizedTrainingSearch
-              ? `${matchingChoices.length} alocação(ões) encontrada(s)`
-              : `${data.choices.length} pessoa(s) alocada(s)`}
+      <>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Precisam de treinamento</p>
+              <p className="mt-1 text-2xl font-bold">{trainingOverview.requiredPeople}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">cargo principal vinculado a treinamento obrigatório</p>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-emerald-500/20 bg-emerald-500/[0.025]">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Com data definida</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-500">{trainingOverview.completedPeople}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {trainingOverview.requiredPeople
+                  ? `${Math.round((trainingOverview.completedPeople / trainingOverview.requiredPeople) * 100)}% concluído`
+                  : 'nenhum cargo obrigatório no evento'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <button
+            type="button"
+            className="text-left"
+            onClick={() => {
+              setPendingSearch('');
+              setPendingDialogOpen(true);
+            }}
+          >
+            <Card className={`h-full rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md ${trainingOverview.pendingCount
+              ? 'border-amber-500/25 bg-amber-500/[0.035]'
+              : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Sem data válida</p>
+                <p className={`mt-1 text-2xl font-bold ${trainingOverview.pendingCount ? 'text-amber-500' : 'text-emerald-500'}`}>
+                  {trainingOverview.pendingCount}
+                </p>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {trainingOverview.pendingCount ? 'clique para ver quem está pendente' : 'nenhuma pendência obrigatória'}
+                </p>
+              </CardContent>
+            </Card>
+          </button>
+
+          <Card className={`rounded-2xl ${trainingOverview.pendingReselections
+            ? 'border-destructive/25 bg-destructive/[0.035]'
+            : 'border-border/60'}`}>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Realocações pendentes</p>
+              <p className={`mt-1 text-2xl font-bold ${trainingOverview.pendingReselections ? 'text-destructive' : ''}`}>
+                {trainingOverview.pendingReselections}
+              </p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {trainingOverview.activeSessions} data(s) ativa(s) · {trainingOverview.fullSessions} lotada(s)
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {(trainingOverview.pendingCount > 0 || trainingOverview.pendingReselections > 0) && (
+          <Card className="rounded-2xl border-amber-500/20 bg-gradient-to-r from-amber-500/[0.045] to-card/50">
+            <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Atenção nos treinamentos</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {[
+                      trainingOverview.pendingCount
+                        ? `${trainingOverview.pendingCount} fiscal(is) em cargos obrigatórios ainda estão sem data.`
+                        : '',
+                      trainingOverview.pendingReselections
+                        ? `${trainingOverview.pendingReselections} pessoa(s) aguardam nova escolha após cancelamento.`
+                        : '',
+                    ].filter(Boolean).join(' ')}
+                  </p>
+                </div>
+              </div>
+
+              {trainingOverview.pendingCount > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0 rounded-xl"
+                  onClick={() => {
+                    setPendingSearch('');
+                    setPendingDialogOpen(true);
+                  }}
+                >
+                  Ver quem está pendente
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="rounded-2xl border border-primary/20 bg-card/70 p-3 shadow-sm backdrop-blur-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={trainingSearch}
+                onChange={(event) => setTrainingSearch(event.target.value)}
+                placeholder="Buscar pessoa que já possui treinamento definido..."
+                aria-label="Buscar pessoa nos treinamentos"
+                className="h-11 bg-background/80 pl-10 pr-10"
+              />
+              {trainingSearch && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                  onClick={() => setTrainingSearch('')}
+                  aria-label="Limpar busca"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <div className="shrink-0 text-xs text-muted-foreground sm:px-2">
+              {normalizedTrainingSearch
+                ? `${matchingChoices.length} alocação(ões) encontrada(s)`
+                : `${data.choices.length} escolha(s) registrada(s)`}
+            </div>
           </div>
         </div>
-      </div>
+      </>
     )}
 
     {!data.groups.length ? (
@@ -677,6 +902,20 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
                             {pendingReselections.length > 0 && <Badge variant="outline">{pendingReselections.length} aguardando nova escolha</Badge>}
                             {completedReselections.length > 0 && <Badge variant="secondary">{completedReselections.length} remarcado(s)</Badge>}
                           </div>
+                          {session.capacity && !session.cancelled_at && (
+                            <div className="mt-2">
+                              <div className="mb-1 flex items-center justify-between text-[9px] text-muted-foreground">
+                                <span>Ocupação da turma</span>
+                                <span>{Math.min(100, Math.round((choices.length / Number(session.capacity)) * 100))}%</span>
+                              </div>
+                              <div className="h-1.5 overflow-hidden rounded-full bg-muted/60">
+                                <div
+                                  className={`h-full rounded-full transition-all ${full ? 'bg-amber-500' : 'bg-primary'}`}
+                                  style={{ width: `${Math.min(100, Math.round((choices.length / Number(session.capacity)) * 100))}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
                           {session.cancelled_at && session.cancellation_reason && <p className="mt-2 rounded-lg border border-destructive/20 bg-background/50 px-3 py-2 text-xs"><strong>Motivo:</strong> {session.cancellation_reason}</p>}
                           {pendingReselections.length > 0 && <div className="mt-2"><Button size="sm" variant="outline" disabled={resendingSessionId === session.id} onClick={() => void resendPendingReselections(session)}>{resendingSessionId === session.id ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1.5 h-3.5 w-3.5" />}Reenviar links pendentes</Button></div>}
                           {visibleChoices.length > 0 && (
@@ -729,6 +968,82 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
         })}
       </div>
     )}
+
+    <Dialog open={pendingDialogOpen} onOpenChange={(open) => {
+      setPendingDialogOpen(open);
+      if (!open) setPendingSearch('');
+    }}>
+      <DialogContent className="max-h-[86vh] overflow-hidden sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Fiscais com treinamento obrigatório pendente</DialogTitle>
+        </DialogHeader>
+
+        <div className="min-h-0 space-y-3">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.035] p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <div>
+                <p className="text-xs font-semibold">{trainingOverview.pendingCount} fiscal(is) pendente(s)</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  Esta lista considera somente o <strong>cargo principal</strong> vinculado a treinamento ativo e obrigatório.
+                  Cargos que não exigem treinamento não aparecem aqui.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={pendingSearch}
+              onChange={(event) => setPendingSearch(event.target.value)}
+              placeholder="Buscar nome, cargo ou treinamento pendente..."
+              className="pl-10"
+            />
+          </div>
+
+          <div className="max-h-[54vh] divide-y overflow-y-auto rounded-xl border">
+            {pendingTrainingRows.map((person: any) => (
+              <div key={person.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{person.collaborator_name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {person.role_name || person.assigned_role || roleMap.get(person.roleValue) || person.roleValue}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {person.missingGroups.map((group: any) => (
+                      <Badge key={group.id} variant="outline" className="border-amber-500/20 text-[9px] text-amber-500">
+                        {group.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <Badge variant="outline" className="w-fit shrink-0 border-amber-500/25 text-amber-500">
+                  Sem data
+                </Badge>
+              </div>
+            ))}
+
+            {!pendingTrainingRows.length && (
+              <div className="p-8 text-center">
+                <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500/70" />
+                <p className="mt-2 text-sm font-semibold">
+                  {pendingSearch ? 'Nenhum fiscal encontrado' : 'Nenhuma pendência obrigatória'}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {pendingSearch ? 'Ajuste a busca para continuar.' : 'Todos os cargos que exigem treinamento já possuem uma data válida.'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPendingDialogOpen(false)}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <Dialog open={groupOpen} onOpenChange={open => { if (!open) closeGroupDialog(); else if (!saving) setGroupOpen(true); }}>
       <DialogContent className="sm:max-w-2xl" onInteractOutside={e => e.preventDefault()}>
