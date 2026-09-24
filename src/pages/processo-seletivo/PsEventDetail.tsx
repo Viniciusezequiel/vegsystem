@@ -34,7 +34,7 @@ import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psCon
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft, GraduationCap, MailWarning, ArrowRight, WalletCards, ListChecks, CalendarDays } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -168,6 +168,66 @@ export default function PsEventDetail() {
       if (error) throw error;
 
       return data || [];
+    },
+  });
+
+  const { data: overviewTrainingData = { groups: [], groupRoles: [], sessions: [], choices: [], assignments: [], reselections: [] } } = useQuery({
+    queryKey: ['ps-event-overview-training', id],
+    enabled: !!id,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const groupsRes = await (supabase as any)
+        .from('ps_event_training_groups')
+        .select('id,event_id,name,required,active')
+        .eq('event_id', id!);
+
+      if (groupsRes.error) throw groupsRes.error;
+
+      const groups = groupsRes.data || [];
+      const groupIds = groups.map((group: any) => group.id);
+
+      const [roleRes, sessionRes, choiceRes, assignmentRes, reselectionRes] = await Promise.all([
+        groupIds.length
+          ? (supabase as any)
+              .from('ps_event_training_group_roles')
+              .select('training_group_id,role_value')
+              .in('training_group_id', groupIds)
+          : Promise.resolve({ data: [], error: null }),
+        (supabase as any)
+          .from('ps_event_training_sessions')
+          .select('id,training_group_id,active,cancelled_at')
+          .eq('event_id', id!),
+        (supabase as any)
+          .from('ps_event_training_choices')
+          .select('id,event_collaborator_id,training_group_id,training_session_id')
+          .eq('event_id', id!),
+        (supabase as any)
+          .from('ps_event_collaborator_assignments')
+          .select('event_collaborator_id,role_value,is_primary')
+          .eq('event_id', id!),
+        (supabase as any)
+          .from('ps_training_reselection_requests')
+          .select('event_collaborator_id,training_group_id,status')
+          .eq('event_id', id!),
+      ]);
+
+      const error =
+        roleRes.error ||
+        sessionRes.error ||
+        choiceRes.error ||
+        assignmentRes.error ||
+        reselectionRes.error;
+
+      if (error) throw error;
+
+      return {
+        groups,
+        groupRoles: roleRes.data || [],
+        sessions: sessionRes.data || [],
+        choices: choiceRes.data || [],
+        assignments: assignmentRes.data || [],
+        reselections: reselectionRes.data || [],
+      };
     },
   });
 
@@ -347,6 +407,383 @@ export default function PsEventDetail() {
         )
       );
   }, [operationalLinks]);
+
+  const trainingOverview = useMemo(() => {
+    const groups = (overviewTrainingData.groups || []).filter(
+      (group: any) => group.active !== false && group.required !== false
+    );
+
+    if (!groups.length) {
+      return {
+        requiredPeople: 0,
+        completedPeople: 0,
+        pendingPeople: 0,
+        reselectionPending: 0,
+        configured: false,
+      };
+    }
+
+    const groupIds = new Set(groups.map((group: any) => String(group.id)));
+    const rolesByGroup = new Map<string, Set<string>>();
+
+    for (const row of overviewTrainingData.groupRoles || []) {
+      const groupId = String(row.training_group_id || '');
+      if (!groupIds.has(groupId)) continue;
+      const current = rolesByGroup.get(groupId) || new Set<string>();
+      current.add(String(row.role_value || ''));
+      rolesByGroup.set(groupId, current);
+    }
+
+    const assignmentsByLink = new Map<string, Set<string>>();
+    for (const assignment of overviewTrainingData.assignments || []) {
+      const linkId = String(assignment.event_collaborator_id || '');
+      if (!linkId) continue;
+      const current = assignmentsByLink.get(linkId) || new Set<string>();
+      if (assignment.role_value) current.add(String(assignment.role_value));
+      assignmentsByLink.set(linkId, current);
+    }
+
+    const activeSessionIds = new Set(
+      (overviewTrainingData.sessions || [])
+        .filter((session: any) => session.active !== false && !session.cancelled_at)
+        .map((session: any) => String(session.id))
+    );
+
+    const validChoiceKeys = new Set(
+      (overviewTrainingData.choices || [])
+        .filter((choice: any) => activeSessionIds.has(String(choice.training_session_id)))
+        .map((choice: any) => `${choice.event_collaborator_id}|${choice.training_group_id}`)
+    );
+
+    let requiredPeople = 0;
+    let completedPeople = 0;
+    let pendingPeople = 0;
+
+    for (const link of operationalLinks as any[]) {
+      const roleValues = assignmentsByLink.get(String(link.id)) || new Set<string>();
+      if (!roleValues.size && link.role_value) roleValues.add(String(link.role_value));
+
+      const requiredGroups = groups.filter((group: any) => {
+        const acceptedRoles = rolesByGroup.get(String(group.id));
+        if (!acceptedRoles?.size) return false;
+        return [...roleValues].some((roleValue) => acceptedRoles.has(roleValue));
+      });
+
+      if (!requiredGroups.length) continue;
+
+      requiredPeople += 1;
+      const complete = requiredGroups.every((group: any) =>
+        validChoiceKeys.has(`${link.id}|${group.id}`)
+      );
+
+      if (complete) completedPeople += 1;
+      else pendingPeople += 1;
+    }
+
+    const reselectionPending = (overviewTrainingData.reselections || []).filter(
+      (item: any) => !['used', 'completed', 'resolved'].includes(String(item.status || '').toLowerCase())
+    ).length;
+
+    return {
+      requiredPeople,
+      completedPeople,
+      pendingPeople,
+      reselectionPending,
+      configured: true,
+    };
+  }, [overviewTrainingData, operationalLinks]);
+
+  const communicationOverview = useMemo(() => {
+    const latestByLink = new Map<string, any>();
+    for (const communication of eventCommunications as any[]) {
+      const linkId = String(communication.event_collaborator_id || '');
+      if (linkId && !latestByLink.has(linkId)) latestByLink.set(linkId, communication);
+    }
+
+    const errorStates = new Set([
+      'failed',
+      'failed_missing_recipient',
+      'soft_bounce',
+      'hard_bounce',
+      'blocked',
+      'spam',
+      'invalid',
+      'error',
+      'unsubscribed',
+    ]);
+
+    let errors = 0;
+    for (const link of operationalLinks as any[]) {
+      const communication = latestByLink.get(String(link.id));
+      if (!communication) continue;
+      if (
+        errorStates.has(String(communication.status || '').toLowerCase()) ||
+        errorStates.has(String(communication.delivery_status || '').toLowerCase())
+      ) {
+        errors += 1;
+      }
+    }
+
+    return {
+      errors,
+      withoutEmail: operationalLinks.filter((link: any) => !String(link.email || '').trim()).length,
+    };
+  }, [eventCommunications, operationalLinks]);
+
+  const candidateOverview = useMemo(() => {
+    const missingLocation = candidates.filter((candidate: any) =>
+      !String(candidate.campus || '').trim() ||
+      !String(candidate.building || '').trim() ||
+      !String(candidate.room || '').trim()
+    ).length;
+
+    return {
+      total: candidates.length,
+      completeLocation: Math.max(0, candidates.length - missingLocation),
+      missingLocation,
+    };
+  }, [candidates]);
+
+  const paymentOverview = useMemo(() => {
+    const active = operationalLinks.filter((link: any) => !link.absent);
+    const withPix = active.filter((link: any) => String(link.pix || '').trim()).length;
+    const payable = active.filter((link: any) => !!link.present || !!link.signed_at).length;
+
+    return {
+      active: active.length,
+      withPix,
+      missingPix: Math.max(0, active.length - withPix),
+      payable,
+    };
+  }, [operationalLinks]);
+
+  const eventPhase = useMemo(() => {
+    if (event?.status === 'finalizado') return 'finalizado' as const;
+    if (!event?.date) return 'preparacao' as const;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const eventDate = new Date(`${event.date}T00:00:00`);
+    const difference = Math.round((eventDate.getTime() - today.getTime()) / 86_400_000);
+
+    if (difference > 0) return 'preparacao' as const;
+    if (difference === 0) return 'operacao' as const;
+    return 'pos-evento' as const;
+  }, [event?.date, event?.status]);
+
+  const daysUntilEvent = useMemo(() => {
+    if (!event?.date) return null;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const eventDate = new Date(`${event.date}T00:00:00`);
+    return Math.round((eventDate.getTime() - today.getTime()) / 86_400_000);
+  }, [event?.date]);
+
+  const attendancePendingCount = useMemo(
+    () => operationalLinks.filter((link: any) => !link.absent && !link.signed_at && !link.present).length,
+    [operationalLinks]
+  );
+
+  const readyToCloseLocations = useMemo(
+    () => attendanceLocations.filter((location: any) => !location.closure && location.pendingCount === 0).length,
+    [attendanceLocations]
+  );
+
+  const openAttendanceLocations = useMemo(
+    () => attendanceLocations.filter((location: any) => !location.closure).length,
+    [attendanceLocations]
+  );
+
+  const overviewActions = useMemo(() => {
+    const actions: Array<{
+      key: string;
+      severity: 'critical' | 'warning' | 'info';
+      title: string;
+      description: string;
+      tab: string;
+      action: string;
+      count?: number;
+    }> = [];
+
+    if (replacementNeededLinks.length > 0) {
+      actions.push({
+        key: 'replacement',
+        severity: 'critical',
+        title: `${replacementNeededLinks.length} vaga(s) precisam de substituição`,
+        description: 'Há fiscais que recusaram e ainda deixaram vagas abertas.',
+        tab: 'equipe-comunicacao',
+        action: 'Resolver substituições',
+        count: replacementNeededLinks.length,
+      });
+    }
+
+    const pendingConfirmations = Number(confirmationSummary.pending_confirmation || 0);
+    if (pendingConfirmations > 0) {
+      actions.push({
+        key: 'confirmation',
+        severity: eventPhase === 'preparacao' ? 'warning' : 'critical',
+        title: `${pendingConfirmations} fiscal(is) ainda não confirmaram`,
+        description: 'Acompanhe os pendentes e reenvie a comunicação quando necessário.',
+        tab: 'equipe-comunicacao',
+        action: 'Ver pendentes',
+        count: pendingConfirmations,
+      });
+    }
+
+    if (communicationOverview.errors > 0) {
+      actions.push({
+        key: 'email',
+        severity: 'warning',
+        title: `${communicationOverview.errors} envio(s) com problema`,
+        description: 'Existem e-mails recentes com falha, bloqueio ou rejeição.',
+        tab: 'equipe-comunicacao',
+        action: 'Revisar envios',
+        count: communicationOverview.errors,
+      });
+    }
+
+    if (trainingOverview.pendingPeople > 0) {
+      actions.push({
+        key: 'training',
+        severity: 'warning',
+        title: `${trainingOverview.pendingPeople} fiscal(is) sem treinamento definido`,
+        description: 'Pessoas em cargos com treinamento obrigatório ainda não possuem uma data válida.',
+        tab: 'treinamentos',
+        action: 'Abrir treinamentos',
+        count: trainingOverview.pendingPeople,
+      });
+    }
+
+    if (trainingOverview.reselectionPending > 0) {
+      actions.push({
+        key: 'training-reselection',
+        severity: 'critical',
+        title: `${trainingOverview.reselectionPending} realocação(ões) de treinamento pendente(s)`,
+        description: 'Há pessoas afetadas por cancelamento de data que ainda precisam escolher outra sessão.',
+        tab: 'treinamentos',
+        action: 'Realocar pessoas',
+        count: trainingOverview.reselectionPending,
+      });
+    }
+
+    if (candidateOverview.missingLocation > 0) {
+      actions.push({
+        key: 'candidate-location',
+        severity: 'warning',
+        title: `${candidateOverview.missingLocation} candidato(s) com localização incompleta`,
+        description: 'Campus, prédio ou sala está ausente em parte da lista de candidatos.',
+        tab: 'candidatos',
+        action: 'Revisar candidatos',
+        count: candidateOverview.missingLocation,
+      });
+    }
+
+    if (paymentOverview.missingPix > 0) {
+      actions.push({
+        key: 'pix',
+        severity: 'info',
+        title: `${paymentOverview.missingPix} fiscal(is) sem PIX cadastrado`,
+        description: 'Complete os dados antes da consolidação dos pagamentos.',
+        tab: 'pagamentos',
+        action: 'Revisar pagamentos',
+        count: paymentOverview.missingPix,
+      });
+    }
+
+    if (eventPhase === 'operacao' || eventPhase === 'pos-evento') {
+      if (attendancePendingCount > 0) {
+        actions.push({
+          key: 'attendance',
+          severity: 'critical',
+          title: `${attendancePendingCount} presença(s) ainda pendente(s)`,
+          description: 'Conclua assinaturas ou registre ausências antes de fechar os locais.',
+          tab: 'presenca',
+          action: 'Controlar presença',
+          count: attendancePendingCount,
+        });
+      }
+
+      if (readyToCloseLocations > 0) {
+        actions.push({
+          key: 'close-location',
+          severity: 'warning',
+          title: `${readyToCloseLocations} prédio(s)/local(is) prontos para fechamento`,
+          description: 'Não existem mais presenças pendentes nesses locais.',
+          tab: 'presenca',
+          action: 'Fechar locais',
+          count: readyToCloseLocations,
+        });
+      }
+    }
+
+    const priority = { critical: 0, warning: 1, info: 2 };
+    return actions.sort((a, b) => priority[a.severity] - priority[b.severity]);
+  }, [
+    replacementNeededLinks,
+    confirmationSummary.pending_confirmation,
+    communicationOverview.errors,
+    trainingOverview.pendingPeople,
+    trainingOverview.reselectionPending,
+    candidateOverview.missingLocation,
+    paymentOverview.missingPix,
+    eventPhase,
+    attendancePendingCount,
+    readyToCloseLocations,
+  ]);
+
+  const preparationItems = useMemo(() => {
+    const operationalTotal = Number(confirmationSummary.confirmed || 0) + Number(confirmationSummary.pending_confirmation || 0);
+    const confirmed = Number(confirmationSummary.confirmed || 0);
+
+    return [
+      {
+        key: 'confirmation',
+        label: 'Confirmações',
+        value: confirmed,
+        total: operationalTotal,
+        detail: operationalTotal ? `${confirmed} de ${operationalTotal} confirmados` : 'Nenhum fiscal em confirmação',
+        tab: 'equipe-comunicacao',
+      },
+      {
+        key: 'training',
+        label: 'Treinamentos obrigatórios',
+        value: trainingOverview.completedPeople,
+        total: trainingOverview.requiredPeople,
+        detail: trainingOverview.configured
+          ? trainingOverview.requiredPeople
+            ? `${trainingOverview.completedPeople} de ${trainingOverview.requiredPeople} definidos`
+            : 'Nenhum cargo exige treinamento'
+          : 'Nenhum treinamento obrigatório configurado',
+        tab: 'treinamentos',
+      },
+      {
+        key: 'candidates',
+        label: 'Candidatos localizados',
+        value: candidateOverview.completeLocation,
+        total: candidateOverview.total,
+        detail: candidateOverview.total
+          ? `${candidateOverview.completeLocation} de ${candidateOverview.total} com campus, prédio e sala`
+          : 'Nenhum candidato importado',
+        tab: 'candidatos',
+      },
+      {
+        key: 'payment',
+        label: 'Dados para pagamento',
+        value: paymentOverview.withPix,
+        total: paymentOverview.active,
+        detail: paymentOverview.active
+          ? `${paymentOverview.withPix} de ${paymentOverview.active} com PIX`
+          : 'Nenhum fiscal ativo',
+        tab: 'pagamentos',
+      },
+    ];
+  }, [
+    confirmationSummary.confirmed,
+    confirmationSummary.pending_confirmation,
+    trainingOverview,
+    candidateOverview,
+    paymentOverview,
+  ]);
 
   const selfEvaluationRows = useMemo(() => {
     const query = selfEvaluationSearch.trim().toLowerCase();
@@ -1592,9 +2029,9 @@ export default function PsEventDetail() {
           {activeTab === 'visao-geral' && (
             <section className="ps-event-stats" aria-label="Resumo do evento">
               <Card className="ps-event-stat ps-event-stat--violet"><CardContent><p>Equipe</p><strong>{links.length}</strong><span>fiscais vinculados</span></CardContent></Card>
-              <Card className="ps-event-stat ps-event-stat--green"><CardContent><p>Presentes</p><strong>{links.filter((l: any) => l.present).length}</strong><span>presenças registradas</span></CardContent></Card>
-              <Card className="ps-event-stat ps-event-stat--rose"><CardContent><p>Ausentes</p><strong>{links.filter((l: any) => l.absent).length}</strong><span>ausências registradas</span></CardContent></Card>
-              <Card className="ps-event-stat ps-event-stat--blue"><CardContent><p>Avaliações</p><strong>{links.filter((l: any) => l.evaluated).length}</strong><span>avaliações concluídas</span></CardContent></Card>
+              <Card className="ps-event-stat ps-event-stat--green"><CardContent><p>Confirmados</p><strong>{Number(confirmationSummary.confirmed || 0)}</strong><span>{Number(confirmationSummary.pending_confirmation || 0)} aguardando resposta</span></CardContent></Card>
+              <Card className="ps-event-stat ps-event-stat--blue"><CardContent><p>Candidatos</p><strong>{candidates.length}</strong><span>{candidateOverview.missingLocation ? `${candidateOverview.missingLocation} com localização pendente` : 'localização conferida'}</span></CardContent></Card>
+              <Card className={`ps-event-stat ${overviewActions.some((item) => item.severity === 'critical') ? 'ps-event-stat--rose' : 'ps-event-stat--green'}`}><CardContent><p>Ações pendentes</p><strong>{overviewActions.length}</strong><span>{overviewActions.length ? 'itens que pedem atenção' : 'nenhuma ação crítica agora'}</span></CardContent></Card>
             </section>
           )}
 
@@ -1619,20 +2056,288 @@ export default function PsEventDetail() {
           <div className="ps-event-workspace__panel">
 
           <TabsContent value="visao-geral" className="space-y-4 pt-4">
-            <Card className="rounded-2xl">
-              <CardHeader><CardTitle className="text-base">Links públicos</CardTitle></CardHeader>
-              <CardContent className="grid gap-2 sm:grid-cols-3">
-                {[
-                  { label: 'Avaliação de fiscais', url: `${publicBase}/avaliacao/${event.id}` },
-                  { label: 'Autoavaliação', url: `${publicBase}/autoavaliacao/${event.id}` },
-                  { label: 'Lista de presença/assinatura', url: `${publicBase}/presenca/${event.id}` },
-                ].map((l) => (
-                  <Button key={l.url} variant="outline" className="justify-between" onClick={() => copy(l.url)}>
-                    {l.label} <Copy className="h-4 w-4" />
-                  </Button>
-                ))}
+            <Card className="overflow-hidden rounded-2xl border-primary/20 bg-gradient-to-br from-card/80 via-card/65 to-primary/[0.045]">
+              <CardContent className="p-0">
+                <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                      {eventPhase === 'preparacao' ? (
+                        <CalendarDays className="h-5 w-5" />
+                      ) : eventPhase === 'operacao' ? (
+                        <Sparkles className="h-5 w-5" />
+                      ) : (
+                        <CheckCircle2 className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-base font-semibold">
+                          {eventPhase === 'preparacao'
+                            ? 'Preparação do evento'
+                            : eventPhase === 'operacao'
+                              ? 'Operação do evento'
+                              : eventPhase === 'finalizado'
+                                ? 'Evento finalizado'
+                                : 'Pós-evento'}
+                        </p>
+                        <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
+                          {eventPhase === 'preparacao' && daysUntilEvent !== null
+                            ? daysUntilEvent === 1
+                              ? 'Falta 1 dia'
+                              : `Faltam ${daysUntilEvent} dias`
+                            : eventPhase === 'operacao'
+                              ? 'Hoje'
+                              : eventPhase === 'finalizado'
+                                ? 'Encerrado'
+                                : 'Conferência final'}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                        {eventPhase === 'preparacao'
+                          ? 'Resolva confirmações, treinamentos, dados de candidatos e pagamentos antes do dia do processo.'
+                          : eventPhase === 'operacao'
+                            ? 'Priorize presença, ausências, substituições e fechamento dos prédios.'
+                            : 'Conclua presença, pagamentos, avaliações e pendências antes do encerramento administrativo.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="rounded-2xl border border-border/60 bg-background/60 px-4 py-2.5 text-right">
+                      <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Ações</p>
+                      <p className="mt-0.5 text-xl font-bold leading-none">{overviewActions.length}</p>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-background/60 px-4 py-2.5 text-right">
+                      <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Equipe confirmada</p>
+                      <p className="mt-0.5 text-xl font-bold leading-none">{Number(confirmationSummary.confirmed || 0)}</p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.7fr)]">
+              <Card className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <ListChecks className="h-4 w-4 text-primary" />
+                        Atenção agora
+                      </CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Pendências calculadas automaticamente a partir dos dados do evento.
+                      </p>
+                    </div>
+                    <Badge
+                      variant={overviewActions.some((item) => item.severity === 'critical') ? 'destructive' : 'secondary'}
+                      className="rounded-full"
+                    >
+                      {overviewActions.length} ação(ões)
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-2">
+                  {overviewActions.slice(0, 6).map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setActiveTab(item.tab)}
+                      className={`group flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${item.severity === 'critical'
+                        ? 'border-destructive/25 bg-destructive/[0.045]'
+                        : item.severity === 'warning'
+                          ? 'border-amber-500/20 bg-amber-500/[0.035]'
+                          : 'border-primary/15 bg-primary/[0.025]'}`}
+                    >
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.severity === 'critical'
+                        ? 'bg-destructive/10 text-destructive'
+                        : item.severity === 'warning'
+                          ? 'bg-amber-500/10 text-amber-500'
+                          : 'bg-primary/10 text-primary'}`}>
+                        {item.key === 'email' ? (
+                          <MailWarning className="h-4 w-4" />
+                        ) : item.key.startsWith('training') ? (
+                          <GraduationCap className="h-4 w-4" />
+                        ) : item.key === 'pix' ? (
+                          <WalletCards className="h-4 w-4" />
+                        ) : item.key === 'candidate-location' ? (
+                          <UserRoundCheck className="h-4 w-4" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4" />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold">{item.title}</p>
+                          {item.count !== undefined && (
+                            <Badge variant="outline" className="rounded-full px-2 text-[9px]">
+                              {item.count}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                          {item.description}
+                        </p>
+                      </div>
+
+                      <span className="hidden shrink-0 items-center gap-1 text-[10px] font-semibold text-primary sm:flex">
+                        {item.action}
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </span>
+                    </button>
+                  ))}
+
+                  {!overviewActions.length && (
+                    <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-emerald-500/20 bg-emerald-500/[0.025] p-6">
+                      <div className="max-w-md text-center">
+                        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500">
+                          <CheckCircle2 className="h-5 w-5" />
+                        </div>
+                        <p className="mt-3 text-sm font-semibold">Nenhuma ação crítica identificada</p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Os principais pontos operacionais monitorados pelo sistema estão em ordem.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {overviewActions.length > 6 && (
+                    <p className="pt-1 text-center text-[10px] text-muted-foreground">
+                      +{overviewActions.length - 6} outra(s) ação(ões) identificada(s).
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Preparação do evento</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Acompanhe a cobertura das etapas que antecedem a operação.
+                  </p>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {preparationItems.map((item) => {
+                    const percentage = item.total > 0
+                      ? Math.max(0, Math.min(100, Math.round((item.value / item.total) * 100)))
+                      : 100;
+
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setActiveTab(item.tab)}
+                        className="block w-full rounded-xl p-1 text-left transition hover:bg-muted/30"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold">{item.label}</p>
+                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{item.detail}</p>
+                          </div>
+                          <span className="shrink-0 text-xs font-bold tabular-nums">{percentage}%</span>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.42fr)]">
+              <Card className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Atalhos operacionais</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Vá direto para as áreas mais usadas neste evento.
+                  </p>
+                </CardHeader>
+                <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    { label: 'Equipe e comunicação', tab: 'equipe-comunicacao', detail: `${Number(confirmationSummary.pending_confirmation || 0)} aguardando`, icon: Users },
+                    { label: 'Treinamentos', tab: 'treinamentos', detail: trainingOverview.pendingPeople ? `${trainingOverview.pendingPeople} pendente(s)` : 'sem pendências', icon: GraduationCap },
+                    { label: 'Presença', tab: 'presenca', detail: eventPhase === 'preparacao' ? 'pronta para o dia' : `${attendancePendingCount} pendente(s)`, icon: CheckCircle2 },
+                    { label: 'Pagamentos', tab: 'pagamentos', detail: `${paymentOverview.payable} liberado(s)`, icon: WalletCards },
+                  ].map((shortcut) => {
+                    const Icon = shortcut.icon;
+                    return (
+                      <button
+                        key={shortcut.tab}
+                        type="button"
+                        onClick={() => setActiveTab(shortcut.tab)}
+                        className="group rounded-2xl border border-border/60 bg-card/50 p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary/[0.025] hover:shadow-md"
+                      >
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <p className="mt-3 text-xs font-semibold">{shortcut.label}</p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">{shortcut.detail}</p>
+                        <div className="mt-3 flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-primary">
+                          Abrir
+                          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Links públicos</CardTitle>
+                  <p className="text-xs text-muted-foreground">Copie os acessos usados durante o evento.</p>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {[
+                    { label: 'Avaliação de fiscais', url: `${publicBase}/avaliacao/${event.id}` },
+                    { label: 'Autoavaliação', url: `${publicBase}/autoavaliacao/${event.id}` },
+                    { label: 'Presença / assinatura', url: `${publicBase}/presenca/${event.id}` },
+                  ].map((link) => (
+                    <Button
+                      key={link.url}
+                      variant="outline"
+                      className="w-full justify-between rounded-xl"
+                      onClick={() => copy(link.url)}
+                    >
+                      {link.label}
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            {(eventPhase === 'operacao' || eventPhase === 'pos-evento') && (
+              <Card className="rounded-2xl border-primary/15">
+                <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Fechamento operacional</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {openAttendanceLocations
+                        ? `${openAttendanceLocations} prédio(s)/local(is) ainda não foram fechados.`
+                        : 'Todos os prédios/locais da presença estão fechados.'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0 rounded-xl"
+                    onClick={() => setActiveTab('presenca')}
+                  >
+                    Abrir presença
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="configuracoes" className="space-y-4 pt-4">
