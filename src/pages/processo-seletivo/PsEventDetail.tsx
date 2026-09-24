@@ -34,7 +34,7 @@ import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psCon
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft, GraduationCap, MailWarning, ArrowRight, WalletCards, ListChecks, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft, GraduationCap, MailWarning, ArrowRight, WalletCards, ListChecks, CalendarDays, Building2, DoorOpen, Rows3, List, FilterX } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -91,6 +91,12 @@ export default function PsEventDetail() {
   const [presenceSearch, setPresenceSearch] = useState('');
   const [presenceListOpen, setPresenceListOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
+  const [candidateSearch, setCandidateSearch] = useState('');
+  const [candidateCampus, setCandidateCampus] = useState('all');
+  const [candidateBuilding, setCandidateBuilding] = useState('all');
+  const [candidateRoom, setCandidateRoom] = useState('all');
+  const [candidateStatus, setCandidateStatus] = useState<'all' | 'complete' | 'missing-location' | 'pcd'>('all');
+  const [candidateView, setCandidateView] = useState<'list' | 'rooms'>('list');
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [finalizeAcknowledged, setFinalizeAcknowledged] = useState(false);
 
@@ -548,6 +554,143 @@ export default function PsEventDetail() {
       missingLocation,
     };
   }, [candidates]);
+
+  const candidateCampusOptions = useMemo(
+    () => [...new Set(candidates.map((candidate: any) => String(candidate.campus || '').trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [candidates]
+  );
+
+  const candidateBuildingOptions = useMemo(
+    () => [...new Set(candidates
+      .filter((candidate: any) => candidateCampus === 'all' || String(candidate.campus || '').trim() === candidateCampus)
+      .map((candidate: any) => String(candidate.building || '').trim())
+      .filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [candidates, candidateCampus]
+  );
+
+  const candidateRoomOptions = useMemo(
+    () => [...new Set(candidates
+      .filter((candidate: any) =>
+        (candidateCampus === 'all' || String(candidate.campus || '').trim() === candidateCampus) &&
+        (candidateBuilding === 'all' || String(candidate.building || '').trim() === candidateBuilding)
+      )
+      .map((candidate: any) => String(candidate.room || '').trim())
+      .filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })),
+    [candidates, candidateCampus, candidateBuilding]
+  );
+
+  useEffect(() => {
+    if (candidateCampus !== 'all' && !candidateCampusOptions.includes(candidateCampus)) {
+      setCandidateCampus('all');
+    }
+  }, [candidateCampus, candidateCampusOptions]);
+
+  useEffect(() => {
+    if (candidateBuilding !== 'all' && !candidateBuildingOptions.includes(candidateBuilding)) {
+      setCandidateBuilding('all');
+    }
+  }, [candidateBuilding, candidateBuildingOptions]);
+
+  useEffect(() => {
+    if (candidateRoom !== 'all' && !candidateRoomOptions.includes(candidateRoom)) {
+      setCandidateRoom('all');
+    }
+  }, [candidateRoom, candidateRoomOptions]);
+
+  const filteredCandidates = useMemo(() => {
+    const normalize = (value: unknown) => String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    const search = normalize(candidateSearch);
+
+    return candidates
+      .filter((candidate: any) => {
+        if (candidateCampus !== 'all' && String(candidate.campus || '').trim() !== candidateCampus) return false;
+        if (candidateBuilding !== 'all' && String(candidate.building || '').trim() !== candidateBuilding) return false;
+        if (candidateRoom !== 'all' && String(candidate.room || '').trim() !== candidateRoom) return false;
+
+        const missingLocation =
+          !String(candidate.campus || '').trim() ||
+          !String(candidate.building || '').trim() ||
+          !String(candidate.room || '').trim();
+
+        if (candidateStatus === 'complete' && missingLocation) return false;
+        if (candidateStatus === 'missing-location' && !missingLocation) return false;
+        if (candidateStatus === 'pcd' && (!candidate.pcd_type || candidate.pcd_type === 'NORMAL')) return false;
+
+        if (!search) return true;
+
+        const haystack = normalize([
+          candidate.full_name,
+          candidate.cpf,
+          candidate.rg,
+          candidate.registration_number,
+          candidate.exam_type,
+          candidate.campus,
+          candidate.building,
+          candidate.room,
+          candidate.seat_number || candidate.seat,
+          candidate.pcd_type,
+        ].filter(Boolean).join(' '));
+
+        return haystack.includes(search);
+      })
+      .sort((a: any, b: any) =>
+        String(a.building || '').localeCompare(String(b.building || ''), 'pt-BR') ||
+        String(a.room || '').localeCompare(String(b.room || ''), 'pt-BR', { numeric: true }) ||
+        String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
+      );
+  }, [candidates, candidateSearch, candidateCampus, candidateBuilding, candidateRoom, candidateStatus]);
+
+  const candidateRoomGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; campus: string; building: string; room: string; candidates: any[] }>();
+
+    for (const candidate of filteredCandidates as any[]) {
+      const campus = String(candidate.campus || '').trim() || 'Campus não informado';
+      const building = String(candidate.building || '').trim() || 'Prédio não informado';
+      const room = String(candidate.room || '').trim() || 'Sala não informada';
+      const key = `${campus}|${building}|${room}`;
+      const current = groups.get(key) || { key, campus, building, room, candidates: [] };
+      current.candidates.push(candidate);
+      groups.set(key, current);
+    }
+
+    return [...groups.values()].sort((a, b) =>
+      a.campus.localeCompare(b.campus, 'pt-BR') ||
+      a.building.localeCompare(b.building, 'pt-BR') ||
+      a.room.localeCompare(b.room, 'pt-BR', { numeric: true })
+    );
+  }, [filteredCandidates]);
+
+  const candidateDistributionSummary = useMemo(() => {
+    const campuses = new Set(candidates.map((candidate: any) => String(candidate.campus || '').trim()).filter(Boolean));
+    const buildings = new Set(candidates.map((candidate: any) => String(candidate.building || '').trim()).filter(Boolean));
+    const rooms = new Set(candidates
+      .map((candidate: any) => [candidate.campus, candidate.building, candidate.room].map((value) => String(value || '').trim()).join('|'))
+      .filter((key: string) => !key.endsWith('|')));
+    const pcd = candidates.filter((candidate: any) => candidate.pcd_type && candidate.pcd_type !== 'NORMAL').length;
+
+    return {
+      campuses: campuses.size,
+      buildings: buildings.size,
+      rooms: rooms.size,
+      pcd,
+    };
+  }, [candidates]);
+
+  const clearCandidateFilters = () => {
+    setCandidateSearch('');
+    setCandidateCampus('all');
+    setCandidateBuilding('all');
+    setCandidateRoom('all');
+    setCandidateStatus('all');
+  };
 
   const paymentOverview = useMemo(() => {
     const active = operationalLinks.filter((link: any) => !link.absent);
@@ -3380,48 +3523,357 @@ export default function PsEventDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="candidatos" className="space-y-3 pt-4">
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={downloadPsCandidateTemplate}>
-                <Download className="mr-2 h-4 w-4" />Baixar modelo XLSX
-              </Button>
-              <Button variant="outline" asChild>
-                <label className="cursor-pointer"><Upload className="mr-2 h-4 w-4" />Importar candidatos / atualizar dados
-                  <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (file) void importCandidates(file);
-                  }} />
-                </label>
-              </Button>
-              <Button variant="outline" onClick={() => exportCandidateBadges()} disabled={candidates.length === 0}>
-                <IdCard className="mr-2 h-4 w-4" />Gerar etiquetas (PDF)
-              </Button>
-              {candidates.length > 0 && (
-                <Button variant="outline" onClick={() => { if (confirm('Remover todos os candidatos do evento?')) removeAll.mutate(id!); }}>
-                  <Trash2 className="mr-2 h-4 w-4" />Limpar lista
-                </Button>
-              )}
+          <TabsContent value="candidatos" className="space-y-4 pt-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Candidatos</p>
+                  <p className="mt-1 text-2xl font-bold">{candidates.length}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">{filteredCandidates.length} na visualização atual</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Distribuição</p>
+                  <p className="mt-1 text-2xl font-bold">{candidateDistributionSummary.rooms}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {candidateDistributionSummary.buildings} prédio(s) · {candidateDistributionSummary.campuses} campus
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Atendimento especial</p>
+                  <p className="mt-1 text-2xl font-bold">{candidateDistributionSummary.pcd}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">candidato(s) com indicação PCD/especial</p>
+                </CardContent>
+              </Card>
+              <Card className={`rounded-2xl ${candidateOverview.missingLocation ? 'border-amber-500/25 bg-amber-500/[0.035]' : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Inconsistências</p>
+                  <p className={`mt-1 text-2xl font-bold ${candidateOverview.missingLocation ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {candidateOverview.missingLocation}
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {candidateOverview.missingLocation ? 'sem campus, prédio ou sala completos' : 'localizações completas'}
+                  </p>
+                </CardContent>
+              </Card>
             </div>
+
             <Card className="rounded-2xl">
-              <CardContent className="divide-y p-0">
-                {candidates.map((c: any) => (
-                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-                    <div>
-                      <p className="font-medium">{c.full_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {[c.campus, c.building, c.room && `Sala ${c.room}`, c.seat_number && `Carteira ${c.seat_number}`, c.seat && `Carteira ${c.seat}`].filter(Boolean).join(' · ')}
-                      </p>
-                    </div>
-                    {c.pcd_type && c.pcd_type !== 'NORMAL' && <Badge variant="secondary">{c.pcd_type}</Badge>}
+              <CardContent className="space-y-4 p-4">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Central de candidatos</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Consulte a distribuição, encontre inconsistências e filtre por local de prova.
+                    </p>
                   </div>
-                ))}
-                {candidates.length === 0 && <p className="p-4 text-muted-foreground">Nenhum candidato disponível para geração de etiquetas.</p>}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={downloadPsCandidateTemplate} className="rounded-xl">
+                      <Download className="mr-2 h-4 w-4" />Modelo XLSX
+                    </Button>
+                    <Button variant="outline" size="sm" asChild className="rounded-xl">
+                      <label className="cursor-pointer">
+                        <Upload className="mr-2 h-4 w-4" />Importar / atualizar
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = '';
+                            if (file) void importCandidates(file);
+                          }}
+                        />
+                      </label>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => exportCandidateBadges({
+                        campus: candidateCampus === 'all' ? 'all' : candidateCampus,
+                        building: candidateBuilding === 'all' ? 'all' : candidateBuilding,
+                      })}
+                      disabled={candidates.length === 0}
+                    >
+                      <IdCard className="mr-2 h-4 w-4" />Etiquetas
+                    </Button>
+                    {candidates.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (confirm('Remover todos os candidatos do evento?')) removeAll.mutate(id!);
+                        }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />Limpar lista
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 xl:grid-cols-[minmax(260px,1.4fr)_repeat(4,minmax(150px,0.65fr))]">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={candidateSearch}
+                      onChange={(event) => setCandidateSearch(event.target.value)}
+                      placeholder="Buscar nome, CPF, inscrição, sala ou carteira..."
+                      className="h-10 rounded-xl pl-10"
+                    />
+                  </div>
+
+                  <Select value={candidateCampus} onValueChange={(value) => {
+                    setCandidateCampus(value);
+                    setCandidateBuilding('all');
+                    setCandidateRoom('all');
+                  }}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Campus" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os campus</SelectItem>
+                      {candidateCampusOptions.map((campus) => (
+                        <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={candidateBuilding} onValueChange={(value) => {
+                    setCandidateBuilding(value);
+                    setCandidateRoom('all');
+                  }}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Prédio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os prédios</SelectItem>
+                      {candidateBuildingOptions.map((building) => (
+                        <SelectItem key={building} value={building}>{building}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={candidateRoom} onValueChange={setCandidateRoom}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Sala" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as salas</SelectItem>
+                      {candidateRoomOptions.map((room) => (
+                        <SelectItem key={room} value={room}>{room}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={candidateStatus} onValueChange={(value: any) => setCandidateStatus(value)}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Situação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as situações</SelectItem>
+                      <SelectItem value="complete">Localização completa</SelectItem>
+                      <SelectItem value="missing-location">Localização incompleta</SelectItem>
+                      <SelectItem value="pcd">Atendimento especial / PCD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>
+                      <strong className="font-semibold text-foreground">{filteredCandidates.length}</strong> resultado(s)
+                    </span>
+                    {(candidateSearch || candidateCampus !== 'all' || candidateBuilding !== 'all' || candidateRoom !== 'all' || candidateStatus !== 'all') && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 rounded-lg px-2 text-[10px]"
+                        onClick={clearCandidateFilters}
+                      >
+                        <FilterX className="mr-1 h-3.5 w-3.5" />Limpar filtros
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center rounded-xl border border-border/70 bg-background/70 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setCandidateView('list')}
+                      className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition ${candidateView === 'list'
+                        ? 'bg-muted text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted/50'}`}
+                    >
+                      <List className="h-3.5 w-3.5" />Lista
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCandidateView('rooms')}
+                      className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition ${candidateView === 'rooms'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted/50'}`}
+                    >
+                      <Rows3 className="h-3.5 w-3.5" />Por sala
+                    </button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
+
+            {candidateView === 'rooms' ? (
+              <div className="grid gap-3 xl:grid-cols-2">
+                {candidateRoomGroups.map((group) => {
+                  const pcdCount = group.candidates.filter((candidate: any) => candidate.pcd_type && candidate.pcd_type !== 'NORMAL').length;
+                  const seats = group.candidates
+                    .map((candidate: any) => Number(candidate.seat_number || candidate.seat || 0))
+                    .filter((value: number) => Number.isFinite(value) && value > 0);
+                  const maxSeat = seats.length ? Math.max(...seats) : null;
+
+                  return (
+                    <Card key={group.key} className="overflow-hidden rounded-2xl">
+                      <CardHeader className="border-b border-border/60 pb-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                <DoorOpen className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <CardTitle className="truncate text-sm">
+                                  {group.room === 'Sala não informada' ? group.room : `Sala ${group.room}`}
+                                </CardTitle>
+                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                                  {group.campus} · {group.building}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="shrink-0 rounded-full">
+                            {group.candidates.length} candidato(s)
+                          </Badge>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+                          {maxSeat && <span>Até carteira {maxSeat}</span>}
+                          {pcdCount > 0 && <span className="font-medium text-primary">{pcdCount} atendimento(s) especial(is)</span>}
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="max-h-[22rem] divide-y overflow-y-auto p-0">
+                        {group.candidates.map((candidate: any) => {
+                          const missingLocation =
+                            !String(candidate.campus || '').trim() ||
+                            !String(candidate.building || '').trim() ||
+                            !String(candidate.room || '').trim();
+
+                          return (
+                            <div key={candidate.id} className="flex items-center justify-between gap-3 p-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-semibold" title={candidate.full_name}>
+                                  {candidate.full_name}
+                                </p>
+                                <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                                  {[
+                                    candidate.registration_number && `Inscrição ${candidate.registration_number}`,
+                                    (candidate.seat_number || candidate.seat) && `Carteira ${candidate.seat_number || candidate.seat}`,
+                                    candidate.exam_type,
+                                  ].filter(Boolean).join(' · ') || 'Sem dados complementares'}
+                                </p>
+                              </div>
+
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                {missingLocation && <Badge variant="outline" className="border-amber-500/25 text-[9px] text-amber-500">Incompleto</Badge>}
+                                {candidate.pcd_type && candidate.pcd_type !== 'NORMAL' && (
+                                  <Badge variant="secondary" className="text-[9px]">{candidate.pcd_type}</Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+                {!candidateRoomGroups.length && (
+                  <Card className="rounded-2xl xl:col-span-2">
+                    <CardContent className="p-10 text-center">
+                      <Building2 className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                      <p className="mt-3 text-sm font-semibold">Nenhuma sala encontrada</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Ajuste os filtros para visualizar a distribuição.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : (
+              <Card className="rounded-2xl">
+                <CardContent className="divide-y p-0">
+                  {filteredCandidates.map((candidate: any) => {
+                    const missingLocation =
+                      !String(candidate.campus || '').trim() ||
+                      !String(candidate.building || '').trim() ||
+                      !String(candidate.room || '').trim();
+
+                    return (
+                      <div key={candidate.id} className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{candidate.full_name}</p>
+                            {missingLocation && (
+                              <Badge variant="outline" className="border-amber-500/25 text-[9px] text-amber-500">
+                                Localização incompleta
+                              </Badge>
+                            )}
+                            {candidate.pcd_type && candidate.pcd_type !== 'NORMAL' && (
+                              <Badge variant="secondary" className="text-[9px]">{candidate.pcd_type}</Badge>
+                            )}
+                          </div>
+
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {[
+                              candidate.campus,
+                              candidate.building,
+                              candidate.room && `Sala ${candidate.room}`,
+                              (candidate.seat_number || candidate.seat) && `Carteira ${candidate.seat_number || candidate.seat}`,
+                            ].filter(Boolean).join(' · ') || 'Sem localização definida'}
+                          </p>
+
+                          {(candidate.registration_number || candidate.exam_type) && (
+                            <p className="mt-1 text-[10px] text-muted-foreground">
+                              {[
+                                candidate.registration_number && `Inscrição ${candidate.registration_number}`,
+                                candidate.exam_type,
+                              ].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground">
+                          {candidate.cpf && <span>CPF {candidate.cpf}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {!filteredCandidates.length && (
+                    <div className="p-10 text-center">
+                      <Search className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                      <p className="mt-3 text-sm font-semibold">Nenhum candidato encontrado</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Ajuste os filtros ou a busca.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
-          <TabsContent value="treinamentos" className="pt-4">
+<TabsContent value="treinamentos" className="pt-4">
             <PsEventTrainingTab eventId={id!} roles={roles as any[]} />
           </TabsContent>
 
