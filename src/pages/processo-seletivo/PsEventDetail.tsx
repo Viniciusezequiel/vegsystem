@@ -34,7 +34,7 @@ import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psCon
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -561,6 +561,26 @@ export default function PsEventDetail() {
       );
   }, [collaborators, links, replacementTarget, sameDayAssignments]);
 
+  const availableReplacementCandidates = useMemo(
+    () => replacementCandidates.filter((candidate: any) => !candidate.sameDayConflict),
+    [replacementCandidates]
+  );
+
+  const conflictedReplacementCandidates = useMemo(
+    () => replacementCandidates.filter((candidate: any) => !!candidate.sameDayConflict),
+    [replacementCandidates]
+  );
+
+  const selectedReplacementCandidate = useMemo(
+    () => replacementCandidates.find((candidate: any) => candidate.id === replacementFiscalId) || null,
+    [replacementCandidates, replacementFiscalId]
+  );
+
+  useEffect(() => {
+    if (!replacementTarget || replacementFiscalId || !availableReplacementCandidates.length) return;
+    setReplacementFiscalId(availableReplacementCandidates[0].id);
+  }, [replacementTarget, replacementFiscalId, availableReplacementCandidates]);
+
   const requestConfirmation = async (link: any) => {
     try {
       const result = await confirmationActions.request.mutateAsync({
@@ -719,17 +739,30 @@ export default function PsEventDetail() {
   };
 
   const openReplacement = (link: any) => {
-    const bestAvailable = replacementCandidates.find((candidate: any) => !candidate.sameDayConflict);
     setReplacementTarget(link);
-    setReplacementFiscalId(bestAvailable?.id || '');
+    setReplacementFiscalId('');
     setReplacementPickerOpen(false);
     setReplacementData(replacementAssignment(link));
   };
 
   const submitReplacement = async () => {
-    if (!replacementTarget || !replacementFiscalId) return;
-    await confirmationActions.replace.mutateAsync({ oldLinkId: replacementTarget.id, collaboratorId: replacementFiscalId, assignment: replacementData });
-    setReplacementTarget(null); setReplacementFiscalId(''); setReplacementData(null);
+    if (!replacementTarget || !replacementFiscalId || !selectedReplacementCandidate) return;
+
+    if (selectedReplacementCandidate.sameDayConflict) {
+      toast.error('Este fiscal já está vinculado a outro evento no mesmo dia.');
+      return;
+    }
+
+    await confirmationActions.replace.mutateAsync({
+      oldLinkId: replacementTarget.id,
+      collaboratorId: replacementFiscalId,
+      assignment: replacementData,
+    });
+
+    setReplacementTarget(null);
+    setReplacementFiscalId('');
+    setReplacementPickerOpen(false);
+    setReplacementData(null);
   };
 
   const setParticipantState = (link: any, patch: Partial<{ present: boolean; absent: boolean; departed_at: string | null }>) => {
@@ -3160,124 +3193,457 @@ export default function PsEventDetail() {
 
       {/* Avaliar */}
 
-      <Dialog open={!!replacementTarget} onOpenChange={(open) => { if (!open) { setReplacementTarget(null); setReplacementPickerOpen(false); } }}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader><DialogTitle>Substituir {replacementTarget?.collaborator_name}</DialogTitle></DialogHeader>
-          {replacementData && <div className="space-y-3">
-            <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold">Sugestão automática</p>
-                  <p className="text-xs text-muted-foreground">Fiscais ativos, sem outro vínculo no mesmo dia e com maior compatibilidade.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">
-                    {replacementCandidates.filter((candidate: any) => !candidate.sameDayConflict).length} disponíveis
-                  </Badge>
-                  {replacementCandidates.filter((candidate: any) => !!candidate.sameDayConflict).length > 0 && (
-                    <Badge variant="outline">
-                      {replacementCandidates.filter((candidate: any) => !!candidate.sameDayConflict).length} com conflito
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {replacementCandidates.filter((candidate: any) => !candidate.sameDayConflict).slice(0, 5).map((candidate: any) => (
-                  <button
-                    key={candidate.id}
-                    type="button"
-                    onClick={() => {
-                      if (candidate.sameDayConflict) return;
-                      setReplacementFiscalId(candidate.id);
-                    }}
-                    className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-left transition hover:bg-muted/60 ${replacementFiscalId === candidate.id ? 'border-primary bg-primary/5 shadow-sm' : 'border-border/60 bg-background/60'}`}
+      <Dialog
+        open={!!replacementTarget}
+        onOpenChange={(open) => {
+          if (!open && !confirmationActions.replace.isPending) {
+            setReplacementTarget(null);
+            setReplacementFiscalId('');
+            setReplacementPickerOpen(false);
+            setReplacementData(null);
+          }
+        }}
+      >
+        <DialogContent
+          className="flex h-[min(86vh,790px)] w-[calc(100vw-1.5rem)] max-w-[1120px] flex-col gap-0 overflow-hidden rounded-[26px] border border-border/60 bg-background/95 p-0 shadow-2xl backdrop-blur-xl sm:max-w-[1120px]"
+          onInteractOutside={(event) => event.preventDefault()}
+        >
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-border/60 px-5 py-5 text-left sm:px-7">
+            <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-primary/15 blur-3xl" />
+            <div className="pointer-events-none absolute left-1/3 top-0 h-20 w-64 -translate-y-1/2 rounded-full bg-violet-500/10 blur-3xl" />
+
+            <div className="relative flex flex-col gap-4 pr-8 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                    <ArrowRightLeft className="h-4.5 w-4.5" />
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary"
                   >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold">{candidate.full_name}</span>
-                        {candidate.id === replacementCandidates.find((item: any) => !item.sameDayConflict)?.id ? (
-                          <Badge variant="default" className="shrink-0 text-[10px]">Sugestão principal</Badge>
-                        ) : candidate.replacementScore >= 70 ? (
-                          <Badge variant="secondary" className="shrink-0 text-[10px]">Boa compatibilidade</Badge>
-                        ) : null}
-                      </span>
-                      <span className="mt-1 block truncate text-xs text-muted-foreground">
-                        {[candidate.institution, candidate.unit, candidate.email].filter(Boolean).join(' · ') || 'Sem informações complementares'}
-                      </span>
-                      <span className="mt-1 flex flex-wrap gap-1">
-                        {(candidate.replacementReasons || []).slice(0, 3).map((reason: string) => (
-                          <Badge key={reason} variant="outline" className="text-[10px] font-normal">{reason}</Badge>
-                        ))}
-                      </span>
-                    </span>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <Badge variant="outline">{candidate.replacementScore}%</Badge>
-                      {candidate.average_rating && <span className="text-[10px] text-muted-foreground">Nota {Number(candidate.average_rating).toFixed(2)}</span>}
-                    </div>
-                  </button>
-                ))}
-                {!replacementCandidates.some((candidate: any) => !candidate.sameDayConflict) && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                    Nenhum fiscal disponível foi encontrado sem conflito de data.
+                    Substituição inteligente
+                  </Badge>
+                </div>
+
+                <DialogTitle className="text-xl font-bold tracking-tight sm:text-2xl">
+                  Substituir fiscal
+                </DialogTitle>
+                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  A vaga de <span className="font-semibold text-foreground">{replacementTarget?.collaborator_name}</span> será
+                  preservada e o sistema prioriza quem melhor se encaixa nela.
+                </p>
+              </div>
+
+              <div className="flex shrink-0 gap-2">
+                <div className="rounded-2xl border border-border/60 bg-card/70 px-3.5 py-2.5 text-right shadow-sm">
+                  <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Disponíveis</p>
+                  <p className="mt-0.5 text-lg font-bold leading-none">{availableReplacementCandidates.length}</p>
+                </div>
+                {conflictedReplacementCandidates.length > 0 && (
+                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] px-3.5 py-2.5 text-right shadow-sm">
+                    <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-amber-500/80">Conflitos</p>
+                    <p className="mt-0.5 text-lg font-bold leading-none text-amber-500">{conflictedReplacementCandidates.length}</p>
                   </div>
                 )}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Novo fiscal ativo</Label>
-              <Popover open={replacementPickerOpen} onOpenChange={setReplacementPickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button type="button" variant="outline" role="combobox" aria-expanded={replacementPickerOpen} className="h-auto min-h-10 w-full justify-between py-2 text-left font-normal">
-                    <span className="min-w-0 truncate">
-                      {replacementFiscalId
-                        ? (replacementCandidates as any[]).find((candidate: any) => candidate.id === replacementFiscalId)?.full_name
-                        : 'Pesquisar e selecionar um fiscal ativo...'}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
-                  <Command>
-                    <CommandInput placeholder="Buscar por nome, e-mail, função, instituição ou unidade..." />
-                    <CommandList className="max-h-80">
-                      <CommandEmpty>Nenhum fiscal ativo encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {replacementCandidates.slice(0, 10).map((candidate: any) => (
-                          <CommandItem
+          </DialogHeader>
+
+          {replacementData && (
+            <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[350px_minmax(0,1fr)]">
+              <aside className="min-h-0 overflow-y-auto border-b border-border/60 bg-muted/[0.025] lg:border-b-0 lg:border-r">
+                <div className="space-y-4 p-5 sm:p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                      <ArrowRightLeft className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Vaga a preencher</p>
+                      <p className="text-[11px] text-muted-foreground">Dados herdados do fiscal substituído.</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/60 bg-card/60 p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-destructive/15 bg-destructive/[0.06] text-destructive">
+                        <Users className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold" title={replacementTarget?.collaborator_name}>
+                          {replacementTarget?.collaborator_name}
+                        </p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-destructive/80">
+                          Recusou a participação
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-2 border-t border-border/60 pt-4 text-[11px]">
+                      <div className="flex items-start gap-2">
+                        <BriefcaseBusiness className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="text-muted-foreground">Função</span>
+                        <span className="ml-auto max-w-[58%] text-right font-medium">
+                          {replacementTarget?.role_name || replacementTarget?.assigned_role || 'Não informada'}
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="text-muted-foreground">Local</span>
+                        <span className="ml-auto max-w-[58%] text-right font-medium">
+                          {[
+                            replacementTarget?.building || replacementTarget?.unit,
+                            replacementTarget?.floor && `${replacementTarget.floor}º andar`,
+                            replacementTarget?.room && `Sala ${replacementTarget.room}`,
+                          ].filter(Boolean).join(' · ') || 'Não informado'}
+                        </span>
+                      </div>
+                      {replacementTarget?.work_schedule && (
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span className="text-muted-foreground">Horário</span>
+                          <span className="ml-auto max-w-[58%] text-right font-medium">
+                            {replacementTarget.work_schedule}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {replacementTarget?.decline_reason && (
+                      <div className="mt-4 rounded-xl border border-destructive/10 bg-destructive/[0.035] p-3">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-destructive/80">
+                          Motivo informado
+                        </p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                          {replacementTarget.decline_reason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold">Dados da nova alocação</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        Ajuste somente se a vaga também mudou.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px]">Cargo</Label>
+                          <Input
+                            value={replacementData.role_name || ''}
+                            onChange={(event) => setReplacementData({ ...replacementData, role_name: event.target.value })}
+                            className="h-9 rounded-xl bg-background/80 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px]">Horário</Label>
+                          <Input
+                            value={replacementData.work_schedule || ''}
+                            onChange={(event) => setReplacementData({ ...replacementData, work_schedule: event.target.value })}
+                            className="h-9 rounded-xl bg-background/80 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px]">Unidade</Label>
+                          <Input
+                            value={replacementData.unit || ''}
+                            onChange={(event) => setReplacementData({ ...replacementData, unit: event.target.value })}
+                            className="h-9 rounded-xl bg-background/80 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px]">Prédio</Label>
+                          <Input
+                            value={replacementData.building || ''}
+                            onChange={(event) => setReplacementData({ ...replacementData, building: event.target.value })}
+                            className="h-9 rounded-xl bg-background/80 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px]">Andar</Label>
+                          <Input
+                            value={replacementData.floor || ''}
+                            onChange={(event) => setReplacementData({ ...replacementData, floor: event.target.value })}
+                            className="h-9 rounded-xl bg-background/80 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px]">Sala</Label>
+                          <Input
+                            value={replacementData.room || ''}
+                            onChange={(event) => setReplacementData({ ...replacementData, room: event.target.value })}
+                            className="h-9 rounded-xl bg-background/80 text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+
+              <section className="flex min-h-0 min-w-0 flex-col bg-background/40">
+                <div className="shrink-0 border-b border-border/60 px-5 py-4 sm:px-6">
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Escolha o substituto</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Ranking por compatibilidade com a vaga atual.
+                        </p>
+                      </div>
+                    </div>
+
+                    <Popover open={replacementPickerOpen} onOpenChange={setReplacementPickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={replacementPickerOpen}
+                          className="h-9 min-w-48 justify-between rounded-xl border-border/70 bg-background/70 text-xs font-medium"
+                        >
+                          <span className="truncate">
+                            {selectedReplacementCandidate?.full_name || 'Pesquisar outro fiscal'}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+
+                      <PopoverContent align="end" className="w-[min(460px,calc(100vw-2rem))] p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar por nome, e-mail, instituição ou unidade..." />
+                          <CommandList className="max-h-80">
+                            <CommandEmpty>Nenhum fiscal encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {replacementCandidates.map((candidate: any) => (
+                                <CommandItem
+                                  key={candidate.id}
+                                  value={[
+                                    candidate.full_name,
+                                    candidate.email,
+                                    candidate.institution,
+                                    candidate.unit,
+                                    candidate.sector,
+                                    candidate.preferred_role,
+                                    candidate.role,
+                                  ].filter(Boolean).join(' ')}
+                                  disabled={!!candidate.sameDayConflict}
+                                  onSelect={() => {
+                                    if (candidate.sameDayConflict) return;
+                                    setReplacementFiscalId(candidate.id);
+                                    setReplacementPickerOpen(false);
+                                  }}
+                                  className="items-start gap-2 py-2.5"
+                                >
+                                  <Check className={`mt-0.5 h-4 w-4 shrink-0 ${replacementFiscalId === candidate.id ? 'opacity-100' : 'opacity-0'}`} />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="flex items-center justify-between gap-2">
+                                      <span className="truncate font-medium">{candidate.full_name}</span>
+                                      <span className={`shrink-0 text-[10px] font-bold ${candidate.sameDayConflict ? 'text-amber-500' : 'text-primary'}`}>
+                                        {candidate.sameDayConflict ? 'Conflito' : `${candidate.replacementScore}%`}
+                                      </span>
+                                    </span>
+                                    <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                                      {[candidate.email, candidate.institution || candidate.unit].filter(Boolean).join(' · ') || 'Sem informações complementares'}
+                                    </span>
+                                    <span className={`mt-1 block text-[9px] ${candidate.sameDayConflict ? 'text-amber-500' : 'text-primary/80'}`}>
+                                      {candidate.sameDayConflict
+                                        ? `Já vinculado a ${candidate.sameDayConflict.ps_events?.name || 'outro evento'} no mesmo dia`
+                                        : (candidate.replacementReasons || []).slice(0, 3).join(' · ') || 'Disponível para substituição'}
+                                    </span>
+                                  </span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {selectedReplacementCandidate && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/[0.035] px-3 py-2 text-[10px]">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span className="text-muted-foreground">Selecionado:</span>
+                      <span className="truncate font-semibold">{selectedReplacementCandidate.full_name}</span>
+                      <Badge variant="outline" className="ml-auto shrink-0 rounded-full border-primary/15 px-2 text-[9px] text-primary">
+                        {selectedReplacementCandidate.replacementScore}% encaixe
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 sm:px-6">
+                  {availableReplacementCandidates.length === 0 ? (
+                    <div className="flex min-h-64 items-center justify-center rounded-3xl border border-dashed border-amber-500/25 bg-amber-500/[0.035]">
+                      <div className="max-w-sm text-center">
+                        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500">
+                          <AlertTriangle className="h-5 w-5" />
+                        </div>
+                        <p className="mt-3 text-sm font-semibold">Nenhum substituto livre neste dia</p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Os fiscais encontrados já possuem vínculo com outro evento na mesma data.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+                      {availableReplacementCandidates.slice(0, 8).map((candidate: any, index: number) => {
+                        const isSelected = replacementFiscalId === candidate.id;
+                        const isBest = index === 0;
+
+                        return (
+                          <button
                             key={candidate.id}
-                            value={[candidate.full_name, candidate.email, candidate.institution, candidate.unit, candidate.sector].filter(Boolean).join(' ')}
-                            disabled={!!candidate.sameDayConflict}
-                            onSelect={() => {
-                              if (candidate.sameDayConflict) return;
-                              setReplacementFiscalId(candidate.id);
-                              setReplacementPickerOpen(false);
-                            }}
-                            className="items-start gap-2 py-2"
+                            type="button"
+                            onClick={() => setReplacementFiscalId(candidate.id)}
+                            className={`group relative min-w-0 overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200 ${isSelected
+                              ? 'border-primary/55 bg-gradient-to-br from-primary/[0.11] to-primary/[0.03] shadow-[0_10px_32px_-18px_hsl(var(--primary))]'
+                              : isBest
+                                ? 'border-violet-500/45 bg-gradient-to-br from-violet-500/[0.08] via-primary/[0.025] to-card/60 ring-1 ring-violet-500/10'
+                                : 'border-border/60 bg-card/55 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/80 hover:shadow-lg'}`}
                           >
-                            <Check className={`mt-0.5 h-4 w-4 shrink-0 ${replacementFiscalId === candidate.id ? 'opacity-100' : 'opacity-0'}`} />
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium">{candidate.full_name}</span>
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {[candidate.email, candidate.institution || candidate.unit, candidate.sector].filter(Boolean).join(' · ') || 'Sem informações complementares'}
-                              </span>
-                              <span className={`mt-1 block text-[10px] ${candidate.sameDayConflict ? 'text-destructive' : 'text-primary'}`}>
-                                {candidate.sameDayConflict
-                                  ? `Conflito em ${candidate.sameDayConflict.ps_events?.name || 'outro evento'}`
-                                  : `${candidate.replacementScore}% compatível · ${(candidate.replacementReasons || []).slice(0, 2).join(' · ')}`}
-                              </span>
-                            </span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                            {isBest && !isSelected && (
+                              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/80 to-transparent" />
+                            )}
+
+                            <div className="flex min-w-0 items-start gap-3">
+                              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${isSelected
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'border-border/70 bg-muted/30 text-muted-foreground'}`}>
+                                {isSelected ? <Check className="h-4 w-4" /> : <Users className="h-4 w-4" />}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                      <p className="min-w-0 truncate text-sm font-semibold" title={candidate.full_name}>
+                                        {candidate.full_name}
+                                      </p>
+                                      {isBest ? (
+                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-400">
+                                          <Sparkles className="h-2.5 w-2.5" />
+                                          Melhor encaixe
+                                        </span>
+                                      ) : candidate.replacementScore >= 70 ? (
+                                        <span className="shrink-0 rounded-full border border-primary/15 bg-primary/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary">
+                                          Recomendado
+                                        </span>
+                                      ) : null}
+                                    </div>
+
+                                    <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                                      {[candidate.institution, candidate.unit, candidate.email].filter(Boolean).join(' · ') || 'Sem informações complementares'}
+                                    </p>
+                                  </div>
+
+                                  <div className={`shrink-0 rounded-xl border px-2.5 py-1.5 text-right ${candidate.replacementScore >= 70
+                                    ? 'border-primary/20 bg-primary/10 text-primary'
+                                    : 'border-border/60 bg-muted/30 text-muted-foreground'}`}>
+                                    <p className="text-sm font-bold leading-none">{candidate.replacementScore}%</p>
+                                    <p className="mt-1 text-[8px] font-semibold uppercase tracking-wide">encaixe</p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-2.5 flex flex-wrap gap-1">
+                                  {(candidate.replacementReasons || []).slice(0, 3).map((reason: string) => (
+                                    <span
+                                      key={reason}
+                                      className="rounded-full border border-primary/10 bg-primary/[0.05] px-2 py-0.5 text-[9px] font-medium text-primary/90"
+                                    >
+                                      {reason}
+                                    </span>
+                                  ))}
+                                </div>
+
+                                <div className="mt-2.5 flex items-center gap-3 text-[9px] text-muted-foreground">
+                                  {Number(candidate.average_rating || 0) > 0 && (
+                                    <span>Nota {Number(candidate.average_rating).toFixed(2)}</span>
+                                  )}
+                                  {Number(candidate.total_events || 0) > 0 && (
+                                    <span>{Number(candidate.total_events)} atuações</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {availableReplacementCandidates.length > 8 && (
+                    <div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-muted/[0.02] p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground">
+                        Mostrando os 8 melhores de {availableReplacementCandidates.length} disponíveis.
+                        Use <span className="font-semibold text-foreground">Pesquisar outro fiscal</span> para consultar a lista completa.
+                      </p>
+                    </div>
+                  )}
+
+                  {conflictedReplacementCandidates.length > 0 && (
+                    <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-500/15 bg-amber-500/[0.035] p-3">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                      <p className="text-[10px] leading-relaxed text-muted-foreground">
+                        {conflictedReplacementCandidates.length} fiscal(is) foram retirados do ranking por já possuírem vínculo em outro evento na mesma data.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
             </div>
-            <div className="grid grid-cols-2 gap-3"><div><Label>Cargo</Label><Input value={replacementData.role_name || ''} onChange={(e) => setReplacementData({ ...replacementData, role_name: e.target.value })} /></div><div><Label>Horário</Label><Input value={replacementData.work_schedule || ''} onChange={(e) => setReplacementData({ ...replacementData, work_schedule: e.target.value })} /></div></div>
-            <div className="grid grid-cols-3 gap-3"><div><Label>Unidade</Label><Input value={replacementData.unit || ''} onChange={(e) => setReplacementData({ ...replacementData, unit: e.target.value })} /></div><div><Label>Andar</Label><Input value={replacementData.floor || ''} onChange={(e) => setReplacementData({ ...replacementData, floor: e.target.value })} /></div><div><Label>Sala</Label><Input value={replacementData.room || ''} onChange={(e) => setReplacementData({ ...replacementData, room: e.target.value })} /></div></div>
-          </div>}
-          <DialogFooter><Button variant="outline" onClick={() => setReplacementTarget(null)}>Cancelar</Button><Button onClick={submitReplacement} disabled={!replacementFiscalId || confirmationActions.replace.isPending}>Confirmar substituição</Button></DialogFooter>
+          )}
+
+          <DialogFooter className="shrink-0 border-t border-border/60 bg-background/95 px-5 py-3.5 sm:px-7">
+            <div className="mr-auto hidden min-w-0 sm:block">
+              <p className="text-xs font-medium">
+                {selectedReplacementCandidate
+                  ? `${selectedReplacementCandidate.full_name} será vinculado(a) à vaga`
+                  : 'Selecione um substituto para continuar'}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                A substituição mantém os dados da vaga e registra o histórico da troca.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-xl"
+              disabled={confirmationActions.replace.isPending}
+              onClick={() => {
+                setReplacementTarget(null);
+                setReplacementFiscalId('');
+                setReplacementPickerOpen(false);
+                setReplacementData(null);
+              }}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="button"
+              className="min-w-44 rounded-xl shadow-lg shadow-primary/15"
+              onClick={submitReplacement}
+              disabled={!replacementFiscalId || !selectedReplacementCandidate || confirmationActions.replace.isPending}
+            >
+              {confirmationActions.replace.isPending ? 'Substituindo...' : 'Confirmar substituição'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
