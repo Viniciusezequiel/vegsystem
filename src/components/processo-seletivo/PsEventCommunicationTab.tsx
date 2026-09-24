@@ -106,6 +106,7 @@ type Props = {
   event: any;
   links: any[];
   excludedLinks?: any[];
+  inactiveLinks?: any[];
   onRequestConfirmation: (link: any) => void;
   onCopyConfirmationMessage: (link: any) => void;
   onReplace: (link: any) => void;
@@ -125,6 +126,7 @@ export function PsEventCommunicationTab({
   event,
   links,
   excludedLinks = [],
+  inactiveLinks = [],
   onRequestConfirmation,
   onCopyConfirmationMessage,
   onReplace,
@@ -924,6 +926,57 @@ export function PsEventCommunicationTab({
                   Reincluir no evento
                 </Button>
               )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )}
+
+    {inactiveLinks.length > 0 && (
+      <Card className="border-slate-500/20 bg-slate-500/[0.04]">
+        <CardHeader>
+          <CardTitle className="text-base">Inativos no banco de fiscais ({inactiveLinks.length})</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Esses vínculos permanecem auditáveis, mas não entram nas contagens, comunicações, presença, pagamentos ou avaliações.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {inactiveLinks.map((link: any) => (
+            <div key={link.id} className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-semibold">{link.collaborator_name}</p>
+                  <Badge variant="outline" className="text-[9px]">Cadastro inativo</Badge>
+                  {link.participation_status && (
+                    <Badge variant="secondary" className="text-[9px]">
+                      {getPsConfirmationStatusLabel(link.participation_status)}
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {[link.role_name || link.assigned_role, link.building, link.floor && (link.floor + 'º andar'), link.room && ('Sala ' + link.room)]
+                    .filter(Boolean)
+                    .join(' · ') || 'Sem localização'}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 flex-wrap gap-2">
+                {link.participation_status !== 'replaced' && (
+                  <Button size="sm" variant="outline" onClick={() => onReplace(link)}>
+                    Substituir fiscal
+                  </Button>
+                )}
+                {onRemoveMember && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => onRemoveMember(link)}
+                  >
+                    Excluir deste evento
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </CardContent>

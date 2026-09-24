@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const importHook = fs.readFileSync(new URL('../../src/hooks/usePsEventTeamImport.ts', import.meta.url), 'utf8');
 const importDialog = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventTeamImportDialog.tsx', import.meta.url), 'utf8');
 const eventDetail = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
+const communication = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventCommunicationTab.tsx', import.meta.url), 'utf8');
 const migration = fs.readFileSync(new URL('../../supabase/migrations/20260917210432_block_inactive_ps_collaborator_event_links.sql', import.meta.url), 'utf8');
 const historyMigration = fs.readFileSync(new URL('../../supabase/migrations/20260918130000_ps_collaborator_inactivation_history.sql', import.meta.url), 'utf8');
 const collaboratorPage = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsCollaborators.tsx', import.meta.url), 'utf8');
@@ -57,7 +58,9 @@ test('inativação exige motivo e registra responsável em histórico protegido'
 test('vínculos inativos antigos ficam auditáveis e fora dos fluxos operacionais', () => {
   assert.match(eventDetail, /const inactiveEventLinks = useMemo/);
   assert.match(eventDetail, /const links = useMemo\([\s\S]*active !== false/);
-  assert.match(eventDetail, /não entram nas contagens, comunicações, presença, pagamentos ou avaliações/);
-  assert.match(eventDetail, /Substituir fiscal/);
-  assert.match(eventDetail, /Remover vínculo/);
+  assert.match(eventDetail, /inactiveLinks=\{inactiveEventLinks as any\[\]\}/);
+  assert.match(communication, /Inativos no banco de fiscais/);
+  assert.match(communication, /não entram nas contagens, comunicações, presença, pagamentos ou avaliações/);
+  assert.match(communication, /Substituir fiscal/);
+  assert.match(communication, /Excluir deste evento/);
 });

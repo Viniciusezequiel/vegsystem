@@ -46,9 +46,10 @@ test('detalhe do evento mantém candidatos na navegação contextual', () => {
   const eventNavSource = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventWorkspaceNav.tsx', import.meta.url), 'utf8');
   assert.match(eventNavSource, /value: 'candidatos', label: 'Candidatos'/);
   assert.match(eventDetailSource, /TabsContent value="candidatos"/);
-  assert.match(eventDetailSource, /Importar candidatos/);
+  assert.match(eventDetailSource, /Central de candidatos/);
+  assert.match(eventDetailSource, /Importar \/ atualizar/);
   assert.match(eventDetailSource, /Etiquetas/);
-  assert.match(eventDetailSource, /Nenhum candidato disponível para geração de etiquetas\./);
+  assert.match(eventDetailSource, /Nenhum candidato encontrado\. Use a coluna CANDIDATO ou NOME\./);
 });
 
 test('comunicação unificada e rota pública de confirmação ficam preparadas no contrato do módulo', () => {
@@ -56,7 +57,7 @@ test('comunicação unificada e rota pública de confirmação ficam preparadas 
   const eventNavSource = fs.readFileSync(new URL('../../src/components/processo-seletivo/PsEventWorkspaceNav.tsx', import.meta.url), 'utf8');
   const appSource = fs.readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 
-  assert.match(eventNavSource, /value: 'comunicacao', label: 'Comunicação'/);
+  assert.match(eventNavSource, /value: 'equipe-comunicacao', label: 'Equipe e Comunicação'/);
   assert.doesNotMatch(eventNavSource, /value: 'confirmacoes'/);
   assert.match(eventDetailSource, /Aguardando confirma[çc]ã?o/);
   assert.match(eventDetailSource, /Confirmados|Recusaram|Substituídos/);

@@ -54,7 +54,7 @@ test('lista é ordenada alfabeticamente e paginada', () => {
 });
 
 test('gestão do treinamento permite localizar e remanejar qualquer pessoa', () => {
-  assert.match(component, /Buscar pessoa por nome para localizar o treinamento/);
+  assert.match(component, /Buscar pessoa que já possui treinamento definido/);
   assert.match(component, /normalize\('NFD'\)/);
   assert.match(component, /matchingSessionIds/);
   assert.match(component, /matchingGroupIds/);

@@ -70,7 +70,7 @@ test('migration de backfill usa collaborator_id e apenas preenche campos nulos d
 test('modal manual do fiscal usa campus obrigatório e mantém responsividade multilinha', () => {
   const source = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
   assert.match(source, /campusValue/i);
-  assert.match(source, /Campus do evento/i);
+  assert.match(source, /Campus \*/i);
   assert.match(source, /whitespace-normal/i);
   assert.match(source, /overflow-hidden/i);
   assert.match(source, /min-w-0/i);

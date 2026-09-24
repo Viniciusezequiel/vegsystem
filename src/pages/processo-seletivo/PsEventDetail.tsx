@@ -3324,6 +3324,7 @@ export default function PsEventDetail() {
                 else exportFilteredConfirmationsExcel(rows, filters);
               }}
               excludedLinks={excludedEventLinks as any[]}
+              inactiveLinks={inactiveEventLinks as any[]}
               onImportTeam={() => setImportOpen(true)}
               onAddTeamMember={() => setAddOpen(true)}
               onClearTeam={() => {

@@ -12,7 +12,7 @@ test('agrupa variações de escrita do mesmo prédio', () => {
     getPsAttendanceLocation({ campus: '', unit: 'FUMEC', building }).key
   );
 
-  assert.deepEqual(new Set(keys), new Set(['|||FACE I']));
+  assert.deepEqual(new Set(keys), new Set(['FUMEC|||FACE I']));
 });
 
 test('mantém campus distintos separados e exibe rótulos consistentes', () => {
@@ -28,7 +28,7 @@ test('ignora marcadores vazios e usa a unidade como localização de apoio', () 
   const location = getPsAttendanceLocation({ campus: '', unit: 'FUMEC', building: '-' });
 
   assert.equal(location.building, 'FUMEC');
-  assert.equal(location.key, '|||FUMEC');
+  assert.equal(location.key, 'FUMEC|||FUMEC');
   assert.equal(normalizePsLocation('Prédio – Face II', { building: true }), 'FACE II');
 });
 

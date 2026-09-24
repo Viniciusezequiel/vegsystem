@@ -23,15 +23,19 @@ test('event summary dashboard is restricted to the overview tab', () => {
   assert.match(detail, /<section className="ps-event-stats"/);
 });
 
-test('team uses a compact operational list instead of person cards', () => {
-  assert.match(detail, /Fiscal<\/span>/);
-  assert.match(detail, /Situação<\/span>/);
-  assert.match(detail, /xl:grid-cols-\[minmax\(230px,1\.4fr\)_minmax\(210px,1fr\)_auto_auto\]/);
-  assert.match(detail, /aria-label=\{`Editar \$\{l\.collaborator_name\}`\}/);
+test('team uses a compact operational table inside the unified communication workspace', () => {
+  assert.match(detail, /<PsEventCommunicationTab/);
+  assert.match(communication, /<table className="w-full min-w-\[880px\] table-fixed text-sm">/);
+  assert.match(communication, />Pessoa<\/th>/);
+  assert.match(communication, />Confirmação<\/th>/);
+  assert.match(communication, />Envio por e-mail<\/th>/);
+  assert.match(communication, />Contato<\/th>/);
+  assert.match(communication, /aria-label="Selecionar todos os resultados filtrados"/);
 });
 
 test('communication metrics use one compact dashboard surface', () => {
-  assert.match(communication, /Mensagens, confirmações e acompanhamento dos envios/);
+  assert.match(communication, /Acesso rápido/);
+  assert.match(communication, /Precisam de ação/);
   assert.match(emailDashboard, /grid-cols-2/);
   assert.match(emailDashboard, /sm:grid-cols-4/);
   assert.equal((emailDashboard.match(/<Card /g) || []).length, 1);
@@ -53,7 +57,7 @@ test('confirmation report exports only filtered people with delivery status', ()
 });
 
 test('confirmation and email operations share one communication workspace', () => {
-  assert.match(detail, /<TabsContent value="comunicacao"/);
+  assert.match(detail, /<TabsContent value="equipe-comunicacao"/);
   assert.doesNotMatch(detail, /<TabsContent value="confirmacoes"/);
   assert.match(communication, /Copiar mensagem \+ link/);
   assert.match(communication, /Substituir fiscal/);

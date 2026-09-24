@@ -37,7 +37,9 @@ test('seleção suporta individual, múltiplos, todos filtrados e filtros combin
   assert.deepEqual(filterPsCommunicationRecipients(rows,{search:'ana'}).map(r=>r.id),['1']);
   assert.deepEqual(filterPsCommunicationRecipients(rows,{role:'Fiscal',unit:'Centro'}).map(r=>r.id),['1','3']);
   assert.deepEqual(filterPsCommunicationRecipients(rows,{status:'confirmed',room:'2'}).map(r=>r.id),['2']);
-  assert.match(ui,/Selecionar filtrados/); assert.match(ui,/selecionado\(s\)/);
+  assert.match(ui,/const selectAllFiltered/);
+  assert.match(ui,/aria-label="Selecionar todos os resultados filtrados"/);
+  assert.match(ui,/selecionado\(s\)/);
 });
 
 test('solicitação de confirmação exclui confirmados, recusados e substituídos antes de chamar a Edge Function',()=>{
