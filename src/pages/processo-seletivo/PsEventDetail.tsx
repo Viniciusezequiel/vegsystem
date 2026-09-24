@@ -75,6 +75,7 @@ export default function PsEventDetail() {
   const [importOpen, setImportOpen] = useState(false);
   const [editLink, setEditLink] = useState<any>(null);
   const [searchFiscal, setSearchFiscal] = useState('');
+  const [fiscalView, setFiscalView] = useState<'best' | 'all'>('all');
   const [teamSearch, setTeamSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [roleValue, setRoleValue] = useState('');
@@ -857,6 +858,33 @@ export default function PsEventDetail() {
         String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
       );
   }, [collaborators, links, searchFiscal, sameDayCollaboratorIds, roles, roleValue, campusValue]);
+
+  const recommendedCollaborators = useMemo(() => {
+    if (!roleValue) return [];
+
+    const roleMatches = visibleCollaborators.filter((candidate: any) => candidate.roleCompatible);
+    if (roleMatches.length > 0) return roleMatches;
+
+    return visibleCollaborators
+      .filter((candidate: any) => candidate.compatibilityScore > 0)
+      .slice(0, 24);
+  }, [visibleCollaborators, roleValue]);
+
+  const displayedCollaborators = useMemo(
+    () => fiscalView === 'best' && roleValue ? recommendedCollaborators : visibleCollaborators,
+    [fiscalView, roleValue, recommendedCollaborators, visibleCollaborators]
+  );
+
+  const bestCollaboratorId = useMemo(
+    () => roleValue && recommendedCollaborators[0]?.compatibilityScore > 0
+      ? recommendedCollaborators[0].id
+      : null,
+    [recommendedCollaborators, roleValue]
+  );
+
+  useEffect(() => {
+    setFiscalView(roleValue ? 'best' : 'all');
+  }, [roleValue]);
 
   const linkFiscals = async () => {
     if (!selected.length || !roleValue || !campusValue.trim()) return;
@@ -2642,6 +2670,7 @@ export default function PsEventDetail() {
             setCampusValue('');
             setPixOverrideById({});
             setSearchFiscal('');
+            setFiscalView('all');
           }
         }}
       >
@@ -2852,27 +2881,64 @@ export default function PsEventDetail() {
                     </div>
                   </div>
 
-                  {visibleCollaborators.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9 shrink-0 rounded-xl border-border/70 bg-background/70"
-                      onClick={() => {
-                        const ids = visibleCollaborators.map((c: any) => c.id);
-                        const allSelected = ids.every((cid: string) => selected.includes(cid));
-                        setSelected(
-                          allSelected
-                            ? selected.filter((cid) => !ids.includes(cid))
-                            : Array.from(new Set([...selected, ...ids]))
-                        );
-                      }}
-                    >
-                      {visibleCollaborators.every((c: any) => selected.includes(c.id))
-                        ? 'Desmarcar visíveis'
-                        : 'Selecionar visíveis'}
-                    </Button>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center rounded-xl border border-border/70 bg-background/70 p-1">
+                      <button
+                        type="button"
+                        disabled={!roleValue}
+                        onClick={() => setFiscalView('best')}
+                        className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition ${fiscalView === 'best' && roleValue
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'} disabled:cursor-not-allowed disabled:opacity-40`}
+                        title={!roleValue ? 'Selecione uma função para ver os melhores encaixes' : undefined}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Melhores
+                        {roleValue && (
+                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] ${fiscalView === 'best'
+                            ? 'bg-primary-foreground/15 text-primary-foreground'
+                            : 'bg-muted text-muted-foreground'}`}>
+                            {recommendedCollaborators.length}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFiscalView('all')}
+                        className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition ${fiscalView === 'all'
+                          ? 'bg-muted text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        Todos
+                        <span className="rounded-full bg-background/70 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                          {visibleCollaborators.length}
+                        </span>
+                      </button>
+                    </div>
+
+                    {displayedCollaborators.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 shrink-0 rounded-xl border-border/70 bg-background/70"
+                        onClick={() => {
+                          const ids = displayedCollaborators.map((c: any) => c.id);
+                          const allSelected = ids.every((cid: string) => selected.includes(cid));
+                          setSelected(
+                            allSelected
+                              ? selected.filter((cid) => !ids.includes(cid))
+                              : Array.from(new Set([...selected, ...ids]))
+                          );
+                        }}
+                      >
+                        {displayedCollaborators.every((c: any) => selected.includes(c.id))
+                          ? 'Desmarcar visíveis'
+                          : 'Selecionar visíveis'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="relative mt-4">
@@ -2887,21 +2953,36 @@ export default function PsEventDetail() {
               </div>
 
               <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 sm:px-6">
-                {visibleCollaborators.length === 0 ? (
+                {displayedCollaborators.length === 0 ? (
                   <div className="flex min-h-64 items-center justify-center rounded-3xl border border-dashed border-border/70 bg-muted/[0.025]">
                     <div className="max-w-xs text-center">
                       <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground">
                         <Search className="h-5 w-5" />
                       </div>
-                      <p className="mt-3 text-sm font-semibold">Nenhum fiscal encontrado</p>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        Ajuste a função, o campus ou os termos da busca.
+                      <p className="mt-3 text-sm font-semibold">
+                        {fiscalView === 'best' && roleValue ? 'Nenhum encaixe recomendado encontrado' : 'Nenhum fiscal encontrado'}
                       </p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        {fiscalView === 'best' && roleValue
+                          ? 'Não há fiscais com função compatível entre os resultados atuais.'
+                          : 'Ajuste a função, o campus ou os termos da busca.'}
+                      </p>
+                      {fiscalView === 'best' && roleValue && visibleCollaborators.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-4 rounded-xl"
+                          onClick={() => setFiscalView('all')}
+                        >
+                          Ver todos os fiscais
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ) : (
                   <div className="grid min-w-0 gap-3 xl:grid-cols-2">
-                    {visibleCollaborators.map((c: any) => {
+                    {displayedCollaborators.map((c: any) => {
                       const emailText = c.email ? String(c.email).trim() : '';
                       const matriculaText = c.matricula ? String(c.matricula).trim() : '';
                       const institutionText = c.institution ? String(c.institution).trim() : '';
@@ -2909,14 +2990,23 @@ export default function PsEventDetail() {
                       const collaboratorPix = typeof c?.pix === 'string' ? c.pix : '';
                       const resolvedPix = (pixOverrideById[c.id] ?? collaboratorPix ?? '').trim();
                       const isSelected = selected.includes(c.id);
+                      const isBestMatch = !!roleValue && c.id === bestCollaboratorId;
+                      const isRecommended = !!roleValue && !!c.roleCompatible && c.compatibilityScore >= 45;
 
                       return (
                         <div
                           key={c.id}
-                          className={`group min-w-0 rounded-2xl border p-4 transition-all duration-200 ${isSelected
-                            ? 'border-primary/45 bg-gradient-to-br from-primary/[0.09] to-primary/[0.025] shadow-[0_10px_30px_-18px_hsl(var(--primary))]'
-                            : 'border-border/60 bg-card/55 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card/80 hover:shadow-lg'}`}
+                          className={`group relative min-w-0 overflow-hidden rounded-2xl border p-4 transition-all duration-200 ${isSelected
+                            ? 'border-primary/55 bg-gradient-to-br from-primary/[0.11] to-primary/[0.03] shadow-[0_10px_32px_-18px_hsl(var(--primary))]'
+                            : isBestMatch
+                              ? 'border-violet-500/55 bg-gradient-to-br from-violet-500/[0.10] via-primary/[0.04] to-card/60 shadow-[0_12px_34px_-22px_hsl(var(--primary))] ring-1 ring-violet-500/10'
+                              : isRecommended
+                                ? 'border-primary/30 bg-primary/[0.025] hover:-translate-y-0.5 hover:border-primary/45 hover:bg-primary/[0.05] hover:shadow-lg'
+                                : 'border-border/60 bg-card/55 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card/80 hover:shadow-lg'}`}
                         >
+                          {isBestMatch && !isSelected && (
+                            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/80 to-transparent" />
+                          )}
                           <button
                             type="button"
                             onClick={() =>
@@ -2938,9 +3028,21 @@ export default function PsEventDetail() {
                               <div className="min-w-0 flex-1">
                                 <div className="flex min-w-0 items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold leading-tight" title={c.full_name || 'Sem nome'}>
-                                      {c.full_name || 'Sem nome'}
-                                    </p>
+                                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                      <p className="min-w-0 truncate text-sm font-semibold leading-tight" title={c.full_name || 'Sem nome'}>
+                                        {c.full_name || 'Sem nome'}
+                                      </p>
+                                      {isBestMatch ? (
+                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-violet-400">
+                                          <Sparkles className="h-2.5 w-2.5" />
+                                          Melhor encaixe
+                                        </span>
+                                      ) : isRecommended ? (
+                                        <span className="shrink-0 rounded-full border border-primary/15 bg-primary/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary">
+                                          Recomendado
+                                        </span>
+                                      ) : null}
+                                    </div>
                                     {matriculaText && (
                                       <p className="mt-1 text-[10px] text-muted-foreground">Matrícula {matriculaText}</p>
                                     )}
