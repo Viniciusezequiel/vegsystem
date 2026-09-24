@@ -105,6 +105,7 @@ export default function PsEventDetail() {
   const [selfEvaluationSearch, setSelfEvaluationSearch] = useState('');
   const [selfEvaluationRole, setSelfEvaluationRole] = useState('all');
   const [selfEvaluationCampus, setSelfEvaluationCampus] = useState('all');
+  const [selfEvaluationFocus, setSelfEvaluationFocus] = useState<'all' | 'attention' | 'low' | 'incident' | 'suggestion' | 'anonymous' | 'identified'>('all');
   const [eventSettings, setEventSettings] = useState<any>(null);
   const [savingEventSettings, setSavingEventSettings] = useState(false);
 
@@ -1207,6 +1208,24 @@ export default function PsEventDetail() {
 
     return [...selfEvaluations]
       .filter((item: any) => {
+        const values = [
+          item.training_rating,
+          item.organization_rating,
+          item.snack_rating,
+          item.partner_fiscal_rating,
+        ].filter((value) => Number(value) > 0);
+
+        const hasLowRating = values.some((value) => Number(value) <= 2);
+        const hasSuggestion = !!String(item.suggestions || '').trim();
+        const needsAttention = hasLowRating || !!item.had_incident;
+
+        if (selfEvaluationFocus === 'attention' && !needsAttention) return false;
+        if (selfEvaluationFocus === 'low' && !hasLowRating) return false;
+        if (selfEvaluationFocus === 'incident' && !item.had_incident) return false;
+        if (selfEvaluationFocus === 'suggestion' && !hasSuggestion) return false;
+        if (selfEvaluationFocus === 'anonymous' && item.identified) return false;
+        if (selfEvaluationFocus === 'identified' && !item.identified) return false;
+
         const matchesSearch =
           !query ||
           [
@@ -1233,22 +1252,42 @@ export default function PsEventDetail() {
 
         return matchesSearch && matchesRole && matchesCampus;
       })
-      .sort((a: any, b: any) =>
-        String(b.created_at || '').localeCompare(
-          String(a.created_at || '')
-        )
-      );
+      .sort((a: any, b: any) => {
+        const aAttention =
+          !!a.had_incident ||
+          [a.training_rating, a.organization_rating, a.snack_rating, a.partner_fiscal_rating]
+            .some((value) => Number(value) > 0 && Number(value) <= 2);
+        const bAttention =
+          !!b.had_incident ||
+          [b.training_rating, b.organization_rating, b.snack_rating, b.partner_fiscal_rating]
+            .some((value) => Number(value) > 0 && Number(value) <= 2);
+
+        if (aAttention !== bAttention) return bAttention ? 1 : -1;
+
+        return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      });
   }, [
     selfEvaluations,
     selfEvaluationSearch,
     selfEvaluationRole,
     selfEvaluationCampus,
+    selfEvaluationFocus,
   ]);
 
   const selfEvaluationSummary = useMemo(() => {
     const ratings: number[] = [];
+    const criterionValues: Record<string, number[]> = {
+      training: [],
+      organization: [],
+      snack: [],
+      partner: [],
+    };
+
     let incidents = 0;
     let lowRatings = 0;
+    let suggestions = 0;
+    let identified = 0;
+    let anonymous = 0;
 
     for (const item of selfEvaluations as any[]) {
       const values = [
@@ -1260,7 +1299,15 @@ export default function PsEventDetail() {
 
       ratings.push(...values.map(Number));
 
+      if (Number(item.training_rating) > 0) criterionValues.training.push(Number(item.training_rating));
+      if (Number(item.organization_rating) > 0) criterionValues.organization.push(Number(item.organization_rating));
+      if (Number(item.snack_rating) > 0) criterionValues.snack.push(Number(item.snack_rating));
+      if (Number(item.partner_fiscal_rating) > 0) criterionValues.partner.push(Number(item.partner_fiscal_rating));
+
       if (item.had_incident) incidents += 1;
+      if (String(item.suggestions || '').trim()) suggestions += 1;
+      if (item.identified) identified += 1;
+      else anonymous += 1;
 
       if (values.some((value) => Number(value) <= 2)) {
         lowRatings += 1;
@@ -1268,17 +1315,56 @@ export default function PsEventDetail() {
     }
 
     const average = ratings.length
-      ? ratings.reduce((sum, value) => sum + value, 0) /
-        ratings.length
+      ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length
       : 0;
+
+    const averageOf = (values: number[]) =>
+      values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+
+    const criteria = [
+      { key: 'training', label: 'Treinamento', average: averageOf(criterionValues.training), responses: criterionValues.training.length },
+      { key: 'organization', label: 'Organização', average: averageOf(criterionValues.organization), responses: criterionValues.organization.length },
+      { key: 'snack', label: 'Lanche / alimentação', average: averageOf(criterionValues.snack), responses: criterionValues.snack.length },
+      { key: 'partner', label: 'Fiscal parceiro', average: averageOf(criterionValues.partner), responses: criterionValues.partner.length },
+    ];
+
+    const ratedCriteria = criteria.filter((item) => item.responses > 0);
+    const weakestCriterion = ratedCriteria.length
+      ? [...ratedCriteria].sort((a, b) => a.average - b.average)[0]
+      : null;
+    const strongestCriterion = ratedCriteria.length
+      ? [...ratedCriteria].sort((a, b) => b.average - a.average)[0]
+      : null;
 
     return {
       total: selfEvaluations.length,
       average,
       incidents,
       lowRatings,
+      suggestions,
+      identified,
+      anonymous,
+      attention: selfEvaluations.filter((item: any) =>
+        !!item.had_incident ||
+        [
+          item.training_rating,
+          item.organization_rating,
+          item.snack_rating,
+          item.partner_fiscal_rating,
+        ].some((value) => Number(value) > 0 && Number(value) <= 2)
+      ).length,
+      criteria,
+      weakestCriterion,
+      strongestCriterion,
     };
   }, [selfEvaluations]);
+
+  const clearSelfEvaluationFilters = () => {
+    setSelfEvaluationSearch('');
+    setSelfEvaluationRole('all');
+    setSelfEvaluationCampus('all');
+    setSelfEvaluationFocus('all');
+  };
 
   const selfEvaluationRoleOptions = useMemo(
     () =>
@@ -3714,217 +3800,275 @@ export default function PsEventDetail() {
 
           <TabsContent value="auto" className="space-y-4 pt-4">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Card className="rounded-2xl">
+              <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
                 <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">
-                    Respostas
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {selfEvaluationSummary.total}
+                  <p className="text-xs text-muted-foreground">Respostas recebidas</p>
+                  <p className="mt-1 text-2xl font-bold">{selfEvaluationSummary.total}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {operationalLinks.length
+                      ? `${selfEvaluationSummary.total} resposta(s) para ${operationalLinks.length} fiscais ativos`
+                      : 'sem equipe ativa para referência'}
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="rounded-2xl">
                 <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">
-                    Média geral
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {selfEvaluationSummary.average
-                      ? selfEvaluationSummary.average.toFixed(1)
-                      : '—'}
+                  <p className="text-xs text-muted-foreground">Identificação</p>
+                  <p className="mt-1 text-2xl font-bold">{selfEvaluationSummary.identified}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {selfEvaluationSummary.anonymous} anônima(s)
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="rounded-2xl">
                 <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">
-                    Ocorrências
-                  </p>
+                  <p className="text-xs text-muted-foreground">Média geral</p>
                   <p className="mt-1 text-2xl font-bold">
-                    {selfEvaluationSummary.incidents}
+                    {selfEvaluationSummary.average ? selfEvaluationSummary.average.toFixed(1) : '—'}
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    média combinada dos quatro critérios
                   </p>
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">
-                    Respostas com nota 1–2
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {selfEvaluationSummary.lowRatings}
-                  </p>
-                </CardContent>
-              </Card>
+              <button
+                type="button"
+                className="text-left"
+                onClick={() => setSelfEvaluationFocus(selfEvaluationFocus === 'attention' ? 'all' : 'attention')}
+              >
+                <Card className={`h-full rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md ${selfEvaluationSummary.attention
+                  ? 'border-amber-500/25 bg-amber-500/[0.035]'
+                  : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">Precisam de atenção</p>
+                    <p className={`mt-1 text-2xl font-bold ${selfEvaluationSummary.attention ? 'text-amber-500' : 'text-emerald-500'}`}>
+                      {selfEvaluationSummary.attention}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      ocorrência ou pelo menos uma nota 1–2
+                    </p>
+                  </CardContent>
+                </Card>
+              </button>
             </div>
 
             <Card className="rounded-2xl">
-              <CardHeader>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <CardTitle className="text-base">Leitura por critério</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Veja rapidamente onde o evento foi melhor e pior percebido pelos fiscais.
+                    </p>
+                  </div>
+
+                  {selfEvaluationSummary.weakestCriterion && selfEvaluationSummary.strongestCriterion && (
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="rounded-full border-amber-500/20 text-[9px] text-amber-500">
+                        Menor média: {selfEvaluationSummary.weakestCriterion.label} · {selfEvaluationSummary.weakestCriterion.average.toFixed(1)}
+                      </Badge>
+                      <Badge variant="outline" className="rounded-full border-emerald-500/20 text-[9px] text-emerald-500">
+                        Maior média: {selfEvaluationSummary.strongestCriterion.label} · {selfEvaluationSummary.strongestCriterion.average.toFixed(1)}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {selfEvaluationSummary.criteria.map((criterion) => (
+                    <div key={criterion.key} className="rounded-2xl border border-border/60 bg-muted/[0.08] p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold">{criterion.label}</p>
+                        <Badge
+                          variant={criterion.responses && criterion.average <= 2.5
+                            ? 'destructive'
+                            : criterion.responses && criterion.average >= 4
+                              ? 'default'
+                              : 'secondary'}
+                          className="rounded-full"
+                        >
+                          {criterion.responses ? `★ ${criterion.average.toFixed(1)}` : '—'}
+                        </Badge>
+                      </div>
+
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/60">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${criterion.responses ? Math.min(100, (criterion.average / 5) * 100) : 0}%` }}
+                        />
+                      </div>
+
+                      <p className="mt-2 text-[10px] text-muted-foreground">
+                        {criterion.responses} avaliação(ões) deste critério
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl">
+              <CardHeader className="pb-3">
                 <div className="flex flex-col gap-1">
-                  <CardTitle className="text-base">
-                    Autoavaliações recebidas
-                  </CardTitle>
+                  <CardTitle className="text-base">Autoavaliações recebidas</CardTitle>
                   <p className="text-xs text-muted-foreground">
-                    Feedback enviado pelos fiscais deste evento.
+                    Respostas com ocorrência ou nota baixa aparecem primeiro para facilitar a análise.
                   </p>
                 </div>
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <div className="grid gap-2 lg:grid-cols-3">
-                  <Input
-                    value={selfEvaluationSearch}
-                    onChange={(event) =>
-                      setSelfEvaluationSearch(event.target.value)
-                    }
-                    placeholder="Buscar por nome, cargo, Campus..."
-                  />
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { key: 'all', label: 'Todas', count: selfEvaluationSummary.total },
+                    { key: 'attention', label: 'Precisam de atenção', count: selfEvaluationSummary.attention },
+                    { key: 'low', label: 'Notas 1–2', count: selfEvaluationSummary.lowRatings },
+                    { key: 'incident', label: 'Ocorrências', count: selfEvaluationSummary.incidents },
+                    { key: 'suggestion', label: 'Com sugestão', count: selfEvaluationSummary.suggestions },
+                    { key: 'identified', label: 'Identificadas', count: selfEvaluationSummary.identified },
+                    { key: 'anonymous', label: 'Anônimas', count: selfEvaluationSummary.anonymous },
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setSelfEvaluationFocus(item.key as typeof selfEvaluationFocus)}
+                      className={`flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition ${selfEvaluationFocus === item.key
+                        ? 'border-primary/30 bg-primary text-primary-foreground shadow-sm'
+                        : 'border-border/60 bg-background/50 text-muted-foreground hover:border-primary/20 hover:bg-primary/[0.04] hover:text-foreground'}`}
+                    >
+                      {item.label}
+                      <span className={`rounded-full px-1.5 py-0.5 tabular-nums ${selfEvaluationFocus === item.key ? 'bg-primary-foreground/15' : 'bg-muted/70'}`}>
+                        {item.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
 
-                  <Select
-                    value={selfEvaluationRole}
-                    onValueChange={setSelfEvaluationRole}
-                  >
-                    <SelectTrigger>
+                <div className="grid gap-2 xl:grid-cols-[minmax(280px,1fr)_220px_220px_auto]">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={selfEvaluationSearch}
+                      onChange={(event) => setSelfEvaluationSearch(event.target.value)}
+                      placeholder="Buscar nome, cargo, campus, ocorrência ou sugestão..."
+                      className="h-10 rounded-xl pl-10"
+                    />
+                  </div>
+
+                  <Select value={selfEvaluationRole} onValueChange={setSelfEvaluationRole}>
+                    <SelectTrigger className="h-10 rounded-xl">
                       <SelectValue placeholder="Cargo" />
                     </SelectTrigger>
-
                     <SelectContent>
-                      <SelectItem value="all">
-                        Todos os cargos
-                      </SelectItem>
-
+                      <SelectItem value="all">Todos os cargos</SelectItem>
                       {selfEvaluationRoleOptions.map((role: any) => (
                         <SelectItem key={role} value={role}>
-                          {roles.find(
-                            (item: any) => item.value === role
-                          )?.name || role}
+                          {roles.find((item: any) => item.value === role)?.name || role}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
 
-                  <Select
-                    value={selfEvaluationCampus}
-                    onValueChange={setSelfEvaluationCampus}
-                  >
-                    <SelectTrigger>
+                  <Select value={selfEvaluationCampus} onValueChange={setSelfEvaluationCampus}>
+                    <SelectTrigger className="h-10 rounded-xl">
                       <SelectValue placeholder="Campus" />
                     </SelectTrigger>
-
                     <SelectContent>
-                      <SelectItem value="all">
-                        Todos os Campus
-                      </SelectItem>
-
-                      {selfEvaluationCampusOptions.map(
-                        (campus: any) => (
-                          <SelectItem
-                            key={campus}
-                            value={campus}
-                          >
-                            {campus}
-                          </SelectItem>
-                        )
-                      )}
+                      <SelectItem value="all">Todos os campus</SelectItem>
+                      {selfEvaluationCampusOptions.map((campus: any) => (
+                        <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 rounded-xl"
+                    disabled={
+                      !selfEvaluationSearch &&
+                      selfEvaluationRole === 'all' &&
+                      selfEvaluationCampus === 'all' &&
+                      selfEvaluationFocus === 'all'
+                    }
+                    onClick={clearSelfEvaluationFilters}
+                  >
+                    Limpar
+                  </Button>
                 </div>
 
-                <div className="max-h-[44rem] space-y-3 overflow-y-auto pr-1">
+                <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                  <span><strong className="text-foreground">{selfEvaluationRows.length}</strong> resposta(s) na visualização</span>
+                  <span>
+                    O anonimato é preservado; respostas anônimas não permitem identificar pendências individuais.
+                  </span>
+                </div>
+
+                <div className="max-h-[48rem] space-y-3 overflow-y-auto pr-1">
                   {selfEvaluationRows.map((e: any) => {
                     const roleLabel =
-                      roles.find(
-                        (role: any) => role.value === e.role
-                      )?.name || e.role || 'Cargo não informado';
+                      roles.find((role: any) => role.value === e.role)?.name ||
+                      e.role ||
+                      'Cargo não informado';
 
                     const ratingItems = [
-                      {
-                        label: 'Treinamento',
-                        value: e.training_rating,
-                        comment: e.training_comment,
-                      },
-                      {
-                        label: 'Organização',
-                        value: e.organization_rating,
-                        comment: e.organization_comment,
-                      },
-                      {
-                        label: 'Lanche / alimentação',
-                        value: e.snack_rating,
-                        comment: e.snack_comment,
-                      },
-                      {
-                        label: 'Fiscal parceiro',
-                        value: e.partner_fiscal_rating,
-                        comment: e.partner_fiscal_comment,
-                      },
+                      { label: 'Treinamento', value: e.training_rating, comment: e.training_comment },
+                      { label: 'Organização', value: e.organization_rating, comment: e.organization_comment },
+                      { label: 'Lanche / alimentação', value: e.snack_rating, comment: e.snack_comment },
+                      { label: 'Fiscal parceiro', value: e.partner_fiscal_rating, comment: e.partner_fiscal_comment },
                     ];
+
+                    const hasLowRating = ratingItems.some((item) => Number(item.value) > 0 && Number(item.value) <= 2);
+                    const needsAttention = hasLowRating || !!e.had_incident;
 
                     return (
                       <div
                         key={e.id}
-                        className="rounded-xl border p-4"
+                        className={`rounded-2xl border p-4 ${needsAttention
+                          ? 'border-amber-500/20 bg-amber-500/[0.025]'
+                          : 'border-border/60'}`}
                       >
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-semibold">
-                                {e.identified
-                                  ? e.respondent_name ||
-                                    'Identificado sem nome'
-                                  : 'Resposta anônima'}
+                                {e.identified ? e.respondent_name || 'Identificado sem nome' : 'Resposta anônima'}
                               </p>
 
-                              {!e.identified && (
-                                <Badge variant="outline">
-                                  Anônimo
+                              {!e.identified && <Badge variant="outline">Anônimo</Badge>}
+                              {hasLowRating && (
+                                <Badge variant="outline" className="border-amber-500/25 text-amber-500">
+                                  Nota baixa
                                 </Badge>
                               )}
-
-                              {e.had_incident && (
-                                <Badge variant="destructive">
-                                  Ocorrência
-                                </Badge>
-                              )}
+                              {e.had_incident && <Badge variant="destructive">Ocorrência</Badge>}
                             </div>
 
                             <p className="mt-1 text-xs text-muted-foreground">
                               {[
                                 roleLabel,
                                 e.campus,
-                                e.floor &&
-                                  `${e.floor}º andar`,
-                                e.room &&
-                                  `Sala ${e.room}`,
-                              ]
-                                .filter(Boolean)
-                                .join(' · ')}
+                                e.floor && `${e.floor}º andar`,
+                                e.room && `Sala ${e.room}`,
+                              ].filter(Boolean).join(' · ')}
                             </p>
                           </div>
 
                           <p className="shrink-0 text-xs text-muted-foreground">
-                            {e.created_at
-                              ? new Date(
-                                  e.created_at
-                                ).toLocaleString('pt-BR')
-                              : ''}
+                            {e.created_at ? new Date(e.created_at).toLocaleString('pt-BR') : ''}
                           </p>
                         </div>
 
                         <div className="mt-4 grid gap-2 md:grid-cols-2">
                           {ratingItems.map((item) => (
-                            <div
-                              key={item.label}
-                              className="rounded-lg bg-muted/30 p-3"
-                            >
+                            <div key={item.label} className="rounded-xl bg-muted/30 p-3">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs font-medium">
-                                  {item.label}
-                                </p>
-
+                                <p className="text-xs font-medium">{item.label}</p>
                                 {item.value ? (
                                   <Badge
                                     variant={
@@ -3938,14 +4082,12 @@ export default function PsEventDetail() {
                                     ★ {item.value}/5
                                   </Badge>
                                 ) : (
-                                  <Badge variant="outline">
-                                    Não avaliado
-                                  </Badge>
+                                  <Badge variant="outline">Não avaliado</Badge>
                                 )}
                               </div>
 
                               {item.comment && (
-                                <p className="mt-2 text-xs text-muted-foreground">
+                                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                                   {item.comment}
                                 </p>
                               )}
@@ -3953,29 +4095,19 @@ export default function PsEventDetail() {
                           ))}
                         </div>
 
-                        {(e.had_incident ||
-                          e.suggestions) && (
+                        {(e.had_incident || e.suggestions) && (
                           <div className="mt-3 space-y-2">
                             {e.had_incident && (
-                              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-                                <p className="text-xs font-semibold text-destructive">
-                                  Ocorrência informada
-                                </p>
-                                <p className="mt-1 text-sm">
-                                  {e.incident_comment ||
-                                    'Sem descrição.'}
-                                </p>
+                              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+                                <p className="text-xs font-semibold text-destructive">Ocorrência informada</p>
+                                <p className="mt-1 text-sm">{e.incident_comment || 'Sem descrição.'}</p>
                               </div>
                             )}
 
                             {e.suggestions && (
-                              <div className="rounded-lg border p-3">
-                                <p className="text-xs font-semibold">
-                                  Sugestão de melhoria
-                                </p>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                  {e.suggestions}
-                                </p>
+                              <div className="rounded-xl border p-3">
+                                <p className="text-xs font-semibold">Sugestão de melhoria</p>
+                                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{e.suggestions}</p>
                               </div>
                             )}
                           </div>
@@ -3985,11 +4117,14 @@ export default function PsEventDetail() {
                   })}
 
                   {!selfEvaluationRows.length && (
-                    <div className="rounded-xl border border-dashed p-8 text-center">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="rounded-2xl border border-dashed p-8 text-center">
+                      <p className="text-sm font-semibold">
+                        {selfEvaluations.length ? 'Nenhuma resposta encontrada' : 'Nenhuma autoavaliação recebida'}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {selfEvaluations.length
-                          ? 'Nenhuma autoavaliação corresponde aos filtros.'
-                          : 'Nenhuma autoavaliação recebida neste evento.'}
+                          ? 'Ajuste os filtros para visualizar outras respostas.'
+                          : 'As respostas enviadas pelos fiscais aparecerão aqui.'}
                       </p>
                     </div>
                   )}
