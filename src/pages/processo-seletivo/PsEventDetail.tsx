@@ -434,13 +434,14 @@ export default function PsEventDetail() {
       rolesByGroup.set(groupId, current);
     }
 
-    const assignmentsByLink = new Map<string, Set<string>>();
+    const primaryRoleByLink = new Map<string, string>();
     for (const assignment of overviewTrainingData.assignments || []) {
       const linkId = String(assignment.event_collaborator_id || '');
-      if (!linkId) continue;
-      const current = assignmentsByLink.get(linkId) || new Set<string>();
-      if (assignment.role_value) current.add(String(assignment.role_value));
-      assignmentsByLink.set(linkId, current);
+      const roleValue = String(assignment.role_value || '');
+      if (!linkId || !roleValue || assignment.is_primary !== true) continue;
+      if (!primaryRoleByLink.has(linkId)) {
+        primaryRoleByLink.set(linkId, roleValue);
+      }
     }
 
     const activeSessionIds = new Set(
@@ -460,13 +461,15 @@ export default function PsEventDetail() {
     let pendingPeople = 0;
 
     for (const link of operationalLinks as any[]) {
-      const roleValues = assignmentsByLink.get(String(link.id)) || new Set<string>();
-      if (!roleValues.size && link.role_value) roleValues.add(String(link.role_value));
+      const primaryRoleValue =
+        primaryRoleByLink.get(String(link.id)) ||
+        String(link.role_value || '');
+
+      if (!primaryRoleValue) continue;
 
       const requiredGroups = groups.filter((group: any) => {
         const acceptedRoles = rolesByGroup.get(String(group.id));
-        if (!acceptedRoles?.size) return false;
-        return [...roleValues].some((roleValue) => acceptedRoles.has(roleValue));
+        return !!acceptedRoles?.has(primaryRoleValue);
       });
 
       if (!requiredGroups.length) continue;
