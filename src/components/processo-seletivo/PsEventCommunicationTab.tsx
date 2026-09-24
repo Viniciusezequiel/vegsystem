@@ -35,7 +35,7 @@ import {
 import { getPsConfirmationStatusLabel } from '@/lib/psConfirmationState.mjs';
 import { getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
-import { ChevronDown, Copy, Download, FileSpreadsheet, FileText, MoreHorizontal, Phone, Send, Upload, Plus, Trash2, Pencil, Star, UserCheck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, Copy, Download, FileSpreadsheet, FileText, FilterX, MailWarning, MoreHorizontal, Phone, Send, Upload, Plus, Trash2, Pencil, Star, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 const statusLabel: Record<string, string> = {
@@ -153,6 +153,7 @@ export function PsEventCommunicationTab({
   const [building, setBuilding] = useState('all');
   const [room, setRoom] = useState('all');
   const [delivery, setDelivery] = useState('all');
+  const [quickView, setQuickView] = useState<'all' | 'action' | 'pending' | 'confirmed' | 'declined' | 'failed' | 'not_sent' | 'replaced'>('all');
   const [dialog, setDialog] = useState(false);
   const [type, setType] = useState('confirmation_request');
   const [subject, setSubject] = useState(DEFAULT_CONFIRMATION_SUBJECT);
@@ -212,16 +213,67 @@ export function PsEventCommunicationTab({
     return { latest, sent, state };
   }, [history, links]);
 
+  const actionSummary = useMemo(() => {
+    const pending = links.filter((link: any) => link.participation_status === 'pending_confirmation');
+    const confirmed = links.filter((link: any) => link.participation_status === 'confirmed');
+    const declined = links.filter((link: any) => link.participation_status === 'declined');
+    const replaced = links.filter((link: any) => link.participation_status === 'replaced');
+    const failed = links.filter((link: any) =>
+      confirmationDelivery.state.get(String(link.id)) === 'failed'
+    );
+    const notSent = links.filter((link: any) =>
+      confirmationDelivery.state.get(String(link.id)) === 'not_sent'
+    );
+
+    const actionIds = new Set<string>();
+    for (const link of pending) actionIds.add(String(link.id));
+    for (const link of declined) actionIds.add(String(link.id));
+    for (const link of failed) actionIds.add(String(link.id));
+
+    const pendingNotSent = pending.filter((link: any) =>
+      confirmationDelivery.state.get(String(link.id)) === 'not_sent'
+    );
+
+    const failedConfirmationJobs = failed
+      .map((link: any) => confirmationDelivery.latest.get(String(link.id)))
+      .filter((job: any) => !!job?.id);
+
+    return {
+      pending,
+      confirmed,
+      declined,
+      replaced,
+      failed,
+      notSent,
+      pendingNotSent,
+      failedConfirmationJobs,
+      actionIds,
+      actionCount: actionIds.size,
+    };
+  }, [links, confirmationDelivery]);
+
   const filtered = useMemo(() => {
     const base = filterPsCommunicationRecipients(links, { search, status, unit: 'all', room });
     return base.filter((link: any) => {
+      const linkId = String(link.id);
       const roleName = link.role_name || link.assigned_role || 'Sem função';
+      const deliveryState = confirmationDelivery.state.get(linkId) || 'not_sent';
+
       if (roles.length && !roles.includes(roleName)) return false;
       if (building !== 'all' && normalizePsLocation(link.building, { building: true }) !== building) return false;
-      if (delivery !== 'all' && confirmationDelivery.state.get(String(link.id)) !== delivery) return false;
+      if (delivery !== 'all' && deliveryState !== delivery) return false;
+
+      if (quickView === 'action' && !actionSummary.actionIds.has(linkId)) return false;
+      if (quickView === 'pending' && link.participation_status !== 'pending_confirmation') return false;
+      if (quickView === 'confirmed' && link.participation_status !== 'confirmed') return false;
+      if (quickView === 'declined' && link.participation_status !== 'declined') return false;
+      if (quickView === 'replaced' && link.participation_status !== 'replaced') return false;
+      if (quickView === 'failed' && deliveryState !== 'failed') return false;
+      if (quickView === 'not_sent' && deliveryState !== 'not_sent') return false;
+
       return true;
     });
-  }, [links, search, status, building, room, roles, delivery, confirmationDelivery]);
+  }, [links, search, status, building, room, roles, delivery, quickView, confirmationDelivery, actionSummary]);
 
   const selectedLinks = useMemo(
     () => selected.map((id) => links.find((link) => String(link.id) === id)).filter(Boolean),
@@ -291,6 +343,35 @@ export function PsEventCommunicationTab({
     setRequestKey(crypto.randomUUID());
     setResult(null);
     setDialog(true);
+  };
+
+  const openConfirmationFor = (recipientIds: string[], includeAlreadySent = false) => {
+    const ids = [...new Set(recipientIds.map(String))];
+    if (!ids.length) return;
+    setSelected(ids);
+    setType('confirmation_request');
+    setAllowConfirmationResend(includeAlreadySent);
+    setSubject(DEFAULT_CONFIRMATION_SUBJECT);
+    setTemplate(DEFAULT_CONFIRMATION_TEMPLATE);
+    setRequestKey(crypto.randomUUID());
+    setResult(null);
+    setDialog(true);
+  };
+
+  const applyQuickView = (view: typeof quickView) => {
+    setQuickView(view);
+    setStatus('all');
+    setDelivery('all');
+  };
+
+  const clearOperationalFilters = () => {
+    setSearch('');
+    setStatus('all');
+    setRoles([]);
+    setBuilding('all');
+    setRoom('all');
+    setDelivery('all');
+    setQuickView('all');
   };
 
   const insertVariable = (token: string) => {
@@ -426,6 +507,15 @@ export function PsEventCommunicationTab({
 
   const selectAllFiltered = () => setSelected((current) => [...new Set([...current, ...filtered.map((link: any) => link.id)])]);
   const appliedFilterLabels = [
+    quickView !== 'all' ? `Atalho: ${{
+      action: 'Precisam de ação',
+      pending: 'Aguardando',
+      confirmed: 'Confirmados',
+      declined: 'Recusaram',
+      failed: 'Erro de e-mail',
+      not_sent: 'Não enviados',
+      replaced: 'Substituídos',
+    }[quickView] || quickView}` : '',
     search.trim() ? `Busca: ${search.trim()}` : '',
     status !== 'all' ? `Situação: ${getPsConfirmationStatusLabel(status)}` : '',
     roles.length ? `Cargo(s): ${roles.join(', ')}` : '',
@@ -433,6 +523,15 @@ export function PsEventCommunicationTab({
     room !== 'all' ? `Sala: ${room}` : '',
     delivery !== 'all' ? `Envio: ${deliveryLabel[delivery] || delivery}` : '',
   ].filter(Boolean);
+
+  const hasOperationalFilters =
+    quickView !== 'all' ||
+    !!search.trim() ||
+    status !== 'all' ||
+    roles.length > 0 ||
+    building !== 'all' ||
+    room !== 'all' ||
+    delivery !== 'all';
 
   const copyPhone = async (link: any) => {
     const phone = getPsContactPhone(link);
@@ -454,6 +553,114 @@ export function PsEventCommunicationTab({
     )}
 
     {quotaWaiting > 0 && <p className="rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">{quotaWaiting} mensagens aguardando a renovação da cota diária do provedor.</p>}
+
+    <Card className="rounded-2xl border-violet-500/15 bg-gradient-to-r from-card/75 via-card/55 to-violet-500/[0.035]">
+      <CardContent className="space-y-3 p-3">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p className="text-sm font-semibold">Acesso rápido</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              Filtre a equipe pela ação necessária sem montar combinações manualmente.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { key: 'action', label: 'Precisam de ação', count: actionSummary.actionCount, icon: AlertTriangle },
+              { key: 'pending', label: 'Aguardando', count: actionSummary.pending.length, icon: Clock3 },
+              { key: 'confirmed', label: 'Confirmados', count: actionSummary.confirmed.length, icon: CheckCircle2 },
+              { key: 'declined', label: 'Recusaram', count: actionSummary.declined.length, icon: AlertTriangle },
+              { key: 'failed', label: 'Erro de e-mail', count: actionSummary.failed.length, icon: MailWarning },
+              { key: 'not_sent', label: 'Não enviados', count: actionSummary.notSent.length, icon: Send },
+              { key: 'replaced', label: 'Substituídos', count: actionSummary.replaced.length, icon: UserCheck },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = quickView === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => applyQuickView(active ? 'all' : item.key as typeof quickView)}
+                  className={`flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition ${active
+                    ? 'border-primary/30 bg-primary text-primary-foreground shadow-sm'
+                    : 'border-border/60 bg-background/50 text-muted-foreground hover:border-primary/20 hover:bg-primary/[0.04] hover:text-foreground'}`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {item.label}
+                  <span className={`rounded-full px-1.5 py-0.5 tabular-nums ${active ? 'bg-primary-foreground/15' : 'bg-muted/70'}`}>
+                    {item.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {(actionSummary.pending.length > 0 || actionSummary.failedConfirmationJobs.length > 0 || actionSummary.pendingNotSent.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-violet-500/10 pt-3">
+            <span className="mr-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Ações rápidas
+            </span>
+
+            {actionSummary.pending.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-xl text-[10px]"
+                onClick={() => openConfirmationFor(actionSummary.pending.map((link: any) => String(link.id)), true)}
+              >
+                <Send className="mr-1.5 h-3.5 w-3.5" />
+                Cobrar {actionSummary.pending.length} pendente(s)
+              </Button>
+            )}
+
+            {actionSummary.pendingNotSent.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-xl text-[10px]"
+                onClick={() => openConfirmationFor(actionSummary.pendingNotSent.map((link: any) => String(link.id)), false)}
+              >
+                <Send className="mr-1.5 h-3.5 w-3.5" />
+                Enviar {actionSummary.pendingNotSent.length} não enviado(s)
+              </Button>
+            )}
+
+            {actionSummary.failedConfirmationJobs.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-xl border-destructive/20 text-[10px] text-destructive hover:text-destructive"
+                disabled={retry.isPending}
+                onClick={() => retry.mutate({
+                  eventId: event.id,
+                  jobIds: actionSummary.failedConfirmationJobs.map((job: any) => job.id),
+                })}
+              >
+                <MailWarning className="mr-1.5 h-3.5 w-3.5" />
+                Reenviar {actionSummary.failedConfirmationJobs.length} falha(s)
+              </Button>
+            )}
+
+            {hasOperationalFilters && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="ml-auto h-8 rounded-xl text-[10px]"
+                onClick={clearOperationalFilters}
+              >
+                <FilterX className="mr-1.5 h-3.5 w-3.5" />
+                Limpar filtros
+              </Button>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
 
     <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-card/70 via-card/45 to-violet-500/[0.035] p-1.5 shadow-sm">
       <div className="flex items-center justify-end gap-2 px-1 pb-1">
