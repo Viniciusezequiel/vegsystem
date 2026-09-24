@@ -1,6 +1,6 @@
 import { normalizePix, preparePixPlan, persistPixPlan } from '@/lib/psPixPlan';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +34,7 @@ import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psCon
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS, PS_CRITERIA } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft, GraduationCap, MailWarning, ArrowRight, WalletCards, ListChecks, CalendarDays, Building2, DoorOpen, Rows3, List, FilterX } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft, GraduationCap, MailWarning, ArrowRight, WalletCards, ListChecks, CalendarDays, Building2, DoorOpen, Rows3, List, FilterX, Printer, FileText } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -51,8 +51,22 @@ import {
   readPsCandidateSpreadsheet,
 } from '@/lib/psCandidateSpreadsheet';
 
+const PS_EVENT_TABS = new Set([
+  'visao-geral',
+  'equipe-comunicacao',
+  'candidatos',
+  'presenca',
+  'treinamentos',
+  'pagamentos',
+  'documentos',
+  'avaliacoes',
+  'auto',
+  'configuracoes',
+]);
+
 export default function PsEventDetail() {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { data: event } = usePsEvent(id);
   const { finalize, save } = usePsEventMutations();
@@ -71,7 +85,10 @@ export default function PsEventDetail() {
   const { data: eventCommunications = [] } = usePsEventCommunications(id);
 
   const [addOpen, setAddOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('visao-geral');
+  const [activeTab, setActiveTab] = useState(() => {
+    const requestedTab = searchParams.get('tab');
+    return requestedTab && PS_EVENT_TABS.has(requestedTab) ? requestedTab : 'visao-geral';
+  });
   const [importOpen, setImportOpen] = useState(false);
   const [editLink, setEditLink] = useState<any>(null);
   const [searchFiscal, setSearchFiscal] = useState('');
@@ -112,6 +129,25 @@ export default function PsEventDetail() {
   const [selfEvaluationFocus, setSelfEvaluationFocus] = useState<'all' | 'attention' | 'low' | 'incident' | 'suggestion' | 'anonymous' | 'identified'>('all');
   const [eventSettings, setEventSettings] = useState<any>(null);
   const [savingEventSettings, setSavingEventSettings] = useState(false);
+
+  const changeActiveTab = (tab: string) => {
+    const nextTab = PS_EVENT_TABS.has(tab) ? tab : 'visao-geral';
+    setActiveTab(nextTab);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === 'visao-geral') nextParams.delete('tab');
+    else nextParams.set('tab', nextTab);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    const nextTab = requestedTab && PS_EVENT_TABS.has(requestedTab)
+      ? requestedTab
+      : 'visao-geral';
+
+    setActiveTab((current) => current === nextTab ? current : nextTab);
+  }, [searchParams]);
 
   const [absenceTarget, setAbsenceTarget] = useState<any>(null);
   const [absenceResponsibleId, setAbsenceResponsibleId] = useState('');
@@ -2403,8 +2439,8 @@ export default function PsEventDetail() {
     .replace(/^-|-$/g, '');
 
   const exportBadges = async (filters: LocationFilters = { campus: 'all', building: 'all' }, format: LabelExportFormat = 'pdf') => {
-    if (!links.length) { toast.error('Nenhum colaborador vinculado ao evento.'); return; }
-    const filtered = links.filter((row: any) => matchesLabelLocation(row, filters));
+    if (!operationalLinks.length) { toast.error('Nenhum colaborador operacional vinculado ao evento.'); return; }
+    const filtered = operationalLinks.filter((row: any) => matchesLabelLocation(row, filters));
     if (!filtered.length) { toast.error('Nenhum colaborador encontrado para o campus e prédio selecionados.'); return; }
     const locationSuffix = labelLocationSuffix(filters);
     if (format === 'word') {
@@ -2612,7 +2648,7 @@ export default function PsEventDetail() {
     <MainLayout>
       <Tabs
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={changeActiveTab}
         orientation="vertical"
         className="ps-event-workspace"
       >
@@ -2638,10 +2674,8 @@ export default function PsEventDetail() {
             </div>
 
             <div className="ps-event-hero__actions">
-              <Button variant="outline" onClick={() => setLabelsOpen(true)}><IdCard className="mr-2 h-4 w-4" />Etiquetas</Button>
+              <Button variant="outline" onClick={() => changeActiveTab('documentos')}><Printer className="mr-2 h-4 w-4" />Documentos</Button>
               <Button asChild variant="outline"><Link to={`/admin-module/processo-seletivo/eventos/${id}/avaliadores`}><ShieldCheck className="mr-2 h-4 w-4" />Equipe de avaliação</Link></Button>
-              <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
-              <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />XLSX</Button>
               {event.status !== 'finalizado' && (
                 <Button
                   className="ps-gradient-button"
@@ -2667,7 +2701,7 @@ export default function PsEventDetail() {
 
           <div className="ps-event-mobile-nav">
             <Label htmlFor="ps-event-section">Área do evento</Label>
-            <Select value={activeTab} onValueChange={setActiveTab}>
+            <Select value={activeTab} onValueChange={changeActiveTab}>
               <SelectTrigger id="ps-event-section"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="visao-geral">Visão geral</SelectItem>
@@ -2676,6 +2710,7 @@ export default function PsEventDetail() {
                 <SelectItem value="presenca">Presença</SelectItem>
                 <SelectItem value="treinamentos">Treinamentos</SelectItem>
                 <SelectItem value="pagamentos">Pagamentos</SelectItem>
+                <SelectItem value="documentos">Documentos e Etiquetas</SelectItem>
                 <SelectItem value="avaliacoes">Avaliações</SelectItem>
                 <SelectItem value="auto">Autoavaliações</SelectItem>
                 <SelectItem value="configuracoes">Configurações</SelectItem>
@@ -2773,7 +2808,7 @@ export default function PsEventDetail() {
                     <button
                       key={item.key}
                       type="button"
-                      onClick={() => setActiveTab(item.tab)}
+                      onClick={() => changeActiveTab(item.tab)}
                       className={`group flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5 hover:shadow-md ${item.severity === 'critical'
                         ? 'border-destructive/25 bg-destructive/[0.045]'
                         : item.severity === 'warning'
@@ -2859,7 +2894,7 @@ export default function PsEventDetail() {
                       <button
                         key={item.key}
                         type="button"
-                        onClick={() => setActiveTab(item.tab)}
+                        onClick={() => changeActiveTab(item.tab)}
                         className="block w-full rounded-xl p-1 text-left transition hover:bg-muted/30"
                       >
                         <div className="flex items-center justify-between gap-3">
@@ -2902,7 +2937,7 @@ export default function PsEventDetail() {
                       <button
                         key={shortcut.tab}
                         type="button"
-                        onClick={() => setActiveTab(shortcut.tab)}
+                        onClick={() => changeActiveTab(shortcut.tab)}
                         className="group rounded-2xl border border-border/60 bg-card/50 p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary/[0.025] hover:shadow-md"
                       >
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -2960,7 +2995,7 @@ export default function PsEventDetail() {
                     type="button"
                     variant="outline"
                     className="shrink-0 rounded-xl"
-                    onClick={() => setActiveTab('presenca')}
+                    onClick={() => changeActiveTab('presenca')}
                   >
                     Abrir presença
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -3166,7 +3201,7 @@ export default function PsEventDetail() {
                           <button
                             key={item.label}
                             type="button"
-                            onClick={() => setActiveTab(item.tab)}
+                            onClick={() => changeActiveTab(item.tab)}
                             className="group flex w-full items-center justify-between gap-3 rounded-xl border border-border/60 p-3 text-left transition hover:border-primary/20 hover:bg-primary/[0.02]"
                           >
                             <div className="min-w-0">
@@ -3896,6 +3931,165 @@ export default function PsEventDetail() {
                 </CardContent>
               )}
             </Card>
+          </TabsContent>
+
+          <TabsContent value="documentos" className="space-y-4 pt-4">
+            <Card className="overflow-hidden rounded-2xl border-primary/20 bg-gradient-to-r from-card/80 via-card/70 to-primary/[0.04]">
+              <CardContent className="p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-base font-semibold">Central de documentos e etiquetas</p>
+                      <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
+                        Impressão e exportação
+                      </Badge>
+                    </div>
+                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                      Gere as etiquetas, relatórios de presença e conferência de confirmações sem procurar ações espalhadas pelo evento.
+                    </p>
+                  </div>
+
+                  <Button type="button" className="shrink-0 rounded-xl" onClick={() => setLabelsOpen(true)}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Abrir central de etiquetas
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Equipe para etiquetas</p>
+                  <p className="mt-1 text-2xl font-bold">{operationalLinks.length}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">confirmados ou aguardando confirmação</p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Candidatos</p>
+                  <p className="mt-1 text-2xl font-bold">{candidates.length}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">disponíveis para etiquetas</p>
+                </CardContent>
+              </Card>
+
+              <Card className={`rounded-2xl ${candidateOverview.missingLocation ? 'border-amber-500/25 bg-amber-500/[0.035]' : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Localização incompleta</p>
+                  <p className={`mt-1 text-2xl font-bold ${candidateOverview.missingLocation ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {candidateOverview.missingLocation}
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">candidato(s) sem campus, prédio ou sala</p>
+                </CardContent>
+              </Card>
+
+              <Card className={`rounded-2xl ${presenceOverview.pending ? 'border-amber-500/25 bg-amber-500/[0.035]' : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Presença pendente</p>
+                  <p className={`mt-1 text-2xl font-bold ${presenceOverview.pending ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {presenceOverview.pending}
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">{presenceOverview.signed} assinatura(s) registrada(s)</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Card className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <IdCard className="h-5 w-5" />
+                  </div>
+                  <CardTitle className="pt-2 text-base">Etiquetas</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Equipe, candidatos e materiais de prova em PDF ou Word.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-3 text-[10px] leading-relaxed text-muted-foreground">
+                    Modelo CC182: imprimir em <strong className="text-foreground">Papel Carta</strong>, tamanho real / 100%.
+                  </div>
+                  <Button className="w-full rounded-xl" onClick={() => setLabelsOpen(true)}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Gerar etiquetas
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <FileSignature className="h-5 w-5" />
+                  </div>
+                  <CardTitle className="pt-2 text-base">Presença e assinaturas</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Relatório completo em PDF ou planilha para conferência.
+                  </p>
+                </CardHeader>
+                <CardContent className="grid gap-2">
+                  <Button variant="outline" className="rounded-xl" onClick={exportAttendancePdf} disabled={!operationalLinks.length}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Presença em PDF
+                  </Button>
+                  <Button variant="outline" className="rounded-xl" onClick={exportPresence} disabled={!operationalLinks.length}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Presença em XLSX
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <CardTitle className="pt-2 text-base">Confirmações da equipe</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Exporte a situação de confirmação e o último status de e-mail.
+                  </p>
+                </CardHeader>
+                <CardContent className="grid gap-2">
+                  <Button variant="outline" className="rounded-xl" onClick={() => exportFilteredConfirmationsPdf(links, [])} disabled={!links.length}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Confirmações em PDF
+                  </Button>
+                  <Button variant="outline" className="rounded-xl" onClick={() => exportFilteredConfirmationsExcel(links, [])} disabled={!links.length}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Confirmações em XLSX
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {(candidateOverview.missingLocation > 0 || replacementNeededLinks.length > 0 || Number(confirmationSummary.pending_confirmation || 0) > 0) && (
+              <Card className="rounded-2xl border-amber-500/20 bg-amber-500/[0.025]">
+                <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Conferência antes de imprimir</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {[
+                        candidateOverview.missingLocation ? `${candidateOverview.missingLocation} candidato(s) com localização incompleta.` : '',
+                        replacementNeededLinks.length ? `${replacementNeededLinks.length} vaga(s) ainda aguardam substituição.` : '',
+                        Number(confirmationSummary.pending_confirmation || 0) ? `${Number(confirmationSummary.pending_confirmation || 0)} fiscal(is) ainda não confirmaram.` : '',
+                      ].filter(Boolean).join(' ')}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {candidateOverview.missingLocation > 0 && (
+                      <Button variant="outline" size="sm" className="rounded-xl" onClick={() => changeActiveTab('candidatos')}>
+                        Revisar candidatos
+                      </Button>
+                    )}
+                    {(replacementNeededLinks.length > 0 || Number(confirmationSummary.pending_confirmation || 0) > 0) && (
+                      <Button variant="outline" size="sm" className="rounded-xl" onClick={() => changeActiveTab('equipe-comunicacao')}>
+                        Revisar equipe
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="avaliacoes" className="space-y-4 pt-4">
@@ -4851,7 +5045,7 @@ export default function PsEventDetail() {
         open={labelsOpen}
         onOpenChange={setLabelsOpen}
         event={event}
-        team={links}
+        team={operationalLinks}
         candidates={candidates}
         onExportTeam={exportBadges}
         onExportCandidates={exportCandidateBadges}
@@ -5104,7 +5298,7 @@ export default function PsEventDetail() {
                       variant="ghost"
                       className="h-8 shrink-0 rounded-lg px-2 text-[10px]"
                       onClick={() => {
-                        setActiveTab(item.tab!);
+                        changeActiveTab(item.tab!);
                         setFinalizeOpen(false);
                         setFinalizeAcknowledged(false);
                       }}

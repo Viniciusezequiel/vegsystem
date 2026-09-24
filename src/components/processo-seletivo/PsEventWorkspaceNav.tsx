@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   GraduationCap,
   LayoutDashboard,
+  Printer,
   Settings,
   UserRoundCheck,
   Users,
@@ -67,6 +68,7 @@ export function PsEventWorkspaceNav({
         { value: 'presenca', label: 'Presença', icon: CalendarCheck2 },
         { value: 'treinamentos', label: 'Treinamentos', icon: GraduationCap },
         { value: 'pagamentos', label: 'Pagamentos', icon: WalletCards },
+        { value: 'documentos', label: 'Documentos e Etiquetas', icon: Printer },
       ],
     },
     {
