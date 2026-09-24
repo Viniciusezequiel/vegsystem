@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CalendarDays, MapPin, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, GraduationCap, MapPin, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 
 import { ContentState } from '@/components/layout/ContentState';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -16,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { usePsEventMutations, usePsEvents } from '@/hooks/useProcessoSeletivo';
 import { PS_EVENT_STATUS } from '@/lib/psConstants';
+import { supabase } from '@/integrations/supabase/client';
 
 const emptyForm = {
   name: '',
@@ -31,16 +33,225 @@ export default function PsEvents() {
   const { data: events = [], isLoading } = usePsEvents();
   const { save, remove } = usePsEventMutations();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(emptyForm);
 
-  const filtered = events.filter((event: any) =>
-    [event.name, event.location, event.coordinator_name]
+  const eventIds = useMemo(
+    () => events.map((event: any) => String(event.id)).filter(Boolean).sort(),
+    [events]
+  );
+
+  const operationalQuery = useQuery({
+    queryKey: ['ps-events-operational-summary', eventIds.join(',')],
+    enabled: eventIds.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const [linksRes, groupsRes, sessionsRes, choicesRes, assignmentsRes] = await Promise.all([
+        (supabase as any)
+          .from('ps_event_collaborators')
+          .select('id,event_id,role_value,participation_status,absent,present,signed_at,manually_excluded')
+          .in('event_id', eventIds),
+        (supabase as any)
+          .from('ps_event_training_groups')
+          .select('id,event_id,required,active')
+          .in('event_id', eventIds),
+        (supabase as any)
+          .from('ps_event_training_sessions')
+          .select('id,event_id,training_group_id,active,cancelled_at')
+          .in('event_id', eventIds),
+        (supabase as any)
+          .from('ps_event_training_choices')
+          .select('event_id,event_collaborator_id,training_group_id,training_session_id')
+          .in('event_id', eventIds),
+        (supabase as any)
+          .from('ps_event_collaborator_assignments')
+          .select('event_id,event_collaborator_id,role_value,is_primary')
+          .in('event_id', eventIds),
+      ]);
+
+      const firstError =
+        linksRes.error ||
+        groupsRes.error ||
+        sessionsRes.error ||
+        choicesRes.error ||
+        assignmentsRes.error;
+
+      if (firstError) throw firstError;
+
+      const groups = groupsRes.data || [];
+      const groupIds = groups.map((group: any) => group.id);
+
+      const groupRolesRes = groupIds.length
+        ? await (supabase as any)
+            .from('ps_event_training_group_roles')
+            .select('training_group_id,role_value')
+            .in('training_group_id', groupIds)
+        : { data: [], error: null };
+
+      if (groupRolesRes.error) throw groupRolesRes.error;
+
+      return {
+        links: linksRes.data || [],
+        groups,
+        sessions: sessionsRes.data || [],
+        choices: choicesRes.data || [],
+        assignments: assignmentsRes.data || [],
+        groupRoles: groupRolesRes.data || [],
+      };
+    },
+  });
+
+  const operationalData = operationalQuery.data || {
+    links: [],
+    groups: [],
+    sessions: [],
+    choices: [],
+    assignments: [],
+    groupRoles: [],
+  };
+
+  const eventSummary = useMemo(() => {
+    const summary = new Map<string, any>();
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    for (const event of events as any[]) {
+      const eventId = String(event.id);
+      const allLinks = operationalData.links.filter((link: any) => String(link.event_id) === eventId);
+      const links = allLinks.filter((link: any) => !link.manually_excluded && String(link.participation_status || '') !== 'replaced');
+
+      const confirmed = links.filter((link: any) => String(link.participation_status || '') === 'confirmed').length;
+      const pending = links.filter((link: any) => !link.participation_status || String(link.participation_status) === 'pending_confirmation').length;
+      const declined = links.filter((link: any) => String(link.participation_status || '') === 'declined').length;
+
+      const attendanceLinks = links.filter((link: any) =>
+        !['declined', 'replaced'].includes(String(link.participation_status || ''))
+      );
+      const attendanceResolved = attendanceLinks.filter((link: any) =>
+        !!link.absent || !!link.present || !!link.signed_at
+      ).length;
+      const attendancePending = Math.max(0, attendanceLinks.length - attendanceResolved);
+
+      const groups = operationalData.groups.filter((group: any) =>
+        String(group.event_id) === eventId &&
+        group.active !== false &&
+        group.required !== false
+      );
+      const groupIds = new Set(groups.map((group: any) => String(group.id)));
+
+      const rolesByGroup = new Map<string, Set<string>>();
+      for (const row of operationalData.groupRoles) {
+        const groupId = String(row.training_group_id || '');
+        if (!groupIds.has(groupId)) continue;
+        const roles = rolesByGroup.get(groupId) || new Set<string>();
+        if (row.role_value) roles.add(String(row.role_value));
+        rolesByGroup.set(groupId, roles);
+      }
+
+      const primaryRoleByLink = new Map<string, string>();
+      for (const assignment of operationalData.assignments) {
+        if (String(assignment.event_id) !== eventId || assignment.is_primary !== true) continue;
+        const linkId = String(assignment.event_collaborator_id || '');
+        const roleValue = String(assignment.role_value || '');
+        if (linkId && roleValue && !primaryRoleByLink.has(linkId)) {
+          primaryRoleByLink.set(linkId, roleValue);
+        }
+      }
+
+      const activeSessionIds = new Set(
+        operationalData.sessions
+          .filter((session: any) =>
+            String(session.event_id) === eventId &&
+            session.active !== false &&
+            !session.cancelled_at
+          )
+          .map((session: any) => String(session.id))
+      );
+
+      const validChoiceKeys = new Set(
+        operationalData.choices
+          .filter((choice: any) =>
+            String(choice.event_id) === eventId &&
+            activeSessionIds.has(String(choice.training_session_id))
+          )
+          .map((choice: any) => `${choice.event_collaborator_id}|${choice.training_group_id}`)
+      );
+
+      let trainingRequired = 0;
+      let trainingCompleted = 0;
+
+      for (const link of attendanceLinks) {
+        const roleValue =
+          primaryRoleByLink.get(String(link.id)) ||
+          String(link.role_value || '');
+
+        if (!roleValue) continue;
+
+        const requiredGroups = groups.filter((group: any) =>
+          rolesByGroup.get(String(group.id))?.has(roleValue)
+        );
+
+        if (!requiredGroups.length) continue;
+
+        trainingRequired += 1;
+        const complete = requiredGroups.every((group: any) =>
+          validChoiceKeys.has(`${link.id}|${group.id}`)
+        );
+        if (complete) trainingCompleted += 1;
+      }
+
+      const trainingPending = Math.max(0, trainingRequired - trainingCompleted);
+      const eventDate = event.date ? new Date(`${event.date}T00:00:00`) : null;
+      const attendanceRelevant = !!eventDate && eventDate.getTime() <= todayStart.getTime();
+
+      const attentionItems = [
+        declined > 0 ? { key: 'declined', label: `${declined} vaga(s) aberta(s)`, critical: true } : null,
+        pending > 0 ? { key: 'pending', label: `${pending} aguardando confirmação`, critical: false } : null,
+        trainingPending > 0 ? { key: 'training', label: `${trainingPending} treinamento(s) pendente(s)`, critical: false } : null,
+        attendanceRelevant && attendancePending > 0
+          ? { key: 'attendance', label: `${attendancePending} presença(s) pendente(s)`, critical: true }
+          : null,
+      ].filter(Boolean);
+
+      summary.set(eventId, {
+        team: attendanceLinks.length,
+        confirmed,
+        pending,
+        declined,
+        trainingRequired,
+        trainingCompleted,
+        trainingPending,
+        attendanceResolved,
+        attendanceTotal: attendanceLinks.length,
+        attendancePending,
+        attendanceRelevant,
+        attentionItems,
+        hasAttention: attentionItems.length > 0,
+        hasCritical: attentionItems.some((item: any) => item.critical),
+      });
+    }
+
+    return summary;
+  }, [events, operationalData]);
+
+  const filtered = events.filter((event: any) => {
+    const matchesSearch = [event.name, event.location, event.coordinator_name]
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+      .includes(search.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const pageSummary = useMemo(() => ({
+    planning: events.filter((event: any) => event.status === 'planejamento').length,
+    active: events.filter((event: any) => event.status === 'em_andamento').length,
+    finished: events.filter((event: any) => event.status === 'finalizado').length,
+    attention: events.filter((event: any) => eventSummary.get(String(event.id))?.hasAttention).length,
+  }), [events, eventSummary]);
 
   const openCreate = () => {
     setForm(emptyForm);
@@ -84,20 +295,71 @@ export default function PsEvents() {
         }
       />
 
+      {!isLoading && events.length > 0 && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Em andamento</p>
+              <p className="mt-1 text-2xl font-bold">{pageSummary.active}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">evento(s) em operação</p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Planejamento</p>
+              <p className="mt-1 text-2xl font-bold">{pageSummary.planning}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">evento(s) em preparação</p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Finalizados</p>
+              <p className="mt-1 text-2xl font-bold">{pageSummary.finished}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">histórico concluído</p>
+            </CardContent>
+          </Card>
+          <Card className={`rounded-2xl ${pageSummary.attention ? 'border-amber-500/25 bg-amber-500/[0.035]' : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Precisam de atenção</p>
+              <p className={`mt-1 text-2xl font-bold ${pageSummary.attention ? 'text-amber-500' : 'text-emerald-500'}`}>
+                {pageSummary.attention}
+              </p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {pageSummary.attention ? 'com pendências operacionais' : 'nenhuma pendência identificada'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <PageToolbar>
-        <div className="relative w-full max-w-3xl">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Buscar por evento, local ou coordenador..."
-            value={search}
-            onChange={event => setSearch(event.target.value)}
-          />
+        <div className="grid w-full gap-2 lg:grid-cols-[minmax(320px,1fr)_220px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="h-10 rounded-xl pl-9"
+              placeholder="Buscar por evento, local ou coordenador..."
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              {Object.entries(PS_EVENT_STATUS).map(([key, value]) => (
+                <SelectItem key={key} value={key}>{value}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </PageToolbar>
 
-      <div className="mb-3 px-1 text-xs text-muted-foreground">
-        {isLoading ? 'Carregando eventos...' : `${filtered.length} ${filtered.length === 1 ? 'evento encontrado' : 'eventos encontrados'}`}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
+        <span>{isLoading ? 'Carregando eventos...' : `${filtered.length} ${filtered.length === 1 ? 'evento encontrado' : 'eventos encontrados'}`}</span>
+        {operationalQuery.isFetching && <span>Atualizando indicadores operacionais...</span>}
       </div>
 
       {isLoading ? (
@@ -111,18 +373,105 @@ export default function PsEvents() {
         />
       ) : (
         <div className="ps-events-grid">
-          {filtered.map((event: any) => (
-            <Card key={event.id} className="ps-gradient-surface group border-border/60 bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/85 hover:shadow-md">
+          {filtered.map((event: any) => {
+            const summary = eventSummary.get(String(event.id)) || {
+              team: 0,
+              confirmed: 0,
+              pending: 0,
+              declined: 0,
+              trainingRequired: 0,
+              trainingCompleted: 0,
+              trainingPending: 0,
+              attendanceResolved: 0,
+              attendanceTotal: 0,
+              attendancePending: 0,
+              attendanceRelevant: false,
+              attentionItems: [],
+              hasAttention: false,
+              hasCritical: false,
+            };
+
+            return (
+            <Card key={event.id} className={`ps-gradient-surface group bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-card/85 hover:shadow-md ${summary.hasCritical ? 'border-destructive/25' : summary.hasAttention ? 'border-amber-500/20' : 'border-border/60 hover:border-primary/30'}`}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="truncate text-sm font-semibold">{event.name}</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate text-sm font-semibold">{event.name}</h2>
+                      {summary.hasAttention && (
+                        <Badge
+                          variant="outline"
+                          className={`rounded-full text-[9px] ${summary.hasCritical ? 'border-destructive/25 text-destructive' : 'border-amber-500/25 text-amber-500'}`}
+                        >
+                          <AlertTriangle className="mr-1 h-3 w-3" />
+                          Atenção
+                        </Badge>
+                      )}
+                    </div>
                     {event.coordinator_name && <p className="mt-1 truncate text-xs text-muted-foreground">Coord. {event.coordinator_name}</p>}
                   </div>
                   <Badge variant={event.status === 'em_andamento' ? 'default' : 'secondary'} className="shrink-0">
                     {PS_EVENT_STATUS[event.status] || event.status}
                   </Badge>
                 </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-border/50 bg-background/35 p-2.5">
+                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                      <Users className="h-3 w-3" />Equipe
+                    </div>
+                    <p className="mt-1 text-lg font-bold">{summary.team}</p>
+                    <p className="text-[9px] text-muted-foreground">{summary.confirmed} confirmado(s)</p>
+                  </div>
+
+                  <div className={`rounded-xl border p-2.5 ${summary.pending ? 'border-amber-500/15 bg-amber-500/[0.025]' : 'border-border/50 bg-background/35'}`}>
+                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                      <CheckCircle2 className="h-3 w-3" />Confirmação
+                    </div>
+                    <p className={`mt-1 text-lg font-bold ${summary.pending ? 'text-amber-500' : ''}`}>{summary.pending}</p>
+                    <p className="text-[9px] text-muted-foreground">aguardando</p>
+                  </div>
+
+                  <div className={`rounded-xl border p-2.5 ${summary.trainingPending ? 'border-amber-500/15 bg-amber-500/[0.025]' : 'border-border/50 bg-background/35'}`}>
+                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                      <GraduationCap className="h-3 w-3" />Treinamento
+                    </div>
+                    <p className="mt-1 text-sm font-bold">
+                      {summary.trainingRequired ? `${summary.trainingCompleted}/${summary.trainingRequired}` : '—'}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground">
+                      {summary.trainingRequired ? 'obrigatórios definidos' : 'não exigido'}
+                    </p>
+                  </div>
+
+                  <div className={`rounded-xl border p-2.5 ${summary.attendanceRelevant && summary.attendancePending ? 'border-amber-500/15 bg-amber-500/[0.025]' : 'border-border/50 bg-background/35'}`}>
+                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                      <CheckCircle2 className="h-3 w-3" />Presença
+                    </div>
+                    <p className="mt-1 text-sm font-bold">
+                      {summary.attendanceRelevant
+                        ? `${summary.attendanceResolved}/${summary.attendanceTotal}`
+                        : 'Aguardando'}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground">
+                      {summary.attendanceRelevant ? 'presenças resolvidas' : 'dia do evento'}
+                    </p>
+                  </div>
+                </div>
+
+                {summary.attentionItems.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {summary.attentionItems.slice(0, 4).map((item: any) => (
+                      <Badge
+                        key={item.key}
+                        variant="outline"
+                        className={`text-[9px] ${item.critical ? 'border-destructive/20 text-destructive' : 'border-amber-500/20 text-amber-500'}`}
+                      >
+                        {item.label}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
 
                 <div className="mt-4 space-y-2 border-t border-border/50 pt-3 text-xs text-muted-foreground">
                   <p className="flex items-center gap-2">
@@ -167,7 +516,8 @@ export default function PsEvents() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
