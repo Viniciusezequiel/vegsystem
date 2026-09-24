@@ -91,6 +91,8 @@ export default function PsEventDetail() {
   const [presenceSearch, setPresenceSearch] = useState('');
   const [presenceListOpen, setPresenceListOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [finalizeAcknowledged, setFinalizeAcknowledged] = useState(false);
 
   const [selfEvaluationSearch, setSelfEvaluationSearch] = useState('');
   const [selfEvaluationRole, setSelfEvaluationRole] = useState('all');
@@ -733,6 +735,178 @@ export default function PsEventDetail() {
     attendancePendingCount,
     readyToCloseLocations,
   ]);
+
+  const finalizationChecklist = useMemo(() => {
+    type ChecklistStatus = 'critical' | 'warning' | 'ready' | 'info';
+
+    const items: Array<{
+      key: string;
+      label: string;
+      detail: string;
+      status: ChecklistStatus;
+      tab?: string;
+    }> = [];
+
+    if (daysUntilEvent !== null && daysUntilEvent > 0) {
+      items.push({
+        key: 'event-date',
+        label: 'Data do evento',
+        detail: daysUntilEvent === 1
+          ? 'O evento acontece amanhã.'
+          : `O evento ainda não aconteceu — faltam ${daysUntilEvent} dias.`,
+        status: 'critical',
+        tab: 'visao-geral',
+      });
+    } else {
+      items.push({
+        key: 'event-date',
+        label: 'Data do evento',
+        detail: eventPhase === 'operacao' ? 'O evento acontece hoje.' : 'A data do evento já foi alcançada.',
+        status: 'ready',
+      });
+    }
+
+    if (replacementNeededLinks.length > 0) {
+      items.push({
+        key: 'replacement',
+        label: 'Substituições',
+        detail: `${replacementNeededLinks.length} vaga(s) ainda precisam de substituição.`,
+        status: 'critical',
+        tab: 'equipe-comunicacao',
+      });
+    } else {
+      items.push({
+        key: 'replacement',
+        label: 'Substituições',
+        detail: 'Nenhuma vaga aberta por recusa.',
+        status: 'ready',
+      });
+    }
+
+    const pendingConfirmations = Number(confirmationSummary.pending_confirmation || 0);
+    items.push({
+      key: 'confirmations',
+      label: 'Confirmações da equipe',
+      detail: pendingConfirmations
+        ? `${pendingConfirmations} fiscal(is) ainda estão aguardando confirmação.`
+        : 'Todas as confirmações pendentes foram resolvidas.',
+      status: pendingConfirmations ? 'warning' : 'ready',
+      tab: pendingConfirmations ? 'equipe-comunicacao' : undefined,
+    });
+
+    if (trainingOverview.configured) {
+      items.push({
+        key: 'training',
+        label: 'Treinamentos obrigatórios',
+        detail: trainingOverview.pendingPeople
+          ? `${trainingOverview.pendingPeople} fiscal(is) em cargos com treinamento obrigatório ainda estão sem data válida.`
+          : trainingOverview.requiredPeople
+            ? `${trainingOverview.completedPeople} de ${trainingOverview.requiredPeople} fiscal(is) com treinamento definido.`
+            : 'Nenhum fiscal do evento pertence a cargo com treinamento obrigatório.',
+        status: trainingOverview.pendingPeople ? 'warning' : 'ready',
+        tab: trainingOverview.pendingPeople ? 'treinamentos' : undefined,
+      });
+    } else {
+      items.push({
+        key: 'training',
+        label: 'Treinamentos obrigatórios',
+        detail: 'Nenhum treinamento obrigatório ativo foi configurado para este evento.',
+        status: 'info',
+        tab: 'treinamentos',
+      });
+    }
+
+    items.push({
+      key: 'candidates',
+      label: 'Localização dos candidatos',
+      detail: candidateOverview.missingLocation
+        ? `${candidateOverview.missingLocation} candidato(s) ainda estão sem campus, prédio ou sala completos.`
+        : candidateOverview.total
+          ? `Todos os ${candidateOverview.total} candidatos possuem localização completa.`
+          : 'Nenhum candidato foi importado.',
+      status: candidateOverview.missingLocation ? 'warning' : candidateOverview.total ? 'ready' : 'info',
+      tab: candidateOverview.missingLocation ? 'candidatos' : undefined,
+    });
+
+    if (communicationOverview.errors > 0) {
+      items.push({
+        key: 'communications',
+        label: 'Comunicações',
+        detail: `${communicationOverview.errors} envio(s) recentes apresentam falha, bloqueio ou rejeição.`,
+        status: 'warning',
+        tab: 'equipe-comunicacao',
+      });
+    } else {
+      items.push({
+        key: 'communications',
+        label: 'Comunicações',
+        detail: 'Nenhum erro recente de entrega identificado.',
+        status: 'ready',
+      });
+    }
+
+    if (eventPhase === 'operacao' || eventPhase === 'pos-evento') {
+      items.push({
+        key: 'attendance',
+        label: 'Presença',
+        detail: attendancePendingCount
+          ? `${attendancePendingCount} presença(s) ainda precisam ser concluídas.`
+          : 'Nenhuma presença pendente.',
+        status: attendancePendingCount ? 'critical' : 'ready',
+        tab: attendancePendingCount ? 'presenca' : undefined,
+      });
+
+      items.push({
+        key: 'closures',
+        label: 'Fechamento dos locais',
+        detail: openAttendanceLocations
+          ? `${openAttendanceLocations} prédio(s)/local(is) ainda não foram fechados.`
+          : 'Todos os locais da presença estão fechados.',
+        status: openAttendanceLocations ? 'critical' : 'ready',
+        tab: openAttendanceLocations ? 'presenca' : undefined,
+      });
+    } else {
+      items.push({
+        key: 'attendance',
+        label: 'Presença e fechamento',
+        detail: 'Esta etapa será executada no dia do evento.',
+        status: 'info',
+        tab: 'presenca',
+      });
+    }
+
+    items.push({
+      key: 'payment',
+      label: 'Dados para pagamento',
+      detail: paymentOverview.missingPix
+        ? `${paymentOverview.missingPix} fiscal(is) ativos ainda estão sem PIX cadastrado.`
+        : paymentOverview.active
+          ? 'Todos os fiscais ativos possuem PIX cadastrado.'
+          : 'Nenhum fiscal ativo para conferência de pagamento.',
+      status: paymentOverview.missingPix ? 'warning' : paymentOverview.active ? 'ready' : 'info',
+      tab: paymentOverview.missingPix ? 'pagamentos' : undefined,
+    });
+
+    return items;
+  }, [
+    daysUntilEvent,
+    eventPhase,
+    replacementNeededLinks,
+    confirmationSummary.pending_confirmation,
+    trainingOverview,
+    candidateOverview,
+    communicationOverview.errors,
+    attendancePendingCount,
+    openAttendanceLocations,
+    paymentOverview,
+  ]);
+
+  const finalizationSummary = useMemo(() => ({
+    critical: finalizationChecklist.filter((item) => item.status === 'critical').length,
+    warning: finalizationChecklist.filter((item) => item.status === 'warning').length,
+    ready: finalizationChecklist.filter((item) => item.status === 'ready').length,
+    info: finalizationChecklist.filter((item) => item.status === 'info').length,
+  }), [finalizationChecklist]);
 
   const preparationItems = useMemo(() => {
     const operationalTotal = Number(confirmationSummary.confirmed || 0) + Number(confirmationSummary.pending_confirmation || 0);
@@ -2022,7 +2196,13 @@ export default function PsEventDetail() {
               <Button variant="outline" onClick={exportAttendancePdf}><FileSignature className="mr-2 h-4 w-4" />Presença (PDF)</Button>
               <Button variant="outline" onClick={exportPresence}><Download className="mr-2 h-4 w-4" />XLSX</Button>
               {event.status !== 'finalizado' && (
-                <Button className="ps-gradient-button" onClick={() => { if (confirm('Finalizar evento?')) finalize.mutate(event.id); }}>
+                <Button
+                  className="ps-gradient-button"
+                  onClick={() => {
+                    setFinalizeAcknowledged(false);
+                    setFinalizeOpen(true);
+                  }}
+                >
                   <CheckCircle2 className="mr-2 h-4 w-4" />Finalizar
                 </Button>
               )}
@@ -3395,6 +3575,205 @@ export default function PsEventDetail() {
               {closureSaving
                 ? 'Fechando...'
                 : 'Confirmar fechamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Checklist de finalização */}
+      <Dialog
+        open={finalizeOpen}
+        onOpenChange={(open) => {
+          if (finalize.isPending) return;
+          setFinalizeOpen(open);
+          if (!open) setFinalizeAcknowledged(false);
+        }}
+      >
+        <DialogContent
+          className="flex max-h-[88vh] w-[calc(100vw-1.5rem)] max-w-[760px] flex-col gap-0 overflow-hidden rounded-[26px] border border-border/60 bg-background/95 p-0 shadow-2xl backdrop-blur-xl sm:max-w-[760px]"
+          onInteractOutside={(event) => {
+            if (finalize.isPending) event.preventDefault();
+          }}
+        >
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-border/60 px-5 py-5 text-left sm:px-7">
+            <div className="pointer-events-none absolute -right-12 -top-20 h-44 w-44 rounded-full bg-primary/15 blur-3xl" />
+            <div className="relative flex items-start gap-3 pr-8">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                <ListChecks className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-xl font-bold tracking-tight">
+                  Conferência antes de finalizar
+                </DialogTitle>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  O encerramento altera o status do evento e recalcula o histórico de participações.
+                  Revise os pontos abaixo antes de continuar.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative mt-4 grid grid-cols-3 gap-2">
+              <div className="rounded-2xl border border-destructive/20 bg-destructive/[0.045] p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-destructive/80">Críticos</p>
+                <p className="mt-1 text-xl font-bold text-destructive">{finalizationSummary.critical}</p>
+              </div>
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-500/80">Alertas</p>
+                <p className="mt-1 text-xl font-bold text-amber-500">{finalizationSummary.warning}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-emerald-500/80">Concluídos</p>
+                <p className="mt-1 text-xl font-bold text-emerald-500">{finalizationSummary.ready}</p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-7">
+            <div className="space-y-2">
+              {finalizationChecklist.map((item) => (
+                <div
+                  key={item.key}
+                  className={`flex items-start gap-3 rounded-2xl border p-3.5 ${item.status === 'critical'
+                    ? 'border-destructive/20 bg-destructive/[0.035]'
+                    : item.status === 'warning'
+                      ? 'border-amber-500/20 bg-amber-500/[0.03]'
+                      : item.status === 'ready'
+                        ? 'border-emerald-500/15 bg-emerald-500/[0.025]'
+                        : 'border-border/60 bg-muted/[0.025]'}`}
+                >
+                  <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${item.status === 'critical'
+                    ? 'bg-destructive/10 text-destructive'
+                    : item.status === 'warning'
+                      ? 'bg-amber-500/10 text-amber-500'
+                      : item.status === 'ready'
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-muted/60 text-muted-foreground'}`}>
+                    {item.status === 'ready'
+                      ? <CheckCircle2 className="h-4 w-4" />
+                      : item.status === 'info'
+                        ? <CalendarDays className="h-4 w-4" />
+                        : <AlertTriangle className="h-4 w-4" />}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs font-semibold">{item.label}</p>
+                      <Badge
+                        variant="outline"
+                        className={`rounded-full px-2 text-[8px] uppercase tracking-wide ${item.status === 'critical'
+                          ? 'border-destructive/20 text-destructive'
+                          : item.status === 'warning'
+                            ? 'border-amber-500/20 text-amber-500'
+                            : item.status === 'ready'
+                              ? 'border-emerald-500/20 text-emerald-500'
+                              : 'text-muted-foreground'}`}
+                      >
+                        {item.status === 'critical'
+                          ? 'Crítico'
+                          : item.status === 'warning'
+                            ? 'Atenção'
+                            : item.status === 'ready'
+                              ? 'Concluído'
+                              : 'Informativo'}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      {item.detail}
+                    </p>
+                  </div>
+
+                  {item.tab && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 shrink-0 rounded-lg px-2 text-[10px]"
+                      onClick={() => {
+                        setActiveTab(item.tab!);
+                        setFinalizeOpen(false);
+                        setFinalizeAcknowledged(false);
+                      }}
+                    >
+                      Revisar
+                      <ArrowRight className="ml-1 h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {finalizationSummary.critical > 0 && (
+              <div className="mt-4 rounded-2xl border border-destructive/25 bg-destructive/[0.04] p-4">
+                <div className="flex items-start gap-3">
+                  <Switch
+                    id="finalize-acknowledgement"
+                    checked={finalizeAcknowledged}
+                    onCheckedChange={setFinalizeAcknowledged}
+                  />
+                  <Label
+                    htmlFor="finalize-acknowledgement"
+                    className="cursor-pointer text-xs leading-relaxed"
+                  >
+                    Estou ciente das <strong>{finalizationSummary.critical} pendência(s) crítica(s)</strong> e quero finalizar o evento mesmo assim.
+                  </Label>
+                </div>
+              </div>
+            )}
+
+            {finalizationSummary.critical === 0 && finalizationSummary.warning > 0 && (
+              <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/[0.035] p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  Não há impedimentos críticos, mas ainda existem {finalizationSummary.warning} alerta(s) que merecem conferência.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-border/60 bg-background/95 px-5 py-3.5 sm:px-7">
+            <div className="mr-auto hidden sm:block">
+              <p className="text-xs font-medium">
+                {finalizationSummary.critical
+                  ? 'Existem pendências críticas'
+                  : finalizationSummary.warning
+                    ? 'Finalização possível com alertas'
+                    : 'Checklist operacional concluído'}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                A finalização pode ser feita apenas por decisão consciente do administrador.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-xl"
+              disabled={finalize.isPending}
+              onClick={() => {
+                setFinalizeOpen(false);
+                setFinalizeAcknowledged(false);
+              }}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="button"
+              className="min-w-44 rounded-xl shadow-lg shadow-primary/15"
+              disabled={finalize.isPending || (finalizationSummary.critical > 0 && !finalizeAcknowledged)}
+              onClick={async () => {
+                await finalize.mutateAsync(event.id);
+                setFinalizeOpen(false);
+                setFinalizeAcknowledged(false);
+              }}
+            >
+              {finalize.isPending
+                ? 'Finalizando...'
+                : finalizationSummary.critical > 0
+                  ? 'Finalizar mesmo assim'
+                  : finalizationSummary.warning > 0
+                    ? 'Finalizar com alertas'
+                    : 'Finalizar evento'}
             </Button>
           </DialogFooter>
         </DialogContent>
