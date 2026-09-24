@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { CircleDollarSign, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { CircleDollarSign, FilterX, Loader2, Pencil, Plus, Search, Sparkles, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -86,6 +87,9 @@ export default function PsRoles() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(null);
   const [importing, setImporting] = useState(false);
+  const [roleSearch, setRoleSearch] = useState('');
+  const [roleStatus, setRoleStatus] = useState<'all' | 'active' | 'inactive'>('active');
+  const [rolePricing, setRolePricing] = useState<'all' | 'special' | 'combined' | 'missing-8h'>('all');
 
   const openNew = () => {
     setForm({
@@ -175,6 +179,79 @@ export default function PsRoles() {
       0
     );
 
+  const roleSummary = useMemo(() => {
+    const active = roles.filter((role: any) => role.active !== false);
+    const withSpecial = roles.filter((role: any) =>
+      SPECIAL_ROLE_RATE_FIELDS.some(({ key }) => role[key] != null)
+    );
+    const combined = roles.filter((role: any) => (role.combined_roles || []).length > 0);
+    const missing8h = active.filter((role: any) =>
+      role.pay_value_8h == null && Number(role.pay_value || 0) <= 0
+    );
+
+    return {
+      active: active.length,
+      inactive: Math.max(0, roles.length - active.length),
+      withSpecial: withSpecial.length,
+      combined: combined.length,
+      missing8h: missing8h.length,
+    };
+  }, [roles]);
+
+  const filteredRoles = useMemo(() => {
+    const query = roleSearch
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    return [...roles]
+      .filter((role: any) => {
+        if (roleStatus === 'active' && role.active === false) return false;
+        if (roleStatus === 'inactive' && role.active !== false) return false;
+
+        const hasSpecial = SPECIAL_ROLE_RATE_FIELDS.some(({ key }) => role[key] != null);
+        const hasCombined = (role.combined_roles || []).length > 0;
+        const missing8h = role.pay_value_8h == null && Number(role.pay_value || 0) <= 0;
+
+        if (rolePricing === 'special' && !hasSpecial) return false;
+        if (rolePricing === 'combined' && !hasCombined) return false;
+        if (rolePricing === 'missing-8h' && !missing8h) return false;
+
+        if (!query) return true;
+
+        const haystack = [
+          role.name,
+          role.value,
+          ...(role.combined_roles || []).map((value: string) =>
+            roles.find((candidate: any) => candidate.value === value)?.name || value
+          ),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+
+        return haystack.includes(query);
+      })
+      .sort((a: any, b: any) =>
+        Number(a.order || 0) - Number(b.order || 0) ||
+        String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR')
+      );
+  }, [roles, roleSearch, roleStatus, rolePricing]);
+
+  const clearRoleFilters = () => {
+    setRoleSearch('');
+    setRoleStatus('active');
+    setRolePricing('all');
+  };
+
+  const hasRoleFilters =
+    !!roleSearch ||
+    roleStatus !== 'active' ||
+    rolePricing !== 'all';
+
   return (
     <MainLayout>
       <PageHeader
@@ -207,91 +284,229 @@ export default function PsRoles() {
           action={<Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Importar planilha</Button>}
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {roles.map((role: any) => {
-            const hasRateTable = ROLE_RATE_FIELDS.some(({ key }) => role[key] != null);
-            const hasSpecialRateTable = SPECIAL_ROLE_RATE_FIELDS.some(({ key }) => role[key] != null);
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Cargos ativos</p>
+                <p className="mt-1 text-2xl font-bold">{roleSummary.active}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">{roleSummary.inactive} inativo(s)</p>
+              </CardContent>
+            </Card>
 
-            return (
-              <Card key={role.id} className="border-border/60 bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card/85 hover:shadow-md">
+            <button type="button" className="text-left" onClick={() => setRolePricing('special')}>
+              <Card className="h-full rounded-2xl transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-sm font-semibold">{role.name}</h2>
-                      <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{role.value}</p>
-                    </div>
-                    <Badge variant={role.active ? 'default' : 'secondary'}>{role.active ? 'Ativo' : 'Inativo'}</Badge>
-                  </div>
-
-                  <div className="mt-4 rounded-xl border border-border/60 bg-muted/15 p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Valor padrão (8h)</p>
-                    <p className="mt-1 text-xl font-semibold tabular-nums">{formatCurrency(role.pay_value)}</p>
-                  </div>
-
-                  {hasRateTable && (
-                    <div className="mt-3">
-                      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Tabela padrão</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {ROLE_RATE_FIELDS.map(({ key, label }) => (
-                          <div key={key} className="rounded-lg border border-border/50 bg-background/40 px-2 py-2">
-                            <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-                            <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                              {role[key] == null ? 'N/A' : formatCurrency(role[key])}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {hasSpecialRateTable && (
-                    <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Setor Especial</p>
-                        <Badge variant="outline" className="text-[9px]">Valores específicos</Badge>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {SPECIAL_ROLE_RATE_FIELDS.map(({ key, label }) => (
-                          <div key={key} className="rounded-lg border border-border/50 bg-background/50 px-2 py-2">
-                            <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-                            <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                              {role[key] == null ? 'N/A' : formatCurrency(role[key])}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(role.combined_roles || []).length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Funções combinadas</p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {(role.combined_roles || []).map((value: string) => (
-                          <Badge key={value} variant="outline" className="text-[10px]">{roles.find((candidate: any) => candidate.value === value)?.name || value}</Badge>
-                        ))}
-                      </div>
-                      <p className="mt-2 text-xs text-muted-foreground">Valor total combinado: <strong className="text-foreground">{formatCurrency(totalValue(role))}</strong></p>
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex gap-2 border-t border-border/50 pt-3">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(role)}>
-                      <Pencil className="mr-1.5 h-3.5 w-3.5" />Editar
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => { if (confirm('Excluir cargo?')) remove.mutate(role.id); }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <p className="text-xs text-muted-foreground">Setor Especial</p>
+                  <p className="mt-1 text-2xl font-bold">{roleSummary.withSpecial}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">cargo(s) com tabela diferenciada</p>
                 </CardContent>
               </Card>
-            );
-          })}
+            </button>
+
+            <button type="button" className="text-left" onClick={() => setRolePricing('combined')}>
+              <Card className="h-full rounded-2xl transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Funções combinadas</p>
+                  <p className="mt-1 text-2xl font-bold">{roleSummary.combined}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">cargo(s) somam valores de outras funções</p>
+                </CardContent>
+              </Card>
+            </button>
+
+            <button type="button" className="text-left" onClick={() => setRolePricing('missing-8h')}>
+              <Card className={`h-full rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md ${roleSummary.missing8h
+                ? 'border-amber-500/25 bg-amber-500/[0.035]'
+                : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Sem valor padrão 8h</p>
+                  <p className={`mt-1 text-2xl font-bold ${roleSummary.missing8h ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {roleSummary.missing8h}
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {roleSummary.missing8h ? 'precisam de conferência' : 'todos os ativos possuem valor'}
+                  </p>
+                </CardContent>
+              </Card>
+            </button>
+          </div>
+
+          <Card className="rounded-2xl">
+            <CardContent className="space-y-3 p-4">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Tabela de cargos e valores</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Compare as jornadas sem precisar abrir cada cargo individualmente.
+                  </p>
+                </div>
+                <Badge variant="secondary" className="w-fit rounded-full">
+                  {filteredRoles.length} cargo(s)
+                </Badge>
+              </div>
+
+              <div className="grid gap-2 lg:grid-cols-[minmax(280px,1fr)_190px_220px_auto]">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={roleSearch}
+                    onChange={(event) => setRoleSearch(event.target.value)}
+                    placeholder="Buscar cargo, slug ou função combinada..."
+                    className="h-10 rounded-xl pl-10"
+                  />
+                </div>
+
+                <Select value={roleStatus} onValueChange={(value: any) => setRoleStatus(value)}>
+                  <SelectTrigger className="h-10 rounded-xl">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativos</SelectItem>
+                    <SelectItem value="inactive">Inativos</SelectItem>
+                    <SelectItem value="all">Ativos e inativos</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={rolePricing} onValueChange={(value: any) => setRolePricing(value)}>
+                  <SelectTrigger className="h-10 rounded-xl">
+                    <SelectValue placeholder="Tipo de valor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os tipos</SelectItem>
+                    <SelectItem value="special">Com Setor Especial</SelectItem>
+                    <SelectItem value="combined">Funções combinadas</SelectItem>
+                    <SelectItem value="missing-8h">Sem valor padrão 8h</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-10 rounded-xl"
+                  disabled={!hasRoleFilters}
+                  onClick={clearRoleFilters}
+                >
+                  <FilterX className="mr-2 h-4 w-4" />
+                  Limpar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden rounded-2xl border-border/60 bg-card/65 shadow-sm">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1080px] border-collapse text-left">
+                  <thead className="border-b border-border/60 bg-muted/20">
+                    <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <th className="sticky left-0 z-10 min-w-[260px] bg-muted/95 px-4 py-3 font-semibold">Cargo</th>
+                      {ROLE_RATE_FIELDS.map(({ key, label }) => (
+                        <th key={key} className="min-w-[105px] px-3 py-3 text-right font-semibold">{label}</th>
+                      ))}
+                      <th className="min-w-[150px] px-3 py-3 text-center font-semibold">Setor Especial</th>
+                      <th className="min-w-[120px] px-4 py-3 text-right font-semibold">Ações</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-border/50">
+                    {filteredRoles.map((role: any) => {
+                      const hasSpecialRateTable = SPECIAL_ROLE_RATE_FIELDS.some(({ key }) => role[key] != null);
+                      const combinedRoles = role.combined_roles || [];
+                      const eightHourValue = role.pay_value_8h ?? role.pay_value;
+
+                      return (
+                        <tr key={role.id} className={`transition-colors hover:bg-muted/15 ${role.active === false ? 'opacity-55' : ''}`}>
+                          <td className="sticky left-0 z-[1] bg-card px-4 py-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold">{role.name}</p>
+                                <Badge variant={role.active ? 'default' : 'secondary'} className="text-[9px]">
+                                  {role.active ? 'Ativo' : 'Inativo'}
+                                </Badge>
+                                {combinedRoles.length > 0 && (
+                                  <Badge variant="outline" className="text-[9px]">
+                                    {combinedRoles.length} combinada(s)
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="mt-1 font-mono text-[9px] text-muted-foreground">{role.value}</p>
+                              {combinedRoles.length > 0 && (
+                                <p className="mt-1.5 max-w-[340px] truncate text-[10px] text-muted-foreground" title={combinedRoles.map((value: string) => roles.find((candidate: any) => candidate.value === value)?.name || value).join(', ')}>
+                                  Soma: {combinedRoles.map((value: string) => roles.find((candidate: any) => candidate.value === value)?.name || value).join(' + ')}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+
+                          {ROLE_RATE_FIELDS.map(({ key }) => {
+                            const value = key === 'pay_value_8h' ? eightHourValue : role[key];
+                            return (
+                              <td key={key} className="px-3 py-3 text-right text-xs tabular-nums">
+                                {value == null
+                                  ? <span className="text-muted-foreground/55">—</span>
+                                  : <span className={key === 'pay_value_8h' ? 'font-semibold text-foreground' : 'text-foreground/85'}>
+                                      {formatCurrency(value)}
+                                    </span>}
+                              </td>
+                            );
+                          })}
+
+                          <td className="px-3 py-3 text-center">
+                            {hasSpecialRateTable ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 rounded-lg text-[10px] text-primary"
+                                onClick={() => openEdit(role)}
+                              >
+                                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                                Ver valores
+                              </Button>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">Padrão</span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-lg px-2.5 text-[10px]"
+                                onClick={() => openEdit(role)}
+                              >
+                                <Pencil className="mr-1 h-3.5 w-3.5" />
+                                Editar
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => {
+                                  if (confirm(`Excluir o cargo "${role.name}"?`)) remove.mutate(role.id);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {!filteredRoles.length && (
+                <div className="p-10 text-center">
+                  <CircleDollarSign className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                  <p className="mt-2 text-sm font-semibold">Nenhum cargo encontrado</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Ajuste os filtros para visualizar os cargos.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
