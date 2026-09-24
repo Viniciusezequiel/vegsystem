@@ -1,10 +1,14 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import {
+  Building2,
   CheckCircle2,
+  FilterX,
+  ListChecks,
   Loader2,
   LockKeyhole,
   LogOut,
+  MapPin,
   Plus,
   Search,
   ShieldCheck,
@@ -18,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PS_CLASSIFICATION_LABEL, PS_CRITERIA, psClassification } from '@/lib/psConstants';
 import {
@@ -44,6 +49,7 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
   const [queue, setQueue] = useState<any[]>([]);
   const [dashboard, setDashboard] = useState({ pending_count: 0, completed_count: 0 });
   const [search, setSearch] = useState('');
+  const [areaFilter, setAreaFilter] = useState('all');
   const [loading, setLoading] = useState(Boolean(token));
   const [selected, setSelected] = useState<any>(null);
   const [externalOpen, setExternalOpen] = useState(false);
@@ -71,13 +77,17 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
 
   useEffect(() => {
     if (!id || !token || !session || session.must_change_password) return;
-    Promise.all([getEvaluatorQueue(id, token, search), getEvaluatorDashboard(id, token)])
+
+    Promise.all([
+      getEvaluatorQueue(id, token, ''),
+      getEvaluatorDashboard(id, token),
+    ])
       .then(([nextQueue, nextDashboard]) => {
         setQueue(nextQueue);
         setDashboard(nextDashboard);
       })
       .catch(() => toast.error('Não foi possível carregar a fila de avaliação.'));
-  }, [id, token, session, search]);
+  }, [id, token, session]);
 
   if (!id) return <PsEvaluatorLogin />;
 
@@ -119,7 +129,7 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
   async function handleAdd(item: any, reason: string) {
     if (await addEvaluatorOverride(id!, token!, item.id, reason)) {
       const [nextQueue, nextDashboard] = await Promise.all([
-        getEvaluatorQueue(id!, token!, search),
+        getEvaluatorQueue(id!, token!, ''),
         getEvaluatorDashboard(id!, token!),
       ]);
       setQueue(nextQueue);
@@ -128,6 +138,82 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
       setExternalOpen(false);
     }
   }
+
+  const areaOptions = useMemo(() => {
+    const map = new Map<string, string>();
+
+    for (const item of queue) {
+      const label = [
+        item.campus,
+        item.building,
+        item.floor && `${item.floor}º andar`,
+      ].filter(Boolean).join(' · ') || 'Local não informado';
+
+      const key = [
+        item.campus || '',
+        item.building || '',
+        item.floor || '',
+      ].join('|');
+
+      map.set(key, label);
+    }
+
+    return [...map.entries()]
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { numeric: true }));
+  }, [queue]);
+
+  const filteredQueue = useMemo(() => {
+    const query = search
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    return queue.filter(item => {
+      const areaKey = [
+        item.campus || '',
+        item.building || '',
+        item.floor || '',
+      ].join('|');
+
+      if (areaFilter !== 'all' && areaKey !== areaFilter) return false;
+
+      if (!query) return true;
+
+      const haystack = [
+        item.collaborator_name,
+        item.role_name,
+        item.assigned_role,
+        item.campus,
+        item.building,
+        item.floor,
+        item.room,
+        item.unit,
+        item.sector,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [queue, search, areaFilter]);
+
+  const totalEvaluations =
+    Number(dashboard.pending_count || 0) +
+    Number(dashboard.completed_count || 0);
+
+  const progressPercent = totalEvaluations
+    ? Math.round((Number(dashboard.completed_count || 0) / totalEvaluations) * 100)
+    : 100;
+
+  const clearQueueFilters = () => {
+    setSearch('');
+    setAreaFilter('all');
+  };
 
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-8 sm:py-8">
@@ -145,6 +231,11 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
                 <Badge variant="secondary" className="text-[10px]">
                   {session.role === 'coordinator' ? 'Coordenador' : 'Subcoordenador'}
                 </Badge>
+                {session.event_date && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {new Date(`${session.event_date}T00:00:00`).toLocaleDateString('pt-BR')}
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -155,46 +246,192 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
           </Button>
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-2">
-          <Kpi label="A avaliar" value={dashboard.pending_count} />
-          <Kpi label="Realizadas por você" value={dashboard.completed_count} />
+        <section className="grid gap-3 sm:grid-cols-3">
+          <Kpi
+            label="A avaliar"
+            value={dashboard.pending_count}
+            helper={dashboard.pending_count ? 'fiscais disponíveis na sua fila' : 'nenhuma pendência'}
+            icon={<ListChecks className="h-4 w-4" />}
+            tone={dashboard.pending_count ? 'warning' : 'success'}
+          />
+
+          <Kpi
+            label="Realizadas por você"
+            value={dashboard.completed_count}
+            helper="avaliações concluídas neste evento"
+            icon={<CheckCircle2 className="h-4 w-4" />}
+          />
+
+          <Card className="rounded-2xl border-primary/20 bg-primary/[0.035] shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Progresso da sua fila</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums">{progressPercent}%</p>
+                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Star className="h-4 w-4" />
+                </div>
+              </div>
+
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/70">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                {dashboard.completed_count} de {totalEvaluations} avaliação(ões) concluída(s)
+              </p>
+            </CardContent>
+          </Card>
         </section>
 
-        <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-card/65 p-3 shadow-sm sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar fiscal..." className="pl-9" />
-          </div>
-          {session.role === 'subcoordinator' && (
-            <Button variant="outline" onClick={() => setExternalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar fiscal de outra área
-            </Button>
-          )}
-        </div>
+        <Card className="rounded-2xl border-border/60 bg-card/65 shadow-sm">
+          <CardContent className="space-y-3 p-3">
+            <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="text-sm font-semibold">Sua fila de avaliação</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  A lista abaixo já respeita o seu escopo. Use os filtros apenas para localizar fiscais dentro dele.
+                </p>
+              </div>
+              <Badge variant="secondary" className="w-fit rounded-full">
+                {filteredQueue.length} de {queue.length}
+              </Badge>
+            </div>
 
-        {queue.length ? (
+            <div className="grid gap-2 lg:grid-cols-[minmax(280px,1fr)_260px_auto_auto]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
+                  placeholder="Buscar fiscal, cargo, sala ou setor..."
+                  className="h-10 rounded-xl pl-9"
+                />
+              </div>
+
+              <Select value={areaFilter} onValueChange={setAreaFilter}>
+                <SelectTrigger className="h-10 rounded-xl">
+                  <SelectValue placeholder="Área" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as áreas da minha fila</SelectItem>
+                  {areaOptions.map(area => (
+                    <SelectItem key={area.key} value={area.key}>
+                      {area.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {(search || areaFilter !== 'all') && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-10 rounded-xl"
+                  onClick={clearQueueFilters}
+                >
+                  <FilterX className="mr-2 h-4 w-4" />
+                  Limpar
+                </Button>
+              )}
+
+              {session.role === 'subcoordinator' && (
+                <Button
+                  variant="outline"
+                  className="h-10 rounded-xl"
+                  onClick={() => setExternalOpen(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Fiscal de outra área
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {filteredQueue.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {queue.map(item => (
-              <Card key={item.event_collaborator_id} className="border-border/60 bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/85 hover:shadow-md">
+            {filteredQueue.map(item => (
+              <Card
+                key={item.event_collaborator_id}
+                className="group rounded-2xl border-border/60 bg-card/65 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/85 hover:shadow-md"
+              >
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{item.collaborator_name}</CardTitle>
-                  <CardDescription>{item.role_name || item.assigned_role || 'Função não informada'}</CardDescription>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <CardTitle className="truncate text-base">{item.collaborator_name}</CardTitle>
+                      <CardDescription className="mt-1">
+                        {item.role_name || item.assigned_role || 'Função não informada'}
+                      </CardDescription>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-[9px]">
+                      Pendente
+                    </Badge>
+                  </div>
                 </CardHeader>
+
                 <CardContent className="space-y-4">
-                  <p className="min-h-8 text-xs leading-relaxed text-muted-foreground">
-                    {[item.campus, item.building, item.floor, item.room && `Sala ${item.room}`].filter(Boolean).join(' · ') || 'Local não informado'}
-                  </p>
-                  <Button className="w-full" onClick={() => setSelected(item)}>Avaliar fiscal</Button>
+                  <div className="space-y-2 rounded-xl border border-border/50 bg-muted/[0.08] p-3">
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span>
+                        {[item.campus, item.building, item.floor && `${item.floor}º andar`]
+                          .filter(Boolean)
+                          .join(' · ') || 'Local não informado'}
+                      </span>
+                    </p>
+
+                    {(item.room || item.sector) && (
+                      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span>
+                          {[item.room && `Sala ${item.room}`, item.sector]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full rounded-xl"
+                    onClick={() => setSelected(item)}
+                  >
+                    <Star className="mr-2 h-4 w-4" />
+                    Avaliar fiscal
+                  </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
+        ) : queue.length ? (
+          <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-card/35 px-6 text-center">
+            <Search className="h-9 w-9 text-muted-foreground/50" />
+            <p className="mt-3 text-sm font-medium">Nenhum fiscal encontrado</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ajuste a busca ou o filtro de área para visualizar outros fiscais da sua fila.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 rounded-xl"
+              onClick={clearQueueFilters}
+            >
+              Limpar filtros
+            </Button>
+          </div>
         ) : (
-          <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/35 px-6 text-center">
-            <CheckCircle2 className="h-9 w-9 text-success/70" />
+          <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.025] px-6 text-center">
+            <CheckCircle2 className="h-9 w-9 text-emerald-500" />
             <p className="mt-3 text-sm font-medium">Todas as avaliações disponíveis foram concluídas</p>
-            <p className="mt-1 text-xs text-muted-foreground">Novos fiscais aparecerão aqui caso sejam adicionados ao seu escopo.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Novos fiscais aparecerão aqui caso sejam adicionados ao seu escopo.
+            </p>
           </div>
         )}
       </div>
@@ -207,7 +444,7 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
         onClose={() => setSelected(null)}
         onSuccess={() => {
           setSelected(null);
-          void getEvaluatorQueue(id, token, search).then(setQueue);
+          void getEvaluatorQueue(id, token, '').then(setQueue);
           void getEvaluatorDashboard(id, token).then(setDashboard);
         }}
       />
@@ -216,12 +453,45 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
   );
 }
 
-function Kpi({ label, value }: { label: string; value: number }) {
+function Kpi({
+  label,
+  value,
+  helper,
+  icon,
+  tone = 'default',
+}: {
+  label: string;
+  value: number;
+  helper?: string;
+  icon?: ReactNode;
+  tone?: 'default' | 'warning' | 'success';
+}) {
   return (
-    <Card className="border-border/60 bg-card/65 shadow-sm">
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+    <Card
+      className={`rounded-2xl shadow-sm ${tone === 'warning'
+        ? 'border-amber-500/25 bg-amber-500/[0.035]'
+        : tone === 'success'
+          ? 'border-emerald-500/20 bg-emerald-500/[0.025]'
+          : 'border-border/60 bg-card/65'}`}
+    >
+      <CardContent className="flex items-start justify-between gap-3 p-4">
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+          {helper && <p className="mt-1 text-[10px] text-muted-foreground">{helper}</p>}
+        </div>
+
+        {icon && (
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone === 'warning'
+              ? 'bg-amber-500/10 text-amber-500'
+              : tone === 'success'
+                ? 'bg-emerald-500/10 text-emerald-500'
+                : 'bg-primary/10 text-primary'}`}
+          >
+            {icon}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -263,15 +533,43 @@ function EvaluationDialog({ item, open, eventId, token, onClose, onSuccess }: an
   }
 
   if (!item) return null;
-  const score = Number((Object.values(criteria).reduce((sum, value) => sum + Number(value), 0) / PS_CRITERIA.length).toFixed(2));
+
+  const answeredCriteria = Object.values(criteria).filter(value => Number(value) > 0).length;
+  const criteriaComplete = answeredCriteria === PS_CRITERIA.length;
+  const score = Number((
+    Object.values(criteria).reduce((sum, value) => sum + Number(value), 0) /
+    PS_CRITERIA.length
+  ).toFixed(2));
+  const roleChangeComplete =
+    !changed ||
+    (!!reportedRole.trim() && !!justification.trim());
 
   return (
     <Dialog open={open} onOpenChange={value => !value && onClose()}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Avaliar {item.collaborator_name}</DialogTitle>
-          <p className="text-xs text-muted-foreground">{[item.role_name || item.assigned_role, item.campus, item.building, item.floor, item.room && `Sala ${item.room}`].filter(Boolean).join(' · ')}</p>
+          <p className="text-xs text-muted-foreground">
+            {[item.role_name || item.assigned_role, item.campus, item.building, item.floor, item.room && `Sala ${item.room}`]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
         </DialogHeader>
+
+        <div className="rounded-xl border border-border/60 bg-muted/[0.08] p-3">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-medium">Preenchimento da avaliação</span>
+            <span className="tabular-nums text-muted-foreground">
+              {answeredCriteria}/{PS_CRITERIA.length} critérios
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/70">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${Math.round((answeredCriteria / PS_CRITERIA.length) * 100)}%` }}
+            />
+          </div>
+        </div>
 
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
@@ -298,7 +596,13 @@ function EvaluationDialog({ item, open, eventId, token, onClose, onSuccess }: an
 
           <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm font-medium">
             <span>Nota final</span>
-            <span>{score.toFixed(2)} · {PS_CLASSIFICATION_LABEL[psClassification(score)]}</span>
+            {criteriaComplete ? (
+              <span>{score.toFixed(2)} · {PS_CLASSIFICATION_LABEL[psClassification(score)]}</span>
+            ) : (
+              <span className="text-xs font-normal text-muted-foreground">
+                Complete todos os critérios
+              </span>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -323,7 +627,7 @@ function EvaluationDialog({ item, open, eventId, token, onClose, onSuccess }: an
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button disabled={saving || Object.values(criteria).some(value => !value)}>
+            <Button disabled={saving || !criteriaComplete || !roleChangeComplete}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
               Registrar avaliação
             </Button>
