@@ -133,9 +133,25 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
   const trainingOperationalLinks = useMemo(
     () => data.links.filter((link: any) =>
       !link.manually_excluded &&
-      String(link.participation_status || 'pending_confirmation') !== 'replaced'
+      ['pending_confirmation', 'confirmed'].includes(
+        String(link.participation_status || 'pending_confirmation')
+      )
     ),
     [data.links]
+  );
+
+  const trainingOperationalLinkIds = useMemo(
+    () => new Set(
+      trainingOperationalLinks.map((link: any) => String(link.id))
+    ),
+    [trainingOperationalLinks]
+  );
+
+  const operationalChoices = useMemo(
+    () => data.choices.filter((choice: any) =>
+      trainingOperationalLinkIds.has(String(choice.event_collaborator_id))
+    ),
+    [data.choices, trainingOperationalLinkIds]
   );
 
   const trainingOverview = useMemo(() => {
@@ -168,7 +184,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     }
 
     const validChoiceKeys = new Set(
-      data.choices
+      operationalChoices
         .filter((choice: any) => activeSessionIds.has(String(choice.training_session_id)))
         .map((choice: any) => `${choice.event_collaborator_id}|${choice.training_group_id}`)
     );
@@ -215,7 +231,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     );
     const fullSessions = activeSessions.filter((session: any) => {
       if (!session.capacity) return false;
-      const count = data.choices.filter((choice: any) =>
+      const count = operationalChoices.filter((choice: any) =>
         String(choice.training_session_id) === String(session.id)
       ).length;
       return count >= Number(session.capacity);
@@ -230,7 +246,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
       activeSessions: activeSessions.length,
       fullSessions,
     };
-  }, [data.groups, data.groupRoles, data.sessions, data.choices, data.assignments, data.reselections, trainingOperationalLinks]);
+  }, [data.groups, data.groupRoles, data.sessions, operationalChoices, data.assignments, data.reselections, trainingOperationalLinks]);
 
   const pendingTrainingRows = useMemo(() => {
     const query = normalizeSearch(pendingSearch);
@@ -252,12 +268,12 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
 
   const normalizedTrainingSearch = useMemo(() => normalizeSearch(trainingSearch), [trainingSearch]);
   const matchingChoices = useMemo(() => {
-    if (!normalizedTrainingSearch) return data.choices;
-    return data.choices.filter((choice: any) => {
+    if (!normalizedTrainingSearch) return operationalChoices;
+    return operationalChoices.filter((choice: any) => {
       const name = linkMap.get(String(choice.event_collaborator_id)) || '';
       return normalizeSearch(name).includes(normalizedTrainingSearch);
     });
-  }, [data.choices, linkMap, normalizedTrainingSearch]);
+  }, [operationalChoices, linkMap, normalizedTrainingSearch]);
   const matchingChoiceIds = useMemo(
     () => new Set(matchingChoices.map((choice: any) => String(choice.id))),
     [matchingChoices],
@@ -463,7 +479,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
     if (capacity !== null && (!Number.isInteger(capacity) || capacity <= 0)) return toast.error('O limite de vagas deve ser um inteiro maior que zero.');
 
     if (editingSessionId && capacity !== null) {
-      const selectedCount = data.choices.filter((choice: any) => String(choice.training_session_id) === editingSessionId).length;
+      const selectedCount = operationalChoices.filter((choice: any) => String(choice.training_session_id) === editingSessionId).length;
       if (capacity < selectedCount) return toast.error(`Esta data já possui ${selectedCount} inscrito(s). O limite não pode ser menor que esse total.`);
     }
 
@@ -794,7 +810,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
             <div className="shrink-0 text-xs text-muted-foreground sm:px-2">
               {normalizedTrainingSearch
                 ? `${matchingChoices.length} alocação(ões) encontrada(s)`
-                : `${data.choices.length} escolha(s) registrada(s)`}
+                : `${operationalChoices.length} escolha(s) operacional(is)`}
             </div>
           </div>
         </div>
@@ -826,7 +842,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
             s.training_group_id === group.id
             && (!normalizedTrainingSearch || matchingSessionIds.has(String(s.id)))
           );
-          const groupChoices = data.choices.filter((c: any) => c.training_group_id === group.id);
+          const groupChoices = operationalChoices.filter((c: any) => c.training_group_id === group.id);
           return (
             <Card key={group.id} className="rounded-2xl">
               <CardHeader className="pb-3">
@@ -1102,7 +1118,7 @@ export function PsEventTrainingTab({ eventId, roles }: Props) {
           <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-4 text-sm">
             <p className="font-semibold">{fmt(cancelSession?.starts_at)}</p>
             <p className="mt-1 text-xs text-muted-foreground">{[cancelSession?.campus, cancelSession?.location, cancelSession?.room && `Sala ${cancelSession.room}`].filter(Boolean).join(' · ')}</p>
-            <p className="mt-3">{cancelSession ? data.choices.filter((choice: any) => choice.training_session_id === cancelSession.id).length : 0} fiscal(is) serão avisados para escolher outra data.</p>
+            <p className="mt-3">{cancelSession ? operationalChoices.filter((choice: any) => choice.training_session_id === cancelSession.id).length : 0} fiscal(is) operacional(is) serão avisados para escolher outra data.</p>
           </div>
           <div><Label>Motivo do cancelamento *</Label><Textarea rows={3} maxLength={500} value={cancelReason} onChange={event => setCancelReason(event.target.value)} placeholder="Ex.: indisponibilidade da sala" /></div>
           <p className="text-xs text-muted-foreground">A data ficará cancelada e os fiscais inscritos receberão um link individual com as demais datas ativas deste treinamento. A confirmação de participação no evento não será alterada.</p>

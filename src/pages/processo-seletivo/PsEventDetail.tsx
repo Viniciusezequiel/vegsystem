@@ -254,7 +254,9 @@ export default function PsEventDetail() {
   const { data: confirmationHistory = [] } = useQuery({
     queryKey: ['ps-confirmation-history', id],
     enabled: !!id,
-    refetchInterval: 5000,
+    staleTime: 15_000,
+    refetchInterval: activeTab === 'equipe-comunicacao' ? 30_000 : false,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('ps_confirmation_history')

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, CircleDollarSign, Clock3, Download, History, Loader2, Pencil, Search, Users, WalletCards } from 'lucide-react';
+import { CheckCircle2, CircleDollarSign, Clock3, Download, History, Loader2, Pencil, Search, Users, WalletCards } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -153,11 +153,11 @@ export function PsEventPaymentsPanel({ event }: Props) {
   }, [rows, paymentSearch, paymentStatus]);
 
   const exportPdf = async () => {
-    if (!payableRows.length || exportingPdf) return;
+    if (!readyRows.length || exportingPdf) return;
     setExportingPdf(true);
 
     try {
-      const ids = payableRows.map(row => row.link.id);
+      const ids = readyRows.map(row => row.link.id);
       const { data: signatureRows, error: signatureError } = await (supabase as any)
         .from('ps_event_collaborators')
         .select('id,signature_url')
@@ -168,14 +168,14 @@ export function PsEventPaymentsPanel({ event }: Props) {
         (signatureRows || []).map((item: any) => [item.id, item.signature_url || null]),
       );
 
-      const pdfRows = payableRows.map(row => ({
+      const pdfRows = readyRows.map(row => ({
         collaborator_name: row.link.collaborator_name,
         unit: row.link.unit,
         institution: row.link.institution,
         campus: row.link.campus,
         floor: row.link.floor,
         room: row.link.room,
-        pix: row.link.pix,
+        pix: row.link.attendance_pix_snapshot || row.link.pix,
         notes: row.link.notes,
         signature_url: signatureMap.get(row.link.id) || null,
         assignments: row.assignments.map((item: any) => ({
@@ -225,10 +225,10 @@ export function PsEventPaymentsPanel({ event }: Props) {
             <Button
               className="shrink-0 rounded-xl"
               onClick={() => void exportPdf()}
-              disabled={!payableRows.length || exportingPdf}
+              disabled={!readyRows.length || exportingPdf}
             >
               {exportingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              {exportingPdf ? 'Gerando PDF...' : 'Gerar PDF de pagamentos'}
+              {exportingPdf ? 'Gerando PDF...' : 'Gerar PDF dos prontos'}
             </Button>
           </div>
         </CardContent>
