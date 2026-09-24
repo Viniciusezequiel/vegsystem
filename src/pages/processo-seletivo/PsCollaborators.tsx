@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
+  Award,
   Copy,
   Download,
+  FilterX,
   History,
   Pencil,
   Plus,
@@ -10,6 +12,7 @@ import {
   Star,
   Upload,
   UserRound,
+  Users,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -85,6 +88,10 @@ export default function PsCollaborators() {
 
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('active');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [institutionFilter, setInstitutionFilter] = useState('all');
+  const [ratingFilter, setRatingFilter] = useState('all');
+  const [experienceFilter, setExperienceFilter] = useState('all');
   const [historyFiscal, setHistoryFiscal] = useState<any>(null);
   const [appSearch, setAppSearch] = useState('');
   const [newDate, setNewDate] = useState('');
@@ -103,30 +110,161 @@ export default function PsCollaborators() {
   const persist = (patch: any) =>
     saveConfig.mutate({ id: (config as any)?.id, datas: dates, data_indisponivel_label: label, ...patch });
 
-  const ranked = useMemo(
-    () =>
-      collaborators
-        .map((c: any) => {
-          const evs = evaluations.filter((e: any) => e.collaborator_id === c.id);
-          const history = participations.filter((item: any) => item.collaborator_id === c.id);
-          return {
-            ...c,
-            history,
-            participation_count: history.length,
-            evaluations_count: evs.length,
-            events_evaluated: new Set(evs.map((e: any) => e.event_id).filter(Boolean)).size,
-            classification: psClassification(Number(c.average_rating || 0)),
-          };
-        })
-        .sort((a: any, b: any) => Number(b.average_rating) - Number(a.average_rating)),
-    [collaborators, evaluations, participations],
+  const ranked = useMemo(() => {
+    const enriched = collaborators.map((c: any) => {
+      const evs = evaluations.filter((e: any) => e.collaborator_id === c.id);
+      const history = participations.filter((item: any) => item.collaborator_id === c.id);
+      const evaluationsCount = evs.length;
+      const hasEvaluation = evaluationsCount > 0;
+      const averageRating = hasEvaluation ? Number(c.average_rating || 0) : null;
+
+      return {
+        ...c,
+        history,
+        participation_count: history.length,
+        evaluations_count: evaluationsCount,
+        events_evaluated: new Set(evs.map((e: any) => e.event_id).filter(Boolean)).size,
+        has_evaluation: hasEvaluation,
+        effective_rating: averageRating,
+        classification: hasEvaluation ? psClassification(Number(averageRating || 0)) : null,
+      };
+    });
+
+    const rated = enriched
+      .filter((c: any) => c.has_evaluation)
+      .sort((a: any, b: any) =>
+        Number(b.effective_rating || 0) - Number(a.effective_rating || 0) ||
+        Number(b.participation_count || 0) - Number(a.participation_count || 0) ||
+        String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
+      )
+      .map((c: any, index: number) => ({ ...c, ranking_position: index + 1 }));
+
+    const unrated = enriched
+      .filter((c: any) => !c.has_evaluation)
+      .sort((a: any, b: any) =>
+        Number(b.participation_count || 0) - Number(a.participation_count || 0) ||
+        String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR')
+      )
+      .map((c: any) => ({ ...c, ranking_position: null }));
+
+    return [...rated, ...unrated];
+  }, [collaborators, evaluations, participations]);
+
+  const roleOptions = useMemo(
+    () => [...new Set(ranked
+      .map((c: any) => String(c.preferred_role || '').trim())
+      .filter(Boolean))]
+      .sort((a, b) => {
+        const aLabel = roles.find((role: any) => String(role.value) === a)?.name || a;
+        const bLabel = roles.find((role: any) => String(role.value) === b)?.name || b;
+        return String(aLabel).localeCompare(String(bLabel), 'pt-BR');
+      }),
+    [ranked, roles]
   );
 
-  const filtered = ranked.filter((c: any) => {
-    const matchesStatus = activeFilter === 'all' || (activeFilter === 'active' ? c.active : !c.active);
-    return matchesStatus && [c.full_name, c.cpf, c.matricula, c.email, c.institution, c.sector]
-      .filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase());
-  });
+  const institutionOptions = useMemo(
+    () => [...new Set(ranked
+      .map((c: any) => String(c.institution || c.unit || '').trim())
+      .filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [ranked]
+  );
+
+  const bankSummary = useMemo(() => {
+    const active = ranked.filter((c: any) => c.active);
+    const evaluated = active.filter((c: any) => c.has_evaluation);
+    const unrated = active.filter((c: any) => !c.has_evaluation);
+    const experienced = active.filter((c: any) =>
+      Number(c.participation_count || 0) > 0 ||
+      Number(c.imported_participation_count || 0) > 0
+    );
+
+    return {
+      active: active.length,
+      inactive: ranked.length - active.length,
+      evaluated: evaluated.length,
+      unrated: unrated.length,
+      experienced: experienced.length,
+    };
+  }, [ranked]);
+
+  const filtered = useMemo(() => {
+    const normalizedSearch = search
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    return ranked.filter((c: any) => {
+      const matchesStatus =
+        activeFilter === 'all' ||
+        (activeFilter === 'active' ? c.active : !c.active);
+
+      if (!matchesStatus) return false;
+
+      if (roleFilter !== 'all' && String(c.preferred_role || '') !== roleFilter) return false;
+
+      if (
+        institutionFilter !== 'all' &&
+        String(c.institution || c.unit || '').trim() !== institutionFilter
+      ) return false;
+
+      if (ratingFilter === 'unrated' && c.has_evaluation) return false;
+      if (ratingFilter === 'rated' && !c.has_evaluation) return false;
+      if (ratingFilter === 'excellent' && c.classification !== 'excelente') return false;
+      if (ratingFilter === 'attention' && !['regular', 'insuficiente', 'critico'].includes(String(c.classification || ''))) return false;
+
+      if (experienceFilter === 'never' && (
+        Number(c.participation_count || 0) > 0 ||
+        Number(c.imported_participation_count || 0) > 0
+      )) return false;
+
+      if (experienceFilter === 'experienced' && (
+        Number(c.participation_count || 0) === 0 &&
+        Number(c.imported_participation_count || 0) === 0
+      )) return false;
+
+      if (experienceFilter === 'veg-3plus' && Number(c.participation_count || 0) < 3) return false;
+
+      if (!normalizedSearch) return true;
+
+      const haystack = [
+        c.full_name,
+        c.cpf,
+        c.matricula,
+        c.email,
+        c.institution,
+        c.unit,
+        c.sector,
+        c.phone,
+        c.preferred_role,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch);
+    });
+  }, [ranked, activeFilter, roleFilter, institutionFilter, ratingFilter, experienceFilter, search]);
+
+  const clearBankFilters = () => {
+    setSearch('');
+    setActiveFilter('active');
+    setRoleFilter('all');
+    setInstitutionFilter('all');
+    setRatingFilter('all');
+    setExperienceFilter('all');
+  };
+
+  const hasBankFilters =
+    !!search ||
+    activeFilter !== 'active' ||
+    roleFilter !== 'all' ||
+    institutionFilter !== 'all' ||
+    ratingFilter !== 'all' ||
+    experienceFilter !== 'all';
 
   const filteredApps = applications.filter((a: any) =>
     [a.nome_completo, a.email, a.setor, a.instituto].filter(Boolean).join(' ').toLowerCase().includes(appSearch.toLowerCase()),
@@ -140,17 +278,22 @@ export default function PsCollaborators() {
   };
 
   const exportCollaborators = () => {
-    const rows = filtered.map((c: any, i: number) => ({
-      Posição: i + 1,
+    const rows = filtered.map((c: any) => ({
+      Posição: c.ranking_position || '',
       Nome: c.full_name,
       CPF: c.cpf || '',
       'E-mail': c.email || '',
       Telefone: c.phone || '',
+      Instituição: c.institution || '',
+      Unidade: c.unit || '',
       Setor: c.sector || '',
-      'Nota média': Number(c.average_rating || 0).toFixed(2),
-      Classificação: PS_CLASSIFICATION_LABEL[c.classification],
-      'Eventos atuados': c.total_events || 0,
+      'Função preferencial': roles.find((role: any) => String(role.value) === String(c.preferred_role || ''))?.name || c.preferred_role || '',
+      'Nota média': c.has_evaluation ? Number(c.effective_rating || 0).toFixed(2) : 'Sem avaliação',
+      Classificação: c.has_evaluation ? PS_CLASSIFICATION_LABEL[c.classification] : 'Sem avaliação',
+      'Atuações VEG': c.participation_count || 0,
+      'Participações importadas': c.imported_participation_count || 0,
       Avaliações: c.evaluations_count,
+      Status: c.active ? 'Ativo' : 'Inativo',
     }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Colaboradores');
@@ -368,31 +511,128 @@ export default function PsCollaborators() {
         </TabsList>
 
         <TabsContent value="lista" className="mt-0 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Fiscais ativos</p>
+                <p className="mt-1 text-2xl font-bold">{bankSummary.active}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">{bankSummary.inactive} inativo(s) na base</p>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-emerald-500/20 bg-emerald-500/[0.025]">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Com avaliação</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-500">{bankSummary.evaluated}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">aptos a compor o ranking de desempenho</p>
+              </CardContent>
+            </Card>
+
+            <button type="button" className="text-left" onClick={() => setRatingFilter('unrated')}>
+              <Card className="h-full rounded-2xl border-border/60 transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Sem avaliação</p>
+                  <p className="mt-1 text-2xl font-bold">{bankSummary.unrated}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">não entram no ranking até receberem avaliação</p>
+                </CardContent>
+              </Card>
+            </button>
+
+            <button type="button" className="text-left" onClick={() => setExperienceFilter('experienced')}>
+              <Card className="h-full rounded-2xl transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Com experiência</p>
+                  <p className="mt-1 text-2xl font-bold">{bankSummary.experienced}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">com atuação VEG ou histórico importado</p>
+                </CardContent>
+              </Card>
+            </button>
+          </div>
+
           <PageToolbar className="mb-0">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  placeholder="Buscar por nome, CPF, e-mail, matrícula ou instituição..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+            <div className="space-y-2">
+              <div className="grid gap-2 xl:grid-cols-[minmax(300px,1.3fr)_repeat(3,minmax(170px,0.65fr))]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-10 rounded-xl pl-9"
+                    placeholder="Buscar por nome, CPF, e-mail, matrícula, instituição ou setor..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+
+                <Select value={activeFilter} onValueChange={setActiveFilter}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativos</SelectItem>
+                    <SelectItem value="inactive">Inativos</SelectItem>
+                    <SelectItem value="all">Ativos e inativos</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={ratingFilter} onValueChange={setRatingFilter}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Avaliação" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as avaliações</SelectItem>
+                    <SelectItem value="rated">Com avaliação</SelectItem>
+                    <SelectItem value="unrated">Sem avaliação</SelectItem>
+                    <SelectItem value="excellent">Excelente</SelectItem>
+                    <SelectItem value="attention">Desempenho a revisar</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={experienceFilter} onValueChange={setExperienceFilter}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Experiência" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Qualquer experiência</SelectItem>
+                    <SelectItem value="experienced">Com experiência</SelectItem>
+                    <SelectItem value="never">Sem participação registrada</SelectItem>
+                    <SelectItem value="veg-3plus">3+ atuações no VEG</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={activeFilter} onValueChange={setActiveFilter}>
-                <SelectTrigger className="sm:w-40"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Ativos</SelectItem>
-                  <SelectItem value="inactive">Inativos</SelectItem>
-                  <SelectItem value="all">Todos</SelectItem>
-                </SelectContent>
-              </Select>
+
+              <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto]">
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Função preferencial" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as funções preferenciais</SelectItem>
+                    {roleOptions.map((roleValue) => (
+                      <SelectItem key={roleValue} value={roleValue}>
+                        {roles.find((role: any) => String(role.value) === roleValue)?.name || roleValue}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Instituição / unidade" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as instituições / unidades</SelectItem>
+                    {institutionOptions.map((institution) => (
+                      <SelectItem key={institution} value={institution}>{institution}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-10 rounded-xl"
+                  disabled={!hasBankFilters}
+                  onClick={clearBankFilters}
+                >
+                  <FilterX className="mr-2 h-4 w-4" />
+                  Limpar filtros
+                </Button>
+              </div>
             </div>
           </PageToolbar>
 
           <div className="flex flex-col gap-1 px-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>{filtered.length} {filtered.length === 1 ? 'fiscal encontrado' : 'fiscais encontrados'}</span>
-            <span>Ranking ordenado pela nota média consolidada das avaliações.</span>
+            <span>O ranking considera apenas fiscais com pelo menos uma avaliação registrada.</span>
           </div>
 
           {filtered.length === 0 ? (
@@ -404,10 +644,15 @@ export default function PsCollaborators() {
           ) : (
             <Card className="overflow-hidden border-border/60 bg-card/65 shadow-sm">
               <CardContent className="divide-y divide-border/50 p-0">
-                {filtered.map((c: any, i: number) => (
+                {filtered.map((c: any) => (
                   <div key={c.id} className="flex flex-col gap-3 p-4 transition-colors hover:bg-muted/15 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">{i + 1}</span>
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-sm font-semibold ${c.has_evaluation
+                        ? 'border-primary/20 bg-primary/10 text-primary'
+                        : 'border-border/60 bg-muted/30 text-muted-foreground'}`}>
+                        {c.has_evaluation ? c.ranking_position : '—'}
+                      </div>
+
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="truncate text-sm font-semibold">{c.full_name}</p>
@@ -415,27 +660,48 @@ export default function PsCollaborators() {
                             <Badge variant="outline" className="text-[10px]" title="Possui observação">Observação</Badge>
                           )}
                           <Badge variant={c.active ? 'default' : 'secondary'} className="text-[10px]">{c.active ? 'Ativo' : 'Inativo'}</Badge>
+                          {!c.has_evaluation && (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">Sem avaliação</Badge>
+                          )}
                         </div>
+
                         <p className="mt-1 truncate text-xs text-muted-foreground">
                           {[
                             c.cpf ? `CPF ${formatFiscalCpf(c.cpf)}` : 'CPF não informado',
-                            `${c.participation_count} atuações`,
+                            `${c.participation_count} atuações VEG`,
+                            Number(c.imported_participation_count || 0) > 0 ? `${c.imported_participation_count} participações importadas` : null,
                             `${c.evaluations_count} avaliações`,
+                            c.institution || c.unit,
                             c.sector,
-                            c.phone,
                           ].filter(Boolean).join(' · ')}
                         </p>
+
+                        {c.preferred_role && (
+                          <p className="mt-1 text-[10px] text-muted-foreground">
+                            Função preferencial: <span className="font-medium text-foreground">
+                              {roles.find((role: any) => String(role.value) === String(c.preferred_role))?.name || c.preferred_role}
+                            </span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                      <Badge variant="secondary" className="text-[10px]">{PS_CLASSIFICATION_LABEL[c.classification]}</Badge>
-                      <Badge className="gap-1 text-[10px]"><Star className="h-3 w-3" />{Number(c.average_rating || 0).toFixed(2)}</Badge>
+                      {c.has_evaluation ? (
+                        <>
+                          <Badge variant="secondary" className="text-[10px]">{PS_CLASSIFICATION_LABEL[c.classification]}</Badge>
+                          <Badge className="gap-1 text-[10px]"><Star className="h-3 w-3" />{Number(c.effective_rating || 0).toFixed(2)}</Badge>
+                        </>
+                      ) : (
+                        <Badge variant="outline" className="gap-1 text-[10px] text-muted-foreground">
+                          <Award className="h-3 w-3" />Aguardando avaliação
+                        </Badge>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          const { evaluations_count, events_evaluated, classification, history, participation_count, ...rest } = c;
+                          const { evaluations_count, events_evaluated, classification, history, participation_count, has_evaluation, effective_rating, ranking_position, ...rest } = c;
                           setForm(rest);
                           setOpen(true);
                         }}
