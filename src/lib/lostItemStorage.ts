@@ -3,17 +3,18 @@ import { getDeletableLostItemImagePath } from '@/lib/lostItemImageValue';
 import { LostItemStorageClient } from '@/lib/lostItemStorageCore.mjs';
 
 const storageClient = new LostItemStorageClient({
-  uploadsFlag: import.meta.env.VITE_R2_NEW_UPLOADS_ENABLED,
+  // Migração concluída: novos arquivos de Achados e Perdidos são R2-only.
+  // Se o Worker estiver indisponível, falhamos de forma explícita em vez de
+  // voltar silenciosamente ao Supabase Storage e recriar egress/legado.
+  uploadsFlag: 'true',
   workerUrl: import.meta.env.VITE_STORAGE_WORKER_URL,
   getAccessToken: async () => {
     const { data, error } = await supabase.auth.getSession();
     if (error) return null;
     return data.session?.access_token ?? null;
   },
-  uploadSupabase: async (file: File, path: string) => {
-    const { error } = await supabase.storage.from('lost-items').upload(path, file, { cacheControl: '3600', upsert: false });
-    if (error) throw error;
-    return path;
+  uploadSupabase: async () => {
+    throw new Error('supabase_lost_items_upload_disabled');
   },
   deleteSupabase: async (locator: string) => {
     const path = getDeletableLostItemImagePath(locator);

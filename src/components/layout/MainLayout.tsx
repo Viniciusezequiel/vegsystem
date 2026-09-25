@@ -108,9 +108,9 @@ function PendingShortcut({
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  useGlobalRealtimeSubscription();
-  const isMobile = useIsMobile();
   const location = useLocation();
+  useGlobalRealtimeSubscription(location.pathname);
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user, profile, role, isAdmin, signOut } = useAuth();
   const { pendingTasksCount = 0 } = useTaskNotifications();

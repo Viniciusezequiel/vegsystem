@@ -4,12 +4,12 @@
  */
 
 import type { LostItem } from '@/hooks/useLostItems';
-import { getDeletableLostItemImagePath } from '@/lib/lostItemImageValue';
+import { validateR2LostItemLocator } from '@/lib/lostItemStorageCore.mjs';
 
 const CACHE_KEY = 'lost-items-cache';
 const COUNTS_CACHE_KEY = 'lost-items-counts-cache';
 const IMAGES_CACHE_KEY = 'lost-items-images-cache';
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 const CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
 
 interface CachedData {
@@ -38,7 +38,24 @@ interface CachedCounts {
 interface CachedImages {
   version: number;
   timestamp: number;
-  data: Record<string, string | null>; // itemId -> imageUrl or null
+  data: Record<string, string | null>; // itemId -> R2 locator or null
+}
+
+function r2ImageLocator(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  return validateR2LostItemLocator(value.trim())?.locator ?? null;
+}
+
+function sanitizeLostItemsCache(data: CachedData['data']): CachedData['data'] {
+  return {
+    ...data,
+    items: (data.items || []).map((item) => ({
+      ...item,
+      // Após a migração, imagens de Achados e Perdidos são exclusivamente R2.
+      // Nunca reidrate caminhos legados do Supabase Storage a partir do navegador.
+      image_url: r2ImageLocator(item.image_url),
+    })),
+  };
 }
 
 /**
@@ -49,7 +66,7 @@ export function saveLostItemsToCache(data: CachedData['data']): void {
     const cacheEntry: CachedData = {
       version: CACHE_VERSION,
       timestamp: Date.now(),
-      data,
+      data: sanitizeLostItemsCache(data),
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheEntry));
   } catch (e) {
@@ -79,10 +96,10 @@ export function loadLostItemsFromCache(): CachedData['data'] | null {
     // This provides instant UI while fresh data loads
     if (Date.now() - cached.timestamp > CACHE_MAX_AGE) {
       // Return stale data for instant display, caller should refresh
-      return cached.data;
+      return sanitizeLostItemsCache(cached.data);
     }
 
-    return cached.data;
+    return sanitizeLostItemsCache(cached.data);
   } catch (e) {
     // Corrupted cache - remove it
     localStorage.removeItem(CACHE_KEY);
@@ -155,7 +172,7 @@ export function saveImagesToCache(images: Record<string, string | null>): void {
     const merged: Record<string, string> = { ...existing };
 
     for (const [itemId, value] of Object.entries(images)) {
-      const path = getDeletableLostItemImagePath(value);
+      const path = r2ImageLocator(value);
       if (path) {
         merged[itemId] = path;
       } else if (value === null) {
@@ -194,7 +211,7 @@ export function loadImagesFromCache(): Record<string, string | null> | null {
     // Filter out null/invalid entries from older versions or partial migrations
     const filtered: Record<string, string> = {};
     for (const [itemId, value] of Object.entries(cached.data || {})) {
-      const path = getDeletableLostItemImagePath(value);
+      const path = r2ImageLocator(value);
       if (path) filtered[itemId] = path;
     }
 

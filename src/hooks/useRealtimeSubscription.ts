@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { lostItemsQueryKeys } from '@/lib/lostItemsQueryKeys';
 
-type TableName = 
+export type TableName = 
   | 'equipment'
   | 'equipment_loans'
   | 'equipment_reservations'
@@ -126,43 +126,50 @@ export function useRealtimeSubscription(tables: TableName[] = []) {
 }
 
 
-// Hook for subscribing to all main tables
-export function useGlobalRealtimeSubscription() {
-  const allTables: TableName[] = [
-    'equipment',
-    'equipment_loans',
-    'equipment_reservations',
-    'external_equipment_requests',
-    'lockers',
-    'locker_loans',
-    'locker_exchanges',
-    'lost_items',
-    'lost_items_archive',
-    'material_requests',
-    'classroom_calls',
-    'classroom_call_rooms',
-    'classroom_call_responses',
-    'classroom_call_room_issues',
-    'profiles',
-    'tasks',
-    'task_comments',
-    'task_team_members',
-    'task_history',
-    'user_roles',
-    'role_permissions',
-    'rooms',
-    'room_checklists',
-    'checklist_questions',
-    'checklist_answers',
-    'shift_handovers',
-    'shift_handover_tasks',
-    'shift_handover_incidents',
-    'reservations',
-    'reservation_rooms',
-    'inventory_movements',
-    // Histórico não precisa ser transmitido a todo usuário conectado.
-    'app_settings',
-  ];
+const GLOBAL_REALTIME_TABLES: TableName[] = [
+  // O badge de chamados precisa atualizar em qualquer tela do sistema.
+  'classroom_calls',
+  // Mudanças administrativas são raras, pequenas e podem afetar a sessão atual.
+  'profiles',
+  'user_roles',
+  'role_permissions',
+  'app_settings',
+];
 
-  useRealtimeSubscription(allTables);
+export function realtimeTablesForPath(pathname: string): TableName[] {
+  const tables = new Set<TableName>(GLOBAL_REALTIME_TABLES);
+  const add = (...items: TableName[]) => items.forEach((item) => tables.add(item));
+
+  if (pathname === '/' || pathname.startsWith('/lost-found') || pathname.startsWith('/items') || pathname === '/history' || pathname === '/register') {
+    add('lost_items', 'lost_items_archive');
+  }
+  if (pathname.startsWith('/equipment')) {
+    add('equipment', 'equipment_loans', 'equipment_reservations', 'external_equipment_requests', 'inventory_movements');
+  }
+  if (pathname.startsWith('/lockers')) {
+    add('lockers', 'locker_loans', 'locker_exchanges');
+  }
+  if (pathname.startsWith('/rooms')) {
+    add('rooms', 'room_checklists', 'checklist_questions', 'checklist_answers', 'shift_handovers', 'shift_handover_tasks', 'shift_handover_incidents');
+  }
+  if (pathname.startsWith('/classroom-calls')) {
+    add('classroom_call_rooms', 'classroom_call_responses', 'classroom_call_room_issues');
+  }
+  if (pathname.startsWith('/tasks')) {
+    add('tasks', 'task_comments', 'task_team_members', 'task_history');
+  }
+  if (pathname.startsWith('/reservations')) {
+    add('reservations', 'reservation_rooms');
+  }
+  if (pathname === '/activity-history') {
+    add('activity_logs');
+  }
+
+  return Array.from(tables);
+}
+
+// Mantém o comportamento em tempo real, mas somente para o módulo que está
+// realmente aberto. Isso reduz fan-out de Postgres Changes e Realtime Egress.
+export function useGlobalRealtimeSubscription(pathname: string) {
+  useRealtimeSubscription(realtimeTablesForPath(pathname));
 }

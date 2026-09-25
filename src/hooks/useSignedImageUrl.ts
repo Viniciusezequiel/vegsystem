@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { resolveStorageUrl } from '@/lib/storageUrl';
+import { getStorageProvider, resolveStorageUrl } from '@/lib/storageUrl';
 
 /**
  * Turns a stored image value into a renderable URL.
@@ -23,6 +23,19 @@ export function useSignedImageUrl(
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     if (!storedValue) {
+      setUrl(null);
+      setIsResolving(false);
+      return;
+    }
+
+    // Achados e Perdidos foi migrado integralmente para R2. Caminhos antigos
+    // podem sobreviver em localStorage de aparelhos antigos; não permita que
+    // eles voltem a gerar signed URLs/downloads no Supabase Storage.
+    if (
+      defaultBucket === 'lost-items' &&
+      !storedValue.startsWith('data:') &&
+      getStorageProvider(storedValue) !== 'r2'
+    ) {
       setUrl(null);
       setIsResolving(false);
       return;
