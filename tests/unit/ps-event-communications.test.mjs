@@ -52,7 +52,8 @@ test('solicitação de confirmação exclui confirmados, recusados e substituíd
   assert.match(ui,/pendingConfirmationSelected/);
   assert.match(ui,/link\.participation_status === 'pending_confirmation'/);
   assert.match(ui,/allowConfirmationResend \? pendingConfirmationSelected : selectedNotPreviouslySent/);
-  assert.match(ui,/não estão aguardando confirmação e não receberão esta solicitação/);
+  assert.match(ui,/não receberão este tipo de comunicação/);
+  assert.match(ui,/Já confirmados, recusados ou substituídos são removidos automaticamente/);
 });
 
 test('template resolve variáveis, URL correta e campos opcionais vazios',()=>{
