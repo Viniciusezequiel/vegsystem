@@ -49,4 +49,7 @@ test('processo seletivo evita refetch repetitivo de listas grandes cobertas por 
   assert.match(collaboratorBlock, /postgres_changes/);
   assert.match(communicationBlock, /communications_changed/);
   assert.match(candidateBlock, /postgres_changes/);
+  assert.match(collaboratorBlock, /scheduleRefresh/);
+  assert.match(collaboratorBlock, /setTimeout\(\(\) => \{/);
+  assert.match(collaboratorBlock, /500/);
 });
