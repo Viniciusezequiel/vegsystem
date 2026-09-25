@@ -32,9 +32,11 @@ test('PDF de pagamentos exporta somente quem está pronto e preserva PIX da pres
   assert.doesNotMatch(payments, /const pdfRows = payableRows\.map/);
 });
 
-test('histórico de confirmação não faz polling agressivo em segundo plano', () => {
-  assert.match(eventDetail, /staleTime: 15_000/);
-  assert.match(eventDetail, /activeTab === 'equipe-comunicacao' \? 30_000 : false/);
-  assert.match(eventDetail, /refetchIntervalInBackground: false/);
-  assert.doesNotMatch(eventDetail, /refetchInterval:\s*5000/);
+test('histórico de confirmação usa Realtime sem polling contínuo', () => {
+  assert.match(eventDetail, /staleTime: 5 \* 60 \* 1000/);
+  assert.match(eventDetail, /table: 'ps_confirmation_history'/);
+  assert.match(eventDetail, /filter: \`event_id=eq\.\$\{id\}\`/);
+  assert.match(eventDetail, /queryKey: \['ps-confirmation-history', id\]/);
+  assert.match(eventDetail, /refetchOnWindowFocus: false/);
+  assert.doesNotMatch(eventDetail, /refetchInterval:/);
 });

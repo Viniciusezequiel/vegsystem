@@ -142,8 +142,11 @@ export function useInfiniteLostItems(filters?: InfiniteFilters) {
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: 0,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    // A rota de Achados e Perdidos já recebe alterações por Realtime.
+    // Mantemos a lista em cache por mais tempo para evitar refetch de páginas
+    // grandes durante navegação normal.
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

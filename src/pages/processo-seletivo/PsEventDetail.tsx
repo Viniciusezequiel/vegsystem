@@ -254,9 +254,10 @@ export default function PsEventDetail() {
   const { data: confirmationHistory = [] } = useQuery({
     queryKey: ['ps-confirmation-history', id],
     enabled: !!id,
-    staleTime: 15_000,
-    refetchInterval: activeTab === 'equipe-comunicacao' ? 30_000 : false,
-    refetchIntervalInBackground: false,
+    // O histórico agora é invalidado por Realtime. Evita baixar novamente
+    // todo o histórico a cada 30 s enquanto a aba de comunicação está aberta.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('ps_confirmation_history')
@@ -271,6 +272,32 @@ export default function PsEventDetail() {
       return data || [];
     },
   });
+
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`ps-confirmation-history-${id}-${crypto.randomUUID()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ps_confirmation_history',
+          filter: `event_id=eq.${id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ['ps-confirmation-history', id],
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
 
   const { data: overviewTrainingData = { groups: [], groupRoles: [], sessions: [], choices: [], assignments: [], reselections: [] } } = useQuery({
     queryKey: ['ps-event-overview-training', id],
