@@ -21,8 +21,9 @@ test('notificações de tarefas não assinam UPDATE global duplicado', () => {
   assert.doesNotMatch(tasks, /event: 'UPDATE',[\s\S]*table: 'tasks',[\s\S]*\n\s*\},\n\s*\(payload\)/);
 });
 
-test('histórico de atividades não é transmitido globalmente por realtime', () => {
-  const globalList = realtime.match(/const allTables: TableName\[] = \[([\s\S]*?)\n\s*\];/)?.[1] || '';
+test('histórico de atividades só entra no realtime quando a rota está aberta', () => {
+  const globalList = realtime.match(/const GLOBAL_REALTIME_TABLES: TableName\[] = \[([\s\S]*?)\n\];/)?.[1] || '';
   assert.doesNotMatch(globalList, /'activity_logs'/);
   assert.match(globalList, /'classroom_calls'/);
+  assert.match(realtime, /pathname === '\/activity-history'[\s\S]*add\('activity_logs'\)/);
 });
