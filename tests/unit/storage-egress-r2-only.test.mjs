@@ -7,6 +7,8 @@ const signed = fs.readFileSync(new URL('../../src/hooks/useSignedImageUrl.ts', i
 const storage = fs.readFileSync(new URL('../../src/lib/lostItemStorage.ts', import.meta.url), 'utf8');
 const realtime = fs.readFileSync(new URL('../../src/hooks/useRealtimeSubscription.ts', import.meta.url), 'utf8');
 const layout = fs.readFileSync(new URL('../../src/components/layout/MainLayout.tsx', import.meta.url), 'utf8');
+const lazyItemImage = fs.readFileSync(new URL('../../src/components/items/LazyItemImage.tsx', import.meta.url), 'utf8');
+const virtualizedItems = fs.readFileSync(new URL('../../src/components/items/VirtualizedItemsList.tsx', import.meta.url), 'utf8');
 
 test('cache de achados invalida legado e persiste somente locator R2', () => {
   assert.match(cache, /CACHE_VERSION = 4/);
@@ -35,4 +37,12 @@ test('Realtime global e escopado pela rota e preserva chamados em qualquer tela'
   assert.match(realtime, /pathname\.startsWith\('\/equipment'\)/);
   assert.doesNotMatch(realtime, /const allTables: TableName\[]/);
   assert.match(layout, /useGlobalRealtimeSubscription\(location\.pathname\)/);
+});
+
+
+test('lista de achados reutiliza locator R2 sem consultar image_url por card', () => {
+  assert.match(virtualizedItems, /storedValue=\{item\.image_url\}/);
+  assert.match(lazyItemImage, /storedValue === undefined/);
+  assert.match(lazyItemImage, /useLostItemImage\(itemId, shouldFetchStoredValue\)/);
+  assert.match(lazyItemImage, /isVisible \? effectiveStoredValue : null/);
 });

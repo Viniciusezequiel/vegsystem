@@ -6,6 +6,7 @@ import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface LazyItemImageProps {
   itemId: string;
+  storedValue?: string | null;
   alt: string;
   className?: string;
 }
@@ -17,6 +18,7 @@ interface LazyItemImageProps {
  */
 export const LazyItemImage = memo(function LazyItemImage({ 
   itemId,
+  storedValue,
   alt, 
   className 
 }: LazyItemImageProps) {
@@ -52,9 +54,12 @@ export const LazyItemImage = memo(function LazyItemImage({
     return () => observer.disconnect();
   }, []);
 
-  // Only fetch image when visible
-  const { data: storedUrl, isLoading } = useLostItemImage(itemId, isVisible);
-  const { url: imageUrl, isResolving } = useSignedImageUrl(storedUrl);
+  // A listagem já recebe o locator curto do R2. Só consulta image_url
+  // separadamente como fallback para fluxos antigos/busca que não o retornem.
+  const shouldFetchStoredValue = isVisible && storedValue === undefined;
+  const { data: queriedStoredUrl, isLoading } = useLostItemImage(itemId, shouldFetchStoredValue);
+  const effectiveStoredValue = storedValue !== undefined ? storedValue : queriedStoredUrl;
+  const { url: imageUrl, isResolving } = useSignedImageUrl(isVisible ? effectiveStoredValue : null);
 
   // Show image if we have a valid URL (HTTP or base64)
   const showImage = imageUrl && !hasError && (
