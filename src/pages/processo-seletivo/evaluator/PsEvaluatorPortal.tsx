@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { FormEvent, useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Building2,
@@ -139,7 +139,7 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
     }
   }
 
-  const areaOptions = useMemo(() => {
+  const areaOptions = (() => {
     const map = new Map<string, string>();
 
     for (const item of queue) {
@@ -161,9 +161,9 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
     return [...map.entries()]
       .map(([key, label]) => ({ key, label }))
       .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { numeric: true }));
-  }, [queue]);
+  })();
 
-  const filteredQueue = useMemo(() => {
+  const filteredQueue = (() => {
     const query = search
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -178,7 +178,6 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
       ].join('|');
 
       if (areaFilter !== 'all' && areaKey !== areaFilter) return false;
-
       if (!query) return true;
 
       const haystack = [
@@ -200,7 +199,7 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
 
       return haystack.includes(query);
     });
-  }, [queue, search, areaFilter]);
+  })();
 
   const totalEvaluations =
     Number(dashboard.pending_count || 0) +

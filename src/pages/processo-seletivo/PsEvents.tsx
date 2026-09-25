@@ -33,7 +33,7 @@ export default function PsEvents() {
   const { data: events = [], isLoading } = usePsEvents();
   const { save, remove } = usePsEventMutations();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('open');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(emptyForm);
 
@@ -205,14 +205,16 @@ export default function PsEvents() {
       const eventDate = event.date ? new Date(`${event.date}T00:00:00`) : null;
       const attendanceRelevant = !!eventDate && eventDate.getTime() <= todayStart.getTime();
 
-      const attentionItems = [
-        declined > 0 ? { key: 'declined', label: `${declined} vaga(s) aberta(s)`, critical: true } : null,
-        pending > 0 ? { key: 'pending', label: `${pending} aguardando confirmação`, critical: false } : null,
-        trainingPending > 0 ? { key: 'training', label: `${trainingPending} treinamento(s) pendente(s)`, critical: false } : null,
-        attendanceRelevant && attendancePending > 0
-          ? { key: 'attendance', label: `${attendancePending} presença(s) pendente(s)`, critical: true }
-          : null,
-      ].filter(Boolean);
+      const attentionItems = event.status === 'finalizado'
+        ? []
+        : [
+            declined > 0 ? { key: 'declined', label: `${declined} vaga(s) aberta(s)`, critical: true } : null,
+            pending > 0 ? { key: 'pending', label: `${pending} aguardando confirmação`, critical: false } : null,
+            trainingPending > 0 ? { key: 'training', label: `${trainingPending} treinamento(s) pendente(s)`, critical: false } : null,
+            attendanceRelevant && attendancePending > 0
+              ? { key: 'attendance', label: `${attendancePending} presença(s) pendente(s)`, critical: true }
+              : null,
+          ].filter(Boolean);
 
       summary.set(eventId, {
         team: attendanceLinks.length,
@@ -242,7 +244,11 @@ export default function PsEvents() {
       .toLowerCase()
       .includes(search.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'open' && event.status !== 'finalizado') ||
+      event.status === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
@@ -250,7 +256,10 @@ export default function PsEvents() {
     planning: events.filter((event: any) => event.status === 'planejamento').length,
     active: events.filter((event: any) => event.status === 'em_andamento').length,
     finished: events.filter((event: any) => event.status === 'finalizado').length,
-    attention: events.filter((event: any) => eventSummary.get(String(event.id))?.hasAttention).length,
+    attention: events.filter((event: any) =>
+      event.status !== 'finalizado' &&
+      eventSummary.get(String(event.id))?.hasAttention
+    ).length,
   }), [events, eventSummary]);
 
   const openCreate = () => {
@@ -348,6 +357,7 @@ export default function PsEvents() {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="open">Em aberto — padrão</SelectItem>
               <SelectItem value="all">Todos os status</SelectItem>
               {Object.entries(PS_EVENT_STATUS).map(([key, value]) => (
                 <SelectItem key={key} value={key}>{value}</SelectItem>

@@ -10,6 +10,22 @@ const sql = fs.readFileSync(
   'utf8'
 );
 
+const portal = fs.readFileSync(
+  new URL(
+    '../../src/pages/processo-seletivo/evaluator/PsEvaluatorPortal.tsx',
+    import.meta.url
+  ),
+  'utf8'
+);
+
+const eventsPage = fs.readFileSync(
+  new URL(
+    '../../src/pages/processo-seletivo/PsEvents.tsx',
+    import.meta.url
+  ),
+  'utf8'
+);
+
 test('portal do avaliador aceita somente equipe operacional ativa', () => {
   assert.match(
     sql,
@@ -45,4 +61,19 @@ test('portal do avaliador aceita somente equipe operacional ativa', () => {
     sql,
     /LIMIT\s+1000/i
   );
+});
+
+
+test('portal do avaliador mantém quantidade de hooks estável entre login, carregamento e sessão', () => {
+  assert.doesNotMatch(portal, /useMemo/);
+  assert.match(portal, /const areaOptions = \(\(\) => \{/);
+  assert.match(portal, /const filteredQueue = \(\(\) => \{/);
+  assert.match(portal, /if \(loading\)[\s\S]*if \(!token \|\| !session\)/);
+});
+
+test('lista de eventos oculta finalizados por padrão e não os conta como atenção operacional', () => {
+  assert.match(eventsPage, /useState\('open'\)/);
+  assert.match(eventsPage, /statusFilter === 'open' && event\.status !== 'finalizado'/);
+  assert.match(eventsPage, /<SelectItem value="open">Em aberto — padrão<\/SelectItem>/);
+  assert.match(eventsPage, /event\.status !== 'finalizado'[\s\S]*eventSummary\.get/);
 });
