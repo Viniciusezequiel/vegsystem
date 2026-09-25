@@ -150,14 +150,14 @@ export default function PsPublicAttendance() {
     },
   });
 
-  const buildingOptions = useMemo(
-    () => [...new Set(
-      links
-        .map((link: any) => String(link.building || '').trim())
-        .filter(Boolean)
-    )].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })),
-    [links]
-  );
+  const buildingOptions = useMemo<string[]>(() => {
+    const values = links
+      .map((link: any) => String(link.building || '').trim())
+      .filter((value: string) => Boolean(value));
+
+    return Array.from(new Set<string>(values))
+      .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
+  }, [links]);
 
   const filtered = useMemo(() => {
     const term = search
