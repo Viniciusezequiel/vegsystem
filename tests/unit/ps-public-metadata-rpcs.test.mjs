@@ -10,6 +10,14 @@ const sql = fs.readFileSync(
   'utf8'
 );
 
+const attendanceSurfaceSql = fs.readFileSync(
+  new URL(
+    '../../supabase/migrations/20260925102000_ps_attendance_single_open_event.sql',
+    import.meta.url
+  ),
+  'utf8'
+);
+
 const attendance = fs.readFileSync(
   new URL(
     '../../src/pages/processo-seletivo/public/PsPublicAttendance.tsx',
@@ -66,4 +74,16 @@ test('presença e autoavaliação não dependem das tabelas internas de evento/c
       /\.from\(['"]ps_roles['"]\)/
     );
   }
+});
+
+
+test('presença pública expõe somente um evento não finalizado e não permite troca manual', () => {
+  assert.match(attendanceSurfaceSql, /p_surface = 'attendance'[\s\S]*e\.status <> 'finalizado'/);
+  assert.match(attendanceSurfaceSql, /WHEN p_surface = 'attendance' THEN 1/);
+  assert.match(attendanceSurfaceSql, /e\.status = 'em_andamento'/);
+  assert.match(attendanceSurfaceSql, /WHERE ec\.event_id = p_event_id[\s\S]*e\.status <> 'finalizado'/);
+  assert.match(attendance, /Evento da presença/);
+  assert.match(attendance, /Eventos finalizados são bloqueados automaticamente/);
+  assert.doesNotMatch(attendance, /handleEventChange/);
+  assert.doesNotMatch(attendance, /<Select value=\{eventId\}/);
 });

@@ -76,7 +76,11 @@ export default function PsPublicAttendance() {
   const queryClient = useQueryClient();
   const { eventId: routeEventId, eventCollaboratorId: routeSelectedId } = useParams();
 
-  const { data: events = [] } = useQuery({
+  const {
+    data: events = [],
+    isLoading: eventsLoading,
+    error: eventsError,
+  } = useQuery({
     queryKey: ['ps_public_events', 'attendance'],
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc(
@@ -129,8 +133,29 @@ export default function PsPublicAttendance() {
   const [confirmingDetails, setConfirmingDetails] = useState(false);
 
   useEffect(() => {
-    if (routeEventId) setEventId(routeEventId);
-  }, [routeEventId]);
+    if (eventsLoading) return;
+
+    const availableEvent = events[0] || null;
+
+    if (routeEventId) {
+      const routeIsAvailable = availableEvent?.id === routeEventId;
+      setEventId(routeIsAvailable ? routeEventId : '');
+
+      if (!routeIsAvailable) {
+        setSelectedId('');
+      }
+
+      return;
+    }
+
+    if (availableEvent?.id) {
+      setEventId(availableEvent.id);
+      navigate(`/ps/presenca/${availableEvent.id}`, { replace: true });
+      return;
+    }
+
+    setEventId('');
+  }, [events, eventsLoading, routeEventId, navigate]);
 
   useEffect(() => {
     if (routeSelectedId) setSelectedId(routeSelectedId);
@@ -606,26 +631,52 @@ export default function PsPublicAttendance() {
     navigate(`/ps/presenca/${eventId}/${link.id}`);
   };
 
-  const handleEventChange = (nextEventId: string) => {
-    setEventId(nextEventId);
-    setSelectedId('');
-    setAttendanceCpf('');
-    setSignature(null);
-    setSearch('');
-    setShowSigned(false);
-    setShowAbsent(false);
-    setConfirmationFilter('all');
-    setBuildingFilter('all');
-    navigate(`/ps/presenca/${nextEventId}`);
-  };
+  const selectedEvent =
+    events.find((event: any) => event.id === eventId) ||
+    (!routeEventId ? events[0] : null) ||
+    null;
 
-  const selectedEvent = events.find((event: any) => event.id === eventId) || null;
+  const routeEventUnavailable =
+    !eventsLoading &&
+    !!routeEventId &&
+    !events.some((event: any) => event.id === routeEventId);
 
   const clearRosterFilters = () => {
     setSearch('');
     setConfirmationFilter('all');
     setBuildingFilter('all');
   };
+
+  if (eventsLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md rounded-2xl text-center">
+          <CardHeader>
+            <CardTitle>Carregando presença...</CardTitle>
+            <CardDescription>Identificando o evento disponível para registro.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (eventsError || routeEventUnavailable || !selectedEvent) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md rounded-2xl border-border/60 text-center">
+          <CardHeader>
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <CardTitle className="pt-2">Evento indisponível para presença</CardTitle>
+            <CardDescription>
+              A lista de presença aceita somente o evento operacional atual. Eventos finalizados não ficam disponíveis nesta página.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   if (currentSelectedId && selected) {
     return (
@@ -659,7 +710,7 @@ export default function PsPublicAttendance() {
                 </div>
                 <div>
                   <p className="text-xs uppercase text-muted-foreground">Evento</p>
-                  <p className="mt-1 font-semibold">{events.find((event: any) => event.id === eventId)?.name || 'Evento'}</p>
+                  <p className="mt-1 font-semibold">{selectedEvent.name}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-muted-foreground">Unidade / Sala</p>
@@ -886,18 +937,28 @@ export default function PsPublicAttendance() {
 
         <Card className="rounded-2xl border-border/60 bg-card/70 shadow-sm">
           <CardContent className="space-y-4 p-4 sm:p-5">
-            <div className="space-y-2">
-              <Label>Evento</Label>
-              <Select value={eventId} onValueChange={handleEventChange}>
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder="Selecione o evento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.map((e: any) => (
-                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="rounded-2xl border border-border/60 bg-background/35 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Evento da presença
+                  </p>
+                  <p className="mt-1 truncate text-sm font-semibold text-foreground">
+                    {selectedEvent.name}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="rounded-full">Evento atual</Badge>
+                  {selectedEvent.date && (
+                    <Badge variant="outline" className="rounded-full">
+                      {new Date(`${selectedEvent.date}T00:00:00`).toLocaleDateString('pt-BR')}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Esta página fica vinculada a um único evento operacional. Eventos finalizados são bloqueados automaticamente.
+              </p>
             </div>
 
             {eventId && (
