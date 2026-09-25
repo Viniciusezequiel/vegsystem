@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LostItem } from './useLostItems';
 import { LOST_ITEMS_LIST_SELECT } from '@/lib/lostItemsSelect';
+import { getDeletableLostItemImagePath } from '@/lib/lostItemImageValue';
 
 interface PrefetchFilters {
   status?: string;
@@ -49,9 +50,13 @@ export function useLostItemsPrefetch(filters: PrefetchFilters) {
 
         const items = (data as unknown as LostItem[]) || [];
         
-        // Also prefetch images for next page items
-        if (items.length > 0) {
-          prefetchImagesForNextPage(queryClient, items);
+        // image_url já vem como locator curto do R2 no mesmo SELECT.
+        // Alimenta o cache das miniaturas sem uma segunda consulta por página.
+        for (const item of items) {
+          queryClient.setQueryData(
+            ['lost-item-image', item.id],
+            getDeletableLostItemImagePath(item.image_url),
+          );
         }
         
         return {
@@ -65,48 +70,4 @@ export function useLostItemsPrefetch(filters: PrefetchFilters) {
       staleTime: 2 * 60 * 1000,
     });
   }, [queryClient, status, search, page, pageSize, totalPages]);
-}
-
-/**
- * Prefetch images for next page items in background
- */
-async function prefetchImagesForNextPage(
-  queryClient: ReturnType<typeof useQueryClient>,
-  items: LostItem[]
-) {
-  // Filter items that don't have cached images (or were cached as null)
-  const itemsToFetch = items.filter(item => {
-    const cached = queryClient.getQueryData(['lost-item-image', item.id]);
-    return cached === undefined || cached === null;
-  });
-
-  if (!itemsToFetch.length) return;
-
-  try {
-    const ids = itemsToFetch.map(item => item.id);
-
-    // Only fetch migrated URLs to avoid pulling huge legacy base64 strings
-    const { data, error } = await supabase
-      .from('lost_items')
-      .select('id, image_url')
-      .in('id', ids)
-      .ilike('image_url', 'http%');
-
-    if (error) {
-      console.error('Error prefetching next page images:', error);
-      return;
-    }
-
-    const byId = new Map<string, string>();
-    for (const row of data || []) {
-      if (row.image_url) byId.set(row.id, row.image_url);
-    }
-
-    // Cache all ids (null when missing) so cards won't refetch repeatedly this session
-    for (const id of ids) {
-      queryClient.setQueryData(['lost-item-image', id], byId.get(id) ?? null);
-    }
-  } catch (e) {
-    console.error('Error in next page image prefetch:', e);
-  }
 }
