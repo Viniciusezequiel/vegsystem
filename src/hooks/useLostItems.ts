@@ -196,8 +196,13 @@ export function useLostItems(filters?: {
         const { data, error, count } = await query;
         if (error) throw error;
 
+        const items = (data as unknown as LostItem[]) || [];
+        const imageCache: Record<string, string | null> = {};
+        for (const item of items) imageCache[item.id] = getDeletableLostItemImagePath(item.image_url);
+        if (items.length) saveImagesToCache(imageCache);
+
         const result = {
-          items: (data as unknown as LostItem[]) || [],
+          items,
           totalCount: count ?? 0,
           page,
           pageSize,
