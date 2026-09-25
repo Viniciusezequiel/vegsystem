@@ -267,6 +267,9 @@ export function usePsEventCommunications(eventId?: string) {
       if (error) throw error;
       return data || [];
     },
+    // O trigger communications_changed invalida a consulta imediatamente.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   useEffect(() => {
     if (!eventId) return;
@@ -577,6 +580,10 @@ export function usePsEventCollaborators(eventId?: string) {
       // type parser cannot infer dynamic select strings, so narrow at this boundary.
       return (data || []) as unknown as Array<Record<string, any>>;
     },
+    // Este conjunto pode ter centenas de fiscais. As mudanças reais chegam por Realtime,
+    // então não há motivo para baixar tudo novamente a cada montagem de aba.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   useEffect(() => {
     if (!eventId) return;
@@ -938,6 +945,9 @@ export function usePsCandidates(eventId?: string) {
       if (error) throw error;
       return data;
     },
+    // Candidatos também são invalidados por Realtime quando há alteração real.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
