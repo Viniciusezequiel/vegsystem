@@ -156,6 +156,7 @@ export function PsEventCommunicationTab({
   const [room, setRoom] = useState('all');
   const [delivery, setDelivery] = useState('all');
   const [quickView, setQuickView] = useState<'all' | 'action' | 'pending' | 'confirmed' | 'declined' | 'failed' | 'not_sent' | 'replaced'>('all');
+  const [typeDialog, setTypeDialog] = useState(false);
   const [dialog, setDialog] = useState(false);
   const [type, setType] = useState('confirmation_request');
   const [subject, setSubject] = useState(DEFAULT_CONFIRMATION_SUBJECT);
@@ -338,6 +339,7 @@ export function PsEventCommunicationTab({
 
   const openMessage = (nextType: string, onlyId?: string) => {
     if (onlyId) setSelected([onlyId]);
+    setTypeDialog(false);
     setType(nextType);
     setAllowConfirmationResend(false);
     setSubject(nextType === 'confirmation_request' ? DEFAULT_CONFIRMATION_SUBJECT : DEFAULT_EVENT_MESSAGE_SUBJECT);
@@ -790,17 +792,16 @@ export function PsEventCommunicationTab({
       />
       <span className="text-xs text-muted-foreground">{selected.length > 0 ? selected.length + ' selecionado(s)' : filtered.length + ' resultado(s)'}</span>
       {!!selected.length && <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelected([])}>Limpar seleção</Button>}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button size="sm" disabled={!selected.length} className="ps-gradient-button">
-            <Send className="mr-2 h-4 w-4" />Enviar comunicação<ChevronDown className="ml-2 h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-56">
-          <DropdownMenuItem onSelect={() => openMessage('event_message')}>Nova mensagem por e-mail</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => openMessage('confirmation_request')}>Solicitar confirmação</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Button
+        type="button"
+        size="sm"
+        disabled={!selected.length}
+        className="ps-gradient-button"
+        onClick={() => setTypeDialog(true)}
+      >
+        <Send className="mr-2 h-4 w-4" />
+        Enviar comunicação
+      </Button>
       {!!failedJobs.length && (
         <Button
           size="sm"
@@ -1050,60 +1051,253 @@ export function PsEventCommunicationTab({
       </div>
     )}
 
-    <Dialog open={dialog} onOpenChange={setDialog}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Prévia do envio</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div><Label>Tipo</Label><p>{type === 'confirmation_request' ? 'Solicitação de confirmação' : 'Mensagem geral do evento'}</p></div>
-          <div><Label>Destinatários</Label><p>{effectiveSelected.length}</p></div>
-          {type === 'confirmation_request' && selectedAlreadySent.length > 0 && (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-              <p className="font-medium">{selectedAlreadySent.length} pessoa(s) selecionada(s) já receberam esta solicitação e serão ignoradas para evitar envio duplicado.</p>
-              <label className="mt-3 flex cursor-pointer items-center gap-2 text-muted-foreground">
-                <Checkbox checked={allowConfirmationResend} onCheckedChange={(checked) => setAllowConfirmationResend(checked === true)} />
-                Incluir pessoas que já receberam a confirmação
-              </label>
+    <Dialog open={typeDialog} onOpenChange={setTypeDialog}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Escolha o tipo de comunicação</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Você selecionou {selected.length} pessoa(s). Escolha o objetivo do envio antes de editar a mensagem.
+          </p>
+        </DialogHeader>
+
+        <div className="grid gap-3 py-2 md:grid-cols-2">
+          <button
+            type="button"
+            className="group rounded-2xl border border-border/70 bg-card/70 p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => openMessage('event_message')}
+            disabled={!operationalSelected.length}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Send className="h-5 w-5" />
+              </div>
+              <Badge variant="secondary" className="rounded-full">
+                {operationalSelected.length} destinatário(s)
+              </Badge>
             </div>
-          )}
-          {type === 'confirmation_request' && selectedNotPendingConfirmation.length > 0 && (
-            <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm">
-              <p className="font-medium">
-                {selectedNotPendingConfirmation.length} pessoa(s) não estão aguardando confirmação e não receberão esta solicitação.
+            <p className="mt-4 text-sm font-semibold">Mensagem geral do evento</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Envie orientações, avisos ou informações operacionais para confirmados e pessoas que ainda aguardam confirmação.
+            </p>
+            {selectedInactive.length > 0 && (
+              <p className="mt-3 text-[10px] text-muted-foreground">
+                {selectedInactive.length} recusado(s) ou substituído(s) serão ignorados.
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Já confirmados, recusados ou substituídos são retirados automaticamente deste envio.
+            )}
+          </button>
+
+          <button
+            type="button"
+            className="group rounded-2xl border border-border/70 bg-card/70 p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => openMessage('confirmation_request')}
+            disabled={!pendingConfirmationSelected.length}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <Badge variant="outline" className="rounded-full border-amber-500/20 text-amber-500">
+                {pendingConfirmationSelected.length} aguardando
+              </Badge>
+            </div>
+            <p className="mt-4 text-sm font-semibold">Solicitação de confirmação</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Envia o link individual para quem ainda precisa confirmar a participação no processo seletivo.
+            </p>
+            {selectedAlreadySent.length > 0 && (
+              <p className="mt-3 text-[10px] text-muted-foreground">
+                {selectedAlreadySent.length} já receberam uma solicitação e serão protegidos contra duplicidade por padrão.
               </p>
-            </div>
-          )}
-          {type !== 'confirmation_request' && selectedInactive.length > 0 && (
-            <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm">
-              <p className="font-medium">
-                {selectedInactive.length} pessoa(s) recusadas ou substituídas serão ignoradas neste envio.
-              </p>
-            </div>
-          )}
-          <div><Label>Modo</Label><p className="font-semibold">{config?.mode === 'test' ? 'TESTE' : 'PRODUÇÃO'}</p></div>
-          {config?.mode === 'test' && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Os e-mails NÃO serão enviados aos fiscais reais. Nesta execução, no máximo {config.testBatchLimit} serão processados.</p>}
-          <div><Label>Assunto</Label><Input value={subject} onChange={(e) => setSubject(e.target.value)} /></div>
-          <div>
-            <Label>Variáveis disponíveis</Label>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {VARIABLE_CHIPS.filter((chip) => !chip.confirmationOnly || type === 'confirmation_request').map((chip) => (
-                <Button key={chip.token} type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => insertVariable(chip.token)}>{chip.label}</Button>
-              ))}
-            </div>
-          </div>
-          <div><Label>Mensagem</Label><Textarea ref={templateRef} rows={12} value={template} onChange={(e) => setTemplate(e.target.value)} /></div>
-          <div>
-            <Label>Exemplo renderizado</Label>
-            <p className="text-xs text-muted-foreground">Assunto: {previewSubject || 'Selecione um destinatário.'}</p>
-            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border bg-muted/30 p-3 text-xs">{preview || 'Selecione um destinatário.'}</pre>
-          </div>
-          {result && <div className="rounded-lg border p-3 text-sm">Total: {result.total || 0} · Enviados: {result.sent || 0} · Falharam: {result.failed || 0} · Sem e-mail: {result.missingRecipient || 0} · Aguardando: {result.pending || 0} · Aguardando cota diária: {result.quotaWaiting || 0}</div>}
+            )}
+          </button>
         </div>
+
+        <div className="rounded-xl border border-border/60 bg-muted/15 p-3 text-[11px] leading-relaxed text-muted-foreground">
+          A remarcação de treinamento continua sendo enviada automaticamente pelo módulo de Treinamentos, pois depende de uma sessão cancelada e de um link específico de nova escolha.
+        </div>
+
         <DialogFooter>
-          <Button variant="outline" onClick={() => setDialog(false)}>Fechar</Button>
-          <Button onClick={submit} disabled={!canSend || !effectiveSelected.length || send.isPending}>{send.isPending ? 'Processando...' : 'Confirmar envio'}</Button>
+          <Button variant="outline" onClick={() => setTypeDialog(false)}>Cancelar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={dialog} onOpenChange={setDialog}>
+      <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden p-0 sm:max-w-[1120px]">
+        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-12">
+          <div className="flex flex-wrap items-center gap-2">
+            <DialogTitle>Revisar comunicação</DialogTitle>
+            <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
+              {type === 'confirmation_request' ? 'Solicitação de confirmação' : 'Mensagem geral do evento'}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Edite o conteúdo e confira exatamente como a mensagem ficará antes de confirmar o envio.
+          </p>
+        </DialogHeader>
+
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)]">
+          <div className="min-h-0 overflow-y-auto border-b border-border/60 p-5 lg:border-b-0 lg:border-r">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Destinatários</p>
+                <p className="mt-1 text-xl font-bold tabular-nums">{effectiveSelected.length}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">{selected.length} selecionado(s)</p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Modo</p>
+                <p className="mt-1 text-sm font-bold">{config?.mode === 'test' ? 'TESTE' : 'PRODUÇÃO'}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">{canSend ? 'Envio habilitado' : 'Configuração incompleta'}</p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Exemplo</p>
+                <p className="mt-1 truncate text-sm font-semibold">{previewLink?.collaborator_name || 'Sem destinatário'}</p>
+                <p className="mt-1 truncate text-[10px] text-muted-foreground">{previewLink?.email || 'Sem e-mail'}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {type === 'confirmation_request' && selectedAlreadySent.length > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3 text-sm">
+                  <p className="font-medium">
+                    {selectedAlreadySent.length} pessoa(s) já receberam esta solicitação.
+                  </p>
+                  <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      checked={allowConfirmationResend}
+                      onCheckedChange={(checked) => setAllowConfirmationResend(checked === true)}
+                    />
+                    Incluir também quem já recebeu a solicitação
+                  </label>
+                </div>
+              )}
+
+              {type === 'confirmation_request' && selectedNotPendingConfirmation.length > 0 && (
+                <div className="rounded-xl border border-blue-500/25 bg-blue-500/[0.055] p-3 text-xs leading-relaxed">
+                  <strong>{selectedNotPendingConfirmation.length} pessoa(s) não receberão este tipo de comunicação.</strong>
+                  <span className="mt-1 block text-muted-foreground">
+                    Já confirmados, recusados ou substituídos são removidos automaticamente da solicitação de confirmação.
+                  </span>
+                </div>
+              )}
+
+              {type !== 'confirmation_request' && selectedInactive.length > 0 && (
+                <div className="rounded-xl border border-blue-500/25 bg-blue-500/[0.055] p-3 text-xs">
+                  <strong>{selectedInactive.length} pessoa(s) recusadas ou substituídas serão ignoradas.</strong>
+                </div>
+              )}
+
+              {config?.mode === 'test' && (
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3 text-xs leading-relaxed">
+                  <strong>MODO TESTE.</strong>{' '}
+                  Os e-mails não serão enviados aos fiscais reais. Nesta execução, no máximo {config.testBatchLimit} serão processados.
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="communication-subject">Assunto</Label>
+                <Input
+                  id="communication-subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label>Variáveis disponíveis</Label>
+                  <span className="text-[10px] text-muted-foreground">Clique para inserir no texto</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {VARIABLE_CHIPS.filter((chip) => !chip.confirmationOnly || type === 'confirmation_request').map((chip) => (
+                    <Button
+                      key={chip.token}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 rounded-lg px-2 text-xs"
+                      onClick={() => insertVariable(chip.token)}
+                    >
+                      {chip.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="communication-template">Mensagem</Label>
+                <Textarea
+                  id="communication-template"
+                  ref={templateRef}
+                  rows={15}
+                  value={template}
+                  onChange={(e) => setTemplate(e.target.value)}
+                  className="min-h-[340px] resize-y rounded-xl font-mono text-sm leading-relaxed"
+                />
+              </div>
+
+              {result && (
+                <div className="rounded-xl border p-3 text-xs">
+                  Total: {result.total || 0} · Enviados: {result.sent || 0} · Falharam: {result.failed || 0} · Sem e-mail: {result.missingRecipient || 0} · Aguardando: {result.pending || 0} · Aguardando cota diária: {result.quotaWaiting || 0}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="min-h-0 overflow-y-auto bg-muted/[0.08] p-5">
+            <div className="lg:sticky lg:top-0">
+              <div className="mb-3">
+                <p className="text-sm font-semibold">Prévia do e-mail</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Exemplo renderizado com os dados de {previewLink?.collaborator_name || 'um destinatário selecionado'}.
+                </p>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-border/70 bg-background shadow-sm">
+                <div className="space-y-2 border-b border-border/60 bg-muted/20 px-4 py-3 text-xs">
+                  <div className="grid grid-cols-[58px_1fr] gap-2">
+                    <span className="text-muted-foreground">Para</span>
+                    <span className="truncate font-medium">{previewLink?.email || 'Destinatário sem e-mail'}</span>
+                  </div>
+                  <div className="grid grid-cols-[58px_1fr] gap-2">
+                    <span className="text-muted-foreground">Assunto</span>
+                    <span className="font-semibold">{previewSubject || 'Sem assunto'}</span>
+                  </div>
+                </div>
+
+                <div className="max-h-[55vh] min-h-[360px] overflow-y-auto p-5">
+                  <div className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
+                    {preview || 'Selecione um destinatário válido para visualizar o exemplo renderizado.'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-xl border border-border/60 bg-background/50 p-3 text-[10px] leading-relaxed text-muted-foreground">
+                As variáveis como nome, cargo, prédio, sala e horário são renderizadas individualmente para cada destinatário no momento do envio.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="border-t border-border/60 bg-background/95 px-5 py-3">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setDialog(false);
+              setTypeDialog(true);
+            }}
+          >
+            Trocar tipo
+          </Button>
+          <Button variant="outline" onClick={() => setDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={submit}
+            disabled={!canSend || !effectiveSelected.length || send.isPending}
+            className="min-w-36"
+          >
+            {send.isPending ? 'Processando...' : `Enviar para ${effectiveSelected.length}`}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

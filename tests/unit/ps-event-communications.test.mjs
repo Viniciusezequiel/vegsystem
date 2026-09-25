@@ -264,3 +264,20 @@ test('diagnóstico de TEST MODE exposto sem segredos: testBatchLimit, eligibleCo
   assert.match(edge,/\.\.\.result,\.\.\.diagnostics/);
   assert.doesNotMatch(edge,/diagnostics=testMode\?\{[^}]*(BREVO|RESEND|SERVICE_ROLE|API_KEY)/i);
 });
+
+
+test('envio genérico exige escolha explícita do tipo antes da revisão',()=>{
+  assert.match(ui,/Escolha o tipo de comunicação/);
+  assert.match(ui,/Mensagem geral do evento/);
+  assert.match(ui,/Solicitação de confirmação/);
+  assert.match(ui,/onClick=\{\(\) => setTypeDialog\(true\)\}/);
+  assert.doesNotMatch(ui,/Nova mensagem por e-mail<\/DropdownMenuItem>/);
+});
+
+test('revisão de comunicação usa editor e prévia lado a lado com resumo do envio',()=>{
+  assert.match(ui,/Revisar comunicação/);
+  assert.match(ui,/lg:grid-cols-\[minmax\(0,1\.12fr\)_minmax\(340px,0\.88fr\)\]/);
+  assert.match(ui,/Prévia do e-mail/);
+  assert.match(ui,/Trocar tipo/);
+  assert.match(ui,/Enviar para \$\{effectiveSelected\.length\}/);
+});
