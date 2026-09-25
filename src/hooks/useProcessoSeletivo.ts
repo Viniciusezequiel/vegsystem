@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -614,21 +614,44 @@ export function usePsEventCollaborators(eventId?: string) {
   });
   useEffect(() => {
     if (!eventId) return;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        void queryClient.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
+        void queryClient.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
+      }, 500);
+    };
+
     const channel = supabase.channel(`ps-event-${eventId}-${crypto.randomUUID()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ps_event_collaborators', filter: `event_id=eq.${eventId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
-          queryClient.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
-        })
+        scheduleRefresh)
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
   }, [eventId, queryClient]);
   return query;
 }
 
 export function usePsEventCollaboratorMutations(eventId?: string) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['ps_event_collaborators'] });
+  const invalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invalidate = () => {
+    if (invalidateTimer.current) clearTimeout(invalidateTimer.current);
+    invalidateTimer.current = setTimeout(() => {
+      invalidateTimer.current = null;
+      void qc.invalidateQueries({ queryKey: ['ps_event_collaborators', eventId] });
+      void qc.invalidateQueries({ queryKey: ['ps_event_confirmation_summary', eventId] });
+    }, 500);
+  };
+
+  useEffect(() => () => {
+    if (invalidateTimer.current) clearTimeout(invalidateTimer.current);
+  }, []);
 
   const syncEvaluators = async () => {
     if (!eventId) return;
