@@ -23,6 +23,8 @@ interface RoomConfig {
   issues: { id: string; description: string }[];
 }
 
+const PUBLIC_STATUS_POLL_MS = 10_000;
+
 export default function ClassroomCallForm() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
@@ -117,33 +119,49 @@ export default function ClassroomCallForm() {
   const selectedIssue = selectedRoom?.issues.find(i => i.id === selectedIssueId);
 
   useEffect(() => {
-    if (!submittedCallId) return;
+    if (!submittedCallId || callStatus?.status === 'resolved') return;
 
     let active = true;
+    let fetching = false;
+
     const fetchStatus = async () => {
-      const { data, error } = await supabase.rpc('get_public_classroom_call_status', {
-        p_id: submittedCallId,
-      });
-      if (!active || error) return;
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row) {
-        setCallStatus({
-          status: (row as any).status,
-          accepted_by_name: (row as any).accepted_by_name,
-          accepted_at: (row as any).accepted_at,
-          response_message: (row as any).response_message,
+      if (!active || fetching || document.visibilityState !== 'visible') return;
+
+      fetching = true;
+      try {
+        const { data, error } = await supabase.rpc('get_public_classroom_call_status', {
+          p_id: submittedCallId,
         });
+        if (!active || error) return;
+
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row) {
+          setCallStatus({
+            status: (row as any).status,
+            accepted_by_name: (row as any).accepted_by_name,
+            accepted_at: (row as any).accepted_at,
+            response_message: (row as any).response_message,
+          });
+        }
+      } finally {
+        fetching = false;
       }
     };
 
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 2500);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void fetchStatus();
+    };
+
+    void fetchStatus();
+    const interval = window.setInterval(() => void fetchStatus(), PUBLIC_STATUS_POLL_MS);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
-      clearInterval(interval);
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [submittedCallId]);
+  }, [submittedCallId, callStatus?.status]);
 
   const handleCampusChange = (campus: string) => {
     setSelectedCampus(campus);

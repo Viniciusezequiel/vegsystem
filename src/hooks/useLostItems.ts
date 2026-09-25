@@ -218,10 +218,12 @@ export function useLostItems(filters?: {
         throw e;
       }
     },
-    staleTime: 30 * 1000, // 30 seconds - faster filter response
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    // A lista é invalidada pelo Realtime global quando há alteração real.
+    // Cinco minutos evita baixar novamente páginas grandes só por navegar entre telas.
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnReconnect: true,
     refetchOnMount: true,
   });
 }

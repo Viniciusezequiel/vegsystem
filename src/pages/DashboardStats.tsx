@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useLostItemsCounts } from '@/hooks/useLostItemsCounts';
 import { useLostItems } from '@/hooks/useLostItems';
+import { supabase } from '@/integrations/supabase/client';
 import { useEquipmentList, useEquipmentLoans, useOverdueLoans } from '@/hooks/useEquipment';
 import { useClassroomCalls } from '@/hooks/useClassroomCalls';
 import { useTasks } from '@/hooks/useTasks';
@@ -377,16 +379,24 @@ export default function DashboardStats() {
   const { data: overdueLoans = [] } = useOverdueLoans();
   const { data: calls = [] } = useClassroomCalls();
   const { data: lostCounts } = useLostItemsCounts();
-  const { data: recentLostData } = useLostItems({
-    status: 'all',
-    pageSize: 2000,
-    dateFrom: fromDate,
-    dateTo: toDate,
+  const { data: recentLostItems = [] } = useQuery({
+    queryKey: ['dashboard-lost-items-timeline', fromDate, toDate],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lost_items')
+        .select('id,received_date,created_at')
+        .gte('received_date', fromDate)
+        .lte('received_date', toDate)
+        .order('received_date', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const { data: expiredLostData } = useLostItems({ status: 'expired', pageSize: 3 });
   const { data: recentActivity = [], isLoading: activityLoading } = useActivityLogs({ limit: 5 });
 
-  const recentLostItems = recentLostData?.items ?? [];
   const expiredItems = expiredLostData?.items ?? [];
 
   const openTasks = useMemo(

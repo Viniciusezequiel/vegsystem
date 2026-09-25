@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
 
 export interface ClassroomCall {
   id: string;
@@ -22,31 +21,6 @@ export interface ClassroomCall {
 }
 
 export function useClassroomCalls(status?: string, campus?: string) {
-  const queryClient = useQueryClient();
-  
-  // Set up realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel(`classroom-calls-changes-${Math.random().toString(36).slice(2)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'classroom_calls'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['classroom-calls'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
-
   return useQuery({
     queryKey: ['classroom-calls', status, campus],
     queryFn: async () => {
@@ -72,30 +46,6 @@ export function useClassroomCalls(status?: string, campus?: string) {
 }
 
 export function usePendingCallsCount(campus?: string) {
-  const queryClient = useQueryClient();
-  
-  // Set up realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel(`pending-calls-count-${Math.random().toString(36).slice(2)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'classroom_calls'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['pending-calls-count'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
   return useQuery({
     queryKey: ['pending-calls-count', campus],
     queryFn: async () => {
@@ -113,10 +63,11 @@ export function usePendingCallsCount(campus?: string) {
       if (error) throw error;
       return count || 0;
     },
-    staleTime: 10_000,
-    // Realtime já invalida na hora; o polling é apenas rede de segurança
-    refetchInterval: 20_000,
-    refetchIntervalInBackground: false,
+    // A assinatura Realtime global invalida esta contagem imediatamente.
+    // Mantemos apenas refetch por foco/reconexão como rede de segurança, sem polling contínuo.
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
 
   });
 }

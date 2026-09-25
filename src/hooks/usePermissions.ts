@@ -139,11 +139,10 @@ export function useUserPermissions() {
       return data as RolePermission[];
     },
     enabled: !!user,
-    // Keep reasonably fresh so permission changes take effect quickly
-    // (especially after admins update permissions in /permissions)
-    staleTime: 15 * 1000,
+    // Realtime invalida user-permissions quando role_permissions/user_roles mudam.
+    // A janela maior evita tráfego repetitivo em navegação normal sem perder atualização imediata.
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
-    refetchOnMount: true,
   });
 
   const hasPermission = (module: Module, action: Action): boolean => {
