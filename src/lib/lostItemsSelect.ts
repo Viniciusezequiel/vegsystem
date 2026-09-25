@@ -1,6 +1,6 @@
 // Shared select list for Lost & Found list queries.
-// IMPORTANT: We exclude image_url from the main query because base64 images cause database timeouts.
-// Images are loaded separately only for items with Storage URLs.
+// image_url agora é um locator curto do R2. Incluí-lo na listagem elimina dezenas de
+// consultas individuais sem transferir os bytes da imagem pelo Supabase.
 
 export const LOST_ITEMS_LIST_SELECT = [
   'id',
