@@ -15,7 +15,7 @@ test('chamados internos usam Realtime sem polling continuo de contagem', () => {
   assert.doesNotMatch(classroomHooks, /refetchInterval:\s*20_000/);
   assert.doesNotMatch(classroomHooks, /pending-calls-count-\$\{/);
   assert.doesNotMatch(classroomHooks, /classroom-calls-changes-\$\{/);
-  assert.match(classroomHooks, /refetchOnWindowFocus:\s*true/);
+  assert.match(classroomHooks, /refetchOnWindowFocus:\s*false/);
 });
 
 test('acompanhamento publico reduz polling, pausa em aba oculta e encerra ao resolver', () => {
@@ -27,7 +27,7 @@ test('acompanhamento publico reduz polling, pausa em aba oculta e encerra ao res
 });
 
 test('consultas frequentes usam cache/realtime para reduzir egress', () => {
-  assert.match(permissions, /staleTime:\s*5 \* 60 \* 1000/);
+  assert.match(permissions, /staleTime:\s*10 \* 60 \* 1000/);
   assert.match(lostItems, /staleTime:\s*5 \* 60 \* 1000/);
   assert.match(realtime, /'dashboard-lost-items-timeline'/);
 });
