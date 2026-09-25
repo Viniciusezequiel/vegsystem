@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PenLine, Search, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { PenLine, Search, ArrowLeft, ShieldCheck, Users, UserCheck, CheckCircle2, Clock3, UserX, MapPin, Building2, FilterX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -25,6 +25,51 @@ import {
   submitPublicProcessSelectionSignature,
   submitPublicProcessSelectionAbsence,
 } from '@/lib/signatureStorage';
+
+function AttendanceKpi({
+  label,
+  value,
+  helper,
+  icon,
+  tone = 'default',
+}: {
+  label: string;
+  value: number;
+  helper?: string;
+  icon: ReactNode;
+  tone?: 'default' | 'warning' | 'success' | 'danger';
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-3 ${tone === 'warning'
+        ? 'border-amber-500/20 bg-amber-500/[0.035]'
+        : tone === 'success'
+          ? 'border-emerald-500/20 bg-emerald-500/[0.03]'
+          : tone === 'danger'
+            ? 'border-destructive/20 bg-destructive/[0.025]'
+            : 'border-border/60 bg-background/30'}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] text-muted-foreground">{label}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums">{value}</p>
+          {helper && <p className="mt-1 text-[9px] text-muted-foreground">{helper}</p>}
+        </div>
+        <div
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone === 'warning'
+            ? 'bg-amber-500/10 text-amber-500'
+            : tone === 'success'
+              ? 'bg-emerald-500/10 text-emerald-500'
+              : tone === 'danger'
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-primary/10 text-primary'}`}
+        >
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PsPublicAttendance() {
   const navigate = useNavigate();
@@ -64,6 +109,8 @@ export default function PsPublicAttendance() {
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const [showSigned, setShowSigned] = useState(false);
   const [showAbsent, setShowAbsent] = useState(false);
+  const [confirmationFilter, setConfirmationFilter] = useState('all');
+  const [buildingFilter, setBuildingFilter] = useState('all');
 
   const [attendanceCpf, setAttendanceCpf] = useState('');
   const [detailsAccepted, setDetailsAccepted] = useState(false);
@@ -94,41 +141,64 @@ export default function PsPublicAttendance() {
     queryKey: ['ps_public_roster', eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('ps_public_search_event_roster', {
+      const { data, error } = await (supabase as any).rpc('ps_public_attendance_roster', {
         p_event_id: eventId,
         p_search: '',
       });
       if (error) throw error;
-      return (data || []).map((row: any) => ({
-        ...row,
-        matricula_masked: row.matricula_masked ?? null,
-        email_masked: row.email_masked ?? null,
-      }));
+      return data || [];
     },
   });
 
+  const buildingOptions = useMemo(
+    () => [...new Set(
+      links
+        .map((link: any) => String(link.building || '').trim())
+        .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })),
+    [links]
+  );
+
   const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return links;
+    const term = search
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
     return links.filter((l: any) => {
+      if (
+        confirmationFilter !== 'all' &&
+        String(l.participation_status || '') !== confirmationFilter
+      ) return false;
+
+      if (
+        buildingFilter !== 'all' &&
+        String(l.building || '') !== buildingFilter
+      ) return false;
+
+      if (!term) return true;
+
       const haystack = [
         l.collaborator_name,
         l.role_name,
         l.assigned_role,
         l.sector,
         l.unit,
+        l.campus,
+        l.building,
         l.floor,
         l.room,
-        l.building,
-        l.email_masked,
-        l.matricula_masked,
       ]
         .filter(Boolean)
         .join(' ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
+
       return haystack.includes(term);
     });
-  }, [links, search]);
+  }, [links, search, confirmationFilter, buildingFilter]);
 
   const visibleLinks = useMemo(() => {
     return filtered
@@ -149,6 +219,14 @@ export default function PsPublicAttendance() {
         )
       );
   }, [filtered, pendingIds, showSigned, showAbsent]);
+
+  const confirmedCount = links.filter(
+    (l: any) => l.participation_status === 'confirmed'
+  ).length;
+
+  const confirmationPendingCount = links.filter(
+    (l: any) => l.participation_status === 'pending_confirmation'
+  ).length;
 
   const signedCount = links.filter(
     (l: any) => !!l.signed_at && !l.absent
@@ -536,7 +614,17 @@ export default function PsPublicAttendance() {
     setSearch('');
     setShowSigned(false);
     setShowAbsent(false);
+    setConfirmationFilter('all');
+    setBuildingFilter('all');
     navigate(`/ps/presenca/${nextEventId}`);
+  };
+
+  const selectedEvent = events.find((event: any) => event.id === eventId) || null;
+
+  const clearRosterFilters = () => {
+    setSearch('');
+    setConfirmationFilter('all');
+    setBuildingFilter('all');
   };
 
   if (currentSelectedId && selected) {
@@ -759,112 +847,287 @@ export default function PsPublicAttendance() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 p-4">
-      <div className="mx-auto max-w-2xl space-y-6 py-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-            <PenLine className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Lista de Presença</h1>
-            <p className="text-muted-foreground">Selecione o fiscal e confirme a presença em uma etapa dedicada.</p>
+    <div className="min-h-screen bg-muted/30 p-3 sm:p-5">
+      <div className="mx-auto max-w-5xl space-y-4 py-3 sm:py-5">
+        <div className="overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-r from-card via-card to-primary/[0.055] p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+                <PenLine className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+                  Processo Seletivo · Dia do evento
+                </p>
+                <h1 className="mt-1 text-2xl font-bold">Lista de Presença</h1>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Localize o fiscal, confira a situação e registre presença ou ausência com segurança.
+                </p>
+              </div>
+            </div>
+
+            {selectedEvent && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                {selectedEvent.date && (
+                  <Badge variant="outline" className="rounded-full">
+                    {new Date(`${selectedEvent.date}T00:00:00`).toLocaleDateString('pt-BR')}
+                  </Badge>
+                )}
+                {selectedEvent.location && (
+                  <Badge variant="outline" className="rounded-full">
+                    <MapPin className="mr-1 h-3 w-3" />
+                    {selectedEvent.location}
+                  </Badge>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        <Card className="rounded-2xl">
-          <CardContent className="space-y-4 pt-6">
+        <Card className="rounded-2xl border-border/60 bg-card/70 shadow-sm">
+          <CardContent className="space-y-4 p-4 sm:p-5">
             <div className="space-y-2">
               <Label>Evento</Label>
               <Select value={eventId} onValueChange={handleEventChange}>
-                <SelectTrigger><SelectValue placeholder="Selecione o evento" /></SelectTrigger>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder="Selecione o evento" />
+                </SelectTrigger>
                 <SelectContent>
-                  {events.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                  {events.map((e: any) => (
+                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Buscar fiscal por nome, cargo, unidade, andar ou sala" value={search} onChange={(e) => setSearch(e.target.value)} disabled={!eventId} />
-            </div>
-
             {eventId && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={!showSigned && !showAbsent ? "default" : "outline"}
-                  onClick={() => {
-                    setShowSigned(false);
-                    setShowAbsent(false);
-                  }}
-                >
-                  Pendentes ({pendingCount})
-                </Button>
+              <>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                  <AttendanceKpi
+                    label="Equipe operacional"
+                    value={links.length}
+                    helper="ativos na presença"
+                    icon={<Users className="h-4 w-4" />}
+                  />
+                  <AttendanceKpi
+                    label="Confirmados"
+                    value={confirmedCount}
+                    helper="participação confirmada"
+                    icon={<UserCheck className="h-4 w-4" />}
+                    tone="success"
+                  />
+                  <AttendanceKpi
+                    label="Aguardando confirmação"
+                    value={confirmationPendingCount}
+                    helper="ainda podem comparecer"
+                    icon={<Clock3 className="h-4 w-4" />}
+                    tone={confirmationPendingCount ? 'warning' : 'default'}
+                  />
+                  <AttendanceKpi
+                    label="Pendentes de presença"
+                    value={pendingCount}
+                    helper="sem presença/ausência"
+                    icon={<PenLine className="h-4 w-4" />}
+                    tone={pendingCount ? 'warning' : 'success'}
+                  />
+                  <AttendanceKpi
+                    label="Presentes"
+                    value={signedCount}
+                    helper="assinatura registrada"
+                    icon={<CheckCircle2 className="h-4 w-4" />}
+                    tone="success"
+                  />
+                  <AttendanceKpi
+                    label="Ausentes"
+                    value={absentCount}
+                    helper="ausência registrada"
+                    icon={<UserX className="h-4 w-4" />}
+                    tone={absentCount ? 'danger' : 'default'}
+                  />
+                </div>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={showSigned ? "default" : "outline"}
-                  onClick={() => {
-                    setShowSigned(true);
-                    setShowAbsent(false);
-                  }}
-                >
-                  Ver assinados ({signedCount})
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={showAbsent ? "default" : "outline"}
-                  onClick={() => {
-                    setShowAbsent(true);
-                    setShowSigned(false);
-                  }}
-                >
-                  Ausentes ({absentCount})
-                </Button>
-
-                {savingCount > 0 && (
-                  <Badge variant="secondary">{savingCount} salvando...</Badge>
+                {confirmationPendingCount > 0 && (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-3 text-xs leading-relaxed text-muted-foreground">
+                    <strong className="text-foreground">{confirmationPendingCount} fiscal(is) ainda aguardam confirmação.</strong>{' '}
+                    Eles permanecem na lista operacional para permitir presença caso compareçam.
+                    Use o filtro de confirmação abaixo para visualizar somente os {confirmedCount} já confirmados.
+                  </div>
                 )}
 
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {links.length} fiscais
-                </span>
-              </div>
-            )}
+                <div className="grid gap-2 xl:grid-cols-[minmax(320px,1fr)_230px_220px_auto]">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      className="h-10 rounded-xl pl-9"
+                      placeholder="Buscar por nome, cargo, prédio, andar ou sala..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
 
-            <div className="h-[calc(100vh-22rem)] min-h-[18rem] max-h-[42rem] divide-y overflow-y-auto rounded-xl border">
-              {isLoading && <p className="p-3 text-sm text-muted-foreground">Carregando fiscais...</p>}
-              {!isLoading && !error && visibleLinks.length === 0 && (
-                <p className="p-4 text-center text-sm text-muted-foreground">
-                  {search
-                    ? 'Nenhum fiscal encontrado para esta busca.'
-                    : showAbsent
-                      ? 'Nenhuma ausência registrada.'
-                      : showSigned
-                        ? 'Nenhuma presença registrada ainda.'
-                        : 'Nenhum fiscal pendente neste evento.'}
-                </p>
+                  <Select value={confirmationFilter} onValueChange={setConfirmationFilter}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Confirmação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toda a equipe operacional</SelectItem>
+                      <SelectItem value="confirmed">Somente confirmados</SelectItem>
+                      <SelectItem value="pending_confirmation">Aguardando confirmação</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={buildingFilter} onValueChange={setBuildingFilter}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Prédio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os prédios</SelectItem>
+                      {buildingOptions.map((building) => (
+                        <SelectItem key={building} value={building}>{building}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 rounded-xl"
+                    disabled={!search && confirmationFilter === 'all' && buildingFilter === 'all'}
+                    onClick={clearRosterFilters}
+                  >
+                    <FilterX className="mr-2 h-4 w-4" />
+                    Limpar
+                  </Button>
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-border/50 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={!showSigned && !showAbsent ? 'default' : 'outline'}
+                      className="rounded-xl"
+                      onClick={() => {
+                        setShowSigned(false);
+                        setShowAbsent(false);
+                      }}
+                    >
+                      Pendentes de presença ({pendingCount})
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={showSigned ? 'default' : 'outline'}
+                      className="rounded-xl"
+                      onClick={() => {
+                        setShowSigned(true);
+                        setShowAbsent(false);
+                      }}
+                    >
+                      Presentes ({signedCount})
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={showAbsent ? 'default' : 'outline'}
+                      className="rounded-xl"
+                      onClick={() => {
+                        setShowAbsent(true);
+                        setShowSigned(false);
+                      }}
+                    >
+                      Ausentes ({absentCount})
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {savingCount > 0 && <Badge variant="secondary">{savingCount} salvando...</Badge>}
+                    <span>
+                      <strong className="text-foreground">{visibleLinks.length}</strong> exibido(s) · {links.length} na equipe
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden rounded-2xl border-border/60 bg-card/70 shadow-sm">
+          <CardHeader className="border-b border-border/50 pb-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="text-base">
+                  {!showSigned && !showAbsent
+                    ? 'Aguardando registro de presença'
+                    : showSigned
+                      ? 'Presenças registradas'
+                      : 'Ausências registradas'}
+                </CardTitle>
+                <CardDescription>
+                  {!showSigned && !showAbsent
+                    ? 'Selecione o fiscal correto antes de iniciar a assinatura.'
+                    : showSigned
+                      ? 'Fiscais que já concluíram a assinatura.'
+                      : 'Fiscais cuja ausência já foi formalizada.'}
+                </CardDescription>
+              </div>
+              {buildingFilter !== 'all' && (
+                <Badge variant="outline" className="w-fit rounded-full">
+                  <Building2 className="mr-1 h-3 w-3" />
+                  {buildingFilter}
+                </Badge>
               )}
-              {!isLoading && error && (
-                <div className="space-y-2 p-3">
-                  <p className="text-sm text-destructive">Não foi possível carregar a lista de presença.</p>
-                  <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Tentar novamente</Button>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            <div className="max-h-[58vh] min-h-[24rem] divide-y divide-border/50 overflow-y-auto">
+              {isLoading && (
+                <p className="p-6 text-center text-sm text-muted-foreground">Carregando equipe operacional...</p>
+              )}
+
+              {!isLoading && !error && visibleLinks.length === 0 && (
+                <div className="p-10 text-center">
+                  <UserCheck className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                  <p className="mt-3 text-sm font-semibold">
+                    {search || confirmationFilter !== 'all' || buildingFilter !== 'all'
+                      ? 'Nenhum fiscal encontrado com esses filtros'
+                      : showAbsent
+                        ? 'Nenhuma ausência registrada'
+                        : showSigned
+                          ? 'Nenhuma presença registrada ainda'
+                          : 'Nenhum fiscal pendente neste evento'}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {search || confirmationFilter !== 'all' || buildingFilter !== 'all'
+                      ? 'Limpe ou ajuste os filtros para visualizar outros fiscais.'
+                      : 'A lista será atualizada automaticamente conforme os registros forem feitos.'}
+                  </p>
                 </div>
               )}
+
+              {!isLoading && error && (
+                <div className="space-y-2 p-6 text-center">
+                  <p className="text-sm text-destructive">Não foi possível carregar a lista de presença.</p>
+                  <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              )}
+
               {!isLoading && !error && visibleLinks.map((l: any) => {
                 const isAlreadySigned = !!l.signed_at;
                 const isAbsent = !!l.absent;
                 const isSavingSignature = pendingIds.has(l.id);
                 const isActive = selectedId === l.id;
+                const isConfirmed = l.participation_status === 'confirmed';
 
                 return (
                   <div
                     key={l.id}
-                    className={`flex min-h-16 items-center gap-2 border-b p-2 ${isActive ? 'bg-primary/10' : ''}`}
+                    className={`flex min-h-16 flex-col gap-3 p-3 transition-colors sm:flex-row sm:items-center sm:justify-between ${isActive ? 'bg-primary/10' : 'hover:bg-muted/15'}`}
                   >
                     <button
                       type="button"
@@ -874,67 +1137,73 @@ export default function PsPublicAttendance() {
                         isAbsent ||
                         isSavingSignature
                       }
-                      className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg p-2 text-left text-sm transition-colors hover:bg-muted/50 disabled:cursor-default"
+                      className="min-w-0 flex-1 rounded-xl p-1 text-left disabled:cursor-default"
                     >
-                      <span className="min-w-0">
-                        <span className="block font-semibold text-foreground">
-                          {l.collaborator_name}
-                        </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-foreground">{l.collaborator_name}</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] ${isConfirmed
+                            ? 'border-emerald-500/20 text-emerald-500'
+                            : 'border-amber-500/20 text-amber-500'}`}
+                        >
+                          {isConfirmed ? 'Confirmado' : 'Aguardando confirmação'}
+                        </Badge>
+                      </div>
 
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                          {[
-                            l.role_name || l.assigned_role,
-                            l.unit,
-                            l.floor,
-                            l.room && `Sala ${l.room}`,
-                          ]
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {[l.role_name || l.assigned_role, l.sector || l.unit]
+                          .filter(Boolean)
+                          .join(' · ') || 'Cargo não informado'}
+                      </p>
+
+                      {(l.building || l.floor || l.room) && (
+                        <p className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          {[l.campus, l.building, l.floor && `${l.floor}º andar`, l.room && `Sala ${l.room}`]
                             .filter(Boolean)
-                            .join(' • ')}
-                        </span>
-                      </span>
-
-                      <span className="flex flex-wrap justify-end gap-1">
-                        {isSavingSignature ? (
-                          <Badge variant="secondary">
-                            Salvando...
-                          </Badge>
-                        ) : isAbsent ? (
-                          <Badge variant="destructive">
-                            Ausente
-                          </Badge>
-                        ) : isAlreadySigned ? (
-                          <Badge variant="secondary">
-                            Presença registrada
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-primary/10 text-primary">
-                            Selecionar
-                          </Badge>
-                        )}
-                      </span>
+                            .join(' · ')}
+                        </p>
+                      )}
                     </button>
 
-                    {!isAlreadySigned &&
-                      !isAbsent &&
-                      !isSavingSignature &&
-                      !showSigned &&
-                      !showAbsent && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          onClick={() =>
-                            openAbsenceDialog(l)
-                          }
-                        >
-                          Ausente
-                        </Button>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                      {isSavingSignature ? (
+                        <Badge variant="secondary">Salvando...</Badge>
+                      ) : isAbsent ? (
+                        <Badge variant="destructive">Ausente</Badge>
+                      ) : isAlreadySigned ? (
+                        <Badge className="bg-emerald-500/10 text-emerald-500">Presença registrada</Badge>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="rounded-xl"
+                            onClick={() => handleOpenSignature(l)}
+                          >
+                            <PenLine className="mr-1.5 h-3.5 w-3.5" />
+                            Assinar presença
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-xl"
+                            onClick={() => openAbsenceDialog(l)}
+                          >
+                            Ausente
+                          </Button>
+                        </>
                       )}
+                    </div>
                   </div>
                 );
               })}
-              {!eventId && <p className="p-3 text-sm text-muted-foreground">Selecione um evento.</p>}
+
+              {!eventId && (
+                <p className="p-6 text-center text-sm text-muted-foreground">Selecione um evento.</p>
+              )}
             </div>
           </CardContent>
         </Card>

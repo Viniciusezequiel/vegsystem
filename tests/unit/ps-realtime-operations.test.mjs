@@ -9,6 +9,7 @@ const evaluation = fs.readFileSync(new URL('../../src/pages/processo-seletivo/pu
 const eventDetail = fs.readFileSync(new URL('../../src/pages/processo-seletivo/PsEventDetail.tsx', import.meta.url), 'utf8');
 const historicalSql = fs.readFileSync(new URL('../../supabase/migrations/20260901230000_ps_realtime_operations.sql', import.meta.url), 'utf8');
 const finalRosterSql = fs.readFileSync(new URL('../../supabase/migrations/20260902360000_ps_public_roster_full_list.sql', import.meta.url), 'utf8');
+const attendanceRosterSql = fs.readFileSync(new URL('../../supabase/migrations/20260925094500_ps_public_attendance_operational_roster.sql', import.meta.url), 'utf8');
 const broadcastSql = fs.readFileSync(new URL('../../supabase/migrations/20260902030000_ps_public_realtime_broadcast.sql', import.meta.url), 'utf8');
 
 test('listagem interna é leve e recebe mudanças Realtime do evento atual', () => {
@@ -46,7 +47,11 @@ test('busca pública atual aceita vazio, NULL e 1 caractere, sempre dentro do ev
     /ec\.assigned_role[\s\S]*?ILIKE[\s\S]*?trim\(p_search\)/
   );
   assert.doesNotMatch(finalRosterSql.match(/CREATE OR REPLACE FUNCTION public\.ps_public_search_event_roster[\s\S]*?\$\$;/)?.[0] || '', /signature_url/);
-  assert.match(attendance, /ps_public_search_event_roster/);
+  assert.match(attendance, /ps_public_attendance_roster/);
+  assert.match(attendanceRosterSql, /participation_status IN \('pending_confirmation', 'confirmed'\)/);
+  assert.match(attendanceRosterSql, /COALESCE\(ec\.manually_excluded, false\) = false/);
+  assert.match(attendanceRosterSql, /COALESCE\(c\.active, true\) = true/);
+  assert.doesNotMatch(attendanceRosterSql, /cpf|pix|signature_url/i);
   assert.match(evaluation, /\/ps\/avaliador/);
   assert.doesNotMatch(evaluation, /ps_public_submit_evaluation/);
   assert.doesNotMatch(attendance, /refetchInterval:\s*3_000/);
@@ -94,4 +99,15 @@ test('páginas públicas e dados do evento usam broadcast por event_id sem fanou
   assert.match(broadcastSql, /AFTER INSERT OR UPDATE OF .* OR DELETE/);
   assert.match(broadcastSql, /NEW\.event_id|OLD\.event_id/);
   assert.match(broadcastSql, /resource.*event_collaborators|action.*changed/);
+});
+
+
+test('lista pública de presença mostra contexto operacional e filtros úteis', () => {
+  assert.match(attendance, /Equipe operacional/);
+  assert.match(attendance, /Confirmados/);
+  assert.match(attendance, /Aguardando confirmação/);
+  assert.match(attendance, /Pendentes de presença/);
+  assert.match(attendance, /Somente confirmados/);
+  assert.match(attendance, /Todos os prédios/);
+  assert.match(attendance, /Assinar presença/);
 });
