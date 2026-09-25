@@ -26,7 +26,7 @@ export function useClassroomCalls(status?: string, campus?: string) {
     queryFn: async () => {
       let query = supabase
         .from('classroom_calls')
-        .select('*')
+        .select('id,room_name,reason,status,campus,accepted_by,accepted_by_name,accepted_at,created_at,resolved_at,is_valid,validation_reason,treatment,response_message')
         .order('created_at', { ascending: false });
       
       if (status) {
@@ -51,7 +51,7 @@ export function usePendingCallsCount(campus?: string) {
     queryFn: async () => {
       let query = supabase
         .from('classroom_calls')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'pending');
 
       if (campus) {
@@ -65,8 +65,8 @@ export function usePendingCallsCount(campus?: string) {
     },
     // A assinatura Realtime global invalida esta contagem imediatamente.
     // Mantemos apenas refetch por foco/reconexão como rede de segurança, sem polling contínuo.
-    staleTime: 60_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: true,
 
   });
@@ -129,10 +129,9 @@ export function useAcceptClassroomCall() {
       return data;
     },
     onSuccess: () => {
-      // Force immediate refetch
+      // Uma única invalidação é suficiente: consultas ativas são atualizadas imediatamente.
       queryClient.invalidateQueries({ queryKey: ['classroom-calls'] });
       queryClient.invalidateQueries({ queryKey: ['pending-calls-count'] });
-      queryClient.refetchQueries({ queryKey: ['classroom-calls'] });
       toast({
         title: 'Chamado aceito',
         description: 'Você aceitou o chamado.',
