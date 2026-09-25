@@ -65,14 +65,15 @@ export function useRolePermissions() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('role_permissions')
-        .select('*')
+        .select('id,role,module,action,allowed,created_at,updated_at')
         .order('module')
         .order('action');
       
       if (error) throw error;
       return data as RolePermission[];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes - permissions rarely change
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -132,7 +133,7 @@ export function useUserPermissions() {
 
       const { data, error } = await supabase
         .from('role_permissions')
-        .select('*')
+        .select('id,role,module,action,allowed,created_at,updated_at')
         .eq('role', role || 'assistente');
 
       if (error) throw error;
@@ -141,8 +142,8 @@ export function useUserPermissions() {
     enabled: !!user,
     // Realtime invalida user-permissions quando role_permissions/user_roles mudam.
     // A janela maior evita tráfego repetitivo em navegação normal sem perder atualização imediata.
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const hasPermission = (module: Module, action: Action): boolean => {
