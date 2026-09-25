@@ -158,7 +158,7 @@ export function useLostItems(filters?: {
         })();
       }
 
-      // Build the base query with pagination (exclude image_url to avoid timeout)
+      // Build the base query with paginação; image_url é apenas o locator curto do R2.
       let query = supabase
         .from('lost_items')
         .select(LOST_ITEMS_LIST_SELECT, { count: 'exact' })
