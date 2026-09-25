@@ -32,11 +32,11 @@ export function useLostItemImage(itemId: string | null, enabled: boolean = true)
     },
     initialData: () => itemId ? loadImagesFromCache()?.[itemId] : undefined,
     enabled: enabled && !!itemId,
-    staleTime: 10 * 60 * 1000, // 10 minutes - images don't change often
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    refetchOnMount: true,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
     retry: 2,
     retryDelay: (attempt) =>
       Math.min(500 * 2 ** attempt, 3000),
