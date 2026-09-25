@@ -1,5 +1,5 @@
 -- Lista pública de presença: somente a equipe operacional atual.
--- Não expõe CPF, PIX, assinatura ou outros campos sensíveis.
+-- Expõe somente os campos operacionais mínimos necessários para a presença.
 
 CREATE OR REPLACE FUNCTION public.ps_public_attendance_roster(
   p_event_id uuid,

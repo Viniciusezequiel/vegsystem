@@ -90,7 +90,7 @@ test('páginas públicas e dados do evento usam broadcast por event_id sem fanou
   assert.match(hook, /table: 'ps_self_evaluations'[^]*event_id=eq\.\$\{eventId\}/);
   assert.match(attendance, /channel\(`ps:event:\$\{eventId\}`\)|channel\("ps:event:\$\{eventId\}"\)/);
   assert.match(attendance, /on\('broadcast', \{ event: 'roster_changed' \}/);
-  assert.match(attendance, /ps_public_search_event_roster/);
+  assert.match(attendance, /ps_public_attendance_roster/);
   assert.doesNotMatch(`${attendance}\n${evaluation}`, /postgres_changes[\s\S]*ps_event_collaborators[\s\S]*event_id=eq\.\$\{eventId\}/);
   assert.doesNotMatch(`${attendance}\n${evaluation}`, /from\('ps_event_collaborators'\)|from\("ps_event_collaborators"\)|table: 'ps_event_collaborators'/);
   assert.doesNotMatch(`${hook}\n${attendance}\n${evaluation}`, /channel\(['\"]realtime-multi|channel\(['\"][^\n]*all[^\n]*\)/);
