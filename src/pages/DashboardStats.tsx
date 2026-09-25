@@ -379,17 +379,17 @@ export default function DashboardStats() {
   const { data: overdueLoans = [] } = useOverdueLoans();
   const { data: calls = [] } = useClassroomCalls();
   const { data: lostCounts } = useLostItemsCounts();
-  const { data: recentLostItems = [] } = useQuery({
+  const { data: recentLostData } = useQuery({
     queryKey: ['dashboard-lost-items-timeline', fromDate, toDate],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('lost_items')
-        .select('id,received_date,created_at')
+        .select('id,received_date,created_at', { count: 'exact' })
         .gte('received_date', fromDate)
         .lte('received_date', toDate)
         .order('received_date', { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      return { items: data ?? [], totalCount: count ?? 0 };
     },
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -397,6 +397,7 @@ export default function DashboardStats() {
   const { data: expiredLostData } = useLostItems({ status: 'expired', pageSize: 3 });
   const { data: recentActivity = [], isLoading: activityLoading } = useActivityLogs({ limit: 5 });
 
+  const recentLostItems = recentLostData?.items ?? [];
   const expiredItems = expiredLostData?.items ?? [];
 
   const openTasks = useMemo(

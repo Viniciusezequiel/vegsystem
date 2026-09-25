@@ -32,7 +32,7 @@ test('consultas frequentes usam cache/realtime para reduzir egress', () => {
 });
 
 test('dashboard nao baixa ate 2000 registros completos de achados para o grafico', () => {
-  assert.match(dashboard, /select\('id,received_date,created_at'\)/);
+  assert.match(dashboard, /select\('id,received_date,created_at'/);
   assert.match(dashboard, /dashboard-lost-items-timeline/);
   assert.doesNotMatch(dashboard, /pageSize:\s*2000/);
 });
