@@ -267,15 +267,42 @@ export function usePsEventCommunications(eventId?: string) {
       if (error) throw error;
       return data || [];
     },
-    // O trigger communications_changed invalida a consulta imediatamente.
+    // O broadcast traz somente a linha alterada; o cache é atualizado sem baixar
+    // todo o histórico novamente a cada status de envio/entrega.
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
   useEffect(() => {
     if (!eventId) return;
+    const queryKey = ['ps_event_communications', eventId] as const;
     const channel = supabase.channel(`ps:event:${eventId}`)
       .on('broadcast', { event: 'communications_changed' }, payload => {
-        if (payload?.payload?.event_id === eventId) qc.invalidateQueries({ queryKey: ['ps_event_communications', eventId] });
+        const change = payload?.payload as any;
+        if (change?.event_id !== eventId) return;
+
+        const row = change?.row;
+        const current = qc.getQueryData<any[]>(queryKey);
+        if (!row?.id || !Array.isArray(current)) {
+          void qc.invalidateQueries({ queryKey });
+          return;
+        }
+
+        const index = current.findIndex(item => item.id === row.id);
+        if (index >= 0) {
+          const next = [...current];
+          next[index] = { ...next[index], ...row };
+          qc.setQueryData(queryKey, next);
+          return;
+        }
+
+        qc.setQueryData(
+          queryKey,
+          [row, ...current].sort((a, b) =>
+            String(b.requested_at || b.created_at || '').localeCompare(
+              String(a.requested_at || a.created_at || ''),
+            ),
+          ),
+        );
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [eventId, qc]);

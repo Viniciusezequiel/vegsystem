@@ -160,7 +160,7 @@ export function useGlobalRealtimeSubscription() {
     'reservations',
     'reservation_rooms',
     'inventory_movements',
-    'activity_logs',
+    // Histórico não precisa ser transmitido a todo usuário conectado.
     'app_settings',
   ];
 

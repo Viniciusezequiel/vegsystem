@@ -17,7 +17,7 @@ export function useTaskNotifications() {
       
       const { count, error } = await supabase
         .from('tasks')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('assigned_to', user.id)
         .in('status', ['pending', 'in_progress']);
       
@@ -25,7 +25,8 @@ export function useTaskNotifications() {
       return count || 0;
     },
     enabled: !!user?.id,
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Realtime subscription with popup notification for new assignments
@@ -86,40 +87,6 @@ export function useTaskNotifications() {
     };
   }, [user?.id, queryClient]);
 
-  // Listen for tasks newly assigned TO this user (UPDATE that changes assigned_to)
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel(`task-reassign-notifications-${Math.random().toString(36).slice(2)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'tasks',
-        },
-        (payload) => {
-          const newData = payload.new as { assigned_to?: string; title?: string; created_by_name?: string };
-          const oldData = payload.old as { assigned_to?: string };
-          
-          // If assigned_to changed TO this user
-          if (newData.assigned_to === user.id && oldData.assigned_to !== user.id && initialLoadDone.current) {
-            toast.info('📋 Nova demanda atribuída a você!', {
-              description: `${newData.title || 'Sem título'}`,
-              duration: 8000,
-            });
-            queryClient.invalidateQueries({ queryKey: ['pending-tasks-count', user.id] });
-            queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, queryClient]);
 
   return {
     pendingTasksCount,
