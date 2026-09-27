@@ -95,11 +95,11 @@ export async function generatePsTeamLabelsWord(event: PsEventInfo, rows: PsBadge
 
 function teamContent(event: PsEventInfo, row: PsBadgeRow) {
   const role = String(row.role_name || row.assigned_role || '').toUpperCase();
-  const location = [row.floor || '-', row.room || '-'].join(' / ');
+  const location = [row.building, row.floor, row.room].filter((value) => String(value || '').trim()).join(' / ') || '-';
   const unit = String(row.unit || row.institution || row.campus || '');
   return [
     paragraph(String(event.name || '').toUpperCase(), { bold: true, size: 14, after: 100 }),
-    paragraph('FISCAL', { color: '808892', size: 13 }),
+    paragraph('EQUIPE DO EVENTO', { color: '808892', size: 13 }),
     paragraph(String(row.collaborator_name || '').toUpperCase(), { bold: true, size: 23, before: 80, after: 90 }),
     paragraph(role, { bold: true, color: '1E7846', size: 17, after: 80 }),
     paragraph(location, { color: '646A73', size: 16 }),

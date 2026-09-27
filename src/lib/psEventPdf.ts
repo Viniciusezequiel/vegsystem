@@ -6,6 +6,7 @@ export interface PsBadgeRow {
   collaborator_name: string;
   role_name?: string | null;
   assigned_role?: string | null;
+  building?: string | null;
   floor?: string | null;
   room?: string | null;
   unit?: string | null;
@@ -326,11 +327,12 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
   doc.setTextColor(45, 52, 60);
   doc.text(truncate(doc, event.name || '', w - 14), x + 10, y + 5.6);
 
-  // "FISCAL"
+  // Identificação genérica: o cargo real aparece logo abaixo e pode ser fiscal,
+  // coordenação, subcoordenação, apoio, higienização etc.
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(130, 137, 146);
-  doc.text('FISCAL', x + w / 2, y + 18, { align: 'center' });
+  doc.text('EQUIPE DO EVENTO', x + w / 2, y + 18, { align: 'center' });
 
   // name
   const name = row.collaborator_name || '';
@@ -355,12 +357,14 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
     doc.text(role, x + w / 2, y + 34.5, { align: 'center' });
   }
 
-  // location
-  const loc = `${row.floor || '-'} / ${row.room || '-'}`;
+  // Localização do vínculo atual do evento. Antes o prédio era descartado,
+  // o que deixava etiquetas ambíguas e dava a impressão de dados incorretos.
+  const loc = [row.building, row.floor, row.room].filter((value) => String(value || '').trim()).join(' / ') || '-';
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
   doc.setTextColor(100, 106, 115);
-  doc.text(loc, x + w / 2, y + 43.5, { align: 'center' });
+  const locationSize = fit(doc, loc, w - 8, 8, 5.8);
+  doc.setFontSize(locationSize);
+  doc.text(truncate(doc, loc, w - 8), x + w / 2, y + 43.5, { align: 'center' });
 
   // footer
   doc.setDrawColor(226, 229, 234);

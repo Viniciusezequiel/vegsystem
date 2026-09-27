@@ -415,7 +415,7 @@ export default function PsEventDetail() {
     () =>
       links.filter((link: any) =>
         ['pending_confirmation', 'confirmed'].includes(
-          link.participation_status
+          link.participation_status || 'pending_confirmation'
         )
       ),
     [links]
