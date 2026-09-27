@@ -19,17 +19,29 @@ export async function resolveSignatureDataUrl(value: string | null | undefined):
   if (source.provider !== 'r2') return null;
   const capabilityUrl = await resolveStorageUrl(source.value);
   if (!capabilityUrl) return null;
-  try {
-    const response = await fetch(capabilityUrl, { cache: 'no-store', credentials: 'omit' });
-    if (!response.ok) return null;
-    const contentType = (response.headers.get('content-type') ?? '').split(';', 1)[0].toLowerCase();
-    if (contentType !== 'image/png') return null;
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (!PNG_MAGIC.every((byte, index) => bytes[index] === byte)) return null;
-    return bytesToDataUrl(bytes);
-  } catch {
-    return null;
+  // The capability response can legitimately lose the original Content-Type
+  // through a proxy/CDN. The PNG magic bytes are the authoritative validation.
+  // Retry once because attendance PDFs may resolve hundreds of private images
+  // at the same time and a transient fetch failure must not erase a signature
+  // from the generated document.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(capabilityUrl, {
+        cache: 'no-store',
+        credentials: 'omit',
+      });
+      if (!response.ok) {
+        if (attempt === 0 && response.status >= 500) continue;
+        return null;
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (!PNG_MAGIC.every((byte, index) => bytes[index] === byte)) return null;
+      return bytesToDataUrl(bytes);
+    } catch {
+      if (attempt === 1) return null;
+    }
   }
+  return null;
 }
 
 /** Prepared for future persistence flows; SignaturePad remains unchanged for now. */
