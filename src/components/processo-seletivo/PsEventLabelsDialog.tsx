@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
-import { FileSpreadsheet, FileText, IdCard, Printer, Upload, Users } from 'lucide-react';
+import { FileSpreadsheet, FileText, IdCard, Plus, Printer, Trash2, Upload, UserPlus, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parsePsExamLabelWorkbook } from '@/lib/psExamLabelSpreadsheet.mjs';
-import { generatePsExamLabelsPdf } from '@/lib/psEventPdf';
+import { generatePsBadgesPdf, generatePsExamLabelsPdf, type PsBadgeRow } from '@/lib/psEventPdf';
 import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
 
 type Props = {
@@ -56,6 +57,8 @@ export function PsEventLabelsDialog({
   const [reading, setReading] = useState(false);
   const [teamFilters, setTeamFilters] = useState<LocationFilters>({ campus: 'all', building: 'all' });
   const [candidateFilters, setCandidateFilters] = useState<LocationFilters>({ campus: 'all', building: 'all' });
+  const [manualRows, setManualRows] = useState<PsBadgeRow[]>([]);
+  const [manualDraft, setManualDraft] = useState<PsBadgeRow>({ collaborator_name: '', role_name: '', building: '', floor: '', room: '' });
 
   const teamOptions = useMemo(() => locationOptions(team, teamFilters.campus), [team, teamFilters.campus]);
   const candidateOptions = useMemo(() => locationOptions(candidates, candidateFilters.campus), [candidates, candidateFilters.campus]);
@@ -82,6 +85,25 @@ export function PsEventLabelsDialog({
       )}
     </div>
   ) : null;
+
+  const addManualLabel = () => {
+    const name = String(manualDraft.collaborator_name || '').trim();
+    if (!name) return toast.error('Informe o nome da pessoa.');
+    setManualRows((current) => [...current, { ...manualDraft, collaborator_name: name }]);
+    setManualDraft({ collaborator_name: '', role_name: '', building: '', floor: '', room: '' });
+  };
+
+  const exportManualLabels = async (format: LabelExportFormat) => {
+    if (!manualRows.length) return toast.error('Adicione pelo menos uma etiqueta manual.');
+    const eventInfo = { name: event.name || '', date: event.date || '', location: event.location || '' };
+    const slug = String(event.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (format === 'word') {
+      const { generatePsTeamLabelsWord, saveWordBlob } = await import('@/lib/psEventWord');
+      saveWordBlob(await generatePsTeamLabelsWord(eventInfo, manualRows), `etiquetas-manuais-${slug || 'evento'}.docx`);
+      return;
+    }
+    generatePsBadgesPdf(eventInfo, manualRows).save(`etiquetas-manuais-${slug || 'evento'}.pdf`);
+  };
 
   const importSpreadsheet = async (file: File) => {
     setReading(true);
@@ -157,6 +179,45 @@ export function PsEventLabelsDialog({
             </CardContent>
           </Card>
         </div>
+
+        <Card className="rounded-2xl border-border/60 bg-card/60">
+          <CardContent className="space-y-4 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-primary/10 p-2 text-primary"><UserPlus className="h-4 w-4" /></div>
+              <div>
+                <p className="font-semibold">Etiquetas manuais</p>
+                <p className="text-xs text-muted-foreground">Para pessoas que não estão cadastradas. Esses dados servem somente para gerar as etiquetas e não alteram a equipe do evento.</p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <Input placeholder="Nome *" value={manualDraft.collaborator_name || ''} onChange={(e) => setManualDraft({ ...manualDraft, collaborator_name: e.target.value })} />
+              <Input placeholder="Cargo" value={manualDraft.role_name || ''} onChange={(e) => setManualDraft({ ...manualDraft, role_name: e.target.value })} />
+              <Input placeholder="Prédio" value={manualDraft.building || ''} onChange={(e) => setManualDraft({ ...manualDraft, building: e.target.value })} />
+              <Input placeholder="Andar" value={manualDraft.floor || ''} onChange={(e) => setManualDraft({ ...manualDraft, floor: e.target.value })} />
+              <Input placeholder="Sala" value={manualDraft.room || ''} onChange={(e) => setManualDraft({ ...manualDraft, room: e.target.value })} />
+            </div>
+            <Button type="button" variant="outline" onClick={addManualLabel}><Plus className="mr-2 h-4 w-4" />Adicionar etiqueta</Button>
+            {manualRows.length > 0 && (
+              <>
+                <div className="divide-y divide-border/40 overflow-hidden rounded-xl border border-border/60">
+                  {manualRows.map((row, index) => (
+                    <div key={`${row.collaborator_name}-${index}`} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{row.collaborator_name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{[row.role_name, row.building, row.floor, row.room].filter(Boolean).join(' · ') || 'Sem informações adicionais'}</p>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => setManualRows((current) => current.filter((_, rowIndex) => rowIndex !== index))}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={() => void exportManualLabels('pdf')}><Printer className="mr-2 h-4 w-4" />PDF ({manualRows.length})</Button>
+                  <Button variant="outline" onClick={() => void exportManualLabels('word')}><FileText className="mr-2 h-4 w-4" />Word</Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="rounded-2xl border-primary/25 bg-gradient-to-br from-primary/[0.08] via-card/70 to-card/50">
           <CardContent className="space-y-4 p-4 sm:p-5">

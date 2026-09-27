@@ -79,6 +79,15 @@ export const PS_CANDIDATE_LABEL_SHEET = {
 
 const BRAND = 'RD Avaliações';
 
+export function cleanPsLabelRole(value?: string | null) {
+  return String(value || '')
+    .replace(/\s*[\(\[]\s*\d{1,2}\s*h(?:oras?)?\s*[\)\]]\s*/gi, ' ')
+    .replace(/\s+-\s+\d{1,2}\s*h(?:oras?)?\b/gi, ' ')
+    .replace(/\s+\d{1,2}\s*h(?:oras?)?\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 /** Relatório operacional da aba Confirmações, respeitando os filtros ativos na tela. */
 export function generatePsConfirmationReportPdf(
   event: PsEventInfo,
@@ -323,9 +332,11 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
   doc.roundedRect(x + 4, y + 2.6, 3.8, 3.8, 1, 1, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
   doc.setTextColor(45, 52, 60);
-  doc.text(truncate(doc, event.name || '', w - 14), x + 10, y + 5.6);
+  const eventTitle = String(event.name || '').toUpperCase();
+  const eventTitleLines = doc.splitTextToSize(eventTitle, w - 14).slice(0, 2);
+  doc.setFontSize(eventTitleLines.length > 1 ? 5.8 : 6.8);
+  doc.text(eventTitleLines, x + 10, y + (eventTitleLines.length > 1 ? 3.7 : 5.6), { lineHeightFactor: 1.05 });
 
   // Identificação genérica: o cargo real aparece logo abaixo e pode ser fiscal,
   // coordenação, subcoordenação, apoio, higienização etc.
@@ -343,7 +354,7 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
   doc.text(name, x + w / 2, y + 25.5, { align: 'center' });
 
   // role pill
-  const role = (row.role_name || row.assigned_role || '').toUpperCase();
+  const role = cleanPsLabelRole(row.role_name || row.assigned_role).toUpperCase();
   if (role) {
     doc.setFont('helvetica', 'bold');
     const rs = fit(doc, role, w - 24, 9, 6);
