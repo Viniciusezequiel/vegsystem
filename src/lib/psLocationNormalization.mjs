@@ -48,16 +48,13 @@ export function getPsAttendanceLocation(link) {
   const campusLabel = normalizePsLocation(campusLabelSource);
   const buildingKey = normalizePsLocation(buildingSource, { building: true });
 
-  // Use the same normalized values shown in the UI as the location identity.
-  // This prevents variants coming from campus/unit/building fields from
-  // creating duplicate cards for the same physical building.
-  const locationCampusKey = campusLabel || campusKey;
-
+  // A presença é agrupada pelo prédio físico. Campus/unidade continuam
+  // disponíveis como metadados, mas não podem duplicar FEA/FCH/FACE I/FACE II
+  // quando a origem dos dados usa grafias diferentes.
   return {
-    key: `${locationCampusKey}|||${buildingKey || 'SEM PREDIO'}`,
+    key: buildingKey || 'SEM PREDIO',
     campus: campusKey,
     campusLabel,
     building: buildingKey || 'SEM PRÉDIO DEFINIDO',
   };
 }
-
