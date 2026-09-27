@@ -3520,264 +3520,14 @@ export default function PsEventDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="presenca" className="space-y-4 pt-4">
-            <Card className="overflow-hidden rounded-2xl border-primary/20 bg-gradient-to-r from-card/80 via-card/70 to-primary/[0.04]">
-              <CardContent className="p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-semibold">Operação de presença</p>
-                      <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
-                        {presenceOverview.completion}% concluído
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {presenceOverview.resolved} de {presenceOverview.total} fiscais já estão resolvidos como presentes ou ausentes.
-                    </p>
-                    <div className="mt-3 h-2 max-w-2xl overflow-hidden rounded-full bg-muted/60">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{ width: `${presenceOverview.completion}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <div className="rounded-2xl border border-border/60 bg-background/60 px-4 py-2.5 text-right">
-                      <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Locais fechados</p>
-                      <p className="mt-0.5 text-xl font-bold leading-none">
-                        {presenceOverview.closedLocations}/{presenceOverview.locations}
-                      </p>
-                    </div>
-                    <div className={`rounded-2xl border px-4 py-2.5 text-right ${presenceOverview.pending ? 'border-amber-500/20 bg-amber-500/[0.04]' : 'border-emerald-500/20 bg-emerald-500/[0.04]'}`}>
-                      <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Pendentes</p>
-                      <p className={`mt-0.5 text-xl font-bold leading-none ${presenceOverview.pending ? 'text-amber-500' : 'text-emerald-500'}`}>
-                        {presenceOverview.pending}
-                      </p>
-                    </div>
-                  </div>
+          <TabsContent value="presenca" className="space-y-3 pt-4">
+            <Card className={`rounded-2xl ${presenceOverview.pending ? 'border-amber-500/25 bg-amber-500/[0.035]' : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
+              <CardContent className="flex items-center justify-between gap-4 p-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assinaturas faltantes</p>
+                  <p className={`mt-1 text-3xl font-bold ${presenceOverview.pending ? 'text-amber-500' : 'text-emerald-500'}`}>{presenceOverview.pending}</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setPresenceLocation('all');
-                  setPresenceStatus('present');
-                  setPresenceListOpen(true);
-                }}
-                className="text-left"
-              >
-                <Card className="h-full rounded-2xl transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Presentes</p>
-                    <p className="mt-1 text-2xl font-bold">{presenceOverview.present}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">{presenceOverview.signed} com assinatura registrada</p>
-                  </CardContent>
-                </Card>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setPresenceLocation('all');
-                  setPresenceStatus('pending');
-                  setPresenceListOpen(true);
-                }}
-                className="text-left"
-              >
-                <Card className={`h-full rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md ${presenceOverview.pending ? 'border-amber-500/25 bg-amber-500/[0.025]' : ''}`}>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Pendentes</p>
-                    <p className={`mt-1 text-2xl font-bold ${presenceOverview.pending ? 'text-amber-500' : 'text-emerald-500'}`}>
-                      {presenceOverview.pending}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">clique para abrir somente os pendentes</p>
-                  </CardContent>
-                </Card>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setPresenceLocation('all');
-                  setPresenceStatus('absent');
-                  setPresenceListOpen(true);
-                }}
-                className="text-left"
-              >
-                <Card className="h-full rounded-2xl transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Ausentes</p>
-                    <p className="mt-1 text-2xl font-bold">{presenceOverview.absent}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">ausências formalizadas</p>
-                  </CardContent>
-                </Card>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setPresenceLocation('all');
-                  setPresenceStatus('departed');
-                  setPresenceListOpen(true);
-                }}
-                className="text-left"
-              >
-                <Card className="h-full rounded-2xl transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Saídas registradas</p>
-                    <p className="mt-1 text-2xl font-bold">{presenceOverview.departed}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">fiscais com encerramento de jornada</p>
-                  </CardContent>
-                </Card>
-              </button>
-            </div>
-
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <CardTitle className="text-base">Fechamento por prédio / local</CardTitle>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Acompanhe o avanço de cada local e abra diretamente as pendências que impedem o fechamento.
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="w-fit rounded-full">
-                    {presenceOverview.closedLocations} de {presenceOverview.locations} fechado(s)
-                  </Badge>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {attendanceLocations.map((location: any) => {
-                    const total = location.presentCount + location.absentCount + location.pendingCount;
-                    const resolved = location.presentCount + location.absentCount;
-                    const percentage = total ? Math.round((resolved / total) * 100) : 0;
-
-                    return (
-                      <div
-                        key={location.key}
-                        className={`rounded-2xl border p-4 transition ${location.closure
-                          ? 'border-emerald-500/20 bg-emerald-500/[0.025]'
-                          : location.pendingCount === 0
-                            ? 'border-primary/25 bg-primary/[0.025]'
-                            : 'border-border/60 bg-card/40'}`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                <MapPin className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate font-semibold">{location.building}</p>
-                                {location.campusLabel && location.campusLabel !== location.building && (
-                                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{location.campusLabel}</p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {location.closure ? (
-                            <Badge className="shrink-0 rounded-full">Fechado</Badge>
-                          ) : location.pendingCount > 0 ? (
-                            <Badge variant="outline" className="shrink-0 rounded-full border-amber-500/25 text-amber-500">
-                              {location.pendingCount} pendente(s)
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="shrink-0 rounded-full text-primary">
-                              Pronto para fechar
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="mt-4 flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-2xl font-bold">{percentage}%</p>
-                            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
-                              {resolved} de {total} resolvidos
-                            </p>
-                          </div>
-                          <div className="grid grid-cols-3 gap-1.5 text-center">
-                            <div className="rounded-lg bg-muted/40 px-2 py-1.5">
-                              <p className="text-xs font-bold">{location.presentCount}</p>
-                              <p className="text-[8px] uppercase text-muted-foreground">Pres.</p>
-                            </div>
-                            <div className="rounded-lg bg-muted/40 px-2 py-1.5">
-                              <p className="text-xs font-bold">{location.absentCount}</p>
-                              <p className="text-[8px] uppercase text-muted-foreground">Aus.</p>
-                            </div>
-                            <div className="rounded-lg bg-muted/40 px-2 py-1.5">
-                              <p className="text-xs font-bold">{location.pendingCount}</p>
-                              <p className="text-[8px] uppercase text-muted-foreground">Pend.</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/60">
-                          <div
-                            className="h-full rounded-full bg-primary transition-all"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-
-                        {location.closure ? (
-                          <div className="mt-4 rounded-xl border border-emerald-500/15 bg-background/50 p-3 text-xs">
-                            <p className="font-medium">Fechado por {location.closure.coordinator_name}</p>
-                            <p className="mt-1 text-[10px] text-muted-foreground">
-                              {location.closure.signed_at ? new Date(location.closure.signed_at).toLocaleString('pt-BR') : ''}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="mt-4 flex gap-2">
-                            {location.pendingCount > 0 && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="flex-1 rounded-xl"
-                                onClick={() => openPresenceLocation(location, 'pending')}
-                              >
-                                Ver pendentes
-                                <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {location.pendingCount === 0 && (
-                              <Button
-                                type="button"
-                                className="flex-1 rounded-xl"
-                                disabled={!closureCoordinatorCandidates.length}
-                                onClick={() => openClosureDialog(location)}
-                              >
-                                Fechar local
-                              </Button>
-                            )}
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              className="shrink-0 rounded-xl"
-                              onClick={() => openPresenceLocation(location, 'all')}
-                              title="Ver fiscais deste local"
-                            >
-                              <Users className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {!attendanceLocations.length && (
-                    <div className="rounded-2xl border border-dashed border-border/70 p-8 text-center md:col-span-2 xl:col-span-3">
-                      <MapPin className="mx-auto h-8 w-8 text-muted-foreground/40" />
-                      <p className="mt-2 text-sm font-semibold">Nenhum prédio/local identificado</p>
-                    </div>
-                  )}
-                </div>
+                <p className="text-right text-xs text-muted-foreground">{presenceOverview.signed} assinatura(s) registrada(s)</p>
               </CardContent>
             </Card>
 
@@ -3795,9 +3545,9 @@ export default function PsEventDetail() {
                     type="button"
                     variant="outline"
                     className="rounded-xl"
-                    onClick={() => setPresenceListOpen((open) => !open)}
+                    onClick={() => { setPresenceLocation('all'); setPresenceStatus('pending'); }}
                   >
-                    {presenceListOpen ? 'Ocultar fiscais' : `Ver fiscais (${operationalLinks.length})`}
+                    Ver somente pendentes
                   </Button>
 
                   <Button asChild variant="outline" className="rounded-xl">
@@ -3808,7 +3558,7 @@ export default function PsEventDetail() {
                 </div>
               </CardHeader>
 
-              {presenceListOpen && (
+              {(
                 <CardContent className="p-0">
                   <div className="space-y-3 border-b p-4">
                     <div className="grid gap-2 xl:grid-cols-[minmax(280px,1fr)_220px_220px_auto]">

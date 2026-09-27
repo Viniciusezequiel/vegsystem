@@ -320,12 +320,12 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
   doc.setFillColor(255, 255, 255);
   doc.roundedRect(x, y, w, h, 2.5, 2.5, 'FD');
 
-  // header band
+  // header band: espaço suficiente para títulos longos sem cortar palavras.
   doc.setFillColor(244, 246, 248);
-  doc.roundedRect(x, y, w, 9, 2.5, 2.5, 'F');
-  doc.rect(x, y + 6.5, w, 2.5, 'F');
+  doc.roundedRect(x, y, w, 11, 2.5, 2.5, 'F');
+  doc.rect(x, y + 8.5, w, 2.5, 'F');
   doc.setDrawColor(226, 229, 234);
-  doc.line(x, y + 9, x + w, y + 9);
+  doc.line(x, y + 11, x + w, y + 11);
 
   // header star mark
   doc.setFillColor(34, 139, 84);
@@ -334,24 +334,30 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(45, 52, 60);
   const eventTitle = String(event.name || '').toUpperCase();
-  const eventTitleLines = doc.splitTextToSize(eventTitle, w - 14).slice(0, 2);
-  doc.setFontSize(eventTitleLines.length > 1 ? 5.8 : 6.8);
-  doc.text(eventTitleLines, x + 10, y + (eventTitleLines.length > 1 ? 3.7 : 5.6), { lineHeightFactor: 1.05 });
+  const titleSize = fit(doc, eventTitle, w - 14, 6.6, 4.5);
+  doc.setFontSize(titleSize);
+  if (doc.getTextWidth(eventTitle) <= w - 14) {
+    doc.text(eventTitle, x + 10, y + 6.4);
+  } else {
+    const eventTitleLines = doc.splitTextToSize(eventTitle, w - 14);
+    doc.setFontSize(4.5);
+    doc.text(eventTitleLines.slice(0, 2), x + 10, y + 4.5, { lineHeightFactor: 1.05 });
+  }
 
   // Identificação genérica: o cargo real aparece logo abaixo e pode ser fiscal,
   // coordenação, subcoordenação, apoio, higienização etc.
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(130, 137, 146);
-  doc.text('EQUIPE DO EVENTO', x + w / 2, y + 18, { align: 'center' });
+  doc.text('EQUIPE DO EVENTO', x + w / 2, y + 19.5, { align: 'center' });
 
   // name
-  const name = row.collaborator_name || '';
+  const name = String(row.collaborator_name || '').trim();
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(20, 24, 30);
-  const size = fit(doc, name, w - 10, 14, 7);
+  const size = fit(doc, name, w - 10, 14, 5.5);
   doc.setFontSize(size);
-  doc.text(name, x + w / 2, y + 25.5, { align: 'center' });
+  doc.text(name, x + w / 2, y + 27, { align: 'center' });
 
   // role pill
   const role = cleanPsLabelRole(row.role_name || row.assigned_role).toUpperCase();
@@ -363,9 +369,9 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
     const pw = tw + 10;
     doc.setFillColor(240, 249, 243);
     doc.setDrawColor(180, 220, 195);
-    doc.roundedRect(x + (w - pw) / 2, y + 29.5, pw, 7.5, 3.5, 3.5, 'FD');
+    doc.roundedRect(x + (w - pw) / 2, y + 31, pw, 7.5, 3.5, 3.5, 'FD');
     doc.setTextColor(30, 120, 70);
-    doc.text(role, x + w / 2, y + 34.5, { align: 'center' });
+    doc.text(role, x + w / 2, y + 36, { align: 'center' });
   }
 
   // Localização do vínculo atual do evento. Antes o prédio era descartado,
@@ -375,7 +381,7 @@ function drawBadge(doc: jsPDF, event: PsEventInfo, row: PsBadgeRow, x: number, y
   doc.setTextColor(100, 106, 115);
   const locationSize = fit(doc, loc, w - 8, 8, 5.8);
   doc.setFontSize(locationSize);
-  doc.text(truncate(doc, loc, w - 8), x + w / 2, y + 43.5, { align: 'center' });
+  doc.text(truncate(doc, loc, w - 8), x + w / 2, y + 44.5, { align: 'center' });
 
   // footer
   doc.setDrawColor(226, 229, 234);
