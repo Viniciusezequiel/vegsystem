@@ -16,7 +16,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event: { name?: string | null; date?: string | null; location?: string | null };
-  team: Array<PsBadgeRow & { id?: string | null; campus?: string | null; building?: string | null }>;
+  team: Array<{ campus?: string | null; building?: string | null }>;
   candidates: Array<{ campus?: string | null; building?: string | null }>;
   onExportTeam: (filters: LocationFilters, format: LabelExportFormat) => void;
   onExportCandidates: (filters: LocationFilters, format: LabelExportFormat) => void;
@@ -58,20 +58,11 @@ export function PsEventLabelsDialog({
   const [teamFilters, setTeamFilters] = useState<LocationFilters>({ campus: 'all', building: 'all' });
   const [candidateFilters, setCandidateFilters] = useState<LocationFilters>({ campus: 'all', building: 'all' });
   const [manualRows, setManualRows] = useState<PsBadgeRow[]>([]);
-  const [teamSearch, setTeamSearch] = useState('');
-  const [selectedTeamKeys, setSelectedTeamKeys] = useState<string[]>([]);
   const [manualDraft, setManualDraft] = useState<PsBadgeRow>({ collaborator_name: '', role_name: '', building: '', floor: '', room: '' });
 
   const teamOptions = useMemo(() => locationOptions(team, teamFilters.campus), [team, teamFilters.campus]);
   const candidateOptions = useMemo(() => locationOptions(candidates, candidateFilters.campus), [candidates, candidateFilters.campus]);
-  const filteredTeam = useMemo(() => filterByLocation(team, teamFilters), [team, teamFilters]);
-  const filteredTeamCount = filteredTeam.length;
-  const teamKey = (row: any, index: number) => String(row.id || `${row.collaborator_name || 'pessoa'}-${row.building || ''}-${row.floor || ''}-${row.room || ''}-${index}`);
-  const searchableTeam = useMemo(() => {
-    const query = teamSearch.trim().toLocaleLowerCase('pt-BR');
-    if (!query) return filteredTeam;
-    return filteredTeam.filter((row: any) => [row.collaborator_name, row.role_name, row.assigned_role, row.building, row.floor, row.room].some((value) => String(value || '').toLocaleLowerCase('pt-BR').includes(query)));
-  }, [filteredTeam, teamSearch]);
+  const filteredTeamCount = useMemo(() => filterByLocation(team, teamFilters).length, [team, teamFilters]);
   const filteredCandidateCount = useMemo(() => filterByLocation(candidates, candidateFilters).length, [candidates, candidateFilters]);
 
   const locationSelectors = (
@@ -94,19 +85,6 @@ export function PsEventLabelsDialog({
       )}
     </div>
   ) : null;
-
-  const exportSelectedTeam = async (format: LabelExportFormat) => {
-    const rows = filteredTeam.filter((row: any, index: number) => selectedTeamKeys.includes(teamKey(row, index)));
-    if (!rows.length) return toast.error('Selecione pelo menos um fiscal para gerar a etiqueta.');
-    const eventInfo = { name: event.name || '', date: event.date || '', location: event.location || '' };
-    const slug = String(event.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    if (format === 'word') {
-      const { generatePsTeamLabelsWord, saveWordBlob } = await import('@/lib/psEventWord');
-      saveWordBlob(await generatePsTeamLabelsWord(eventInfo, rows), `etiquetas-selecionadas-${slug || 'evento'}.docx`);
-      return;
-    }
-    generatePsBadgesPdf(eventInfo, rows).save(`etiquetas-selecionadas-${slug || 'evento'}.pdf`);
-  };
 
   const addManualLabel = () => {
     const name = String(manualDraft.collaborator_name || '').trim();
@@ -179,29 +157,11 @@ export function PsEventLabelsDialog({
                 <div className="rounded-xl bg-primary/10 p-2 text-primary"><Users className="h-4 w-4" /></div>
                 <div><p className="font-semibold">Equipe do evento</p><p className="text-xs text-muted-foreground">{filteredTeamCount} de {team.length} colaborador(es)</p></div>
               </div>
-              {locationSelectors(teamOptions, teamFilters, (filters) => { setTeamFilters(filters); setSelectedTeamKeys([]); })}
-              <div className="rounded-xl border border-border/60 bg-background/35 p-2.5">
-                <Input className="h-9" placeholder="Buscar fiscal para impressão rápida..." value={teamSearch} onChange={(e) => setTeamSearch(e.target.value)} />
-                <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
-                  {searchableTeam.slice(0, 40).map((row: any) => {
-                    const originalIndex = filteredTeam.indexOf(row);
-                    const key = teamKey(row, originalIndex);
-                    const selected = selectedTeamKeys.includes(key);
-                    return <button key={key} type="button" onClick={() => setSelectedTeamKeys((current) => selected ? current.filter((item) => item !== key) : [...current, key])} className={`flex w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-left text-xs ${selected ? 'border-primary/50 bg-primary/10' : 'border-transparent hover:bg-muted/50'}`}>
-                      <span className="min-w-0"><strong className="block truncate">{row.collaborator_name}</strong><span className="block truncate text-muted-foreground">{[row.role_name || row.assigned_role, row.building, row.floor, row.room].filter(Boolean).join(' · ')}</span></span>
-                      <span className={`h-4 w-4 shrink-0 rounded border ${selected ? 'border-primary bg-primary' : 'border-muted-foreground/40'}`}>{selected ? <span className="block text-center text-[10px] leading-[14px] text-primary-foreground">✓</span> : null}</span>
-                    </button>;
-                  })}
-                </div>
-                {selectedTeamKeys.length > 0 && <p className="mt-2 text-xs font-medium text-primary">{selectedTeamKeys.length} etiqueta(s) selecionada(s)</p>}
+              {locationSelectors(teamOptions, teamFilters, setTeamFilters)}
+              <div className="mt-auto grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={() => onExportTeam(teamFilters, 'pdf')} disabled={!filteredTeamCount}><IdCard className="mr-2 h-4 w-4" />PDF</Button>
+                <Button variant="outline" onClick={() => onExportTeam(teamFilters, 'word')} disabled={!filteredTeamCount}><FileText className="mr-2 h-4 w-4" />Word</Button>
               </div>
-              {selectedTeamKeys.length > 0 ? <div className="mt-auto grid grid-cols-2 gap-2">
-                <Button onClick={() => void exportSelectedTeam('pdf')}><Printer className="mr-2 h-4 w-4" />PDF selecionados ({selectedTeamKeys.length})</Button>
-                <Button variant="outline" onClick={() => void exportSelectedTeam('word')}><FileText className="mr-2 h-4 w-4" />Word selecionados</Button>
-              </div> : <div className="mt-auto grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={() => onExportTeam(teamFilters, 'pdf')} disabled={!filteredTeamCount}><IdCard className="mr-2 h-4 w-4" />PDF de todos</Button>
-                <Button variant="outline" onClick={() => onExportTeam(teamFilters, 'word')} disabled={!filteredTeamCount}><FileText className="mr-2 h-4 w-4" />Word de todos</Button>
-              </div>}
             </CardContent>
           </Card>
 
