@@ -66,6 +66,21 @@ async function hasEligibleQueue(admin:any,eventId:string,quotaDate:string){
   return (waitingCount||0)>0;
 }
 
+async function loadEventLinksByIds(admin:any,eventId:string,ids:string[]){
+  const rows:any[]=[];
+  const chunkSize=100;
+  for(let start=0;start<ids.length;start+=chunkSize){
+    const chunk=ids.slice(start,start+chunkSize);
+    const {data,error}=await admin.from('ps_event_collaborators')
+      .select('id,event_id,collaborator_name,email,role_name,assigned_role,unit,building,floor,room,work_schedule,participation_status')
+      .eq('event_id',eventId)
+      .in('id',chunk);
+    if(error) throw error;
+    rows.push(...(data||[]));
+  }
+  return rows;
+}
+
 function scheduleWorker(url:string,serviceRoleKey:string,cronSecret:string,eventId:string){
   const request=fetch(`${url}/functions/v1/ps-event-communications`,{
     method:'POST',
@@ -220,8 +235,8 @@ serve(async req=>{
       const requestKey=String(input.requestKey||'');
       if(!allowedTypes.has(type)||!subject||subject.length>200||!template||template.length>10000||!uuid.test(requestKey)) return json({error:'invalid_message'},400);
 
-      const {data:links,error:linksError}=await admin.from('ps_event_collaborators').select('id,event_id,collaborator_name,email,role_name,assigned_role,unit,building,floor,room,work_schedule,participation_status').eq('event_id',eventId).in('id',ids);
-      if(linksError||links?.length!==ids.length) return json({error:'recipient_scope_mismatch'},400);
+      const links=await loadEventLinksByIds(admin,eventId,ids);
+      if(links.length!==ids.length) return json({error:'recipient_scope_mismatch'},400);
 
       const inactiveLinks=(links||[]).filter(link=>!['pending_confirmation','confirmed'].includes(String(link.participation_status||'')));
       if(inactiveLinks.length) return json({error:'inactive_recipients',recipientIds:inactiveLinks.map(link=>link.id)},400);
