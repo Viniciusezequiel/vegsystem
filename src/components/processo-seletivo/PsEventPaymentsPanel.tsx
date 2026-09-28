@@ -21,6 +21,47 @@ type Props = {
 const money = (value: unknown) =>
   Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const paymentObservation = (notes: unknown, adjustments: any[]) => {
+  const parts: string[] = [];
+  const manualNote = String(notes || '').trim();
+  if (manualNote) parts.push(manualNote);
+
+  for (const adjustment of adjustments || []) {
+    const justification = String(adjustment.justification || '').trim();
+    const status = String(adjustment.status || '').trim();
+    const statusLabel = status === 'pending'
+      ? 'pendente'
+      : status === 'approved'
+        ? 'aprovado'
+        : status === 'rejected'
+          ? 'rejeitado'
+          : status;
+
+    if (adjustment.adjustment_type === 'role') {
+      const oldRole = String(adjustment.old_value || '').trim();
+      const newRole = String(adjustment.new_value || '').trim();
+      const change = oldRole && newRole && oldRole !== newRole
+        ? `Cargo: ${oldRole} → ${newRole}`
+        : 'Cargo alterado';
+      parts.push([change, statusLabel ? `[${statusLabel}]` : '', justification].filter(Boolean).join(' · '));
+      continue;
+    }
+
+    if (adjustment.adjustment_type === 'pix') {
+      parts.push(['PIX alterado', statusLabel ? `[${statusLabel}]` : '', justification].filter(Boolean).join(' · '));
+      continue;
+    }
+
+    parts.push([
+      'Ajuste registrado',
+      statusLabel ? `[${statusLabel}]` : '',
+      justification,
+    ].filter(Boolean).join(' · '));
+  }
+
+  return parts.join(' | ');
+};
+
 export function PsEventPaymentsPanel({ event }: Props) {
   const eventId = event.id as string;
   const { data: links = [], isLoading: linksLoading } = usePsEventCollaborators(eventId);
@@ -176,7 +217,7 @@ export function PsEventPaymentsPanel({ event }: Props) {
         floor: row.link.floor,
         room: row.link.room,
         pix: row.link.attendance_pix_snapshot || row.link.pix,
-        notes: row.link.notes,
+        notes: paymentObservation(row.link.notes, row.adjustments),
         signature_url: signatureMap.get(row.link.id) || null,
         assignments: row.assignments.map((item: any) => ({
           role_name: item.role_name,

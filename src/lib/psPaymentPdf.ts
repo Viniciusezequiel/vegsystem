@@ -45,14 +45,14 @@ export function generatePsPaymentsPdf(event: PsPaymentEvent, rows: PsPaymentColl
 
   const cols = [
     { key: 'name', label: 'FISCAL', w: 0.14 },
-    { key: 'unit', label: 'UNIDADE', w: 0.09 },
-    { key: 'assignments', label: 'FUNÇÃO / JORNADA / VALOR', w: 0.23 },
+    { key: 'unit', label: 'UNIDADE', w: 0.07 },
+    { key: 'assignments', label: 'FUNÇÃO / JORNADA / VALOR', w: 0.21 },
     { key: 'floor', label: 'ANDAR', w: 0.05 },
     { key: 'room', label: 'SALA', w: 0.05 },
     { key: 'pix', label: 'PIX', w: 0.11 },
-    { key: 'sign', label: 'ASSINATURA', w: 0.13 },
+    { key: 'sign', label: 'ASSINATURA', w: 0.11 },
     { key: 'total', label: 'TOTAL', w: 0.08 },
-    { key: 'obs', label: 'OBSERVAÇÃO / ALTERAÇÃO', w: 0.12 },
+    { key: 'obs', label: 'OBSERVAÇÃO / ALTERAÇÃO', w: 0.18 },
   ].map((column) => ({ ...column, width: column.w * tableW }));
 
   const sorted = [...rows].sort((a, b) =>
@@ -144,7 +144,13 @@ export function generatePsPaymentsPdf(event: PsPaymentEvent, rows: PsPaymentColl
     doc.setFontSize(6.8);
     const assignmentWidth = cols.find((column) => column.key === 'assignments')?.width || 60;
     const assignmentWrapped = assignmentLines.flatMap((line) => doc.splitTextToSize(line, assignmentWidth - 3));
-    const rowHeight = Math.max(19, assignmentWrapped.length * 3.2 + 6);
+    const observationWidth = cols.find((column) => column.key === 'obs')?.width || 48;
+    const observationWrapped = doc.splitTextToSize(row.notes || '', observationWidth - 3).slice(0, 7);
+    const rowHeight = Math.max(
+      19,
+      assignmentWrapped.length * 3.2 + 6,
+      observationWrapped.length * 2.9 + 6,
+    );
 
     if (y + rowHeight > PH - 22) header();
 
@@ -189,9 +195,11 @@ export function generatePsPaymentsPdf(event: PsPaymentEvent, rows: PsPaymentColl
         doc.setFontSize(column.key === 'total' ? 7.2 : column.key === 'obs' ? 6.2 : 6.8);
         doc.setTextColor(30, 35, 42);
 
-        const maxLines = column.key === 'obs' ? 4 : 3;
+        const maxLines = column.key === 'obs' ? 7 : 3;
         const lineHeight = column.key === 'obs' ? 2.9 : 3.1;
-        const lines = doc.splitTextToSize(text, column.width - 3).slice(0, maxLines);
+        const lines = column.key === 'obs'
+          ? observationWrapped
+          : doc.splitTextToSize(text, column.width - 3).slice(0, maxLines);
         const startY = y + rowHeight / 2 - ((lines.length - 1) * lineHeight) / 2 + 1;
         lines.forEach((line: string, index: number) => {
           doc.text(line, cx + 1.5, startY + index * lineHeight);

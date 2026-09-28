@@ -28,5 +28,10 @@ test('pdf de pagamentos preserva assinatura e detalha novos cargos e totais', ()
   assert.match(pdf, /FUNÇÃO \/ JORNADA \/ VALOR/);
   assert.match(pdf, /TOTAL GERAL DO EVENTO/);
   assert.match(panel, /select\('id,signature_url'\)/);
+  assert.match(panel, /paymentObservation\(row\.link\.notes, row\.adjustments\)/);
+  assert.match(panel, /Cargo:.*oldRole.*newRole/s);
+  assert.match(panel, /PIX alterado/);
+  assert.match(pdf, /observationWrapped/);
+  assert.match(pdf, /OBSERVAÇÃO \/ ALTERAÇÃO/);
   assert.match(panel, /generatePsPaymentsPdfAsync/);
 });
