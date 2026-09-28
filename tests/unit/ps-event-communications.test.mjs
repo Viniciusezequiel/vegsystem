@@ -39,6 +39,8 @@ test('seleção suporta individual, múltiplos, todos filtrados e filtros combin
   assert.deepEqual(filterPsCommunicationRecipients(rows,{status:'confirmed',room:'2'}).map(r=>r.id),['2']);
   assert.match(ui,/const selectAllFiltered/);
   assert.match(ui,/aria-label="Selecionar todos os resultados filtrados"/);
+  assert.match(ui,/const selectAllFiltered = \(\) => setSelected\(filtered\.map/);
+  assert.match(ui,/setSelected\(\[\]\);[\s\S]*\[search, status, building, room, roles, delivery, quickView\]/);
   assert.match(ui,/selecionado\(s\)/);
 });
 

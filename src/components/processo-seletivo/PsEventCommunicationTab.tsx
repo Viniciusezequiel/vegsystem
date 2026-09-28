@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -278,6 +278,10 @@ export function PsEventCommunicationTab({
     });
   }, [links, search, status, building, room, roles, delivery, quickView, confirmationDelivery, actionSummary]);
 
+  useEffect(() => {
+    setSelected([]);
+  }, [search, status, building, room, roles, delivery, quickView]);
+
   const selectedLinks = useMemo(
     () => selected.map((id) => links.find((link) => String(link.id) === id)).filter(Boolean),
     [selected, links],
@@ -509,7 +513,7 @@ export function PsEventCommunicationTab({
   );
   const quotaWaiting = history.filter((job: any) => job.status === 'waiting_provider_quota').length;
 
-  const selectAllFiltered = () => setSelected((current) => [...new Set([...current, ...filtered.map((link: any) => link.id)])]);
+  const selectAllFiltered = () => setSelected(filtered.map((link: any) => String(link.id)));
   const appliedFilterLabels = [
     quickView !== 'all' ? `Atalho: ${{
       action: 'Precisam de ação',
