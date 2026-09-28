@@ -31,11 +31,34 @@ export function getSignatureDisplayState(value, expectedModule = null) {
 }
 
 export async function preparePdfSignatureRows(rows, resolveR2Signature) {
-  return Promise.all(rows.map(async row => {
-    const source = getSignatureSource(row.signature_url);
-    if (source.provider === 'inline' || source.provider === 'none') return row;
-    if (source.provider !== 'r2') return { ...row, signature_url: null };
-    const resolved = await resolveR2Signature(source.value);
-    return { ...row, signature_url: getSignatureSource(resolved).provider === 'inline' ? resolved : null };
-  }));
+  // Resolving hundreds of private signatures at once overloads the capability
+  // reference checks and makes an entire resolver batch disappear on one
+  // transient failure. Keep PDF generation deliberately bounded and retry
+  // unresolved R2 signatures once in a later batch.
+  const prepared = [];
+  const batchSize = 8;
+
+  for (let start = 0; start < rows.length; start += batchSize) {
+    const batch = rows.slice(start, start + batchSize);
+    const resolvedBatch = await Promise.all(batch.map(async row => {
+      const source = getSignatureSource(row.signature_url);
+      if (source.provider === 'inline' || source.provider === 'none') return row;
+      if (source.provider !== 'r2') return { ...row, signature_url: null };
+
+      let resolved = await resolveR2Signature(source.value);
+      if (getSignatureSource(resolved).provider !== 'inline') {
+        resolved = await resolveR2Signature(source.value);
+      }
+
+      return {
+        ...row,
+        signature_url: getSignatureSource(resolved).provider === 'inline'
+          ? resolved
+          : null,
+      };
+    }));
+    prepared.push(...resolvedBatch);
+  }
+
+  return prepared;
 }
