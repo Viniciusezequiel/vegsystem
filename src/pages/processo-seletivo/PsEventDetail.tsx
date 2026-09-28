@@ -1545,6 +1545,58 @@ export default function PsEventDetail() {
     };
   }, [selfEvaluations]);
 
+  const exportSelfEvaluationsExcel = () => {
+    if (!selfEvaluationRows.length) {
+      toast.error('Não há autoavaliações nesta visualização para exportar.');
+      return;
+    }
+
+    const rows = selfEvaluationRows.map((item: any) => {
+      const values = [
+        item.training_rating,
+        item.organization_rating,
+        item.snack_rating,
+        item.partner_fiscal_rating,
+      ].map(Number).filter((value) => value > 0);
+      const average = values.length
+        ? values.reduce((sum, value) => sum + value, 0) / values.length
+        : null;
+
+      return {
+        'Identificação': item.identified ? (item.respondent_name || 'Identificado sem nome') : 'Anônima',
+        'Tipo de resposta': item.identified ? 'Identificada' : 'Anônima',
+        'Cargo': roles.find((role: any) => role.value === item.role)?.name || item.role || '',
+        'Campus': item.campus || '',
+        'Andar': item.floor || '',
+        'Sala': item.room || '',
+        'Média': average === null ? '' : Number(average.toFixed(2)),
+        'Treinamento': item.training_rating || '',
+        'Comentário - Treinamento': item.training_comment || '',
+        'Organização': item.organization_rating || '',
+        'Comentário - Organização': item.organization_comment || '',
+        'Lanche / alimentação': item.snack_rating || '',
+        'Comentário - Lanche / alimentação': item.snack_comment || '',
+        'Fiscal parceiro': item.partner_fiscal_rating || '',
+        'Comentário - Fiscal parceiro': item.partner_fiscal_comment || '',
+        'Teve ocorrência': item.had_incident ? 'Sim' : 'Não',
+        'Ocorrência': item.incident_comment || '',
+        'Sugestão': item.suggestions || '',
+        'Respondida em': item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : '',
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 30 }, { wch: 16 }, { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 10 },
+      { wch: 14 }, { wch: 42 }, { wch: 14 }, { wch: 42 }, { wch: 20 }, { wch: 42 },
+      { wch: 16 }, { wch: 42 }, { wch: 15 }, { wch: 48 }, { wch: 48 }, { wch: 20 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Autoavaliações');
+    const eventSlug = String(event?.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    XLSX.writeFile(workbook, 'autoavaliacoes-' + eventSlug + '.xlsx');
+    toast.success(selfEvaluationRows.length + ' autoavaliação(ões) exportada(s).');
+  };
   const clearSelfEvaluationFilters = () => {
     setSelfEvaluationSearch('');
     setSelfEvaluationRole('all');
@@ -4125,116 +4177,77 @@ export default function PsEventDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="auto" className="space-y-4 pt-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">Respostas recebidas</p>
-                  <p className="mt-1 text-2xl font-bold">{selfEvaluationSummary.total}</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    {operationalLinks.length
-                      ? `${selfEvaluationSummary.total} resposta(s) para ${operationalLinks.length} fiscais ativos`
-                      : 'sem equipe ativa para referência'}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">Identificação</p>
-                  <p className="mt-1 text-2xl font-bold">{selfEvaluationSummary.identified}</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    {selfEvaluationSummary.anonymous} anônima(s)
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">Média geral</p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {selfEvaluationSummary.average ? selfEvaluationSummary.average.toFixed(1) : '—'}
-                  </p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    média combinada dos quatro critérios
-                  </p>
-                </CardContent>
-              </Card>
-
-              <button
-                type="button"
-                className="text-left"
-                onClick={() => setSelfEvaluationFocus(selfEvaluationFocus === 'attention' ? 'all' : 'attention')}
-              >
-                <Card className={`h-full rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md ${selfEvaluationSummary.attention
-                  ? 'border-amber-500/25 bg-amber-500/[0.035]'
-                  : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Precisam de atenção</p>
-                    <p className={`mt-1 text-2xl font-bold ${selfEvaluationSummary.attention ? 'text-amber-500' : 'text-emerald-500'}`}>
-                      {selfEvaluationSummary.attention}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      ocorrência ou pelo menos uma nota 1–2
-                    </p>
-                  </CardContent>
-                </Card>
-              </button>
-            </div>
-
-            <Card className="rounded-2xl">
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">Leitura por critério</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Comparativo rápido das médias recebidas.
-                    </p>
+          <TabsContent value="auto" className="space-y-3 pt-4">
+            <Card className="rounded-2xl border-primary/15 bg-gradient-to-r from-card/90 via-card/75 to-primary/[0.025]">
+              <CardContent className="p-3.5">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="grid flex-1 grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-4">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Respostas</p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-xl font-bold tabular-nums">{selfEvaluationSummary.total}</span>
+                        <span className="text-[9px] text-muted-foreground">de {operationalLinks.length} fiscais</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Identificadas</p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-xl font-bold tabular-nums">{selfEvaluationSummary.identified}</span>
+                        <span className="text-[9px] text-muted-foreground">{selfEvaluationSummary.anonymous} anônima(s)</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Média geral</p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-xl font-bold tabular-nums">{selfEvaluationSummary.average ? selfEvaluationSummary.average.toFixed(1) : '—'}</span>
+                        <span className="text-[9px] text-muted-foreground">de 5</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded-lg text-left transition hover:bg-amber-500/[0.04]"
+                      onClick={() => setSelfEvaluationFocus(selfEvaluationFocus === 'attention' ? 'all' : 'attention')}
+                    >
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Atenção</p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-xl font-bold tabular-nums text-amber-500">{selfEvaluationSummary.attention}</span>
+                        <span className="text-[9px] text-muted-foreground">ocorrência / nota 1–2</span>
+                      </div>
+                    </button>
                   </div>
 
-                  {selfEvaluationSummary.weakestCriterion && selfEvaluationSummary.strongestCriterion && (
-                    <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="outline" className="rounded-full border-amber-500/20 text-[9px] text-amber-500">
-                        Menor: {selfEvaluationSummary.weakestCriterion.label} · {selfEvaluationSummary.weakestCriterion.average.toFixed(1)}
-                      </Badge>
-                      <Badge variant="outline" className="rounded-full border-emerald-500/20 text-[9px] text-emerald-500">
-                        Maior: {selfEvaluationSummary.strongestCriterion.label} · {selfEvaluationSummary.strongestCriterion.average.toFixed(1)}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  {selfEvaluationSummary.criteria.map((criterion) => (
-                    <div key={criterion.key} className="rounded-xl border border-border/50 bg-muted/[0.06] px-3 py-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-[11px] font-medium">{criterion.label}</p>
-                        <span className="text-sm font-bold tabular-nums">
-                          {criterion.responses ? criterion.average.toFixed(1) : '—'}
-                        </span>
+                  <div className="flex flex-wrap gap-1.5 xl:max-w-[52%] xl:justify-end">
+                    {selfEvaluationSummary.criteria.map((criterion) => (
+                      <div key={criterion.key} className="flex items-center gap-2 rounded-lg border border-border/55 bg-muted/10 px-2.5 py-1.5">
+                        <span className="text-[9px] text-muted-foreground">{criterion.label}</span>
+                        <strong className="text-xs tabular-nums">{criterion.responses ? criterion.average.toFixed(1) : '—'}</strong>
+                        <span className="text-[8px] text-muted-foreground">{criterion.responses}</span>
                       </div>
-                      <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted/60">
-                        <div
-                          className="h-full rounded-full bg-primary"
-                          style={{ width: `${criterion.responses ? Math.min(100, (criterion.average / 5) * 100) : 0}%` }}
-                        />
-                      </div>
-                      <p className="mt-1.5 text-[9px] text-muted-foreground">
-                        {criterion.responses} resposta(s)
-                      </p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
-
             <Card className="rounded-2xl">
               <CardHeader className="pb-3">
-                <div className="flex flex-col gap-1">
-                  <CardTitle className="text-base">Autoavaliações recebidas</CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    Veja o resumo de cada resposta e abra somente as que precisam de análise detalhada.
-                  </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base">Autoavaliações recebidas</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Resumo rápido na lista; comentários e ocorrências ficam nos detalhes.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 shrink-0 rounded-xl"
+                    disabled={!selfEvaluationRows.length
+                    onClick={exportSelfEvaluationsExcel}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Exportar Excel ({selfEvaluationRows.length})
+                  </Button>
                 </div>
               </CardHeader>
 
