@@ -4242,7 +4242,7 @@ export default function PsEventDetail() {
                     variant="outline"
                     size="sm"
                     className="h-9 shrink-0 rounded-xl"
-                    disabled={!selfEvaluationRows.length
+                    disabled={!selfEvaluationRows.length}
                     onClick={exportSelfEvaluationsExcel}
                   >
                     <Download className="mr-2 h-4 w-4" />
