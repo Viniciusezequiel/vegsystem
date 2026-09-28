@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PS_CLASSIFICATION_LABEL, PS_CRITERIA, psClassification } from '@/lib/psConstants';
+import { normalizePsLocation } from '@/lib/psLocationNormalization.mjs';
 import {
   addEvaluatorOverride,
   changeEvaluatorPassword,
@@ -40,6 +41,26 @@ import {
 import PsEvaluatorLogin from './PsEvaluatorLogin';
 
 const emptyCriteria = () => Object.fromEntries(PS_CRITERIA.map(({ key }) => [key, 0])) as Record<string, number>;
+
+const evaluatorArea = (item: any) => {
+  const buildingSource = item.building || item.campus || item.unit || '';
+  const building = normalizePsLocation(buildingSource, { building: true });
+  let floor = String(item.floor || '').trim();
+
+  floor = floor
+    .replace(/^(?:PR[EÉ]DIO\s*-?\s*)?(?:FACE\s*I{1,3}|FCH|FEA|FUMEC)\s*[-–—:]\s*/i, '')
+    .trim();
+
+  if (/^(pr[eé]dio|-|—)$/i.test(floor)) floor = '';
+  if (/^\d+$/.test(floor)) floor = `${floor}º andar`;
+  floor = floor.replace(/\bANDAR\b/gi, 'andar').replace(/\s+/g, ' ').trim();
+
+  const buildingLabel = building || 'LOCAL NÃO INFORMADO';
+  return {
+    key: `${buildingLabel}|${normalizePsLocation(floor)}`,
+    label: [buildingLabel, floor].filter(Boolean).join(' · '),
+  };
+};
 
 export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
   const { eventId: routeEventId } = useParams<{ eventId: string }>();
@@ -143,26 +164,14 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
     const map = new Map<string, string>();
 
     for (const item of queue) {
-      const label = [
-        item.campus,
-        item.building,
-        item.floor && `${item.floor}º andar`,
-      ].filter(Boolean).join(' · ') || 'Local não informado';
-
-      const key = [
-        item.campus || '',
-        item.building || '',
-        item.floor || '',
-      ].join('|');
-
-      map.set(key, label);
+      const area = evaluatorArea(item);
+      map.set(area.key, area.label);
     }
 
     return [...map.entries()]
       .map(([key, label]) => ({ key, label }))
       .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { numeric: true }));
   })();
-
   const filteredQueue = (() => {
     const query = search
       .normalize('NFD')
@@ -171,11 +180,7 @@ export default function PsEvaluatorPortal({ eventId }: { eventId?: string }) {
       .trim();
 
     return queue.filter(item => {
-      const areaKey = [
-        item.campus || '',
-        item.building || '',
-        item.floor || '',
-      ].join('|');
+      const areaKey = evaluatorArea(item).key;
 
       if (areaFilter !== 'all' && areaKey !== areaFilter) return false;
       if (!query) return true;
