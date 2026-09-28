@@ -1382,6 +1382,47 @@ export default function PsEventDetail() {
     evaluationEvaluator,
   ]);
 
+  const exportEvaluationsExcel = () => {
+    if (!evaluationRows.length) {
+      toast.error('Não há avaliações nesta visualização para exportar.');
+      return;
+    }
+
+    const rows = evaluationRows.map((evaluation: any) => {
+      const row: Record<string, any> = {
+        'Fiscal': evaluation.collaborator_name || '',
+        'Cargo': evaluation.assigned_role || '',
+        'Avaliador': evaluation.evaluator_name || '',
+        'Nível da avaliação': evaluation.evaluation_level || '',
+        'Nota final': Number(evaluation.final_score || 0),
+        'Classificação': PS_CLASSIFICATION_LABEL[evaluation.classification] || evaluation.classification || '',
+        'Observações': evaluation.observations || '',
+        'Cargo alterado': evaluation.role_changed ? 'Sim' : 'Não',
+        'Cargo original': evaluation.original_role || '',
+        'Cargo informado': evaluation.reported_role || '',
+        'Justificativa da alteração': evaluation.role_change_justification || '',
+        'Avaliada em': evaluation.created_at ? new Date(evaluation.created_at).toLocaleString('pt-BR') : '',
+      };
+
+      for (const criterion of PS_CRITERIA) {
+        row[criterion.label] = evaluation[criterion.key] || '';
+      }
+
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 30 }, { wch: 30 }, { wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 },
+      { wch: 48 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 44 }, { wch: 20 },
+      ...PS_CRITERIA.map(() => ({ wch: 18 })),
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Avaliações');
+    const eventSlug = String(event?.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    XLSX.writeFile(workbook, 'avaliacoes-' + eventSlug + '.xlsx');
+    toast.success(evaluationRows.length + ' avaliação(ões) exportada(s).');
+  };
   const clearEvaluationFilters = () => {
     setEvaluationSearch('');
     setEvaluationClassification('all');
@@ -3924,118 +3965,92 @@ export default function PsEventDetail() {
             )}
           </TabsContent>
 
-          <TabsContent value="avaliacoes" className="space-y-4 pt-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Card className="rounded-2xl border-primary/20 bg-primary/[0.035]">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">Avaliações registradas</p>
-                  <p className="mt-1 text-2xl font-bold">{evaluationSummary.total}</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    {evaluationSummary.people} fiscal(is) diferente(s)
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">Média geral</p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {evaluationSummary.average ? evaluationSummary.average.toFixed(2) : '—'}
-                  </p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">escala de 1 a 5</p>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-emerald-500/20 bg-emerald-500/[0.025]">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground">Excelente / Bom</p>
-                  <p className="mt-1 text-2xl font-bold text-emerald-500">
-                    {evaluationSummary.excellent + evaluationSummary.good}
-                  </p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    {evaluationSummary.excellent} excelente(s) · {evaluationSummary.good} bom(ns)
-                  </p>
-                </CardContent>
-              </Card>
-
-              <button
-                type="button"
-                className="text-left"
-                onClick={() => setEvaluationClassification(evaluationClassification === 'regular' ? 'all' : 'regular')}
-              >
-                <Card className={`h-full rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md ${evaluationSummary.attention
-                  ? 'border-amber-500/25 bg-amber-500/[0.035]'
-                  : 'border-emerald-500/20 bg-emerald-500/[0.025]'}`}>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Desempenho a revisar</p>
-                    <p className={`mt-1 text-2xl font-bold ${evaluationSummary.attention ? 'text-amber-500' : 'text-emerald-500'}`}>
-                      {evaluationSummary.attention}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      regular, insuficiente ou crítico
-                    </p>
-                  </CardContent>
-                </Card>
-              </button>
-            </div>
-
-            <Card className="rounded-2xl">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <CardTitle className="text-base">Desempenho por critério</CardTitle>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Consolidação das notas dadas pelos avaliadores neste evento.
-                    </p>
+          <TabsContent value="avaliacoes" className="space-y-3 pt-4">
+            <Card className="rounded-2xl border-primary/15 bg-gradient-to-r from-card/90 via-card/75 to-primary/[0.025]">
+              <CardContent className="p-3.5">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="grid flex-1 grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-4">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Avaliações</p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-xl font-bold tabular-nums">{evaluationSummary.total}</span>
+                        <span className="text-[9px] text-muted-foreground">{evaluationSummary.people} fiscal(is)</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Média geral</p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-xl font-bold tabular-nums">{evaluationSummary.average ? evaluationSummary.average.toFixed(2) : '—'}</span>
+                        <span className="text-[9px] text-muted-foreground">de 5</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Excelente / Bom</p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-xl font-bold tabular-nums text-emerald-500">{evaluationSummary.excellent + evaluationSummary.good}</span>
+                        <span className="text-[9px] text-muted-foreground">{evaluationSummary.excellent} exc. · {evaluationSummary.good} bom(ns)</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded-lg text-left transition hover:bg-amber-500/[0.04]"
+                      onClick={() => setEvaluationClassification(evaluationClassification === 'regular' ? 'all' : 'regular')}
+                    >
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">A revisar</p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-xl font-bold tabular-nums text-amber-500">{evaluationSummary.attention}</span>
+                        <span className="text-[9px] text-muted-foreground">regular / insuf. / crítico</span>
+                      </div>
+                    </button>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 xl:max-w-[56%] xl:justify-end">
+                    {evaluationSummary.criteria.map((criterion) => (
+                      <div key={criterion.key} className="flex items-center gap-2 rounded-lg border border-border/55 bg-muted/10 px-2.5 py-1.5">
+                        <span className="max-w-[115px] truncate text-[9px] text-muted-foreground" title={criterion.label}>{criterion.label}</span>
+                        <strong className={`text-xs tabular-nums ${criterion.responses && criterion.average < 3 ? 'text-amber-500' : ''}`}>
+                          {criterion.responses ? criterion.average.toFixed(2) : '—'}
+                        </strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {(evaluationSummary.weakestCriterion || evaluationSummary.strongestCriterion) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 border-t border-border/40 pt-2">
                     {evaluationSummary.weakestCriterion && (
-                      <Badge variant="outline" className="rounded-full border-amber-500/20 text-[9px] text-amber-500">
-                        Menor média: {evaluationSummary.weakestCriterion.label} · {evaluationSummary.weakestCriterion.average.toFixed(2)}
-                      </Badge>
+                      <span className="text-[9px] text-amber-500">
+                        Menor: {evaluationSummary.weakestCriterion.label} · {evaluationSummary.weakestCriterion.average.toFixed(2)}
+                      </span>
                     )}
                     {evaluationSummary.strongestCriterion && (
-                      <Badge variant="outline" className="rounded-full border-emerald-500/20 text-[9px] text-emerald-500">
-                        Maior média: {evaluationSummary.strongestCriterion.label} · {evaluationSummary.strongestCriterion.average.toFixed(2)}
-                      </Badge>
+                      <span className="text-[9px] text-emerald-500">
+                        Maior: {evaluationSummary.strongestCriterion.label} · {evaluationSummary.strongestCriterion.average.toFixed(2)}
+                      </span>
                     )}
                   </div>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                  {evaluationSummary.criteria.map((criterion) => (
-                    <div key={criterion.key} className="rounded-xl border border-border/60 bg-muted/[0.08] p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-[10px] font-semibold" title={criterion.label}>{criterion.label}</p>
-                        <span className={`text-xs font-bold tabular-nums ${criterion.responses && criterion.average < 3 ? 'text-amber-500' : 'text-foreground'}`}>
-                          {criterion.responses ? criterion.average.toFixed(2) : '—'}
-                        </span>
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
-                        <div
-                          className="h-full rounded-full bg-primary"
-                          style={{ width: `${criterion.responses ? Math.min(100, (criterion.average / 5) * 100) : 0}%` }}
-                        />
-                      </div>
-                      <p className="mt-1.5 text-[9px] text-muted-foreground">
-                        {criterion.responses} nota(s)
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                )}
               </CardContent>
             </Card>
-
             <Card className="rounded-2xl">
               <CardHeader className="pb-3">
-                <div>
-                  <CardTitle className="text-base">Avaliações individuais</CardTitle>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    As menores notas aparecem primeiro para facilitar a conferência.
-                  </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base">Avaliações individuais</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      As menores notas aparecem primeiro para facilitar a conferência.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 shrink-0 rounded-xl"
+                    disabled={!evaluationRows.length}
+                    onClick={exportEvaluationsExcel}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Exportar Excel ({evaluationRows.length})
+                  </Button>
                 </div>
               </CardHeader>
 
