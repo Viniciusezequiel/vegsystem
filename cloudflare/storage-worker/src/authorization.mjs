@@ -80,7 +80,11 @@ export async function hasDatabaseReference(auth, env, scope, locator, fetchImpl 
     equipment: [['equipment_loans', 'borrower_signature'], ['equipment_loans', 'return_signature']],
     lockers: [['locker_loans', 'borrower_signature'], ['locker_loans', 'return_signature']],
     'lost-items': [['lost_items', 'owner_signature'], ['lost_items_archive', 'owner_signature']],
-    'process-selection': [['ps_event_collaborators', 'signature_url']],
+    'process-selection': [
+      ['ps_event_collaborators', 'signature_url'],
+      ['ps_attendance_absences', 'signature_url'],
+      ['ps_attendance_closures', 'signature_url'],
+    ],
   }[module];
   if (!references) throw new Error('reference_check_not_implemented');
   const matches = await Promise.all(references.map(([table, column]) =>
