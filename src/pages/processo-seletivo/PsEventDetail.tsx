@@ -34,7 +34,7 @@ import { getPsConfirmationStatusLabel, replacementAssignment } from '@/lib/psCon
 import { buildPsConfirmationNotice, getPsContactPhone } from '@/lib/psConfirmationNotice.mjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { PS_EVENT_STATUS, PS_CLASSIFICATION_LABEL, PS_PCD_OPTIONS, PS_CRITERIA } from '@/lib/psConstants';
-import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft, GraduationCap, MailWarning, ArrowRight, WalletCards, ListChecks, CalendarDays, Building2, DoorOpen, Rows3, List, FilterX, Printer, FileText } from 'lucide-react';
+import { Plus, Trash2, Copy, Download, CheckCircle2, Upload, Star, Pencil, IdCard, FileSignature, ShieldCheck, Phone, Check, ChevronsUpDown, AlertTriangle, Search, Users, Sparkles, MapPin, BriefcaseBusiness, UserRoundCheck, ArrowRightLeft, GraduationCap, MailWarning, ArrowRight, WalletCards, ListChecks, CalendarDays, Building2, DoorOpen, Rows3, List, FilterX, Printer, FileText, ChevronDown } from 'lucide-react';
 import { generatePsBadgesPdf, generatePsCandidateBadgesPdf, generatePsAttendancePdfAsync, generatePsConfirmationReportPdf } from '@/lib/psEventPdf';
 import { psPresencePatch } from '@/lib/psFiscalFoundation';
 import { toast } from 'sonner';
@@ -4183,55 +4183,44 @@ export default function PsEventDetail() {
             </div>
 
             <Card className="rounded-2xl">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <CardTitle className="text-base">Leitura por critério</CardTitle>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Veja rapidamente onde o evento foi melhor e pior percebido pelos fiscais.
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">Leitura por critério</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Comparativo rápido das médias recebidas.
                     </p>
                   </div>
 
                   {selfEvaluationSummary.weakestCriterion && selfEvaluationSummary.strongestCriterion && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       <Badge variant="outline" className="rounded-full border-amber-500/20 text-[9px] text-amber-500">
-                        Menor média: {selfEvaluationSummary.weakestCriterion.label} · {selfEvaluationSummary.weakestCriterion.average.toFixed(1)}
+                        Menor: {selfEvaluationSummary.weakestCriterion.label} · {selfEvaluationSummary.weakestCriterion.average.toFixed(1)}
                       </Badge>
                       <Badge variant="outline" className="rounded-full border-emerald-500/20 text-[9px] text-emerald-500">
-                        Maior média: {selfEvaluationSummary.strongestCriterion.label} · {selfEvaluationSummary.strongestCriterion.average.toFixed(1)}
+                        Maior: {selfEvaluationSummary.strongestCriterion.label} · {selfEvaluationSummary.strongestCriterion.average.toFixed(1)}
                       </Badge>
                     </div>
                   )}
                 </div>
-              </CardHeader>
 
-              <CardContent>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   {selfEvaluationSummary.criteria.map((criterion) => (
-                    <div key={criterion.key} className="rounded-2xl border border-border/60 bg-muted/[0.08] p-4">
+                    <div key={criterion.key} className="rounded-xl border border-border/50 bg-muted/[0.06] px-3 py-2.5">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold">{criterion.label}</p>
-                        <Badge
-                          variant={criterion.responses && criterion.average <= 2.5
-                            ? 'destructive'
-                            : criterion.responses && criterion.average >= 4
-                              ? 'default'
-                              : 'secondary'}
-                          className="rounded-full"
-                        >
-                          {criterion.responses ? `★ ${criterion.average.toFixed(1)}` : '—'}
-                        </Badge>
+                        <p className="truncate text-[11px] font-medium">{criterion.label}</p>
+                        <span className="text-sm font-bold tabular-nums">
+                          {criterion.responses ? criterion.average.toFixed(1) : '—'}
+                        </span>
                       </div>
-
-                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/60">
+                      <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted/60">
                         <div
                           className="h-full rounded-full bg-primary"
-                          style={{ width: `${criterion.responses ? Math.min(100, (criterion.average / 5) * 100) : 0}%` }}
+                          style={{ width: \`\${criterion.responses ? Math.min(100, (criterion.average / 5) * 100) : 0}%\` }}
                         />
                       </div>
-
-                      <p className="mt-2 text-[10px] text-muted-foreground">
-                        {criterion.responses} avaliação(ões) deste critério
+                      <p className="mt-1.5 text-[9px] text-muted-foreground">
+                        {criterion.responses} resposta(s)
                       </p>
                     </div>
                   ))}
@@ -4244,12 +4233,12 @@ export default function PsEventDetail() {
                 <div className="flex flex-col gap-1">
                   <CardTitle className="text-base">Autoavaliações recebidas</CardTitle>
                   <p className="text-xs text-muted-foreground">
-                    Respostas com ocorrência ou nota baixa aparecem primeiro para facilitar a análise.
+                    Veja o resumo de cada resposta e abra somente as que precisam de análise detalhada.
                   </p>
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="flex flex-wrap gap-1.5">
                   {[
                     { key: 'all', label: 'Todas', count: selfEvaluationSummary.total },
@@ -4264,12 +4253,12 @@ export default function PsEventDetail() {
                       key={item.key}
                       type="button"
                       onClick={() => setSelfEvaluationFocus(item.key as typeof selfEvaluationFocus)}
-                      className={`flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition ${selfEvaluationFocus === item.key
+                      className={\`flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition \${selfEvaluationFocus === item.key
                         ? 'border-primary/30 bg-primary text-primary-foreground shadow-sm'
-                        : 'border-border/60 bg-background/50 text-muted-foreground hover:border-primary/20 hover:bg-primary/[0.04] hover:text-foreground'}`}
+                        : 'border-border/60 bg-background/50 text-muted-foreground hover:border-primary/20 hover:bg-primary/[0.04] hover:text-foreground'}\`}
                     >
                       {item.label}
-                      <span className={`rounded-full px-1.5 py-0.5 tabular-nums ${selfEvaluationFocus === item.key ? 'bg-primary-foreground/15' : 'bg-muted/70'}`}>
+                      <span className={\`rounded-full px-1.5 py-0.5 tabular-nums \${selfEvaluationFocus === item.key ? 'bg-primary-foreground/15' : 'bg-muted/70'}\`}>
                         {item.count}
                       </span>
                     </button>
@@ -4329,14 +4318,12 @@ export default function PsEventDetail() {
                   </Button>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                <div className="flex flex-col gap-1 border-b border-border/50 pb-2 text-[10px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                   <span><strong className="text-foreground">{selfEvaluationRows.length}</strong> resposta(s) na visualização</span>
-                  <span>
-                    O anonimato é preservado; respostas anônimas não permitem identificar pendências individuais.
-                  </span>
+                  <span>Clique em uma resposta para ver comentários, ocorrência e sugestão.</span>
                 </div>
 
-                <div className="max-h-[48rem] space-y-3 overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {selfEvaluationRows.map((e: any) => {
                     const roleLabel =
                       roles.find((role: any) => role.value === e.role)?.name ||
@@ -4344,102 +4331,140 @@ export default function PsEventDetail() {
                       'Cargo não informado';
 
                     const ratingItems = [
-                      { label: 'Treinamento', value: e.training_rating, comment: e.training_comment },
-                      { label: 'Organização', value: e.organization_rating, comment: e.organization_comment },
-                      { label: 'Lanche / alimentação', value: e.snack_rating, comment: e.snack_comment },
-                      { label: 'Fiscal parceiro', value: e.partner_fiscal_rating, comment: e.partner_fiscal_comment },
+                      { short: 'T', label: 'Treinamento', value: e.training_rating, comment: e.training_comment },
+                      { short: 'O', label: 'Organização', value: e.organization_rating, comment: e.organization_comment },
+                      { short: 'L', label: 'Lanche / alimentação', value: e.snack_rating, comment: e.snack_comment },
+                      { short: 'P', label: 'Fiscal parceiro', value: e.partner_fiscal_rating, comment: e.partner_fiscal_comment },
                     ];
 
-                    const hasLowRating = ratingItems.some((item) => Number(item.value) > 0 && Number(item.value) <= 2);
+                    const scoredRatings = ratingItems
+                      .map((item) => Number(item.value))
+                      .filter((value) => value > 0);
+                    const responseAverage = scoredRatings.length
+                      ? scoredRatings.reduce((sum, value) => sum + value, 0) / scoredRatings.length
+                      : null;
+                    const hasLowRating = scoredRatings.some((value) => value <= 2);
                     const needsAttention = hasLowRating || !!e.had_incident;
+                    const hasComments = ratingItems.some((item) => !!String(item.comment || '').trim());
+                    const hasDetails = hasComments || !!e.had_incident || !!String(e.suggestions || '').trim();
+                    const floorLabel = e.floor
+                      ? (/andar/i.test(String(e.floor)) ? String(e.floor) : \`\${e.floor}º andar\`)
+                      : '';
 
                     return (
-                      <div
+                      <details
                         key={e.id}
-                        className={`rounded-2xl border p-4 ${needsAttention
-                          ? 'border-amber-500/20 bg-amber-500/[0.025]'
-                          : 'border-border/60'}`}
+                        className={\`group overflow-hidden rounded-xl border transition \${needsAttention
+                          ? 'border-amber-500/25 bg-amber-500/[0.02]'
+                          : 'border-border/55 bg-card/30'}\`}
                       >
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <summary className="grid cursor-pointer list-none gap-3 px-3 py-3 outline-none transition hover:bg-muted/20 focus-visible:ring-2 focus-visible:ring-primary/40 sm:grid-cols-[minmax(220px,1.5fr)_minmax(180px,1fr)_auto_auto] sm:items-center [&::-webkit-details-marker]:hidden">
                           <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-semibold">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="truncate text-sm font-semibold">
                                 {e.identified ? e.respondent_name || 'Identificado sem nome' : 'Resposta anônima'}
                               </p>
-
-                              {!e.identified && <Badge variant="outline">Anônimo</Badge>}
+                              {!e.identified && <Badge variant="outline" className="h-5 text-[9px]">Anônimo</Badge>}
                               {hasLowRating && (
-                                <Badge variant="outline" className="border-amber-500/25 text-amber-500">
+                                <Badge variant="outline" className="h-5 border-amber-500/25 text-[9px] text-amber-500">
                                   Nota baixa
                                 </Badge>
                               )}
-                              {e.had_incident && <Badge variant="destructive">Ocorrência</Badge>}
+                              {e.had_incident && <Badge variant="destructive" className="h-5 text-[9px]">Ocorrência</Badge>}
+                              {e.suggestions && <Badge variant="secondary" className="h-5 text-[9px]">Sugestão</Badge>}
                             </div>
-
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {[
-                                roleLabel,
-                                e.campus,
-                                e.floor && `${e.floor}º andar`,
-                                e.room && `Sala ${e.room}`,
-                              ].filter(Boolean).join(' · ')}
+                            <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                              {[roleLabel, e.campus, floorLabel, e.room && \`Sala \${e.room}\`].filter(Boolean).join(' · ')}
                             </p>
                           </div>
 
-                          <p className="shrink-0 text-xs text-muted-foreground">
-                            {e.created_at ? new Date(e.created_at).toLocaleString('pt-BR') : ''}
-                          </p>
-                        </div>
+                          <div className="flex min-w-0 flex-wrap gap-1">
+                            {ratingItems.map((item) => (
+                              <span
+                                key={item.label}
+                                title={item.label}
+                                className={\`inline-flex h-7 min-w-[42px] items-center justify-center rounded-lg border px-2 text-[10px] font-semibold tabular-nums \${Number(item.value) > 0 && Number(item.value) <= 2
+                                  ? 'border-destructive/25 bg-destructive/5 text-destructive'
+                                  : 'border-border/55 bg-muted/20'}\`}
+                              >
+                                {item.short} {item.value ? item.value : '—'}
+                              </span>
+                            ))}
+                          </div>
 
-                        <div className="mt-4 grid gap-2 md:grid-cols-2">
-                          {ratingItems.map((item) => (
-                            <div key={item.label} className="rounded-xl bg-muted/30 p-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs font-medium">{item.label}</p>
-                                {item.value ? (
+                          <div className="flex items-center gap-2 sm:justify-end">
+                            <div className="text-right">
+                              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Média</p>
+                              <p className={\`text-base font-bold tabular-nums \${responseAverage !== null && responseAverage <= 2.5 ? 'text-amber-500' : ''}\`}>
+                                {responseAverage !== null ? responseAverage.toFixed(1) : '—'}
+                              </p>
+                            </div>
+                            <p className="hidden whitespace-nowrap text-[9px] text-muted-foreground lg:block">
+                              {e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : ''}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-1 text-[10px] font-medium text-muted-foreground">
+                            <span>{hasDetails ? 'Ver detalhes' : 'Resumo'}</span>
+                            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                          </div>
+                        </summary>
+
+                        <div className="border-t border-border/50 bg-muted/[0.06] px-3 py-3">
+                          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                            {ratingItems.map((item) => (
+                              <div key={item.label} className="rounded-lg border border-border/45 bg-background/40 p-2.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-[10px] font-semibold">{item.label}</p>
                                   <Badge
                                     variant={
-                                      Number(item.value) <= 2
+                                      item.value && Number(item.value) <= 2
                                         ? 'destructive'
-                                        : Number(item.value) >= 4
+                                        : item.value && Number(item.value) >= 4
                                           ? 'default'
                                           : 'secondary'
                                     }
+                                    className="h-5 text-[9px]"
                                   >
-                                    ★ {item.value}/5
+                                    {item.value ? \`★ \${item.value}/5\` : 'Não avaliado'}
                                   </Badge>
-                                ) : (
-                                  <Badge variant="outline">Não avaliado</Badge>
-                                )}
-                              </div>
-
-                              {item.comment && (
-                                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                                  {item.comment}
+                                </div>
+                                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                                  {item.comment || 'Sem comentário.'}
                                 </p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {(e.had_incident || e.suggestions) ? (
+                            <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                              {e.had_incident && (
+                                <div className="rounded-lg border border-destructive/25 bg-destructive/5 p-3">
+                                  <p className="text-[10px] font-semibold text-destructive">Ocorrência informada</p>
+                                  <p className="mt-1 text-xs leading-relaxed">{e.incident_comment || 'Sem descrição.'}</p>
+                                </div>
+                              )}
+
+                              {e.suggestions && (
+                                <div className="rounded-lg border border-border/55 bg-background/40 p-3">
+                                  <p className="text-[10px] font-semibold">Sugestão de melhoria</p>
+                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{e.suggestions}</p>
+                                </div>
                               )}
                             </div>
-                          ))}
+                          ) : (
+                            !hasComments && (
+                              <p className="mt-2 text-[10px] text-muted-foreground">
+                                Esta resposta não possui comentários adicionais.
+                              </p>
+                            )
+                          )}
+
+                          <p className="mt-2 text-right text-[9px] text-muted-foreground">
+                            {e.created_at ? new Date(e.created_at).toLocaleString('pt-BR') : ''}
+                          </p>
                         </div>
-
-                        {(e.had_incident || e.suggestions) && (
-                          <div className="mt-3 space-y-2">
-                            {e.had_incident && (
-                              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
-                                <p className="text-xs font-semibold text-destructive">Ocorrência informada</p>
-                                <p className="mt-1 text-sm">{e.incident_comment || 'Sem descrição.'}</p>
-                              </div>
-                            )}
-
-                            {e.suggestions && (
-                              <div className="rounded-xl border p-3">
-                                <p className="text-xs font-semibold">Sugestão de melhoria</p>
-                                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{e.suggestions}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      </details>
                     );
                   })}
 
