@@ -183,8 +183,9 @@ test('conteúdo dinâmico (texto e card) continua escapado contra HTML injection
 
 test('event_message preserva texto livre editável, transforma apenas URLs http/https em links e mostra o card de informações',()=>{
   const text='Olá <b>equipe</b>! Acesse https://www.vegsystem.site/ps/confirmacao/e/t, obrigado.';
-  const html=renderEventMessageEmailHtml(text,{evento:'Vestibular',cargo:'Fiscal',data_evento:'02/09/2026'});
-  assert.match(html,/Convocação para Processo Seletivo/);
+  const html=renderEventMessageEmailHtml(text,{evento:'Vestibular',cargo:'Fiscal',data_evento:'02/09/2026'},'Avalie o processo seletivo');
+  assert.match(html,/Avalie o processo seletivo/);
+  assert.doesNotMatch(html,/Convocação para Processo Seletivo/);
   assert.doesNotMatch(html,/<b>equipe<\/b>/);
   assert.match(html,/&lt;b&gt;equipe&lt;\/b&gt;/);
   assert.match(html,/<a href="https:\/\/www\.vegsystem\.site\/ps\/confirmacao\/e\/t"[^>]*>https:\/\/www\.vegsystem\.site\/ps\/confirmacao\/e\/t<\/a>/);

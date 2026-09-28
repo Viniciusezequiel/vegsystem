@@ -416,7 +416,7 @@ serve(async req=>{
           ?renderConfirmationEmailHtml(text,infoFields,confirmationUrl)
           :job.communication_type==='training_reselection'
             ?renderTrainingReselectionEmailHtml(text,infoFields,trainingReselectionUrl)
-            :renderEventMessageEmailHtml(text,infoFields);
+            :renderEventMessageEmailHtml(text,infoFields,renderedSubject);
         const delivered=await provider.send({to:testMode?testRecipient:logical,subject:renderedSubject,text,html,metadata:{module:'process-selection',event_id:eventId,type:job.communication_type}});
 
         await admin.from('ps_event_communications').update({

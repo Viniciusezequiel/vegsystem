@@ -143,9 +143,10 @@ export function renderTrainingReselectionEmailHtml(text: string, fields: PsEmail
   return renderEmailShell(body);
 }
 
-export function renderEventMessageEmailHtml(text: string, fields: PsEmailInfoFields): string {
+export function renderEventMessageEmailHtml(text: string, fields: PsEmailInfoFields, title = 'Mensagem sobre o Processo Seletivo'): string {
+  const safeTitle = escapeHtml(String(title || '').trim() || 'Mensagem sobre o Processo Seletivo');
   const body = `
-    <p style="margin:0 0 16px;font-size:19px;line-height:24px;font-weight:bold;color:#111827;">Convocação para Processo Seletivo</p>
+    <p style="margin:0 0 16px;font-size:19px;line-height:24px;font-weight:bold;color:#111827;">${safeTitle}</p>
     ${buildMessageBodyHtml(text)}
     ${buildInfoCardHtml(fields)}`;
   return renderEmailShell(body);
