@@ -4216,7 +4216,7 @@ export default function PsEventDetail() {
                       <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted/60">
                         <div
                           className="h-full rounded-full bg-primary"
-                          style={{ width: \`\${criterion.responses ? Math.min(100, (criterion.average / 5) * 100) : 0}%\` }}
+                          style={{ width: `${criterion.responses ? Math.min(100, (criterion.average / 5) * 100) : 0}%` }}
                         />
                       </div>
                       <p className="mt-1.5 text-[9px] text-muted-foreground">
@@ -4253,12 +4253,12 @@ export default function PsEventDetail() {
                       key={item.key}
                       type="button"
                       onClick={() => setSelfEvaluationFocus(item.key as typeof selfEvaluationFocus)}
-                      className={\`flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition \${selfEvaluationFocus === item.key
+                      className={`flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition ${selfEvaluationFocus === item.key
                         ? 'border-primary/30 bg-primary text-primary-foreground shadow-sm'
-                        : 'border-border/60 bg-background/50 text-muted-foreground hover:border-primary/20 hover:bg-primary/[0.04] hover:text-foreground'}\`}
+                        : 'border-border/60 bg-background/50 text-muted-foreground hover:border-primary/20 hover:bg-primary/[0.04] hover:text-foreground'}`}
                     >
                       {item.label}
-                      <span className={\`rounded-full px-1.5 py-0.5 tabular-nums \${selfEvaluationFocus === item.key ? 'bg-primary-foreground/15' : 'bg-muted/70'}\`}>
+                      <span className={`rounded-full px-1.5 py-0.5 tabular-nums ${selfEvaluationFocus === item.key ? 'bg-primary-foreground/15' : 'bg-muted/70'}`}>
                         {item.count}
                       </span>
                     </button>
@@ -4348,15 +4348,15 @@ export default function PsEventDetail() {
                     const hasComments = ratingItems.some((item) => !!String(item.comment || '').trim());
                     const hasDetails = hasComments || !!e.had_incident || !!String(e.suggestions || '').trim();
                     const floorLabel = e.floor
-                      ? (/andar/i.test(String(e.floor)) ? String(e.floor) : \`\${e.floor}º andar\`)
+                      ? (/andar/i.test(String(e.floor)) ? String(e.floor) : `${e.floor}º andar`)
                       : '';
 
                     return (
                       <details
                         key={e.id}
-                        className={\`group overflow-hidden rounded-xl border transition \${needsAttention
+                        className={`group overflow-hidden rounded-xl border transition ${needsAttention
                           ? 'border-amber-500/25 bg-amber-500/[0.02]'
-                          : 'border-border/55 bg-card/30'}\`}
+                          : 'border-border/55 bg-card/30'}`}
                       >
                         <summary className="grid cursor-pointer list-none gap-3 px-3 py-3 outline-none transition hover:bg-muted/20 focus-visible:ring-2 focus-visible:ring-primary/40 sm:grid-cols-[minmax(220px,1.5fr)_minmax(180px,1fr)_auto_auto] sm:items-center [&::-webkit-details-marker]:hidden">
                           <div className="min-w-0">
@@ -4374,7 +4374,7 @@ export default function PsEventDetail() {
                               {e.suggestions && <Badge variant="secondary" className="h-5 text-[9px]">Sugestão</Badge>}
                             </div>
                             <p className="mt-1 truncate text-[10px] text-muted-foreground">
-                              {[roleLabel, e.campus, floorLabel, e.room && \`Sala \${e.room}\`].filter(Boolean).join(' · ')}
+                              {[roleLabel, e.campus, floorLabel, e.room && `Sala ${e.room}`].filter(Boolean).join(' · ')}
                             </p>
                           </div>
 
@@ -4383,9 +4383,9 @@ export default function PsEventDetail() {
                               <span
                                 key={item.label}
                                 title={item.label}
-                                className={\`inline-flex h-7 min-w-[42px] items-center justify-center rounded-lg border px-2 text-[10px] font-semibold tabular-nums \${Number(item.value) > 0 && Number(item.value) <= 2
+                                className={`inline-flex h-7 min-w-[42px] items-center justify-center rounded-lg border px-2 text-[10px] font-semibold tabular-nums ${Number(item.value) > 0 && Number(item.value) <= 2
                                   ? 'border-destructive/25 bg-destructive/5 text-destructive'
-                                  : 'border-border/55 bg-muted/20'}\`}
+                                  : 'border-border/55 bg-muted/20'}`}
                               >
                                 {item.short} {item.value ? item.value : '—'}
                               </span>
@@ -4395,7 +4395,7 @@ export default function PsEventDetail() {
                           <div className="flex items-center gap-2 sm:justify-end">
                             <div className="text-right">
                               <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Média</p>
-                              <p className={\`text-base font-bold tabular-nums \${responseAverage !== null && responseAverage <= 2.5 ? 'text-amber-500' : ''}\`}>
+                              <p className={`text-base font-bold tabular-nums ${responseAverage !== null && responseAverage <= 2.5 ? 'text-amber-500' : ''}`}>
                                 {responseAverage !== null ? responseAverage.toFixed(1) : '—'}
                               </p>
                             </div>
@@ -4426,7 +4426,7 @@ export default function PsEventDetail() {
                                     }
                                     className="h-5 text-[9px]"
                                   >
-                                    {item.value ? \`★ \${item.value}/5\` : 'Não avaliado'}
+                                    {item.value ? `★ ${item.value}/5` : 'Não avaliado'}
                                   </Badge>
                                 </div>
                                 <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
