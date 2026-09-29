@@ -24,12 +24,15 @@ test('treinamentos contam somente fiscais operacionais', () => {
   assert.match(training, /const groupChoices = operationalChoices\.filter/);
 });
 
-test('PDF de pagamentos exporta somente quem está pronto e preserva PIX da presença', () => {
-  assert.match(payments, /if \(!readyRows\.length \|\| exportingPdf\) return/);
-  assert.match(payments, /const ids = readyRows\.map/);
-  assert.match(payments, /const pdfRows = readyRows\.map/);
-  assert.match(payments, /attendance_pix_snapshot \|\| row\.link\.pix/);
-  assert.doesNotMatch(payments, /const pdfRows = payableRows\.map/);
+test('PDF de pagamentos consulta o banco no momento da exportação e inclui todos os presentes assinados', () => {
+  assert.match(payments, /from\('ps_event_collaborators'\)/);
+  assert.match(payments, /\.eq\('present', true\)/);
+  assert.match(payments, /\.eq\('absent', false\)/);
+  assert.match(payments, /\.not\('signed_at', 'is', null\)/);
+  assert.match(payments, /const pdfRows = currentSignedLinks\.map/);
+  assert.match(payments, /attendance_pix_snapshot \|\| link\.pix/);
+  assert.match(payments, /PIX pendente/);
+  assert.doesNotMatch(payments, /const pdfRows = readyRows\.map/);
 });
 
 test('histórico de confirmação usa Realtime sem polling contínuo', () => {

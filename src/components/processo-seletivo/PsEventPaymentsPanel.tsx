@@ -194,38 +194,57 @@ export function PsEventPaymentsPanel({ event }: Props) {
   }, [rows, paymentSearch, paymentStatus]);
 
   const exportPdf = async () => {
-    if (!readyRows.length || exportingPdf) return;
+    if (exportingPdf) return;
     setExportingPdf(true);
 
     try {
-      const ids = readyRows.map(row => row.link.id);
-      const { data: signatureRows, error: signatureError } = await (supabase as any)
+      const { data: signedLinks, error: signedLinksError } = await (supabase as any)
         .from('ps_event_collaborators')
-        .select('id,signature_url')
-        .in('id', ids);
-      if (signatureError) throw signatureError;
+        .select('id,collaborator_name,unit,institution,campus,building,floor,room,pix,attendance_pix_snapshot,signature_url,notes,role_value,role_name,assigned_role,pay_value,work_schedule,participation_status,present,absent,signed_at,manually_excluded')
+        .eq('event_id', eventId)
+        .eq('present', true)
+        .eq('absent', false)
+        .eq('manually_excluded', false)
+        .in('participation_status', ['pending_confirmation', 'confirmed'])
+        .not('signed_at', 'is', null)
+        .order('collaborator_name');
+      if (signedLinksError) throw signedLinksError;
 
-      const signatureMap = new Map<string, string | null>(
-        (signatureRows || []).map((item: any) => [item.id, item.signature_url || null]),
-      );
+      const currentSignedLinks = signedLinks || [];
+      if (!currentSignedLinks.length) {
+        toast.error('Nenhum presente com assinatura foi encontrado para o PDF.');
+        return;
+      }
 
-      const pdfRows = readyRows.map(row => ({
-        collaborator_name: row.link.collaborator_name,
-        unit: row.link.unit,
-        institution: row.link.institution,
-        campus: row.link.campus,
-        floor: row.link.floor,
-        room: row.link.room,
-        pix: row.link.attendance_pix_snapshot || row.link.pix,
-        notes: paymentObservation(row.link.notes, row.adjustments),
-        signature_url: signatureMap.get(row.link.id) || null,
-        assignments: row.assignments.map((item: any) => ({
-          role_name: item.role_name,
-          journey_key: item.journey_key,
-          work_schedule: item.work_schedule,
-          pay_value: Number(item.pay_value || 0),
-        })),
-      }));
+      const pdfRows = currentSignedLinks.map((link: any) => {
+        const persisted = assignmentMap.get(link.id) || [];
+        const fallback = persisted.length ? [] : [buildLegacyAssignment(link, roles)].filter(Boolean);
+        const assignments = persisted.length ? persisted : fallback;
+        const adjustments = adjustmentMap.get(String(link.id)) || [];
+        const effectivePix = String(link.attendance_pix_snapshot || link.pix || '').trim();
+        const notes = [
+          paymentObservation(link.notes, adjustments),
+          effectivePix ? '' : 'PIX pendente',
+        ].filter(Boolean).join(' | ');
+
+        return {
+          collaborator_name: link.collaborator_name,
+          unit: link.unit,
+          institution: link.institution,
+          campus: link.campus,
+          floor: link.floor,
+          room: link.room,
+          pix: effectivePix || 'PENDENTE',
+          notes,
+          signature_url: link.signature_url || null,
+          assignments: assignments.map((item: any) => ({
+            role_name: item.role_name,
+            journey_key: item.journey_key,
+            work_schedule: item.work_schedule,
+            pay_value: Number(item.pay_value || 0),
+          })),
+        };
+      });
 
       const eventInfo = {
         name: event.name || '',
@@ -235,6 +254,7 @@ export function PsEventPaymentsPanel({ event }: Props) {
       const slug = String(event.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const pdf = await generatePsPaymentsPdfAsync(eventInfo, pdfRows);
       pdf.save(`pagamentos-${slug || 'evento'}.pdf`);
+      toast.success(`${pdfRows.length} presente(s) com assinatura incluído(s) no PDF.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível gerar o PDF de pagamentos.');
     } finally {
