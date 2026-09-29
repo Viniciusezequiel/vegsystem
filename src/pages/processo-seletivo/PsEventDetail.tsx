@@ -2601,20 +2601,23 @@ export default function PsEventDetail() {
   };
 
   const exportAttendancePdf = async () => {
-    if (!operationalLinks.length) {
-      toast.error('Nenhum colaborador vinculado ao evento.');
+    const { data: attendanceRows, error } = await (supabase as any)
+      .from('ps_event_collaborators')
+      .select(
+        'id, collaborator_name, role_name, assigned_role, role_value, unit, institution, campus, building, floor, room, pix, notes, present, absent, signed_at, signature_url, attendance_pix_snapshot, attendance_role_snapshot, participation_status, manually_excluded'
+      )
+      .eq('event_id', id!)
+      .eq('manually_excluded', false)
+      .in('participation_status', ['pending_confirmation', 'confirmed'])
+      .order('collaborator_name');
+
+    if (error) {
+      toast.error('Não foi possível carregar a lista completa de presença para o PDF.');
       return;
     }
 
-    const { data: attendanceRows, error } = await supabase
-      .from('ps_event_collaborators')
-      .select(
-        'id, signature_url, attendance_pix_snapshot, attendance_role_snapshot'
-      )
-      .eq('event_id', id!);
-
-    if (error) {
-      toast.error('Não foi possível carregar os dados da presença para o PDF.');
+    if (!(attendanceRows || []).length) {
+      toast.error('Nenhum colaborador operacional vinculado ao evento.');
       return;
     }
 
@@ -2664,10 +2667,6 @@ export default function PsEventDetail() {
       ])
     );
 
-    const attendanceById = new Map(
-      (attendanceRows || []).map((row: any) => [row.id, row])
-    );
-
     const adjustmentsById = new Map<string, any[]>();
 
     for (const adjustment of adjustments || []) {
@@ -2681,8 +2680,8 @@ export default function PsEventDetail() {
       );
     }
 
-    const pdfRows = operationalLinks.map((row: any) => {
-      const attendance: any = attendanceById.get(row.id);
+    const pdfRows = (attendanceRows || []).map((row: any) => {
+      const attendance: any = row;
       const absence: any = absenceById.get(row.id);
       const rowAdjustments = adjustmentsById.get(row.id) || [];
 
@@ -2695,6 +2694,18 @@ export default function PsEventDetail() {
         : row.role_name || row.assigned_role;
 
       const observations: string[] = [];
+      const attendanceStatus =
+        row.absent
+          ? 'AUSENTE'
+          : row.signed_at && row.present
+            ? 'PRESENTE / ASSINADO'
+            : row.signed_at
+              ? 'ASSINADO'
+              : 'NÃO ASSINOU';
+
+      if (!row.absent && !row.signed_at) {
+        observations.push('NÃO ASSINOU');
+      }
 
       if (row.notes?.trim()) {
         observations.push(row.notes.trim());
@@ -2746,9 +2757,10 @@ export default function PsEventDetail() {
           row.pix ||
           null,
         signature_url:
-          row.absent && absence?.signature_url
-            ? absence.signature_url
+          row.absent
+            ? null
             : attendance?.signature_url ?? null,
+        attendance_status: attendanceStatus,
         notes: observations.join(' | '),
       };
     });
@@ -2760,6 +2772,12 @@ export default function PsEventDetail() {
     );
 
     pdf.save(`lista-presenca-${slug}.pdf`);
+    const signedCount = pdfRows.filter((row: any) => row.signed_at && !row.absent).length;
+    const absentCount = pdfRows.filter((row: any) => row.absent).length;
+    const unsignedCount = pdfRows.filter((row: any) => !row.signed_at && !row.absent).length;
+    toast.success(
+      `PDF completo: ${pdfRows.length} pessoas · ${signedCount} assinada(s) · ${absentCount} ausente(s) · ${unsignedCount} sem assinatura.`
+    );
   };
 
   if (!event) {

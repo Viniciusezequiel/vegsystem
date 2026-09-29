@@ -43,3 +43,15 @@ test('histórico de confirmação usa Realtime sem polling contínuo', () => {
   assert.match(eventDetail, /refetchOnWindowFocus: false/);
   assert.doesNotMatch(eventDetail, /refetchInterval:/);
 });
+
+
+test('PDF de presença consulta lista operacional completa e identifica status', () => {
+  assert.match(detail, /\.eq\('manually_excluded', false\)/);
+  assert.match(detail, /\.in\('participation_status', \['pending_confirmation', 'confirmed'\]\)/);
+  assert.match(detail, /attendanceStatus/);
+  assert.match(detail, /PRESENTE \/ ASSINADO/);
+  assert.match(detail, /NÃO ASSINOU/);
+  assert.match(detail, /row\.absent\s*\?\s*null/);
+  assert.match(pdf, /label: 'STATUS'/);
+  assert.match(pdf, /attendance_status/);
+});

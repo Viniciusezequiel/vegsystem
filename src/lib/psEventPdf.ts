@@ -438,6 +438,8 @@ export interface PsAttendanceRow extends PsBadgeRow {
   signature_url?: string | null;
   notes?: string | null;
   absent?: boolean;
+  signed_at?: string | null;
+  attendance_status?: string | null;
 }
 
 export interface PsAttendanceClosure {
@@ -465,17 +467,22 @@ export function generatePsAttendancePdf(
   const tableW = PW - ML - MR;
 
   const cols = [
-    { key: 'name', label: 'FISCAL', w: 0.16 },
-    { key: 'unit', label: 'UNIDADE', w: 0.11 },
-    { key: 'role', label: 'FUNÇÃO', w: 0.16 },
-    { key: 'floor', label: 'ANDAR', w: 0.07 },
-    { key: 'room', label: 'SALA', w: 0.06 },
-    { key: 'pix', label: 'PIX', w: 0.12 },
-    { key: 'sign', label: 'ASSINATURA', w: 0.14 },
+    { key: 'name', label: 'FISCAL', w: 0.15 },
+    { key: 'unit', label: 'UNIDADE', w: 0.08 },
+    { key: 'role', label: 'FUNÇÃO', w: 0.15 },
+    { key: 'floor', label: 'ANDAR', w: 0.06 },
+    { key: 'room', label: 'SALA', w: 0.05 },
+    { key: 'pix', label: 'PIX', w: 0.10 },
+    { key: 'sign', label: 'ASSINATURA', w: 0.13 },
+    { key: 'status', label: 'STATUS', w: 0.10 },
     { key: 'obs', label: 'OBSERVAÇÃO / ALTERAÇÃO', w: 0.18 },
   ].map((c) => ({ ...c, width: c.w * tableW }));
 
+  const statusOrder = (row: PsAttendanceRow) =>
+    row.absent ? 1 : row.signature_url ? 0 : 2;
+
   const sorted = [...rows].sort((a, b) =>
+    statusOrder(a) - statusOrder(b) ||
     (a.collaborator_name || '').localeCompare(b.collaborator_name || '', 'pt-BR'));
 
   let y = 0;
@@ -534,7 +541,7 @@ export function generatePsAttendancePdf(
     doc.setTextColor(35, 40, 48);
     let cx = ML;
     cols.forEach((c) => {
-      const center = ['sign', 'obs'].includes(c.key);
+      const center = ['sign', 'status', 'obs'].includes(c.key);
       const lines = doc.splitTextToSize(c.label, c.width - 4);
       doc.text(lines, center ? cx + c.width / 2 : cx + 2, y + (lines.length > 1 ? 4 : 5.8), {
         align: center ? 'center' : 'left',
@@ -575,14 +582,15 @@ export function generatePsAttendancePdf(
         else if (c.key === 'floor') text = row.floor || '-';
         else if (c.key === 'room') text = row.room || '-';
         else if (c.key === 'pix') text = row.pix || '—';
+        else if (c.key === 'status') text = row.attendance_status || (row.absent ? 'AUSENTE' : row.signature_url ? 'PRESENTE / ASSINADO' : 'NÃO ASSINOU');
         else if (c.key === 'obs') {
           text = row.absent
             ? (row.notes || 'AUSENTE')
             : (row.notes || '');
         }
 
-        doc.setFont('helvetica', c.key === 'name' ? 'bold' : 'normal');
-        doc.setFontSize(c.key === 'obs' ? 6.5 : 7.5);
+        doc.setFont('helvetica', ['name', 'status'].includes(c.key) ? 'bold' : 'normal');
+        doc.setFontSize(c.key === 'obs' ? 6.5 : c.key === 'status' ? 6.4 : 7.5);
         doc.setTextColor(30, 35, 42);
 
         const maxLines = c.key === 'obs' ? 4 : 3;
