@@ -55,3 +55,15 @@ test('PDF de presença consulta lista operacional completa e identifica status',
   assert.match(pdf, /label: 'STATUS'/);
   assert.match(pdf, /attendance_status/);
 });
+
+
+test('pagamentos classificam automaticamente e permitem decisão manual auditável', () => {
+  assert.match(payments, /automaticDecision/);
+  assert.match(payments, /Presença e assinatura estão divergentes/);
+  assert.match(payments, /ajuste\(s\) ainda precisam de conferência/);
+  assert.match(payments, /ps_event_payment_decision_overrides/);
+  assert.match(payments, /ps_set_payment_decision_override/);
+  assert.match(payments, /ps_clear_payment_decision_override/);
+  assert.match(payments, /Intervenção manual no pagamento/);
+  assert.match(payments, /Justificativa obrigatória/);
+});
