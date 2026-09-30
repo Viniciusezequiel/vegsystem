@@ -83,6 +83,20 @@ export default function PsEventDetail() {
   const clearTeam = usePsClearEventTeam();
   const confirmationActions = usePsConfirmationActions(id);
   const { data: eventCommunications = [] } = usePsEventCommunications(id);
+  const { data: operationalResolutions = [] } = useQuery({
+    queryKey: ['ps_event_operational_resolutions', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ps_event_operational_resolutions')
+        .select('id,event_id,issue_key,entity_key,resolution_type,reason,resolved_by,resolved_at,active')
+        .eq('event_id', id!)
+        .eq('active', true)
+        .order('resolved_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const [addOpen, setAddOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
@@ -118,6 +132,9 @@ export default function PsEventDetail() {
   const [candidateView, setCandidateView] = useState<'list' | 'rooms'>('list');
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [finalizeAcknowledged, setFinalizeAcknowledged] = useState(false);
+  const [manualResolutionItem, setManualResolutionItem] = useState<any>(null);
+  const [manualResolutionReason, setManualResolutionReason] = useState('');
+  const [savingManualResolution, setSavingManualResolution] = useState(false);
 
   const [evaluationSearch, setEvaluationSearch] = useState('');
   const [evaluationClassification, setEvaluationClassification] = useState('all');
@@ -138,6 +155,59 @@ export default function PsEventDetail() {
     if (nextTab === 'visao-geral') nextParams.delete('tab');
     else nextParams.set('tab', nextTab);
     setSearchParams(nextParams, { replace: true });
+  };
+
+  const operationalResolutionMap = useMemo(
+    () => new Map(
+      (operationalResolutions as any[])
+        .filter((item: any) => item.active && String(item.entity_key || 'event') === 'event')
+        .map((item: any) => [String(item.issue_key), item])
+    ),
+    [operationalResolutions]
+  );
+
+  const saveManualResolution = async () => {
+    if (!id || !manualResolutionItem) return;
+    const reason = manualResolutionReason.trim();
+    if (reason.length < 3) {
+      toast.error('Informe o motivo da intervenção manual.');
+      return;
+    }
+    setSavingManualResolution(true);
+    try {
+      const { error } = await (supabase as any).rpc('ps_set_event_operational_resolution', {
+        p_event_id: id,
+        p_issue_key: manualResolutionItem.key,
+        p_reason: reason,
+        p_resolution_type: 'manual_exception',
+        p_entity_key: 'event',
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['ps_event_operational_resolutions', id] });
+      toast.success('Intervenção manual registrada com histórico.');
+      setManualResolutionItem(null);
+      setManualResolutionReason('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível registrar a intervenção manual.');
+    } finally {
+      setSavingManualResolution(false);
+    }
+  };
+
+  const clearManualResolution = async (issueKey: string) => {
+    if (!id) return;
+    try {
+      const { error } = await (supabase as any).rpc('ps_clear_event_operational_resolution', {
+        p_event_id: id,
+        p_issue_key: issueKey,
+        p_entity_key: 'event',
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['ps_event_operational_resolutions', id] });
+      toast.success('Intervenção manual removida. A regra automática voltou a valer.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível remover a intervenção manual.');
+    }
   };
 
   useEffect(() => {
@@ -1197,7 +1267,16 @@ export default function PsEventDetail() {
       tab: paymentOverview.missingPix ? 'pagamentos' : undefined,
     });
 
-    return items;
+    return items.map((item) => {
+      const manualResolution: any = operationalResolutionMap.get(item.key);
+      if (!manualResolution || !['critical', 'warning'].includes(item.status)) return item;
+      return {
+        ...item,
+        originalStatus: item.status,
+        status: 'ready' as const,
+        manualResolution,
+      };
+    });
   }, [
     daysUntilEvent,
     eventPhase,
@@ -1209,13 +1288,15 @@ export default function PsEventDetail() {
     attendancePendingCount,
     openAttendanceLocations,
     paymentOverview,
+    operationalResolutionMap,
   ]);
 
   const finalizationSummary = useMemo(() => ({
-    critical: finalizationChecklist.filter((item) => item.status === 'critical').length,
-    warning: finalizationChecklist.filter((item) => item.status === 'warning').length,
-    ready: finalizationChecklist.filter((item) => item.status === 'ready').length,
-    info: finalizationChecklist.filter((item) => item.status === 'info').length,
+    critical: finalizationChecklist.filter((item: any) => item.status === 'critical').length,
+    warning: finalizationChecklist.filter((item: any) => item.status === 'warning').length,
+    ready: finalizationChecklist.filter((item: any) => item.status === 'ready' && !item.manualResolution).length,
+    manual: finalizationChecklist.filter((item: any) => !!item.manualResolution).length,
+    info: finalizationChecklist.filter((item: any) => item.status === 'info').length,
   }), [finalizationChecklist]);
 
   const preparationItems = useMemo(() => {
@@ -5040,6 +5121,62 @@ export default function PsEventDetail() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={!!manualResolutionItem}
+        onOpenChange={(open) => {
+          if (savingManualResolution) return;
+          if (!open) {
+            setManualResolutionItem(null);
+            setManualResolutionReason('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Registrar intervenção manual</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-xl border border-primary/15 bg-primary/[0.03] p-3">
+              <p className="text-sm font-semibold">{manualResolutionItem?.label}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{manualResolutionItem?.detail}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-resolution-reason">Justificativa obrigatória</Label>
+              <Textarea
+                id="manual-resolution-reason"
+                value={manualResolutionReason}
+                onChange={(event) => setManualResolutionReason(event.target.value)}
+                placeholder="Ex.: situação validada diretamente com a coordenação; seguir com o fechamento mesmo com esta exceção."
+                rows={4}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                A regra automática continua registrada; esta ação apenas documenta que a exceção foi aceita manualmente.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={savingManualResolution}
+              onClick={() => {
+                setManualResolutionItem(null);
+                setManualResolutionReason('');
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={savingManualResolution || manualResolutionReason.trim().length < 3}
+              onClick={saveManualResolution}
+            >
+              {savingManualResolution ? 'Registrando...' : 'Registrar intervenção'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Checklist de finalização */}
       <Dialog
         open={finalizeOpen}
@@ -5072,7 +5209,7 @@ export default function PsEventDetail() {
               </div>
             </div>
 
-            <div className="relative mt-4 grid grid-cols-3 gap-2">
+            <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <div className="rounded-2xl border border-destructive/20 bg-destructive/[0.045] p-3">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-destructive/80">Críticos</p>
                 <p className="mt-1 text-xl font-bold text-destructive">{finalizationSummary.critical}</p>
@@ -5080,6 +5217,10 @@ export default function PsEventDetail() {
               <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-3">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-500/80">Alertas</p>
                 <p className="mt-1 text-xl font-bold text-amber-500">{finalizationSummary.warning}</p>
+              </div>
+              <div className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-primary/80">Intervenção manual</p>
+                <p className="mt-1 text-xl font-bold text-primary">{finalizationSummary.manual}</p>
               </div>
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-emerald-500/80">Concluídos</p>
@@ -5093,7 +5234,9 @@ export default function PsEventDetail() {
               {finalizationChecklist.map((item) => (
                 <div
                   key={item.key}
-                  className={`flex items-start gap-3 rounded-2xl border p-3.5 ${item.status === 'critical'
+                  className={`flex items-start gap-3 rounded-2xl border p-3.5 ${(item as any).manualResolution
+                    ? 'border-primary/20 bg-primary/[0.035]'
+                    : item.status === 'critical'
                     ? 'border-destructive/20 bg-destructive/[0.035]'
                     : item.status === 'warning'
                       ? 'border-amber-500/20 bg-amber-500/[0.03]'
@@ -5101,14 +5244,18 @@ export default function PsEventDetail() {
                         ? 'border-emerald-500/15 bg-emerald-500/[0.025]'
                         : 'border-border/60 bg-muted/[0.025]'}`}
                 >
-                  <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${item.status === 'critical'
+                  <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${(item as any).manualResolution
+                    ? 'bg-primary/10 text-primary'
+                    : item.status === 'critical'
                     ? 'bg-destructive/10 text-destructive'
                     : item.status === 'warning'
                       ? 'bg-amber-500/10 text-amber-500'
                       : item.status === 'ready'
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : 'bg-muted/60 text-muted-foreground'}`}>
-                    {item.status === 'ready'
+                    {(item as any).manualResolution
+                      ? <ShieldCheck className="h-4 w-4" />
+                      : item.status === 'ready'
                       ? <CheckCircle2 className="h-4 w-4" />
                       : item.status === 'info'
                         ? <CalendarDays className="h-4 w-4" />
@@ -5120,7 +5267,9 @@ export default function PsEventDetail() {
                       <p className="text-xs font-semibold">{item.label}</p>
                       <Badge
                         variant="outline"
-                        className={`rounded-full px-2 text-[8px] uppercase tracking-wide ${item.status === 'critical'
+                        className={`rounded-full px-2 text-[8px] uppercase tracking-wide ${(item as any).manualResolution
+                          ? 'border-primary/20 text-primary'
+                          : item.status === 'critical'
                           ? 'border-destructive/20 text-destructive'
                           : item.status === 'warning'
                             ? 'border-amber-500/20 text-amber-500'
@@ -5128,7 +5277,9 @@ export default function PsEventDetail() {
                               ? 'border-emerald-500/20 text-emerald-500'
                               : 'text-muted-foreground'}`}
                       >
-                        {item.status === 'critical'
+                        {(item as any).manualResolution
+                          ? 'Manual'
+                          : item.status === 'critical'
                           ? 'Crítico'
                           : item.status === 'warning'
                             ? 'Atenção'
@@ -5140,24 +5291,55 @@ export default function PsEventDetail() {
                     <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                       {item.detail}
                     </p>
+                    {(item as any).manualResolution && (
+                      <p className="mt-1.5 text-[10px] leading-relaxed text-primary">
+                        Intervenção manual: {(item as any).manualResolution.reason}
+                      </p>
+                    )}
                   </div>
 
-                  {item.tab && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 shrink-0 rounded-lg px-2 text-[10px]"
-                      onClick={() => {
-                        changeActiveTab(item.tab!);
-                        setFinalizeOpen(false);
-                        setFinalizeAcknowledged(false);
-                      }}
-                    >
-                      Revisar
-                      <ArrowRight className="ml-1 h-3 w-3" />
-                    </Button>
-                  )}
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {item.tab && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 rounded-lg px-2 text-[10px]"
+                        onClick={() => {
+                          changeActiveTab(item.tab!);
+                          setFinalizeOpen(false);
+                          setFinalizeAcknowledged(false);
+                        }}
+                      >
+                        Revisar
+                        <ArrowRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    )}
+                    {(item as any).manualResolution ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 rounded-lg px-2 text-[9px] text-primary"
+                        onClick={() => clearManualResolution(item.key)}
+                      >
+                        Remover exceção
+                      </Button>
+                    ) : ['critical', 'warning'].includes(item.status) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 rounded-lg px-2 text-[9px]"
+                        onClick={() => {
+                          setManualResolutionItem(item);
+                          setManualResolutionReason('');
+                        }}
+                      >
+                        Intervenção manual
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>
