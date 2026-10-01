@@ -10,6 +10,7 @@ export type PsPaymentAssignment = {
 };
 
 export type PsPaymentCollaborator = {
+  id?: string;
   collaborator_name: string;
   unit?: string | null;
   institution?: string | null;
@@ -98,6 +99,10 @@ export function generatePsPaymentsPdf(event: PsPaymentEvent, rows: PsPaymentColl
     doc.setTextColor(80, 86, 95);
     doc.text(event.name || '', PW / 2, y, { align: 'center' });
     y += 5;
+    doc.setFontSize(8);
+    doc.setTextColor(100, 106, 115);
+    doc.text(`Total no relatório: ${rows.length} pessoa(s)`, PW / 2, y, { align: 'center' });
+    y += 4;
 
     const sub = [
       event.date ? `Data: ${event.date}` : '',

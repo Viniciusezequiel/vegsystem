@@ -2846,6 +2846,17 @@ export default function PsEventDetail() {
       };
     });
 
+    const sourceIds = new Set((attendanceRows || []).map((row: any) => String(row.id)));
+    const preparedIds = new Set(pdfRows.map((row: any) => String(row.id)));
+    const missingIds = [...sourceIds].filter((rowId) => !preparedIds.has(rowId));
+
+    if (pdfRows.length !== (attendanceRows || []).length || missingIds.length) {
+      toast.error(
+        `Falha de integridade: ${(attendanceRows || []).length} pessoas foram encontradas no banco, mas ${pdfRows.length} foram preparadas para o PDF.`
+      );
+      return;
+    }
+
     const pdf = await generatePsAttendancePdfAsync(
       eventInfo(),
       pdfRows as any,

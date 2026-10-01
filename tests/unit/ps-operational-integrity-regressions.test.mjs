@@ -67,3 +67,12 @@ test('pagamentos classificam automaticamente e permitem decisão manual auditáv
   assert.match(payments, /Intervenção manual no pagamento/);
   assert.match(payments, /Justificativa obrigatória/);
 });
+
+
+test('PDFs de presença e pagamento validam integridade antes de salvar', () => {
+  assert.match(payments, /Falha de integridade/);
+  assert.match(payments, /sourceIds/);
+  assert.match(payments, /preparedIds/);
+  assert.match(detail, /missingIds/);
+  assert.match(detail, /Falha de integridade/);
+});

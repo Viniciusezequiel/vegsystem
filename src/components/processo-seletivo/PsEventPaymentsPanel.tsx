@@ -347,6 +347,7 @@ export function PsEventPaymentsPanel({ event }: Props) {
         ].filter(Boolean).join(' | ');
 
         return {
+          id: link.id,
           collaborator_name: link.collaborator_name,
           unit: link.unit,
           institution: link.institution,
@@ -371,6 +372,17 @@ export function PsEventPaymentsPanel({ event }: Props) {
         location: event.location || null,
       };
       const slug = String(event.name || 'evento').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      if (pdfRows.length !== currentSignedLinks.length) {
+        throw new Error(`Falha de integridade: ${currentSignedLinks.length} presentes assinados foram encontrados, mas apenas ${pdfRows.length} foram preparados para o PDF.`);
+      }
+
+      const sourceIds = new Set(currentSignedLinks.map((link: any) => String(link.id)));
+      const preparedIds = new Set(pdfRows.map((row: any) => String(row.id)));
+      const missing = [...sourceIds].filter((id) => !preparedIds.has(id));
+      if (missing.length) {
+        throw new Error(`Falha de integridade: ${missing.length} pessoa(s) ficaram fora da preparação do PDF. Gere novamente após atualizar a página.`);
+      }
+
       const pdf = await generatePsPaymentsPdfAsync(eventInfo, pdfRows);
       pdf.save(`pagamentos-${slug || 'evento'}.pdf`);
       toast.success(`${pdfRows.length} presente(s) com assinatura incluído(s) no PDF.`);
