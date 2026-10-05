@@ -1,15 +1,18 @@
 import { ClipboardCheck, Settings } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { ModuleNav, type ModuleNavItem } from '@/components/layout/ModuleNav';
 import { useAuth } from '@/contexts/AuthContext';
+import { RecurringTasksControl } from '@/components/tasks/RecurringTasksControl';
 
 export function TasksModuleNav() {
   const { isAdmin } = useAuth();
+  const { pathname } = useLocation();
   const items: ModuleNavItem[] = [
     {
       label: 'Minhas Demandas',
       href: '/tasks/my-tasks',
       icon: ClipboardCheck,
-      activeWhen: pathname => pathname.startsWith('/tasks/my-tasks'),
+      activeWhen: currentPath => currentPath.startsWith('/tasks/my-tasks'),
     },
     ...(isAdmin
       ? [
@@ -17,17 +20,20 @@ export function TasksModuleNav() {
             label: 'Gestão de Demandas',
             href: '/tasks',
             icon: Settings,
-            activeWhen: (pathname: string) => pathname === '/tasks' || pathname.startsWith('/tasks/dashboard'),
+            activeWhen: (currentPath: string) => currentPath === '/tasks' || currentPath.startsWith('/tasks/dashboard'),
           },
         ]
       : []),
   ];
 
   return (
-    <ModuleNav
-      title="Demandas"
-      description="Acompanhe e gerencie solicitações internas"
-      items={items}
-    />
+    <>
+      <ModuleNav
+        title="Demandas"
+        description="Acompanhe e gerencie solicitações internas"
+        items={items}
+      />
+      {isAdmin && pathname === '/tasks' && <RecurringTasksControl />}
+    </>
   );
 }

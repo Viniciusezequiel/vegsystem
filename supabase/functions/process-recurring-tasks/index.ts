@@ -15,7 +15,9 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // ---- Authorization: cron secret OR an authenticated admin user ----
+    // Custom authorization: cron secret OR an authenticated admin user.
+    // verify_jwt is disabled at the gateway because pg_cron authenticates
+    // with x-cron-secret and legacy service-role JWTs are rejected there.
     const cronSecret = Deno.env.get("RECURRING_TASKS_CRON_SECRET");
     const providedSecret = req.headers.get("x-cron-secret");
     let authorized = !!cronSecret && providedSecret === cronSecret;
@@ -45,14 +47,11 @@ Deno.serve(async (req) => {
       });
     }
 
-
-    // Use America/Sao_Paulo for day-of-week calculation
     const tzNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
     const today = tzNow.toISOString().split("T")[0];
-    const currentDayOfWeek = tzNow.getDay(); // 0=Sun ... 6=Sat
+    const currentDayOfWeek = tzNow.getDay();
     const currentDayStr = String(currentDayOfWeek);
 
-    // Fetch ALL recurring task templates (any status). We use recurrence_last_run_date for dedupe.
     const { data: recurringTasks, error: fetchError } = await supabase
       .from("tasks")
       .select("*")
@@ -62,8 +61,8 @@ Deno.serve(async (req) => {
 
     if (!recurringTasks || recurringTasks.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No recurring tasks", created: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ message: "No recurring tasks", created: 0, today, currentDayOfWeek }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -74,7 +73,6 @@ Deno.serve(async (req) => {
       const recurrenceDays: string[] | null = task.recurrence_days || null;
       const lastRun: string | null = task.recurrence_last_run_date || null;
 
-      // Already generated today → skip
       if (lastRun === today) continue;
 
       let shouldCreate = false;
@@ -83,18 +81,15 @@ Deno.serve(async (req) => {
         shouldCreate = true;
       } else if (recurrenceType === "weekly") {
         if (recurrenceDays && recurrenceDays.length > 0) {
-          // New mode: explicit weekdays
           shouldCreate = recurrenceDays.includes(currentDayStr);
         } else {
-          // Legacy: same weekday as original creation, once per week
           const originalDay = new Date(task.created_at).getDay();
           if (currentDayOfWeek === originalDay) {
-            // Avoid duplicate in same week
             if (!lastRun) {
               shouldCreate = true;
             } else {
               const daysSince = Math.floor(
-                (tzNow.getTime() - new Date(lastRun + "T00:00:00").getTime()) / 86400000
+                (tzNow.getTime() - new Date(lastRun + "T00:00:00").getTime()) / 86400000,
               );
               shouldCreate = daysSince >= 7;
             }
@@ -103,9 +98,7 @@ Deno.serve(async (req) => {
       } else if (recurrenceType === "monthly") {
         const originalDate = new Date(task.created_at).getDate();
         if (tzNow.getDate() === originalDate) {
-          if (!lastRun || lastRun.slice(0, 7) !== today.slice(0, 7)) {
-            shouldCreate = true;
-          }
+          if (!lastRun || lastRun.slice(0, 7) !== today.slice(0, 7)) shouldCreate = true;
         }
       } else if (recurrenceType === "semiannual") {
         const orig = new Date(task.created_at);
@@ -117,22 +110,19 @@ Deno.serve(async (req) => {
 
       if (!shouldCreate) continue;
 
-      // Skip if an identical pending/in_progress task for today already exists
-      const { count: dupCount } = await supabase
+      const { count: dupCount, error: dupError } = await supabase
         .from("tasks")
         .select("id", { count: "exact", head: true })
-        .eq("title", task.title)
-        .eq("recurrence_type", recurrenceType)
-        .in("status", ["pending", "in_progress"])
+        .eq("recurrence_parent_id", task.id)
         .gte("created_at", `${today}T00:00:00`)
         .lte("created_at", `${today}T23:59:59`);
 
+      if (dupError) throw dupError;
       if (dupCount && dupCount > 0) {
         await supabase.from("tasks").update({ recurrence_last_run_date: today }).eq("id", task.id);
         continue;
       }
 
-      // Shift event datetimes to today if present
       let newEventStart: string | null = null;
       let newEventEnd: string | null = null;
       if (task.event_start_datetime && task.event_end_datetime) {
@@ -157,7 +147,9 @@ Deno.serve(async (req) => {
         estimated_hours: task.estimated_hours,
         tags: task.tags,
         notes: task.notes,
-        recurrence_type: null, // children are not themselves recurring templates
+        recurrence_type: null,
+        recurrence_days: null,
+        recurrence_parent_id: task.id,
         event_start_datetime: newEventStart,
         event_end_datetime: newEventEnd,
         created_by_name: task.created_by_name || "Sistema (Recorrência)",
@@ -175,13 +167,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ message: "Processed", created: createdCount, today, currentDayOfWeek }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Error processing recurring tasks:", error);
     return new Response(
       JSON.stringify({ error: (error as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
