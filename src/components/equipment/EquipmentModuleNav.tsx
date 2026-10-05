@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeftRight, Boxes, KeyRound, Search, X } from 'lucide-react';
+import { ArrowLeftRight, Beaker, Boxes, Search, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -28,7 +28,7 @@ export function EquipmentModuleNav() {
             <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary/70">Módulo operacional</p>
             <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Gestão de Equipamentos</h1>
             <p className="mt-1 max-w-2xl text-xs text-muted-foreground sm:text-sm">
-              Inventário, empréstimos, chaves e utilização de laboratórios em um só lugar.
+              Inventário, empréstimos e utilização de laboratórios em um só lugar.
             </p>
           </div>
 
@@ -69,9 +69,8 @@ export function EquipmentModuleNav() {
               onClick={() => setLabOpen(true)}
               className="flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-all hover:bg-card/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             >
-              <KeyRound className="h-4 w-4" />
-              <span className="hidden sm:inline">Chaves e Laboratórios</span>
-              <span className="sm:hidden">Chaves/Lab</span>
+              <Beaker className="h-4 w-4" />
+              <span>Laboratórios</span>
             </button>
           </nav>
         </div>
@@ -81,8 +80,8 @@ export function EquipmentModuleNav() {
         <DialogContent className="max-h-[94vh] w-[96vw] max-w-[1500px] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <KeyRound className="h-5 w-5 text-primary" />
-              Chaves e Laboratórios
+              <Beaker className="h-5 w-5 text-primary" />
+              Laboratórios
             </DialogTitle>
           </DialogHeader>
 
@@ -91,7 +90,7 @@ export function EquipmentModuleNav() {
             <Input
               value={labSearch}
               onChange={(event) => setLabSearch(event.target.value)}
-              placeholder="Buscar responsável, setor, chave, material ou funcionário..."
+              placeholder="Buscar responsável, setor, material ou funcionário..."
               className="h-10 pl-9 pr-10"
             />
             {labSearch && (
