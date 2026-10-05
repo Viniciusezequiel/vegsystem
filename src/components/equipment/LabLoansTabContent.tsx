@@ -10,7 +10,7 @@ import { SignaturePad } from '@/components/ui/SignaturePad';
 import { cn } from '@/lib/utils';
 import { auditUserName, useAuditUserNames } from '@/hooks/useAuditUserNames';
 import { useEquipmentList } from '@/hooks/useEquipment';
-import { useAvailableLabLockers, useCreateLabLoan, useLabLoans, useReturnLabLoan, type LabLoan } from '@/hooks/useLabLoans';
+import { useCreateLabLoan, useLabLoans, useReturnLabLoan, type LabLoan } from '@/hooks/useLabLoans';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -18,8 +18,6 @@ import {
   Clock3,
   Database,
   History,
-  KeyRound,
-  Package,
   Plus,
   RotateCcw,
   Search,
@@ -63,7 +61,6 @@ const freshForm = () => ({
   activity_type: 'aula',
   activity_other: '',
   shift: 'manha',
-  locker_id: '',
   notes: '',
 });
 
@@ -143,7 +140,6 @@ function RegisteredEquipmentPicker({
 
 export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
   const { data: loans = [], isLoading } = useLabLoans();
-  const { data: lockers = [] } = useAvailableLabLockers();
   const createLoan = useCreateLabLoan();
   const returnLoan = useReturnLabLoan();
 
@@ -169,9 +165,14 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
   );
   const { data: auditUsers = {} } = useAuditUserNames(auditIds);
 
+  const materialLoans = useMemo(
+    () => loans.filter((loan) => (loan.items || []).some((item) => item.item_type !== 'locker')),
+    [loans]
+  );
+
   const materialHistory = useMemo(() => {
     const map = new Map<string, { name: string; count: number }>();
-    for (const loan of loans) {
+    for (const loan of materialLoans) {
       for (const item of loan.items || []) {
         const name = String(item.manual_item_name || '').trim();
         if (item.item_type !== 'manual' || !name) continue;
@@ -181,7 +182,7 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
       }
     }
     return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pt-BR'));
-  }, [loans]);
+  }, [materialLoans]);
 
   const materialSuggestions = useMemo(() => {
     const query = materialName.trim().toLocaleLowerCase('pt-BR');
@@ -191,25 +192,24 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
   }, [materialHistory, materialName]);
 
   const counts = useMemo(() => ({
-    active: loans.filter((loan) => loan.status === 'active').length,
-    returned: loans.filter((loan) => loan.status === 'returned').length,
-    keys: loans
+    active: materialLoans.filter((loan) => loan.status === 'active').length,
+    returned: materialLoans.filter((loan) => loan.status === 'returned').length,
+    materials: materialLoans
       .filter((loan) => loan.status === 'active')
       .flatMap((loan) => loan.items || [])
-      .filter((item) => item.item_type === 'locker' && item.active).length,
-  }), [loans]);
+      .filter((item) => item.item_type !== 'locker' && item.active)
+      .reduce((total, item) => total + Math.max(1, Number(item.quantity || 1)), 0),
+  }), [materialLoans]);
 
   const filtered = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return loans.filter((loan) => {
+    return materialLoans.filter((loan) => {
       if (loan.status !== view) return false;
       if (!query) return true;
-      const items = (loan.items || []).map((item) => [
-        item.locker?.code,
-        item.locker?.location,
-        item.equipment?.name,
-        item.manual_item_name,
-      ].filter(Boolean).join(' ')).join(' ');
+      const items = (loan.items || [])
+        .filter((item) => item.item_type !== 'locker')
+        .map((item) => [item.equipment?.name, item.manual_item_name].filter(Boolean).join(' '))
+        .join(' ');
       return [
         loan.borrower_name,
         loan.borrower_sector,
@@ -219,7 +219,7 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
         auditUserName(auditUsers, loan.loaned_by, ''),
       ].filter(Boolean).join(' ').toLowerCase().includes(query);
     });
-  }, [loans, view, searchQuery, auditUsers]);
+  }, [materialLoans, view, searchQuery, auditUsers]);
 
   const resetCreate = () => {
     setForm(freshForm());
@@ -264,32 +264,27 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
       toast.error('Informe qual é a atividade.');
       return;
     }
-
-    const items: Array<any> = [];
-    if (form.locker_id) {
-      items.push({ item_type: 'locker', locker_id: form.locker_id, quantity: 1, usage_mode: 'removal' });
+    if (!materialDrafts.length) {
+      toast.error('Informe ao menos um material.');
+      return;
     }
-    for (const draft of materialDrafts) {
+
+    const items = materialDrafts.map((draft) => {
       if (draft.source === 'equipment' && draft.equipmentId) {
-        items.push({
+        return {
           item_type: 'equipment',
           equipment_id: draft.equipmentId,
           quantity: draft.quantity,
           usage_mode: draft.usageMode,
-        });
-      } else {
-        items.push({
-          item_type: 'manual',
-          manual_item_name: draft.name,
-          quantity: draft.quantity,
-          usage_mode: draft.usageMode,
-        });
+        };
       }
-    }
-    if (!items.length) {
-      toast.error('Informe ao menos uma chave/armário ou material.');
-      return;
-    }
+      return {
+        item_type: 'manual',
+        manual_item_name: draft.name,
+        quantity: draft.quantity,
+        usage_mode: draft.usageMode,
+      };
+    });
 
     await createLoan.mutateAsync({
       borrower_name: form.borrower_name,
@@ -334,7 +329,7 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
   const formatDateTime = (value: string) => format(parseISO(value), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
 
   if (isLoading) {
-    return <div className="rounded-2xl border border-border/40 bg-card/40 p-10 text-center text-sm text-muted-foreground">Carregando chaves e laboratórios...</div>;
+    return <div className="rounded-2xl border border-border/40 bg-card/40 p-10 text-center text-sm text-muted-foreground">Carregando empréstimos de laboratório...</div>;
   }
 
   return (
@@ -347,8 +342,8 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
           </div>
         </button>
         <div className="rounded-xl border border-border/40 bg-card/40 p-3">
-          <p className="text-[10px] text-muted-foreground">Chaves em uso</p>
-          <p className="mt-0.5 text-2xl font-bold tabular-nums text-amber-400">{counts.keys}</p>
+          <p className="text-[10px] text-muted-foreground">Materiais em uso</p>
+          <p className="mt-0.5 text-2xl font-bold tabular-nums text-amber-400">{counts.materials}</p>
         </div>
         <button type="button" onClick={() => setView('returned')} className="text-left">
           <div className={cn('rounded-xl border p-3 transition', view === 'returned' ? 'border-emerald-500/30 bg-emerald-500/[0.06]' : 'border-border/40 bg-card/40 hover:border-emerald-500/20')}>
@@ -360,29 +355,28 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
 
       <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card/40 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold">Chaves e Laboratórios</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">Substitui a ficha em papel e registra automaticamente quem entregou e recebeu a devolução.</p>
+          <p className="text-sm font-semibold">Laboratórios</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Controle os materiais utilizados ou retirados dos laboratórios com registro de responsável e devolução.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="h-9 shrink-0"><Plus className="mr-2 h-4 w-4" /> Novo registro</Button>
       </div>
 
       {!filtered.length ? (
         <div className="rounded-2xl border border-dashed border-border/50 bg-card/30 px-5 py-12 text-center">
-          <KeyRound className="mx-auto h-9 w-9 text-muted-foreground/40" />
+          <Beaker className="mx-auto h-9 w-9 text-muted-foreground/40" />
           <p className="mt-3 text-sm font-medium">Nenhum registro encontrado</p>
-          <p className="mt-1 text-xs text-muted-foreground">Os empréstimos de chaves e materiais do laboratório aparecerão aqui.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Os empréstimos de materiais do laboratório aparecerão aqui.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map((loan) => {
-            const lockerItems = (loan.items || []).filter((item) => item.item_type === 'locker');
             const materialItems = (loan.items || []).filter((item) => item.item_type !== 'locker');
             return (
               <article key={loan.id} className="rounded-2xl border border-border/40 bg-card/50 p-3">
-                <div className="grid gap-3 xl:grid-cols-[1.2fr_.8fr_.8fr_auto] xl:items-center">
+                <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr_auto] xl:items-center">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border', loan.status === 'active' ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300')}>
-                      {lockerItems.length ? <KeyRound className="h-5 w-5" /> : <Beaker className="h-5 w-5" />}
+                      <Beaker className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -392,12 +386,6 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
                       </div>
                       <p className="mt-1 truncate text-[10px] text-muted-foreground">{loan.borrower_sector} · {activityLabels[loan.activity_type]}{loan.activity_type === 'outra' && loan.activity_other ? `: ${loan.activity_other}` : ''}</p>
                     </div>
-                  </div>
-
-                  <div className="text-xs">
-                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Chave / armário</p>
-                    <p className="mt-1 font-medium">{lockerItems.length ? lockerItems.map((item) => item.locker?.code || 'Armário').join(', ') : 'Sem chave'}</p>
-                    {lockerItems[0]?.locker?.location && <p className="mt-0.5 text-[10px] text-muted-foreground">{lockerItems[0].locker.location}</p>}
                   </div>
 
                   <div className="text-xs">
@@ -434,7 +422,7 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
 
       <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetCreate(); }}>
         <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
-          <DialogHeader><DialogTitle>Novo empréstimo — Chaves e Laboratórios</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Novo empréstimo — Laboratórios</DialogTitle></DialogHeader>
           <div className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5"><Label>Responsável *</Label><Input value={form.borrower_name} onChange={(e) => setForm({ ...form, borrower_name: e.target.value })} placeholder="Nome completo" /></div>
@@ -443,15 +431,6 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
               <div className="space-y-1.5"><Label>Turno *</Label><Select value={form.shift} onValueChange={(value) => setForm({ ...form, shift: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="manha">Manhã</SelectItem><SelectItem value="tarde">Tarde</SelectItem><SelectItem value="noite">Noite</SelectItem></SelectContent></Select></div>
               <div className="space-y-1.5"><Label>Atividade *</Label><Select value={form.activity_type} onValueChange={(value) => setForm({ ...form, activity_type: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="aula">Aula</SelectItem><SelectItem value="monitoria">Monitoria</SelectItem><SelectItem value="tcc">TCC</SelectItem><SelectItem value="coleta">Coleta</SelectItem><SelectItem value="iniciacao_cientifica">Iniciação científica</SelectItem><SelectItem value="outra">Outra</SelectItem></SelectContent></Select></div>
               {form.activity_type === 'outra' && <div className="space-y-1.5"><Label>Qual atividade? *</Label><Input value={form.activity_other} onChange={(e) => setForm({ ...form, activity_other: e.target.value })} /></div>}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Chave / armário</Label>
-              <Select value={form.locker_id || 'none'} onValueChange={(value) => setForm({ ...form, locker_id: value === 'none' ? '' : value })}>
-                <SelectTrigger><SelectValue placeholder="Sem chave" /></SelectTrigger>
-                <SelectContent><SelectItem value="none">Sem chave / armário</SelectItem>{lockers.map((locker: any) => <SelectItem key={locker.id} value={locker.id}>{locker.code} · {locker.location}</SelectItem>)}</SelectContent>
-              </Select>
-              <p className="text-[10px] text-muted-foreground">Chaves já em uso ficam indisponíveis automaticamente.</p>
             </div>
 
             <div className="rounded-2xl border border-border/45 bg-muted/[0.025] p-3.5">
@@ -589,7 +568,7 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
         <DialogContent className="max-w-xl">
           <DialogHeader><DialogTitle>Registrar devolução</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="rounded-xl border border-border/50 bg-muted/20 p-3"><p className="font-semibold">{returnTarget?.borrower_name}</p><p className="mt-1 text-xs text-muted-foreground">{returnTarget?.items?.map((item) => item.locker?.code || item.equipment?.name || item.manual_item_name).filter(Boolean).join(' · ')}</p></div>
+            <div className="rounded-xl border border-border/50 bg-muted/20 p-3"><p className="font-semibold">{returnTarget?.borrower_name}</p><p className="mt-1 text-xs text-muted-foreground">{returnTarget?.items?.filter((item) => item.item_type !== 'locker').map((item) => item.equipment?.name || item.manual_item_name).filter(Boolean).join(' · ')}</p></div>
             {!manualClose ? <div className="space-y-1.5"><Label>Assinatura da devolução *</Label><SignaturePad onSignatureChange={setReturnSignature} height={150} /></div> : <div className="space-y-1.5"><Label>Justificativa da intervenção manual *</Label><Textarea rows={3} value={manualReason} onChange={(e) => setManualReason(e.target.value)} placeholder="Ex.: devolução recebida sem presença do responsável; conferida pela equipe." /></div>}
             <div className="space-y-1.5"><Label>Observações da devolução</Label><Textarea rows={2} value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} /></div>
             <Button type="button" variant="ghost" size="sm" className={cn('text-xs', manualClose && 'text-amber-400')} onClick={() => { setManualClose((value) => !value); setReturnSignature(null); }}>{manualClose ? 'Voltar para assinatura normal' : 'Intervenção manual: encerrar sem assinatura'}</Button>
