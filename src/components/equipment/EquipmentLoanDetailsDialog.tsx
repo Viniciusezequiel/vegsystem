@@ -12,9 +12,10 @@ import {
   Package, User, Phone, Calendar, Clock, MapPin, Building2, FileText, PenTool, 
   UserCheck, AlertTriangle, CheckCircle, XCircle, Target
 } from 'lucide-react';
-import { format, parseISO, isPast } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { EquipmentLoan } from '@/hooks/useEquipment';
+import { useAuditUserNames, auditUserName } from '@/hooks/useAuditUserNames';
 import { ProviderAwareSignatureImage } from '@/components/ui/ProviderAwareSignatureImage';
 
 interface EquipmentLoanDetailsDialogProps {
@@ -52,10 +53,17 @@ export function EquipmentLoanDetailsDialog({
   onReturn,
   showReturnButton = false,
 }: EquipmentLoanDetailsDialogProps) {
+  const { data: auditUsers = {} } = useAuditUserNames([
+    loan?.loaned_by,
+    loan?.returned_by,
+  ]);
+
   if (!loan) return null;
 
   const allLoans = loans && loans.length > 1 ? loans : [loan];
   const isGrouped = allLoans.length > 1;
+  const registeredBy = auditUserName(auditUsers, loan.loaned_by);
+  const returnedBy = auditUserName(auditUsers, loan.returned_by);
 
   const todayDate = new Date();
   todayDate.setHours(0, 0, 0, 0);
@@ -66,6 +74,10 @@ export function EquipmentLoanDetailsDialog({
 
   const formatDate = (date: string) => {
     return format(parseISO(date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  };
+
+  const formatDateTime = (date: string) => {
+    return format(parseISO(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   };
 
   return (
@@ -215,6 +227,32 @@ export function EquipmentLoanDetailsDialog({
             </div>
           </div>
 
+          <Separator />
+
+          {/* System audit */}
+          <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-4">
+            <h4 className="font-medium mb-3 flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-primary" />
+              Auditoria do sistema
+            </h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-muted-foreground">Empréstimo registrado por</span>
+                <span className="text-right font-medium">{registeredBy}</span>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-muted-foreground">Registrado em</span>
+                <span className="text-right">{formatDateTime(loan.created_at)}</span>
+              </div>
+              {loan.status === 'returned' && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-muted-foreground">Devolução registrada por</span>
+                  <span className="text-right font-medium">{returnedBy}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Collaborator Info */}
           {loan.collaborator_name && (
             <>
@@ -222,7 +260,7 @@ export function EquipmentLoanDetailsDialog({
               <div>
                 <h4 className="font-medium mb-3 flex items-center gap-2">
                   <UserCheck className="w-4 h-4" />
-                  Colaborador do Empréstimo
+                  Colaborador informado no empréstimo
                 </h4>
                 <p className="text-sm">{loan.collaborator_name}</p>
               </div>
