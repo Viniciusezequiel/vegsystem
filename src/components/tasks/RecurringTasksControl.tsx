@@ -5,7 +5,7 @@ import { CalendarClock, CheckCircle2, ChevronDown, Edit3, Repeat2 } from 'lucide
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import TaskFormDialog from '@/components/tasks/TaskFormDialog';
+import { RecurringTaskRoutineDialog } from '@/components/tasks/RecurringTaskRoutineDialog';
 import { type Task, getStatusColor, getStatusLabel, useTasks } from '@/hooks/useTasks';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +14,7 @@ type RecurringTask = Task & {
   recurrence_last_run_date?: string | null;
   recurrence_type?: string | null;
   recurrence_days?: string[] | null;
+  recurrence_due_days?: number | null;
 };
 
 const weekDays: Record<string, string> = {
@@ -35,6 +36,22 @@ function recurrenceLabel(task: RecurringTask) {
   if (task.recurrence_type === 'monthly') return 'Mensal';
   if (task.recurrence_type === 'semiannual') return 'Semestral';
   return 'Recorrente';
+}
+
+function deadlineLabel(task: RecurringTask) {
+  const offset = task.recurrence_due_days;
+  if (offset == null) return 'Sem prazo automático';
+
+  if (task.recurrence_type === 'weekly' && (task.recurrence_days || []).length === 1) {
+    const generationDay = Number(task.recurrence_days?.[0]);
+    const dueDay = (generationDay + offset) % 7;
+    const dueLabel = weekDays[String(dueDay)];
+    if (dueLabel) {
+      return offset === 0 ? `${dueLabel} (mesmo dia)` : `${dueLabel} (+${offset}d)`;
+    }
+  }
+
+  return offset === 0 ? 'No dia da geração' : `+${offset} dia${offset === 1 ? '' : 's'}`;
 }
 
 function nextOccurrence(task: RecurringTask) {
@@ -66,7 +83,7 @@ function nextOccurrence(task: RecurringTask) {
 export function RecurringTasksControl() {
   const { data: tasks = [], isLoading } = useTasks();
   const [open, setOpen] = useState(true);
-  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [editTask, setEditTask] = useState<RecurringTask | null>(null);
 
   const templates = useMemo(
     () => (tasks as RecurringTask[]).filter((task) => Boolean(task.recurrence_type)),
@@ -108,7 +125,7 @@ export function RecurringTasksControl() {
                   {templates.length} ativa(s)
                 </Badge>
               </div>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">Controle das rotinas semanais e demais recorrências automáticas.</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">O modelo configura a rotina; a ocorrência gerada é a demanda real da semana.</p>
             </div>
           </div>
           <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
@@ -141,9 +158,10 @@ export function RecurringTasksControl() {
                               </Badge>
                             )}
                           </div>
-                          <p className="mt-1 text-[10px] text-muted-foreground">
-                            Responsável: <span className="font-medium text-foreground/85">{template.assigned_to_name || 'Não atribuído'}</span>
-                          </p>
+                          <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+                            <p>Responsável: <span className="font-medium text-foreground/85">{template.assigned_to_name || 'Não atribuído'}</span></p>
+                            <p>Prazo da ocorrência: <span className="font-medium text-foreground/85">{deadlineLabel(template)}</span></p>
+                          </div>
                         </div>
                         <Button variant="ghost" size="sm" className="h-8 shrink-0 rounded-lg px-2 text-[10px]" onClick={() => setEditTask(template)}>
                           <Edit3 className="mr-1.5 h-3.5 w-3.5" />Editar rotina
@@ -166,7 +184,10 @@ export function RecurringTasksControl() {
                         <div className="rounded-lg border border-border/35 bg-card/40 p-2">
                           <p className="text-[8px] uppercase tracking-wide text-muted-foreground">Última demanda</p>
                           {latest ? (
-                            <Badge variant="outline" className={cn('mt-1 h-5 whitespace-nowrap text-[8px]', getStatusColor(latest.status))}>{getStatusLabel(latest.status)}</Badge>
+                            <div className="mt-1">
+                              <Badge variant="outline" className={cn('h-5 whitespace-nowrap text-[8px]', getStatusColor(latest.status))}>{getStatusLabel(latest.status)}</Badge>
+                              {latest.due_date && <p className="mt-1 text-[9px] text-muted-foreground">Prazo {format(parseISO(latest.due_date), 'dd/MM/yyyy')}</p>}
+                            </div>
                           ) : (
                             <p className="mt-1 text-[11px] font-medium text-muted-foreground">Sem histórico</p>
                           )}
@@ -181,7 +202,7 @@ export function RecurringTasksControl() {
         )}
       </section>
 
-      <TaskFormDialog
+      <RecurringTaskRoutineDialog
         open={!!editTask}
         onOpenChange={(value) => !value && setEditTask(null)}
         task={editTask}

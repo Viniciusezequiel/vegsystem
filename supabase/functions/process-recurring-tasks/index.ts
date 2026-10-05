@@ -5,6 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function addDaysToDate(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -134,7 +140,14 @@ Deno.serve(async (req) => {
         newEventEnd = new Date(newStart.getTime() + duration).toISOString();
       }
 
-      const newDueDate = task.due_date ? today : null;
+      const dueDays = typeof task.recurrence_due_days === "number"
+        ? task.recurrence_due_days
+        : null;
+      const newDueDate = dueDays !== null
+        ? addDaysToDate(today, dueDays)
+        : task.due_date
+          ? today
+          : null;
 
       const { error: insertError } = await supabase.from("tasks").insert({
         title: task.title,
@@ -149,6 +162,7 @@ Deno.serve(async (req) => {
         notes: task.notes,
         recurrence_type: null,
         recurrence_days: null,
+        recurrence_due_days: null,
         recurrence_parent_id: task.id,
         event_start_datetime: newEventStart,
         event_end_datetime: newEventEnd,
