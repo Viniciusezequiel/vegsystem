@@ -9,10 +9,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 import { cn } from '@/lib/utils';
 import { auditUserName, useAuditUserNames } from '@/hooks/useAuditUserNames';
+import { useEquipmentList } from '@/hooks/useEquipment';
 import { useAvailableLabLockers, useCreateLabLoan, useLabLoans, useReturnLabLoan, type LabLoan } from '@/hooks/useLabLoans';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Beaker, CheckCircle2, Clock3, KeyRound, Package, Plus, RotateCcw, UserRoundCheck } from 'lucide-react';
+import {
+  Beaker,
+  Clock3,
+  Database,
+  History,
+  KeyRound,
+  Package,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+  UserRoundCheck,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 const activityLabels: Record<string, string> = {
@@ -30,6 +43,19 @@ const shiftLabels: Record<string, string> = {
   noite: 'Noite',
 };
 
+type MaterialUsageMode = 'lab_use' | 'removal';
+type MaterialSource = 'manual' | 'equipment';
+
+type MaterialDraft = {
+  localId: string;
+  source: MaterialSource;
+  name: string;
+  equipmentId?: string;
+  patrimonyCode?: string | null;
+  quantity: number;
+  usageMode: MaterialUsageMode;
+};
+
 const freshForm = () => ({
   borrower_name: '',
   borrower_sector: '',
@@ -38,10 +64,82 @@ const freshForm = () => ({
   activity_other: '',
   shift: 'manha',
   locker_id: '',
-  materials: '',
-  usage_mode: 'lab_use',
   notes: '',
 });
+
+const newDraftId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+function RegisteredEquipmentPicker({
+  quantity,
+  usageMode,
+  onAdd,
+}: {
+  quantity: number;
+  usageMode: MaterialUsageMode;
+  onAdd: (draft: MaterialDraft) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const query = search.trim();
+  const { data: equipment = [], isLoading } = useEquipmentList(query.length >= 2 ? query : '__lab_picker_idle__');
+
+  const results = useMemo(
+    () => (query.length >= 2 ? equipment.filter((item: any) => item.status !== 'maintenance').slice(0, 8) : []),
+    [equipment, query]
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar por nome ou patrimônio..."
+          className="pl-9"
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground">Digite pelo menos 2 caracteres. O vínculo com o cadastro é opcional.</p>
+
+      {query.length >= 2 && (
+        <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-border/45 bg-background/20 p-1.5">
+          {isLoading ? (
+            <p className="px-2 py-5 text-center text-xs text-muted-foreground">Buscando equipamentos...</p>
+          ) : !results.length ? (
+            <p className="px-2 py-5 text-center text-xs text-muted-foreground">Nenhum equipamento cadastrado encontrado.</p>
+          ) : (
+            results.map((item: any) => (
+              <button
+                key={item.id}
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left transition hover:bg-primary/[0.07]"
+                onClick={() => {
+                  onAdd({
+                    localId: newDraftId(),
+                    source: 'equipment',
+                    name: item.name,
+                    equipmentId: item.id,
+                    patrimonyCode: item.patrimony_code || null,
+                    quantity,
+                    usageMode,
+                  });
+                  setSearch('');
+                }}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-medium">{item.name}</span>
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {item.patrimony_code ? `Patrimônio ${item.patrimony_code}` : 'Sem patrimônio informado'}
+                  </span>
+                </span>
+                <Plus className="h-4 w-4 shrink-0 text-primary" />
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
   const { data: loans = [], isLoading } = useLabLoans();
@@ -59,11 +157,38 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
   const [manualClose, setManualClose] = useState(false);
   const [manualReason, setManualReason] = useState('');
 
+  const [materialSource, setMaterialSource] = useState<MaterialSource>('manual');
+  const [materialName, setMaterialName] = useState('');
+  const [materialQuantity, setMaterialQuantity] = useState(1);
+  const [materialUsageMode, setMaterialUsageMode] = useState<MaterialUsageMode>('lab_use');
+  const [materialDrafts, setMaterialDrafts] = useState<MaterialDraft[]>([]);
+
   const auditIds = useMemo(
     () => loans.flatMap((loan) => [loan.loaned_by, loan.returned_by]).filter(Boolean),
     [loans]
   );
   const { data: auditUsers = {} } = useAuditUserNames(auditIds);
+
+  const materialHistory = useMemo(() => {
+    const map = new Map<string, { name: string; count: number }>();
+    for (const loan of loans) {
+      for (const item of loan.items || []) {
+        const name = String(item.manual_item_name || '').trim();
+        if (item.item_type !== 'manual' || !name) continue;
+        const key = name.toLocaleLowerCase('pt-BR');
+        const current = map.get(key);
+        map.set(key, { name: current?.name || name, count: (current?.count || 0) + 1 });
+      }
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pt-BR'));
+  }, [loans]);
+
+  const materialSuggestions = useMemo(() => {
+    const query = materialName.trim().toLocaleLowerCase('pt-BR');
+    return materialHistory
+      .filter((item) => !query || item.name.toLocaleLowerCase('pt-BR').includes(query))
+      .slice(0, 6);
+  }, [materialHistory, materialName]);
 
   const counts = useMemo(() => ({
     active: loans.filter((loan) => loan.status === 'active').length,
@@ -99,6 +224,31 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
   const resetCreate = () => {
     setForm(freshForm());
     setBorrowerSignature(null);
+    setMaterialSource('manual');
+    setMaterialName('');
+    setMaterialQuantity(1);
+    setMaterialUsageMode('lab_use');
+    setMaterialDrafts([]);
+  };
+
+  const addManualMaterial = (suggestedName?: string) => {
+    const name = String(suggestedName || materialName).trim();
+    if (!name) {
+      toast.error('Digite o nome do material.');
+      return;
+    }
+    setMaterialDrafts((current) => [
+      ...current,
+      {
+        localId: newDraftId(),
+        source: 'manual',
+        name,
+        quantity: Math.max(1, Number(materialQuantity) || 1),
+        usageMode: materialUsageMode,
+      },
+    ]);
+    setMaterialName('');
+    setMaterialQuantity(1);
   };
 
   const handleCreate = async () => {
@@ -119,8 +269,22 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
     if (form.locker_id) {
       items.push({ item_type: 'locker', locker_id: form.locker_id, quantity: 1, usage_mode: 'removal' });
     }
-    for (const line of form.materials.split('\n').map((value) => value.trim()).filter(Boolean)) {
-      items.push({ item_type: 'manual', manual_item_name: line, quantity: 1, usage_mode: form.usage_mode });
+    for (const draft of materialDrafts) {
+      if (draft.source === 'equipment' && draft.equipmentId) {
+        items.push({
+          item_type: 'equipment',
+          equipment_id: draft.equipmentId,
+          quantity: draft.quantity,
+          usage_mode: draft.usageMode,
+        });
+      } else {
+        items.push({
+          item_type: 'manual',
+          manual_item_name: draft.name,
+          quantity: draft.quantity,
+          usage_mode: draft.usageMode,
+        });
+      }
     }
     if (!items.length) {
       toast.error('Informe ao menos uma chave/armário ou material.');
@@ -238,7 +402,14 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
 
                   <div className="text-xs">
                     <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Materiais</p>
-                    <p className="mt-1 line-clamp-2 font-medium">{materialItems.length ? materialItems.map((item) => item.equipment?.name || item.manual_item_name).filter(Boolean).join(', ') : 'Nenhum material'}</p>
+                    <p className="mt-1 line-clamp-2 font-medium">
+                      {materialItems.length
+                        ? materialItems.map((item) => {
+                            const name = item.equipment?.name || item.manual_item_name || 'Material';
+                            return `${name}${Number(item.quantity || 1) > 1 ? ` ×${item.quantity}` : ''}`;
+                          }).join(', ')
+                        : 'Nenhum material'}
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-end gap-2">
@@ -274,24 +445,140 @@ export function LabLoansTabContent({ searchQuery }: { searchQuery: string }) {
               {form.activity_type === 'outra' && <div className="space-y-1.5"><Label>Qual atividade? *</Label><Input value={form.activity_other} onChange={(e) => setForm({ ...form, activity_other: e.target.value })} /></div>}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Chave / armário</Label>
-                <Select value={form.locker_id || 'none'} onValueChange={(value) => setForm({ ...form, locker_id: value === 'none' ? '' : value })}>
-                  <SelectTrigger><SelectValue placeholder="Sem chave" /></SelectTrigger>
-                  <SelectContent><SelectItem value="none">Sem chave / armário</SelectItem>{lockers.map((locker: any) => <SelectItem key={locker.id} value={locker.id}>{locker.code} · {locker.location}</SelectItem>)}</SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">Chaves já em uso ficam indisponíveis automaticamente.</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Tipo de uso dos materiais</Label>
-                <Select value={form.usage_mode} onValueChange={(value) => setForm({ ...form, usage_mode: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="lab_use">Utilização no laboratório</SelectItem><SelectItem value="removal">Retirada do laboratório</SelectItem></SelectContent></Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label>Chave / armário</Label>
+              <Select value={form.locker_id || 'none'} onValueChange={(value) => setForm({ ...form, locker_id: value === 'none' ? '' : value })}>
+                <SelectTrigger><SelectValue placeholder="Sem chave" /></SelectTrigger>
+                <SelectContent><SelectItem value="none">Sem chave / armário</SelectItem>{lockers.map((locker: any) => <SelectItem key={locker.id} value={locker.id}>{locker.code} · {locker.location}</SelectItem>)}</SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">Chaves já em uso ficam indisponíveis automaticamente.</p>
             </div>
 
-            <div className="space-y-1.5"><Label>Materiais</Label><Textarea rows={4} value={form.materials} onChange={(e) => setForm({ ...form, materials: e.target.value })} placeholder={'Digite um material por linha\nEx.: Dinamômetro\nFita antropométrica'} /><p className="text-[10px] text-muted-foreground">Cada linha será registrada como um item do mesmo empréstimo.</p></div>
-            <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+            <div className="rounded-2xl border border-border/45 bg-muted/[0.025] p-3.5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <Label>Materiais</Label>
+                  <p className="mt-1 text-[10px] text-muted-foreground">O material livre é o padrão. Vincular a um equipamento cadastrado é opcional.</p>
+                </div>
+                <div className="flex rounded-lg border border-border/45 bg-background/30 p-1">
+                  <button
+                    type="button"
+                    className={cn('flex h-8 items-center gap-1.5 rounded-md px-3 text-[10px] font-medium transition', materialSource === 'manual' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground')}
+                    onClick={() => setMaterialSource('manual')}
+                  >
+                    <Beaker className="h-3.5 w-3.5" /> Material livre
+                  </button>
+                  <button
+                    type="button"
+                    className={cn('flex h-8 items-center gap-1.5 rounded-md px-3 text-[10px] font-medium transition', materialSource === 'equipment' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground')}
+                    onClick={() => setMaterialSource('equipment')}
+                  >
+                    <Database className="h-3.5 w-3.5" /> Buscar cadastrado
+                  </button>
+                </div>
+              </div>
 
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_100px_190px]">
+                {materialSource === 'manual' ? (
+                  <div className="space-y-1.5">
+                    <Input
+                      value={materialName}
+                      onChange={(event) => setMaterialName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          addManualMaterial();
+                        }
+                      }}
+                      placeholder="Ex.: Dinamômetro"
+                    />
+                    {!!materialSuggestions.length && (
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="flex items-center gap-1 text-[9px] text-muted-foreground"><History className="h-3 w-3" /> Sugestões:</span>
+                        {materialSuggestions.map((item) => (
+                          <button
+                            key={item.name.toLocaleLowerCase('pt-BR')}
+                            type="button"
+                            className="rounded-full border border-border/50 bg-background/25 px-2 py-0.5 text-[9px] text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+                            onClick={() => setMaterialName(item.name)}
+                            title={`Usado ${item.count} vez(es) anteriormente`}
+                          >
+                            {item.name}{item.count > 1 ? ` · ${item.count}×` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <RegisteredEquipmentPicker
+                    quantity={materialQuantity}
+                    usageMode={materialUsageMode}
+                    onAdd={(draft) => setMaterialDrafts((current) => [...current, draft])}
+                  />
+                )}
+
+                <div className="space-y-1.5">
+                  <Input
+                    type="number"
+                    min={1}
+                    value={materialQuantity}
+                    onChange={(event) => setMaterialQuantity(Math.max(1, Number(event.target.value) || 1))}
+                    aria-label="Quantidade do material"
+                  />
+                  <p className="text-[9px] text-muted-foreground">Quantidade</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Select value={materialUsageMode} onValueChange={(value: MaterialUsageMode) => setMaterialUsageMode(value)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lab_use">Uso no laboratório</SelectItem>
+                      <SelectItem value="removal">Retirada do laboratório</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[9px] text-muted-foreground">Forma de utilização</p>
+                </div>
+              </div>
+
+              {materialSource === 'manual' && (
+                <Button type="button" size="sm" variant="outline" className="mt-2 h-8" onClick={() => addManualMaterial()}>
+                  <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar material
+                </Button>
+              )}
+
+              {!!materialDrafts.length && (
+                <div className="mt-3 space-y-1.5 border-t border-border/35 pt-3">
+                  {materialDrafts.map((draft) => (
+                    <div key={draft.localId} className="flex items-center gap-2 rounded-xl border border-border/35 bg-background/20 px-3 py-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/[0.07] text-primary">
+                        {draft.source === 'equipment' ? <Database className="h-4 w-4" /> : <Beaker className="h-4 w-4" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="truncate text-xs font-medium">{draft.name}</p>
+                          <Badge variant="outline" className="h-5 rounded-full px-1.5 text-[8px]">{draft.source === 'equipment' ? 'Cadastrado' : 'Livre'}</Badge>
+                        </div>
+                        <p className="mt-0.5 truncate text-[9px] text-muted-foreground">
+                          {draft.patrimonyCode ? `Patrimônio ${draft.patrimonyCode} · ` : ''}Qtd. {draft.quantity} · {draft.usageMode === 'lab_use' ? 'Uso no laboratório' : 'Retirada'}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                        onClick={() => setMaterialDrafts((current) => current.filter((item) => item.localId !== draft.localId))}
+                        title="Remover material"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Assinatura da retirada *</Label><SignaturePad onSignatureChange={setBorrowerSignature} height={150} /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button><Button onClick={() => void handleCreate()} disabled={createLoan.isPending}>{createLoan.isPending ? 'Registrando...' : 'Registrar empréstimo'}</Button></DialogFooter>
