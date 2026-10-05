@@ -12,13 +12,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowRight, CalendarClock, Package, Phone, User, XCircle } from 'lucide-react';
+import { ArrowRight, CalendarClock, Clock3, Package, Phone, User, UserRoundCheck, XCircle } from 'lucide-react';
 import {
   useEquipmentReservations,
   useCancelReservation,
   groupReservations,
   type GroupedReservation,
 } from '@/hooks/useEquipmentReservations';
+import { useAuditUserNames, auditUserName } from '@/hooks/useAuditUserNames';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,11 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
   const navigate = useNavigate();
   const { data: reservations = [] } = useEquipmentReservations('awaiting_pickup');
   const cancelReservation = useCancelReservation();
+  const auditUserIds = useMemo(
+    () => reservations.map((reservation) => reservation.created_by).filter(Boolean),
+    [reservations]
+  );
+  const { data: auditUsers = {} } = useAuditUserNames(auditUserIds);
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return reservations;
@@ -45,13 +51,15 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
       reservation.requester_name.toLowerCase().includes(query) ||
       reservation.requester_sector.toLowerCase().includes(query) ||
       reservation.equipment?.name?.toLowerCase().includes(query) ||
-      reservation.equipment?.patrimony_code?.toLowerCase().includes(query)
+      reservation.equipment?.patrimony_code?.toLowerCase().includes(query) ||
+      auditUserName(auditUsers, reservation.created_by, '').toLowerCase().includes(query)
     );
-  }, [reservations, searchQuery]);
+  }, [reservations, searchQuery, auditUsers]);
 
   const grouped = useMemo(() => groupReservations(filtered), [filtered]);
 
   const formatDate = (date: string) => format(parseISO(date), 'dd/MM/yyyy', { locale: ptBR });
+  const formatDateTime = (date: string) => format(parseISO(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   const isOverdue = (date: string) => isPast(parseISO(date)) && !isToday(parseISO(date));
 
   const handlePickup = (group: GroupedReservation) => {
@@ -100,6 +108,7 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
         const equipmentLabel = group.reservations.length === 1
           ? first?.equipment?.name || 'Equipamento'
           : `${group.reservations.length} equipamentos`;
+        const registeredBy = auditUserName(auditUsers, first?.created_by);
 
         return (
           <article
@@ -193,6 +202,19 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/30 pt-2.5 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <UserRoundCheck className="h-3.5 w-3.5 text-primary/75" />
+                Pré-reserva registrada por <strong className="font-medium text-foreground">{registeredBy}</strong>
+              </span>
+              {first?.created_at && (
+                <span className="flex items-center gap-1.5">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {formatDateTime(first.created_at)}
+                </span>
+              )}
             </div>
 
             {group.reservations.length > 1 && (
