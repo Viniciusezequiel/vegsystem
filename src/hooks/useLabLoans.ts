@@ -114,14 +114,7 @@ export function useCreateLabLoan() {
       shift: string;
       borrower_signature?: string | null;
       notes?: string;
-      items: Array<{
-        item_type: 'locker' | 'equipment' | 'manual';
-        locker_id?: string;
-        equipment_id?: string;
-        manual_item_name?: string;
-        quantity?: number;
-        usage_mode: 'lab_use' | 'removal';
-      }>;
+      items: Array<any>;
     }) => {
       const { data, error } = await (supabase as any).rpc('create_lab_loan', {
         p_borrower_name: payload.borrower_name,
