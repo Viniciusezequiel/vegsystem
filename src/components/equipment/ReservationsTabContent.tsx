@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowRight, CalendarClock, Clock3, Package, Phone, User, UserRoundCheck, XCircle } from 'lucide-react';
+import { ArrowRight, CalendarClock, Clock3, Edit3, Package, Phone, User, UserRoundCheck, XCircle } from 'lucide-react';
 import {
   useEquipmentReservations,
   useCancelReservation,
@@ -20,6 +20,7 @@ import {
   type GroupedReservation,
 } from '@/hooks/useEquipmentReservations';
 import { useAuditUserNames, auditUserName } from '@/hooks/useAuditUserNames';
+import { EditEquipmentReservationDialog } from './EditEquipmentReservationDialog';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,7 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
   const navigate = useNavigate();
   const { data: reservations = [] } = useEquipmentReservations('awaiting_pickup');
   const cancelReservation = useCancelReservation();
+  const [editGroup, setEditGroup] = useState<GroupedReservation | null>(null);
   const auditUserIds = useMemo(
     () => reservations.map((reservation) => reservation.created_by).filter(Boolean),
     [reservations]
@@ -178,6 +180,16 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
                   <Phone className="h-4 w-4" />
                 </a>
 
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg border border-border/35 bg-background/20 text-muted-foreground hover:border-primary/25 hover:text-primary"
+                  title="Editar pré-reserva"
+                  onClick={() => setEditGroup(group)}
+                >
+                  <Edit3 className="h-4 w-4" />
+                </Button>
+
                 <Button variant="outline" size="sm" className="h-8 border-primary/20 bg-primary/[0.04] text-[10px] hover:bg-primary/10" onClick={() => handlePickup(group)}>
                   <ArrowRight className="mr-1 h-3.5 w-3.5" /> Retirar
                 </Button>
@@ -230,6 +242,12 @@ export function ReservationsTabContent({ searchQuery }: ReservationsTabContentPr
           </article>
         );
       })}
+
+      <EditEquipmentReservationDialog
+        open={!!editGroup}
+        onOpenChange={(open) => !open && setEditGroup(null)}
+        group={editGroup}
+      />
     </div>
   );
 }
