@@ -10,11 +10,17 @@ const lostItems = fs.readFileSync(new URL('../../src/hooks/useLostItems.ts', imp
 const dashboard = fs.readFileSync(new URL('../../src/pages/DashboardStats.tsx', import.meta.url), 'utf8');
 const processoSeletivo = fs.readFileSync(new URL('../../src/hooks/useProcessoSeletivo.ts', import.meta.url), 'utf8');
 
-test('chamados internos usam Realtime sem polling continuo de contagem', () => {
-  assert.match(realtime, /classroom_calls:\s*\['classroom-calls', 'pending-calls-count'\]/);
+test('chamados internos usam canal Realtime dedicado sem polling nem debounce de lista', () => {
+  const globalBlock = realtime.match(/const GLOBAL_REALTIME_TABLES[\s\S]*?\];/)?.[0] || '';
+  assert.doesNotMatch(globalBlock, /'classroom_calls'/);
+  assert.match(classroomHooks, /useClassroomCallsRealtime/);
+  assert.match(classroomHooks, /channel\('classroom-calls-live'\)/);
+  assert.match(classroomHooks, /table: 'classroom_calls'/);
+  assert.match(classroomHooks, /applyClassroomCallToCache/);
+  assert.match(classroomHooks, /incrementPendingCallCounts/);
+  assert.match(classroomHooks, /getQueryCache\(\)\.findAll/);
   assert.doesNotMatch(classroomHooks, /refetchInterval:\s*20_000/);
-  assert.doesNotMatch(classroomHooks, /pending-calls-count-\$\{/);
-  assert.doesNotMatch(classroomHooks, /classroom-calls-changes-\$\{/);
+  assert.doesNotMatch(classroomHooks, /setTimeout\([^)]*800/);
   assert.match(classroomHooks, /refetchOnWindowFocus:\s*false/);
 });
 

@@ -15,7 +15,6 @@ export type TableName =
   | 'lost_items'
   | 'lost_items_archive'
   | 'material_requests'
-  | 'classroom_calls'
   | 'classroom_call_rooms'
   | 'classroom_call_responses'
   | 'classroom_call_room_issues'
@@ -57,7 +56,6 @@ const tableToQueryKeyMap: Record<TableName, string[]> = {
   ],
   lost_items_archive: [lostItemsQueryKeys.archive[0], lostItemsQueryKeys.archiveCount[0]],
   material_requests: ['material-requests'],
-  classroom_calls: ['classroom-calls', 'pending-calls-count'],
   classroom_call_rooms: ['classroom-call-rooms'],
   classroom_call_responses: ['classroom-call-responses'],
   classroom_call_room_issues: ['classroom-call-room-issues'],
@@ -125,10 +123,8 @@ export function useRealtimeSubscription(tables: TableName[] = []) {
   }, [tables.join(','), queryClient]);
 }
 
-
 const GLOBAL_REALTIME_TABLES: TableName[] = [
-  // O badge de chamados precisa atualizar em qualquer tela do sistema.
-  'classroom_calls',
+  // Chamados usam um canal dedicado, sem debounce, em useClassroomCallsRealtime.
   // Mudanças administrativas são raras, pequenas e podem afetar a sessão atual.
   'profiles',
   'user_roles',
