@@ -75,17 +75,43 @@ const DropdownMenuItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean;
   }
->(({ className, inset, ...props }, ref) => (
-  <DropdownMenuPrimitive.Item
-    ref={ref}
-    className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground",
-      inset && "pl-8",
-      className,
-    )}
-    {...props}
-  />
-));
+>(({ className, inset, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave, ...props }, ref) => {
+  const pointerStartedInsideRef = React.useRef(false);
+
+  return (
+    <DropdownMenuPrimitive.Item
+      ref={ref}
+      className={cn(
+        "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground",
+        inset && "pl-8",
+        className,
+      )}
+      onPointerDown={(event) => {
+        pointerStartedInsideRef.current = true;
+        onPointerDown?.(event);
+      }}
+      onPointerUp={(event) => {
+        if (!pointerStartedInsideRef.current) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+
+        pointerStartedInsideRef.current = false;
+        onPointerUp?.(event);
+      }}
+      onPointerCancel={(event) => {
+        pointerStartedInsideRef.current = false;
+        onPointerCancel?.(event);
+      }}
+      onPointerLeave={(event) => {
+        pointerStartedInsideRef.current = false;
+        onPointerLeave?.(event);
+      }}
+      {...props}
+    />
+  );
+});
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
 
 const DropdownMenuCheckboxItem = React.forwardRef<
