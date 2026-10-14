@@ -6,12 +6,39 @@ import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
+const normalizeCommandValue = (value: unknown) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("pt-BR");
+
+const defaultCommandFilter = (value: string, search: string, keywords?: string[]) => {
+  const normalizedSearch = normalizeCommandValue(search);
+  if (!normalizedSearch) return 1;
+
+  const normalizedValue = normalizeCommandValue(
+    [value, ...(keywords || [])].filter(Boolean).join(" "),
+  );
+
+  if (!normalizedValue.includes(normalizedSearch)) return 0;
+
+  // Busca nominal/literal deve prevalecer sobre o fuzzy ranking. Isso evita
+  // que nomes válidos desapareçam quando o valor pesquisável contém também
+  // e-mail, instituição, unidade e cargo.
+  if (normalizedValue === normalizedSearch) return 1;
+  if (normalizedValue.startsWith(normalizedSearch)) return 0.99;
+  if (normalizedValue.includes(` ${normalizedSearch}`)) return 0.97;
+  return 0.9;
+};
+
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive>
->(({ className, ...props }, ref) => (
+>(({ className, filter, ...props }, ref) => (
   <CommandPrimitive
     ref={ref}
+    filter={filter ?? defaultCommandFilter}
     className={cn(
       "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
       className,
