@@ -21,14 +21,22 @@ const defaultCommandFilter = (value: string, search: string, keywords?: string[]
     [value, ...(keywords || [])].filter(Boolean).join(" "),
   );
 
-  if (!normalizedValue.includes(normalizedSearch)) return 0;
+  const terms = normalizedSearch.split(/\s+/).filter(Boolean);
+  if (!terms.length) return 1;
 
-  // Busca nominal/literal deve prevalecer sobre o fuzzy ranking. Isso evita
-  // que nomes válidos desapareçam quando o valor pesquisável contém também
-  // e-mail, instituição, unidade e cargo.
+  // Cada termo pesquisado pode aparecer em qualquer parte dos dados do item.
+  // Ex.: "Jussara Oliveira", "Jussara HUCM" ou nome digitado sem acento.
+  if (!terms.every((term) => normalizedValue.includes(term))) return 0;
+
+  // Mantém resultados mais próximos no topo, sem exigir que toda a pesquisa
+  // seja uma frase contínua.
   if (normalizedValue === normalizedSearch) return 1;
   if (normalizedValue.startsWith(normalizedSearch)) return 0.99;
-  if (normalizedValue.includes(` ${normalizedSearch}`)) return 0.97;
+  if (normalizedValue.includes(normalizedSearch)) return 0.98;
+
+  const firstTermIndex = normalizedValue.indexOf(terms[0]);
+  if (firstTermIndex === 0) return 0.97;
+  if (firstTermIndex > 0) return 0.95;
   return 0.9;
 };
 
