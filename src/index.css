@@ -369,3 +369,69 @@
     left: 100%;
   }
 }
+
+/*
+ * Processo Seletivo — modais de alocação/substituição em telas pequenas.
+ * No desktop cada coluna mantém sua própria rolagem. No mobile o conteúdo
+ * vira uma única coluna rolável para que a lista de fiscais nunca fique
+ * comprimida ou escondida atrás do rodapé.
+ */
+@media (max-width: 1023px) {
+  [role="dialog"][class*="max-w-[1180px]"],
+  [role="dialog"][class*="max-w-[1120px]"] {
+    height: min(96dvh, 900px) !important;
+    max-height: 96dvh !important;
+  }
+
+  [role="dialog"][class*="max-w-[1180px]"] > .grid,
+  [role="dialog"][class*="max-w-[1120px]"] > .grid {
+    display: block !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  [role="dialog"][class*="max-w-[1180px]"] > .grid > aside,
+  [role="dialog"][class*="max-w-[1120px]"] > .grid > aside,
+  [role="dialog"][class*="max-w-[1180px]"] > .grid > section,
+  [role="dialog"][class*="max-w-[1120px]"] > .grid > section {
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  [role="dialog"][class*="max-w-[1180px]"] > .grid > section > div,
+  [role="dialog"][class*="max-w-[1120px]"] > .grid > section > div {
+    min-height: auto !important;
+  }
+
+  [role="dialog"][class*="max-w-[1180px]"] > .grid > section > div:last-child,
+  [role="dialog"][class*="max-w-[1120px]"] > .grid > section > div:last-child {
+    overflow: visible !important;
+  }
+
+  /* Remove blocos meramente informativos no mobile para priorizar a lista. */
+  [role="dialog"][class*="max-w-[1180px]"] > .grid > aside > div > .grid.grid-cols-2,
+  [role="dialog"][class*="max-w-[1180px]"] > .grid > aside > div > div:last-child {
+    display: none !important;
+  }
+
+  [role="dialog"][class*="max-w-[1180px]"] > header,
+  [role="dialog"][class*="max-w-[1120px]"] > header {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  [role="dialog"][class*="max-w-[1180px]"] > footer,
+  [role="dialog"][class*="max-w-[1120px]"] > footer {
+    gap: 0.5rem !important;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  [role="dialog"][class*="max-w-[1180px]"] > footer > button,
+  [role="dialog"][class*="max-w-[1120px]"] > footer > button {
+    min-height: 44px;
+    flex: 1 1 0%;
+  }
+}
