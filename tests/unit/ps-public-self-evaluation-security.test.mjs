@@ -2,9 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const sql = fs.readFileSync(
+const securitySql = fs.readFileSync(
   new URL(
     '../../supabase/migrations/20260902440000_ps_secure_public_self_evaluation.sql',
+    import.meta.url
+  ),
+  'utf8'
+);
+
+const postEventSql = fs.readFileSync(
+  new URL(
+    '../../supabase/migrations/20261019174800_ps_allow_finalized_self_evaluation.sql',
     import.meta.url
   ),
   'utf8'
@@ -18,31 +26,42 @@ const page = fs.readFileSync(
   'utf8'
 );
 
-test('autoavaliação pública exige evento habilitado e não finalizado', () => {
+test('autoavaliação pública exige evento explicitamente habilitado e visível', () => {
   assert.match(
-    sql,
+    postEventSql,
     /self_evaluation_enabled[\s\S]*=\s*true/i
   );
 
   assert.match(
-    sql,
+    postEventSql,
+    /hidden_from_evaluation[\s\S]*false/i
+  );
+});
+
+test('evento finalizado pode receber autoavaliação sem reabrir presença', () => {
+  const selfEvaluationBranch = postEventSql.match(
+    /p_surface\s*=\s*'self_evaluation'[\s\S]*?\n\s*\)\n\s*\)/i
+  )?.[0] || '';
+
+  assert.doesNotMatch(
+    selfEvaluationBranch,
     /status\s*<>\s*'finalizado'/i
   );
 
   assert.match(
-    sql,
-    /hidden_from_evaluation[\s\S]*false/i
+    postEventSql,
+    /p_surface\s*=\s*'attendance'[\s\S]*status\s*<>\s*'finalizado'/i
   );
 });
 
 test('anon não insere diretamente na tabela de autoavaliações', () => {
   assert.match(
-    sql,
+    securitySql,
     /REVOKE INSERT[\s\S]*ps_self_evaluations[\s\S]*FROM anon/i
   );
 
   assert.match(
-    sql,
+    postEventSql,
     /ps_public_submit_self_evaluation/
   );
 });
