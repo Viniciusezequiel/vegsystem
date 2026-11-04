@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { normalizeLoanItem, loanStockNeeded, shouldRestoreLoanStock } from '@/lib/equipmentLoanItems';
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -273,8 +274,10 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
 
   return useQuery({
     queryKey: ['equipment-loans', status],
-    staleTime: 60_000,
-    initialData: cachedLoans ? (status ? cachedLoans.filter(l => l.status === status) : cachedLoans) : undefined,
+    staleTime: 10_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    placeholderData: cachedLoans ? (status ? cachedLoans.filter(l => l.status === status) : cachedLoans) : undefined,
     queryFn: async () => {
       // OFFLINE: serve from cache
       if (!navigator.onLine) {
@@ -285,38 +288,35 @@ export function useEquipmentLoans(status?: 'active' | 'returned' | 'overdue') {
         return [];
       }
 
-      let query = supabase
-        .from('equipment_loans')
-        .select(EQUIPMENT_LOAN_LIST_SELECT)
-        .order('created_at', { ascending: false });
+      // Pagina os resultados para não ocultar devoluções antigas (antes havia limite de 300).
+      // Ordenação por data e ID mantém as páginas determinísticas.
+      const pageSize = 500;
+      const loans: EquipmentLoan[] = [];
 
-      if (status) {
-        query = query.eq('status', status);
-      }
+      for (let offset = 0; ; offset += pageSize) {
+        let query = supabase
+          .from('equipment_loans')
+          .select(EQUIPMENT_LOAN_LIST_SELECT)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(offset, offset + pageSize - 1);
 
-      if (status === 'returned') {
-        query = query.limit(300);
-      }
+        if (status) {
+          query = query.eq('status', status);
+        }
 
-
-      try {
         const { data, error } = await query;
+        // Não mostrar uma lista antiga de cache como se estivesse atualizada após erro online.
         if (error) throw error;
-        
-        // Save to cache (only full list without filter)
-        if (!status && data) {
-          saveLoansToCache(data as unknown as EquipmentLoan[]);
-        }
-        
-        return data as unknown as EquipmentLoan[];
-      } catch (e) {
-        // Fallback to cache on error
-        const cached = loadLoansFromCache();
-        if (cached) {
-          return status ? cached.filter(l => l.status === status) : cached;
-        }
-        throw e;
+
+        const page = (data ?? []) as unknown as EquipmentLoan[];
+        loans.push(...page);
+
+        if (page.length < pageSize) break;
       }
+
+      if (!status) saveLoansToCache(loans);
+      return loans;
     },
   });
 }
@@ -342,7 +342,7 @@ export function useOverdueLoans() {
   return useQuery({
     queryKey: ['equipment-loans', 'overdue-check'],
     queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = format(new Date(), 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from('equipment_loans')
         .select(EQUIPMENT_LOAN_LIST_SELECT)
@@ -674,7 +674,7 @@ export function useReturnEquipment() {
           .from('equipment_loans')
           .update({ 
             status: 'returned',
-            actual_return_date: new Date().toISOString().split('T')[0],
+            actual_return_date: format(new Date(), 'yyyy-MM-dd'),
             returned_by: user?.id,
             return_signature: returnSignature,
             returner_name: data.returner_name,
