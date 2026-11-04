@@ -192,18 +192,14 @@ export default function EquipmentLoans() {
   const isGroupOverdue = (group: GroupedLoan) => group.loans.some(isOverdue);
 
   const filterLoans = (loans: EquipmentLoan[]) => {
-    if (!searchQuery.trim()) return loans;
-    const query = searchQuery.toLowerCase();
-    return loans.filter((loan) =>
-      loan.borrower_name.toLowerCase().includes(query) ||
-      loan.borrower_phone.includes(query) ||
-      loan.borrower_sector.toLowerCase().includes(query) ||
-      loanItemName(loan).toLowerCase().includes(query) ||
-      loan.equipment?.patrimony_code?.toLowerCase().includes(query) ||
-      loan.equipment?.old_patrimony_code?.toLowerCase().includes(query) ||
-      loan.collaborator_name?.toLowerCase().includes(query) ||
-      loan.borrower_type?.toLowerCase().includes(query)
-    );
+    const normalize = (value: string | null | undefined) => (value ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+    const query = normalize(searchQuery);
+    if (!query) return loans;
+    return loans.filter((loan) => [
+      loan.borrower_name, loan.borrower_phone, loan.borrower_sector,
+      loanItemName(loan), loan.equipment?.patrimony_code,
+      loan.equipment?.old_patrimony_code, loan.collaborator_name, loan.borrower_type,
+    ].some((value) => normalize(value).includes(query)));
   };
 
   const filteredActiveLoans = useMemo(() => filterLoans(activeLoans), [activeLoans, searchQuery]);
