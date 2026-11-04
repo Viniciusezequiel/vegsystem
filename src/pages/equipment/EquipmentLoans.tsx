@@ -157,7 +157,7 @@ function LoanMetric({
 }
 
 export default function EquipmentLoans() {
-  const [activeTab, setActiveTab] = useState('reservations');
+  const [activeTab, setActiveTab] = useState('active');
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GroupedLoan | null>(null);
@@ -170,10 +170,10 @@ export default function EquipmentLoans() {
   const [groupToEditDate, setGroupToEditDate] = useState<GroupedLoan | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  const { data: activeLoans = [], isLoading: activeLoading } = useEquipmentLoans('active');
+  const { data: activeLoans = [], isLoading: activeLoading, isError: activeError, refetch: refetchActive } = useEquipmentLoans('active');
   const { data: awaitingReservations = [] } = useEquipmentReservations('awaiting_pickup');
-  const { data: returnedLoans = [], isLoading: returnedLoading } = useEquipmentLoans('returned');
-  const { data: overdueLoans = [], isLoading: overdueLoading } = useOverdueLoans();
+  const { data: returnedLoans = [], isLoading: returnedLoading, isError: returnedError, refetch: refetchReturned } = useEquipmentLoans('returned');
+  const { data: overdueLoans = [], isLoading: overdueLoading, isError: overdueError, refetch: refetchOverdue } = useOverdueLoans();
   const { data: selectedLoanDetails } = useEquipmentLoan(selectedLoan?.id, detailsDialogOpen);
   const returnEquipment = useReturnEquipment();
   const deleteEquipmentLoan = useDeleteEquipmentLoan();
@@ -192,18 +192,14 @@ export default function EquipmentLoans() {
   const isGroupOverdue = (group: GroupedLoan) => group.loans.some(isOverdue);
 
   const filterLoans = (loans: EquipmentLoan[]) => {
-    if (!searchQuery.trim()) return loans;
-    const query = searchQuery.toLowerCase();
-    return loans.filter((loan) =>
-      loan.borrower_name.toLowerCase().includes(query) ||
-      loan.borrower_phone.includes(query) ||
-      loan.borrower_sector.toLowerCase().includes(query) ||
-      loanItemName(loan).toLowerCase().includes(query) ||
-      loan.equipment?.patrimony_code?.toLowerCase().includes(query) ||
-      loan.equipment?.old_patrimony_code?.toLowerCase().includes(query) ||
-      loan.collaborator_name?.toLowerCase().includes(query) ||
-      loan.borrower_type?.toLowerCase().includes(query)
-    );
+    const normalize = (value: string | null | undefined) => (value ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+    const query = normalize(searchQuery);
+    if (!query) return loans;
+    return loans.filter((loan) => [
+      loan.borrower_name, loan.borrower_phone, loan.borrower_sector,
+      loanItemName(loan), loan.equipment?.patrimony_code,
+      loan.equipment?.old_patrimony_code, loan.collaborator_name, loan.borrower_type,
+    ].some((value) => normalize(value).includes(query)));
   };
 
   const filteredActiveLoans = useMemo(() => filterLoans(activeLoans), [activeLoans, searchQuery]);
@@ -213,14 +209,10 @@ export default function EquipmentLoans() {
   const allActiveGroups = useMemo(() => groupLoans(activeLoans), [activeLoans]);
   const allOverdueGroups = useMemo(() => groupLoans(overdueLoans), [overdueLoans]);
   const allReturnedGroups = useMemo(() => groupLoans(returnedLoans), [returnedLoans]);
-  const groupedActiveLoans = useMemo(
-    () => groupLoans(filteredActiveLoans).filter((group) => !isGroupOverdue(group)),
-    [filteredActiveLoans]
-  );
+  // Em aberto inclui também os atrasados; eles continuam destacados na aba Atrasados.
+  const groupedActiveLoans = useMemo(() => groupLoans(filteredActiveLoans), [filteredActiveLoans]);
   const groupedReturnedLoans = useMemo(() => groupLoans(filteredReturnedLoans), [filteredReturnedLoans]);
   const groupedOverdueLoans = useMemo(() => groupLoans(filteredOverdueLoans), [filteredOverdueLoans]);
-
-  const nonOverdueActiveCount = allActiveGroups.filter((group) => !isGroupOverdue(group)).length;
 
   const toggleExpanded = (groupId: string) => {
     setExpandedGroups((previous) => {
@@ -398,6 +390,7 @@ export default function EquipmentLoans() {
   };
 
   const loading = activeLoading || returnedLoading || overdueLoading;
+  const loadError = activeError || returnedError || overdueError;
 
   return (
     <MainLayout>
@@ -406,7 +399,7 @@ export default function EquipmentLoans() {
 
         <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
           <LoanMetric label="Pré-reservas" value={awaitingReservations.length} detail="aguardando retirada" tone="primary" icon={<CalendarClock className="h-5 w-5" />} />
-          <LoanMetric label="Ativos" value={nonOverdueActiveCount} detail="empréstimos dentro do prazo" tone="blue" icon={<ArrowLeftRight className="h-5 w-5" />} />
+          <LoanMetric label="Em aberto" value={allActiveGroups.length} detail="inclui empréstimos atrasados" tone="blue" icon={<ArrowLeftRight className="h-5 w-5" />} />
           <LoanMetric label="Atrasados" value={allOverdueGroups.length} detail="pedem regularização" tone="red" icon={<AlertTriangle className="h-5 w-5" />} />
           <LoanMetric label="Devolvidos" value={allReturnedGroups.length} detail="registros recentes de devolução" tone="green" icon={<CheckCircle2 className="h-5 w-5" />} />
         </div>
@@ -466,7 +459,7 @@ export default function EquipmentLoans() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
           <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/45 bg-card/55 p-1 md:grid-cols-4">
             <TabsTrigger value="reservations" className="min-h-10 gap-2 rounded-lg text-xs"><CalendarClock className="h-4 w-4" /> Pré-reservas <span className="rounded-full bg-background/35 px-1.5 py-0.5 text-[9px]">{awaitingReservations.length}</span></TabsTrigger>
-            <TabsTrigger value="active" className="min-h-10 gap-2 rounded-lg text-xs"><Clock3 className="h-4 w-4" /> Ativos <span className="rounded-full bg-background/35 px-1.5 py-0.5 text-[9px]">{groupedActiveLoans.length}</span></TabsTrigger>
+            <TabsTrigger value="active" className="min-h-10 gap-2 rounded-lg text-xs"><Clock3 className="h-4 w-4" /> Em aberto <span className="rounded-full bg-background/35 px-1.5 py-0.5 text-[9px]">{groupedActiveLoans.length}</span></TabsTrigger>
             <TabsTrigger value="overdue" className="min-h-10 gap-2 rounded-lg text-xs"><AlertTriangle className="h-4 w-4" /> Atrasados <span className="rounded-full bg-background/35 px-1.5 py-0.5 text-[9px]">{groupedOverdueLoans.length}</span></TabsTrigger>
             <TabsTrigger value="returned" className="min-h-10 gap-2 rounded-lg text-xs"><CheckCircle2 className="h-4 w-4" /> Devolvidos <span className="rounded-full bg-background/35 px-1.5 py-0.5 text-[9px]">{groupedReturnedLoans.length}</span></TabsTrigger>
           </TabsList>
@@ -474,6 +467,15 @@ export default function EquipmentLoans() {
           <div className="min-h-[180px]">
             {loading ? (
               <div className="flex min-h-48 items-center justify-center rounded-2xl border border-border/40 bg-card/45"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
+            ) : loadError ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-destructive/30 bg-card/45 px-4 py-10 text-center">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+                <p className="text-sm font-semibold">Não foi possível carregar os empréstimos</p>
+                <p className="text-xs text-muted-foreground">A consulta ao banco falhou. Nenhum registro foi apagado.</p>
+                <Button variant="outline" size="sm" onClick={() => { void refetchActive(); void refetchReturned(); void refetchOverdue(); }}>
+                  Tentar novamente
+                </Button>
+              </div>
             ) : (
               <>
                 <TabsContent value="reservations" className="mt-0"><ReservationsTabContent searchQuery={searchQuery} /></TabsContent>
